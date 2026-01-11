@@ -619,9 +619,6 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 <h3 className="text-lg font-bold text-[#4a3426] flex items-center gap-2">
                                     <div className="bg-[#4a3426] text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">1</div>
                                     Dépenses Journalier
-                                    <span className="ml-2 px-2 py-0.5 bg-[#f4ece4] text-[#c69f6e] rounded-lg text-[10px] font-black uppercase tracking-wider">
-                                        Total: {totalExpensesJournalier.toFixed(3)} DT
-                                    </span>
                                 </h3>
                                 <button
                                     onClick={() => setShowJournalierModal(true)}
@@ -752,6 +749,10 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                         </div>
                                     ))}
                                 </div>
+                                <div className="mt-4 p-4 bg-[#fcfaf8] rounded-2xl flex justify-between items-center border border-[#e6dace]/50">
+                                    <span className="text-xs font-black text-[#8c8279] uppercase tracking-widest">Total Section</span>
+                                    <span className="text-2xl font-black text-[#4a3426]">{totalExpensesJournalier.toFixed(3)} <span className="text-sm">DT</span></span>
+                                </div>
                                 <button onClick={() => handleAddJournalier()} className="mt-4 w-full py-3 border-2 border-dashed border-[#e6dace] rounded-xl text-[#bba282] font-bold flex items-center justify-center gap-2 hover:border-[#c69f6e] hover:text-[#c69f6e] transition-all">
                                     <Plus size={18} /> Nouvelle Ligne (Journalier)
                                 </button>
@@ -764,9 +765,6 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 <h3 className="text-lg font-bold text-[#4a3426] flex items-center gap-2">
                                     <div className="bg-[#4a3426] text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">2</div>
                                     Dépenses Fournisseur
-                                    <span className="ml-2 px-2 py-0.5 bg-[#f4ece4] text-[#c69f6e] rounded-lg text-[10px] font-black uppercase tracking-wider">
-                                        Total: {totalExpensesDynamic.toFixed(3)} DT
-                                    </span>
                                 </h3>
                                 <button
                                     onClick={() => setShowSupplierModal(true)}
@@ -955,7 +953,10 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                         </div>
                                     ))}
                                 </div>
-
+                                <div className="mt-4 p-4 bg-[#fcfaf8] rounded-2xl flex justify-between items-center border border-[#e6dace]/50">
+                                    <span className="text-xs font-black text-[#8c8279] uppercase tracking-widest">Total Section</span>
+                                    <span className="text-2xl font-black text-[#4a3426]">{totalExpensesDynamic.toFixed(3)} <span className="text-sm">DT</span></span>
+                                </div>
                                 <button onClick={handleAddExpense} className="mt-4 w-full py-3 border-2 border-dashed border-[#e6dace] rounded-xl text-[#bba282] font-bold flex items-center justify-center gap-2 hover:border-[#c69f6e] hover:text-[#c69f6e] transition-all">
                                     <Plus size={18} /> Nouvelle Ligne
                                 </button>
@@ -968,9 +969,6 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 <h3 className="text-lg font-bold text-[#4a3426] flex items-center gap-2">
                                     <div className="bg-[#4a3426] text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">3</div>
                                     Dépenses divers
-                                    <span className="ml-2 px-2 py-0.5 bg-[#f4ece4] text-[#c69f6e] rounded-lg text-[10px] font-black uppercase tracking-wider">
-                                        Total: {totalExpensesDivers.toFixed(3)} DT
-                                    </span>
                                 </h3>
                                 <button
                                     onClick={() => setShowDiversModal(true)}
@@ -1100,6 +1098,10 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                         </div>
                                     ))}
                                 </div>
+                                <div className="mt-4 p-4 bg-[#fcfaf8] rounded-2xl flex justify-between items-center border border-[#e6dace]/50">
+                                    <span className="text-xs font-black text-[#8c8279] uppercase tracking-widest">Total Section</span>
+                                    <span className="text-2xl font-black text-[#4a3426]">{totalExpensesDivers.toFixed(3)} <span className="text-sm">DT</span></span>
+                                </div>
                                 <button onClick={() => handleAddDivers()} className="mt-4 w-full py-3 border-2 border-dashed border-[#e6dace] rounded-xl text-[#bba282] font-bold flex items-center justify-center gap-2 hover:border-[#c69f6e] hover:text-[#c69f6e] transition-all">
                                     <Plus size={18} /> Nouvelle Ligne (Divers)
                                 </button>
@@ -1113,9 +1115,6 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 <h3 className="text-lg font-bold text-[#4a3426] flex items-center gap-2">
                                     <div className="bg-[#4a3426] text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">4</div>
                                     Dépenses Administratif
-                                    <span className="ml-2 px-2 py-0.5 bg-[#f4ece4] text-[#c69f6e] rounded-lg text-[10px] font-black uppercase tracking-wider">
-                                        Total: {totalExpensesAdmin.toFixed(3)} DT
-                                    </span>
                                 </h3>
                             </div>
 
@@ -1155,6 +1154,10 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                             </div>
                                         </div>
                                     ))}
+                                </div>
+                                <div className="mt-4 p-4 bg-[#fcfaf8] rounded-2xl flex justify-between items-center border border-[#e6dace]/50">
+                                    <span className="text-xs font-black text-[#8c8279] uppercase tracking-widest">Total Section</span>
+                                    <span className="text-2xl font-black text-[#4a3426]">{totalExpensesAdmin.toFixed(3)} <span className="text-sm">DT</span></span>
                                 </div>
                             </section>
                         </div>
