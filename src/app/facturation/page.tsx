@@ -21,7 +21,7 @@ const formatDateToDisplay = (dateStr: string) => {
     return `${d}/${m}/${y}`;
 };
 
-const PremiumDatePicker = ({ value, onChange, label, colorMode = 'brown', lockedDates = [] }: { value: string, onChange: (val: string) => void, label: string, colorMode?: 'brown' | 'green' | 'red', lockedDates?: string[] }) => {
+const PremiumDatePicker = ({ value, onChange, label, colorMode = 'brown', lockedDates = [], allowedDates }: { value: string, onChange: (val: string) => void, label: string, colorMode?: 'brown' | 'green' | 'red', lockedDates?: string[], allowedDates?: string[] }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [viewDate, setViewDate] = useState(value ? new Date(value) : new Date());
 
@@ -104,6 +104,9 @@ const PremiumDatePicker = ({ value, onChange, label, colorMode = 'brown', locked
 
                                     const isSelected = value === dStr;
                                     const isLocked = lockedDates.includes(dStr);
+                                    const isNotAllowed = allowedDates && !allowedDates.includes(dStr);
+                                    const isDisabled = isLocked || isNotAllowed;
+
                                     const now = new Date();
                                     const isToday = now.getFullYear() === day.getFullYear() &&
                                         now.getMonth() === day.getMonth() &&
@@ -112,17 +115,18 @@ const PremiumDatePicker = ({ value, onChange, label, colorMode = 'brown', locked
                                     return (
                                         <button key={i} type="button"
                                             onClick={() => {
-                                                if (isLocked) return;
+                                                if (isDisabled) return;
                                                 onChange(dStr);
                                                 setIsOpen(false);
                                             }}
-                                            disabled={isLocked}
+                                            disabled={isDisabled}
                                             className={`h-10 w-10 rounded-2xl text-[11px] font-black transition-all flex items-center justify-center relative
-                                                ${isLocked ? 'text-red-300 opacity-40 cursor-not-allowed' : (isSelected ? `${theme.bg} text-white shadow-lg ${theme.shadow}` : `text-[#4a3426] hover:bg-[#fcfaf8] border border-transparent hover:border-[#e6dace]`)}
-                                                ${isToday && !isSelected && !isLocked ? `${theme.text} bg-opacity-10 ${theme.bg}` : ''}`}
+                                                ${isDisabled ? 'text-red-300 opacity-40 cursor-not-allowed' : (isSelected ? `${theme.bg} text-white shadow-lg ${theme.shadow}` : `text-[#4a3426] hover:bg-[#fcfaf8] border border-transparent hover:border-[#e6dace]`)}
+                                                ${isToday && !isSelected && !isDisabled ? `${theme.text} bg-opacity-10 ${theme.bg}` : ''}`}
                                         >
                                             {day.getDate()}
                                             {isLocked && <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-red-500 rounded-full" />}
+                                            {isNotAllowed && !isLocked && <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-gray-400 rounded-full" />}
                                         </button>
                                     );
                                 })}
@@ -161,6 +165,10 @@ const GET_INVOICES = gql`
       photos
     }
     getSuppliers {
+      id
+      name
+    }
+    getDesignations {
       id
       name
     }
@@ -226,6 +234,13 @@ export default function FacturationPage() {
     const td = String(today.getDate()).padStart(2, '0');
     const todayStr = `${ty}-${tm}-${td}`;
 
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    const y_ty = yesterday.getFullYear();
+    const y_tm = String(yesterday.getMonth() + 1).padStart(2, '0');
+    const y_td = String(yesterday.getDate()).padStart(2, '0');
+    const yesterdayStr = `${y_ty}-${y_tm}-${y_td}`;
+
     // Form state
     const [newInvoice, setNewInvoice] = useState<{ supplier_name: string, amount: string, date: string, photos: string[] }>({
         supplier_name: '',
@@ -239,6 +254,8 @@ export default function FacturationPage() {
         photo_cheque_url: '',
         photo_verso_url: ''
     });
+
+    const [section, setSection] = useState<'Fournisseur' | 'Journalier' | 'Divers'>('Fournisseur');
 
     const { data, loading, refetch } = useQuery(GET_INVOICES, {
         variables: {
@@ -803,7 +820,28 @@ export default function FacturationPage() {
 
                             <div className="p-8 space-y-6">
                                 <div>
-                                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8c8279] mb-2 block ml-1">Fournisseur</label>
+                                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8c8279] mb-4 block ml-1">Section</label>
+                                    <div className="flex gap-2 mb-6">
+                                        {['Fournisseur', 'Journalier', 'Divers'].map((s) => (
+                                            <button
+                                                key={s}
+                                                onClick={() => {
+                                                    setSection(s as any);
+                                                    setNewInvoice({ ...newInvoice, supplier_name: '' });
+                                                }}
+                                                className={`flex-1 h-12 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all border ${section === s
+                                                    ? 'bg-[#4a3426] text-[#c69f6e] border-[#4a3426] shadow-lg shadow-[#4a3426]/20'
+                                                    : 'bg-white text-[#8c8279] border-[#e6dace] hover:border-[#4a3426]/30'
+                                                    }`}
+                                            >
+                                                {s}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8c8279] mb-2 block ml-1">
+                                        {section === 'Fournisseur' ? 'Fournisseur' : (section === 'Journalier' ? 'Personnel / Service' : 'Désignation')}
+                                    </label>
                                     <div className="relative">
                                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#c69f6e]" size={20} />
                                         <select
@@ -811,10 +849,16 @@ export default function FacturationPage() {
                                             onChange={(e) => setNewInvoice({ ...newInvoice, supplier_name: e.target.value })}
                                             className="w-full h-14 pl-12 pr-4 bg-[#f9f6f2] border border-[#e6dace] rounded-2xl font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all appearance-none"
                                         >
-                                            <option value="">Sélectionner un fournisseur</option>
-                                            {data?.getSuppliers.map((s: any) => (
-                                                <option key={s.id} value={s.name}>{s.name}</option>
-                                            ))}
+                                            <option value="">Sélectionner un élément</option>
+                                            {section === 'Fournisseur' ? (
+                                                data?.getSuppliers.map((s: any) => (
+                                                    <option key={s.id} value={s.name}>{s.name}</option>
+                                                ))
+                                            ) : (
+                                                data?.getDesignations.map((d: any) => (
+                                                    <option key={d.id} value={d.name}>{d.name}</option>
+                                                ))
+                                            )}
                                         </select>
                                     </div>
                                 </div>
@@ -950,6 +994,7 @@ export default function FacturationPage() {
                                         value={paymentDetails.date}
                                         onChange={(val) => setPaymentDetails({ ...paymentDetails, date: val })}
                                         lockedDates={lockedDates}
+                                        allowedDates={user?.role === 'caissier' ? [todayStr, yesterdayStr] : undefined}
                                     />
                                 </div>
 
