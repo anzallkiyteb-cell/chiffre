@@ -8,7 +8,7 @@ import {
     Loader2, Search, Calendar, Plus,
     CreditCard, Banknote, Coins, Receipt,
     Trash2, UploadCloud, CheckCircle2,
-    Clock, Filter, X, Eye, DollarSign, Bookmark,
+    Clock, Filter, X, Eye, DollarSign, Bookmark, Edit2,
     ZoomIn, ZoomOut, RotateCcw, Download, Maximize2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -222,6 +222,78 @@ const DELETE_INVOICE = gql`
   }
 `;
 
+const UNPAY_INVOICE = gql`
+  mutation UnpayInvoice($id: Int!) {
+    unpayInvoice(id: $id) {
+      id
+      status
+    }
+  }
+`;
+
+const UPDATE_INVOICE = gql`
+  mutation UpdateInvoice($id: Int!, $supplier_name: String, $amount: String, $date: String, $photo_url: String, $photos: String) {
+    updateInvoice(id: $id, supplier_name: $supplier_name, amount: $amount, date: $date, photo_url: $photo_url, photos: $photos) {
+      id
+      supplier_name
+      amount
+      date
+    }
+  }
+`;
+
+// --- Confirm Modal Component ---
+const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message, color = 'brown' }: any) => {
+    if (!isOpen) return null;
+    const colors: { [key: string]: string } = {
+        brown: 'bg-[#4a3426] hover:bg-[#38261b]',
+        red: 'bg-red-500 hover:bg-red-600',
+        green: 'bg-[#2d6a4f] hover:bg-[#1b4332]'
+    };
+    return (
+        <AnimatePresence>
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[300] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 text-left"
+                onClick={onClose}
+            >
+                <motion.div
+                    initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                    animate={{ scale: 1, opacity: 1, y: 0 }}
+                    exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                    onClick={e => e.stopPropagation()}
+                    className="bg-white rounded-[2rem] w-full max-w-sm overflow-hidden shadow-2xl border border-[#e6dace]"
+                >
+                    <div className={`p-6 ${colors[color]} text-white`}>
+                        <h3 className="text-lg font-black uppercase tracking-tight">{title}</h3>
+                    </div>
+                    <div className="p-6 space-y-6">
+                        <p className="text-sm font-bold text-[#8c8279] uppercase tracking-wide leading-relaxed">
+                            {message}
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={onClose}
+                                className="flex-1 h-12 bg-[#f9f6f2] text-[#8c8279] rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-[#ece6df] transition-all"
+                            >
+                                Annuler
+                            </button>
+                            <button
+                                onClick={() => { onConfirm(); onClose(); }}
+                                className={`flex-1 h-12 ${colors[color]} text-white rounded-xl font-black uppercase text-[10px] tracking-widest transition-all shadow-lg`}
+                            >
+                                Confirmer
+                            </button>
+                        </div>
+                    </div>
+                </motion.div>
+            </motion.div>
+        </AnimatePresence>
+    );
+};
+
 export default function FacturationPage() {
     const router = useRouter();
     const [user, setUser] = useState<{ role: 'admin' | 'caissier', full_name: string } | null>(null);
@@ -236,6 +308,8 @@ export default function FacturationPage() {
     // Modal state
     const [showAddModal, setShowAddModal] = useState(false);
     const [showPayModal, setShowPayModal] = useState<any>(null);
+    const [showEditModal, setShowEditModal] = useState<any>(null);
+    const [showConfirm, setShowConfirm] = useState<{ type: string, title: string, message: string, color: string, onConfirm: () => void } | null>(null);
     const [viewingData, setViewingData] = useState<any>(null);
     const [imgZoom, setImgZoom] = useState(1);
     const [imgRotation, setImgRotation] = useState(0);
@@ -280,16 +354,21 @@ export default function FacturationPage() {
     const [showAddNameModal, setShowAddNameModal] = useState(false);
     const [newName, setNewName] = useState({ name: '', section: 'Fournisseur' });
 
-    const [upsertSupplier] = useMutation(UPSERT_SUPPLIER);
-    const [upsertDesignation] = useMutation(UPSERT_DESIGNATION);
+    const [execUpsertSupplier] = useMutation(UPSERT_SUPPLIER);
+    const [execUpsertDesignation] = useMutation(UPSERT_DESIGNATION);
+    const [execAddInvoice] = useMutation(ADD_INVOICE);
+    const [execPayInvoice] = useMutation(PAY_INVOICE);
+    const [execDeleteInvoice] = useMutation(DELETE_INVOICE);
+    const [execUnpayInvoice] = useMutation(UNPAY_INVOICE);
+    const [execUpdateInvoice] = useMutation(UPDATE_INVOICE);
 
     const handleAddName = async () => {
         if (!newName.name) return;
         try {
             if (newName.section === 'Fournisseur') {
-                await upsertSupplier({ variables: { name: newName.name } });
+                await execUpsertSupplier({ variables: { name: newName.name } });
             } else {
-                await upsertDesignation({
+                await execUpsertDesignation({
                     variables: {
                         name: newName.name,
                         type: newName.section === 'Journalier' ? 'journalier' : 'divers'
@@ -335,10 +414,6 @@ export default function FacturationPage() {
         });
     }, [data, statusFilter]);
 
-    const [addInvoice] = useMutation(ADD_INVOICE);
-    const [payInvoice] = useMutation(PAY_INVOICE);
-    const [deleteInvoice] = useMutation(DELETE_INVOICE);
-
     useEffect(() => {
         const savedUser = localStorage.getItem('bb_user');
         if (savedUser) {
@@ -363,26 +438,34 @@ export default function FacturationPage() {
             alert("Cette date est verrouillée. Impossible d'ajouter une facture.");
             return;
         }
-        try {
-            await addInvoice({
-                variables: {
-                    ...newInvoice,
-                    amount: newInvoice.amount.toString(),
-                    photo_url: newInvoice.photos[0] || '',
-                    photos: JSON.stringify(newInvoice.photos)
+        setShowConfirm({
+            type: 'add',
+            title: 'Ajouter Facture',
+            message: `Êtes-vous sûr de vouloir ajouter cette facture de ${newInvoice.amount} DT pour ${newInvoice.supplier_name} ?`,
+            color: 'brown',
+            onConfirm: async () => {
+                try {
+                    await execAddInvoice({
+                        variables: {
+                            ...newInvoice,
+                            amount: newInvoice.amount.toString(),
+                            photo_url: newInvoice.photos[0] || '',
+                            photos: JSON.stringify(newInvoice.photos)
+                        }
+                    });
+                    setShowAddModal(false);
+                    setNewInvoice({
+                        supplier_name: '',
+                        amount: '',
+                        date: todayStr,
+                        photos: []
+                    });
+                    refetch();
+                } catch (e) {
+                    console.error(e);
                 }
-            });
-            setShowAddModal(false);
-            setNewInvoice({
-                supplier_name: '',
-                amount: '',
-                date: todayStr,
-                photos: []
-            });
-            refetch();
-        } catch (e) {
-            console.error(e);
-        }
+            }
+        });
     };
 
     const handlePayInvoice = async () => {
@@ -391,27 +474,79 @@ export default function FacturationPage() {
             alert("Cette date est verrouillée. Impossible de valider le paiement.");
             return;
         }
-        try {
-            await payInvoice({
-                variables: {
-                    id: showPayModal.id,
-                    payment_method: paymentDetails.method,
-                    paid_date: paymentDetails.date,
-                    photo_cheque_url: paymentDetails.photo_cheque_url || null,
-                    photo_verso_url: paymentDetails.photo_verso_url || null
+        setShowConfirm({
+            type: 'pay',
+            title: 'Valider Paiement',
+            message: `Êtes-vous sûr de vouloir régler ${showPayModal.amount} DT à ${showPayModal.supplier_name} via ${paymentDetails.method} ?`,
+            color: 'green',
+            onConfirm: async () => {
+                try {
+                    await execPayInvoice({
+                        variables: {
+                            id: showPayModal.id,
+                            payment_method: paymentDetails.method,
+                            paid_date: paymentDetails.date,
+                            photo_cheque_url: paymentDetails.photo_cheque_url || null,
+                            photo_verso_url: paymentDetails.photo_verso_url || null
+                        }
+                    });
+                    setShowPayModal(null);
+                    setPaymentDetails({
+                        method: 'Espèces',
+                        date: todayStr,
+                        photo_cheque_url: '',
+                        photo_verso_url: ''
+                    });
+                    refetch();
+                } catch (e) {
+                    console.error(e);
                 }
-            });
-            setShowPayModal(null);
-            setPaymentDetails({
-                method: 'Espèces',
-                date: todayStr,
-                photo_cheque_url: '',
-                photo_verso_url: ''
-            });
-            refetch();
-        } catch (e) {
-            console.error(e);
+            }
+        });
+    };
+
+    const handleUnpay = async (inv: any) => {
+        if (lockedDates.includes(inv.paid_date)) {
+            alert("Cette date est verrouillée. Impossible de restaurer cette facture.");
+            return;
         }
+        setShowConfirm({
+            type: 'unpay',
+            title: 'Restaurer Facture',
+            message: `Voulez-vous vraiment annuler le paiement de cette facture pour ${inv.supplier_name} ? Elle redeviendra "Impayée".`,
+            color: 'brown',
+            onConfirm: async () => {
+                try {
+                    await execUnpayInvoice({ variables: { id: inv.id } });
+                    refetch();
+                } catch (e) { console.error(e); }
+            }
+        });
+    };
+
+    const handleUpdateInvoice = async (invoiceData: any) => {
+        setShowConfirm({
+            type: 'update',
+            title: 'Enregistrer Modifications',
+            message: 'Êtes-vous sûr de vouloir enregistrer les modifications apportées à cette facture ?',
+            color: 'brown',
+            onConfirm: async () => {
+                try {
+                    await execUpdateInvoice({
+                        variables: {
+                            id: invoiceData.id,
+                            supplier_name: invoiceData.supplier_name,
+                            amount: invoiceData.amount.toString(),
+                            date: invoiceData.date,
+                            photo_url: invoiceData.photos[0] || '',
+                            photos: JSON.stringify(invoiceData.photos)
+                        }
+                    });
+                    setShowEditModal(null);
+                    refetch();
+                } catch (e) { console.error(e); }
+            }
+        });
     };
 
     const handleDelete = async (inv: any) => {
@@ -421,13 +556,20 @@ export default function FacturationPage() {
             return;
         }
 
-        if (!confirm('Bas sûr de vouloir supprimer cette facture ?')) return;
-        try {
-            await deleteInvoice({ variables: { id: inv.id } });
-            refetch();
-        } catch (e) {
-            console.error(e);
-        }
+        setShowConfirm({
+            type: 'delete',
+            title: 'Supprimer Facture',
+            message: `Êtes-vous sûr de vouloir supprimer définitivement la facture de ${inv.supplier_name} ? Cette action est irréversible.`,
+            color: 'red',
+            onConfirm: async () => {
+                try {
+                    await execDeleteInvoice({ variables: { id: inv.id } });
+                    refetch();
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+        });
     };
 
     const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: 'invoice' | 'recto' | 'verso' = 'invoice') => {
@@ -723,6 +865,20 @@ export default function FacturationPage() {
                                                                 <span>Payer</span>
                                                             </button>
                                                             <button
+                                                                onClick={() => {
+                                                                    setShowEditModal({
+                                                                        id: inv.id,
+                                                                        supplier_name: inv.supplier_name,
+                                                                        amount: inv.amount,
+                                                                        date: inv.date,
+                                                                        photos: JSON.parse(inv.photos || '[]')
+                                                                    });
+                                                                }}
+                                                                className="w-11 h-11 border-2 border-[#e6dace] text-[#8c8279] hover:text-[#4a3426] hover:border-[#4a3426] rounded-xl flex items-center justify-center transition-all"
+                                                            >
+                                                                <Edit2 size={18} />
+                                                            </button>
+                                                            <button
                                                                 onClick={() => handleDelete(inv)}
                                                                 className="w-11 h-11 border-2 border-red-50 text-red-100 hover:text-red-500 hover:border-red-100 rounded-xl flex items-center justify-center transition-all"
                                                             >
@@ -825,11 +981,31 @@ export default function FacturationPage() {
 
                                                         <div className="flex gap-2">
                                                             <button
+                                                                onClick={() => handleUnpay(inv)}
+                                                                className="flex-1 h-11 bg-[#4a3426] text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-[#38261b] transition-all"
+                                                            >
+                                                                <RotateCcw size={18} />
+                                                                <span className="text-xs uppercase">Restaurer</span>
+                                                            </button>
+                                                            <button
+                                                                onClick={() => {
+                                                                    setShowEditModal({
+                                                                        id: inv.id,
+                                                                        supplier_name: inv.supplier_name,
+                                                                        amount: inv.amount,
+                                                                        date: inv.date,
+                                                                        photos: JSON.parse(inv.photos || '[]')
+                                                                    });
+                                                                }}
+                                                                className="w-11 h-11 border-2 border-[#e6dace] text-[#8c8279] hover:text-[#4a3426] hover:border-[#4a3426] rounded-xl flex items-center justify-center transition-all"
+                                                            >
+                                                                <Edit2 size={18} />
+                                                            </button>
+                                                            <button
                                                                 onClick={() => handleDelete(inv)}
-                                                                className="flex-1 h-11 border-2 border-red-50 text-red-100 hover:text-red-500 hover:border-red-100 rounded-xl flex items-center justify-center transition-all px-4 gap-2"
+                                                                className="w-11 h-11 border-2 border-red-50 text-red-100 hover:text-red-500 hover:border-red-100 rounded-xl flex items-center justify-center transition-all"
                                                             >
                                                                 <Trash2 size={18} />
-                                                                <span className="text-xs font-black uppercase">Supprimer</span>
                                                             </button>
                                                         </div>
                                                     </div>
@@ -1295,6 +1471,143 @@ export default function FacturationPage() {
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            {/* Edit Invoice Modal */}
+            <AnimatePresence>
+                {showEditModal && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[150] bg-[#4a3426]/60 backdrop-blur-md flex items-center justify-center p-4"
+                        onClick={() => setShowEditModal(null)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                            onClick={e => e.stopPropagation()}
+                            className="bg-white rounded-[2.5rem] w-full max-w-lg overflow-y-auto max-h-[90vh] shadow-2xl border border-white/20 custom-scrollbar"
+                        >
+                            <div className="p-8 bg-[#4a3426] text-white relative rounded-t-[2.5rem]">
+                                <h2 className="text-2xl font-black uppercase tracking-tight flex items-center gap-3">
+                                    <Edit2 size={28} className="text-[#c69f6e]" />
+                                    Modifier Facture
+                                </h2>
+                                <p className="text-xs text-white/60 font-medium mt-1">Mettre à jour les informations de la facture</p>
+                                <button onClick={() => setShowEditModal(null)} className="absolute top-8 right-8 text-white/40 hover:text-white"><X size={24} /></button>
+                            </div>
+
+                            <div className="p-8 space-y-6">
+                                <div>
+                                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8c8279] mb-2 block ml-1">Fournisseur / Elément</label>
+                                    <div className="relative">
+                                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#c69f6e]" size={20} />
+                                        <select
+                                            value={showEditModal.supplier_name}
+                                            onChange={(e) => setShowEditModal({ ...showEditModal, supplier_name: e.target.value })}
+                                            className="w-full h-14 pl-12 pr-12 bg-[#f9f6f2] border border-[#e6dace] rounded-2xl font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all appearance-none"
+                                        >
+                                            <option value="">Sélectionner</option>
+                                            {data?.getSuppliers.map((s: any) => (<option key={s.id} value={s.name}>{s.name}</option>))}
+                                            {data?.getDesignations.map((d: any) => (<option key={d.id} value={d.name}>{d.name}</option>))}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8c8279] mb-2 block ml-1">Montant (DT)</label>
+                                        <div className="relative">
+                                            <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-[#c69f6e]" size={20} />
+                                            <input
+                                                type="number"
+                                                step="0.001"
+                                                placeholder="0.000"
+                                                value={showEditModal.amount}
+                                                onChange={(e) => setShowEditModal({ ...showEditModal, amount: e.target.value })}
+                                                className="w-full h-14 pl-12 pr-4 bg-[#f9f6f2] border border-[#e6dace] rounded-2xl font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8c8279] mb-2 block ml-1">Date Facture</label>
+                                        <PremiumDatePicker
+                                            label="Date"
+                                            value={showEditModal.date}
+                                            onChange={(val) => setShowEditModal({ ...showEditModal, date: val })}
+                                            lockedDates={lockedDates}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8c8279] mb-2 block ml-1">Photos Facture ({showEditModal.photos.length}/5)</label>
+                                    <div className="grid grid-cols-5 gap-2">
+                                        {showEditModal.photos.map((p: string, i: number) => (
+                                            <div key={i} className="aspect-square bg-[#fcfaf8] border border-[#e6dace] rounded-xl relative group overflow-hidden">
+                                                <img src={p} className="w-full h-full object-cover" />
+                                                <button
+                                                    onClick={() => setShowEditModal({ ...showEditModal, photos: showEditModal.photos.filter((_: any, idx: number) => idx !== i) })}
+                                                    className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-lg opacity-0 group-hover:opacity-100 transition-all shadow-lg"
+                                                >
+                                                    <Trash2 size={12} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                        {showEditModal.photos.length < 5 && (
+                                            <button
+                                                onClick={() => document.getElementById('edit-upload')?.click()}
+                                                className="aspect-square bg-[#fcfaf8] border-2 border-dashed border-[#e6dace] rounded-xl flex items-center justify-center text-[#c69f6e] hover:border-[#c69f6e] hover:bg-[#fcfaf8] transition-all"
+                                            >
+                                                <Plus size={24} />
+                                                <input
+                                                    id="edit-upload"
+                                                    type="file"
+                                                    multiple
+                                                    accept="image/*"
+                                                    className="hidden"
+                                                    onChange={async (e) => {
+                                                        const files = e.target.files;
+                                                        if (files && files.length > 0) {
+                                                            const filePromises = Array.from(files).map(file => {
+                                                                return new Promise<string>((resolve) => {
+                                                                    const reader = new FileReader();
+                                                                    reader.onloadend = () => resolve(reader.result as string);
+                                                                    reader.readAsDataURL(file);
+                                                                });
+                                                            });
+                                                            const results = await Promise.all(filePromises);
+                                                            setShowEditModal({ ...showEditModal, photos: [...showEditModal.photos, ...results].slice(0, 5) });
+                                                        }
+                                                    }}
+                                                />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <button
+                                    onClick={() => handleUpdateInvoice(showEditModal)}
+                                    className="w-full h-16 bg-[#4a3426] text-white rounded-2xl font-black uppercase tracking-[0.2em] text-sm hover:bg-[#38261b] transition-all shadow-xl shadow-[#4a3426]/20"
+                                >
+                                    Enregistrer les modifications
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Confirmation Modal */}
+            <ConfirmModal
+                isOpen={!!showConfirm}
+                onClose={() => setShowConfirm(null)}
+                onConfirm={showConfirm?.onConfirm}
+                title={showConfirm?.title}
+                message={showConfirm?.message}
+                color={showConfirm?.color}
+            />
 
             {/* Add Name Modal */}
             <AnimatePresence>

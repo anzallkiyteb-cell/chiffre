@@ -142,6 +142,16 @@ export const typeDefs = `#graphql
 
     deleteInvoice(id: Int!): Boolean
     
+    unpayInvoice(id: Int!): Invoice
+    updateInvoice(
+      id: Int!
+      supplier_name: String
+      amount: String
+      date: String
+      photo_url: String
+      photos: String
+    ): Invoice
+    
     addBankDeposit(
       amount: String!
       date: String!

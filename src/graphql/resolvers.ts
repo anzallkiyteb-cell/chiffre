@@ -488,6 +488,42 @@ export const resolvers = {
             await query('DELETE FROM invoices WHERE id = $1', [id]);
             return true;
         },
+        unpayInvoice: async (_: any, { id }: { id: number }) => {
+            const res = await query(
+                "UPDATE invoices SET status = 'unpaid', payment_method = NULL, paid_date = NULL, photo_cheque_url = NULL, photo_verso_url = NULL WHERE id = $1 RETURNING *",
+                [id]
+            );
+            const row = res.rows[0];
+            return {
+                ...row,
+                photos: typeof row.photos === 'string' ? row.photos : JSON.stringify(row.photos || [])
+            };
+        },
+        updateInvoice: async (_: any, { id, supplier_name, amount, date, photo_url, photos }: any) => {
+            const fields = [];
+            const params = [];
+            if (supplier_name !== undefined) { params.push(supplier_name); fields.push(`supplier_name = $${params.length}`); }
+            if (amount !== undefined) { params.push(amount); fields.push(`amount = $${params.length}`); }
+            if (date !== undefined) { params.push(date); fields.push(`date = $${params.length}`); }
+            if (photo_url !== undefined) { params.push(photo_url); fields.push(`photo_url = $${params.length}`); }
+            if (photos !== undefined) { params.push(photos); fields.push(`photos = $${params.length}::jsonb`); }
+
+            if (fields.length === 0) {
+                const r = await query('SELECT * FROM invoices WHERE id = $1', [id]);
+                return { ...r.rows[0], photos: typeof r.rows[0].photos === 'string' ? r.rows[0].photos : JSON.stringify(r.rows[0].photos || []) };
+            }
+
+            params.push(id.toString());
+            const res = await query(
+                `UPDATE invoices SET ${fields.join(', ')} WHERE id = $${params.length} RETURNING *`,
+                params
+            );
+            const row = res.rows[0];
+            return {
+                ...row,
+                photos: typeof row.photos === 'string' ? row.photos : JSON.stringify(row.photos || [])
+            };
+        },
         upsertSupplier: async (_: any, { name }: { name: string }) => {
             // Normalize name (trim and title case or lowercase for comparison)
             const normalized = name.trim();
