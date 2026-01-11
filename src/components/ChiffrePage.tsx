@@ -177,16 +177,17 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     // UI States
     const [toast, setToast] = useState<{ msg: string, type: 'success' | 'error' } | null>(null);
     const [supplierSearch, setSupplierSearch] = useState('');
+    const [designationSearch, setDesignationSearch] = useState('');
     const [showSupplierDropdown, setShowSupplierDropdown] = useState<number | null>(null);
+    const [showJournalierDropdown, setShowJournalierDropdown] = useState<number | null>(null);
+    const [showDiversDropdown, setShowDiversDropdown] = useState<number | null>(null);
     const [viewingInvoices, setViewingInvoices] = useState<string[] | null>(null);
     const [showCalendar, setShowCalendar] = useState(false);
     const [showSupplierModal, setShowSupplierModal] = useState(false);
-    const [showDesignationDropdown, setShowDesignationDropdown] = useState<number | null>(null);
-    const [designationSearch, setDesignationSearch] = useState('');
-    const [newSupplierName, setNewSupplierName] = useState('');
-    const [hasInteracted, setHasInteracted] = useState(false);
     const [showJournalierModal, setShowJournalierModal] = useState(false);
     const [showDiversModal, setShowDiversModal] = useState(false);
+    const [newSupplierName, setNewSupplierName] = useState('');
+    const [hasInteracted, setHasInteracted] = useState(false);
 
     // Modal Details States
     const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -684,9 +685,51 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         type="text"
                                                         placeholder="Désignation Journalière..."
                                                         value={journalier.designation}
-                                                        onChange={(e) => handleJournalierChange(index, 'designation', e.target.value)}
-                                                        className="w-full bg-white border border-[#e6dace] rounded-xl h-12 pl-10 pr-4 focus:border-[#c69f6e] outline-none font-medium transition-all"
+                                                        onFocus={() => {
+                                                            setShowJournalierDropdown(index);
+                                                            setDesignationSearch(journalier.designation);
+                                                        }}
+                                                        onBlur={() => setTimeout(() => setShowJournalierDropdown(null), 200)}
+                                                        onChange={(e) => {
+                                                            handleJournalierChange(index, 'designation', e.target.value);
+                                                            setDesignationSearch(e.target.value);
+                                                        }}
+                                                        className="w-full bg-white border border-[#e6dace] rounded-xl h-12 pl-10 pr-10 focus:border-[#c69f6e] outline-none font-medium transition-all"
                                                     />
+                                                    <button
+                                                        onClick={() => setShowJournalierDropdown(showJournalierDropdown === index ? null : index)}
+                                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#bba282] hover:text-[#c69f6e] transition-colors"
+                                                    >
+                                                        <ChevronDown size={18} />
+                                                    </button>
+                                                    {showJournalierDropdown === index && (
+                                                        <div className="absolute top-full left-0 w-full bg-white shadow-xl rounded-xl z-50 mt-1 max-h-48 overflow-y-auto border border-[#e6dace]">
+                                                            {commonDesignations
+                                                                .filter(d => d.toLowerCase().includes(designationSearch.toLowerCase()))
+                                                                .map((d) => (
+                                                                    <div
+                                                                        key={d}
+                                                                        className="p-3 hover:bg-[#f9f6f2] cursor-pointer font-medium text-[#4a3426] text-sm"
+                                                                        onClick={() => {
+                                                                            handleJournalierChange(index, 'designation', d);
+                                                                            setShowJournalierDropdown(null);
+                                                                        }}
+                                                                    >
+                                                                        {d}
+                                                                    </div>
+                                                                ))
+                                                            }
+                                                            <div
+                                                                className="p-3 bg-[#fcfaf8] border-t border-[#e6dace] hover:bg-[#c69f6e] hover:text-white cursor-pointer font-bold text-[#c69f6e] text-xs flex items-center gap-2"
+                                                                onClick={() => {
+                                                                    setShowJournalierModal(true);
+                                                                    setShowJournalierDropdown(null);
+                                                                }}
+                                                            >
+                                                                <Plus size={14} /> Nouveau
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
 
                                                 <button
@@ -749,7 +792,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                         </div>
                                     ))}
                                 </div>
-                                <button onClick={handleAddJournalier} className="mt-4 w-full py-3 border-2 border-dashed border-[#e6dace] rounded-xl text-[#bba282] font-bold flex items-center justify-center gap-2 hover:border-[#c69f6e] hover:text-[#c69f6e] transition-all">
+                                <button onClick={() => handleAddJournalier()} className="mt-4 w-full py-3 border-2 border-dashed border-[#e6dace] rounded-xl text-[#bba282] font-bold flex items-center justify-center gap-2 hover:border-[#c69f6e] hover:text-[#c69f6e] transition-all">
                                     <Plus size={18} /> Nouvelle Ligne (Journalier)
                                 </button>
                             </section>
@@ -976,9 +1019,51 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         type="text"
                                                         placeholder="Désignation Divers..."
                                                         value={divers.designation}
-                                                        onChange={(e) => handleDiversChange(index, 'designation', e.target.value)}
-                                                        className="w-full bg-white border border-[#e6dace] rounded-xl h-12 pl-10 pr-4 focus:border-[#c69f6e] outline-none font-medium transition-all"
+                                                        onFocus={() => {
+                                                            setShowDiversDropdown(index);
+                                                            setDesignationSearch(divers.designation);
+                                                        }}
+                                                        onBlur={() => setTimeout(() => setShowDiversDropdown(null), 200)}
+                                                        onChange={(e) => {
+                                                            handleDiversChange(index, 'designation', e.target.value);
+                                                            setDesignationSearch(e.target.value);
+                                                        }}
+                                                        className="w-full bg-white border border-[#e6dace] rounded-xl h-12 pl-10 pr-10 focus:border-[#c69f6e] outline-none font-medium transition-all"
                                                     />
+                                                    <button
+                                                        onClick={() => setShowDiversDropdown(showDiversDropdown === index ? null : index)}
+                                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#bba282] hover:text-[#c69f6e] transition-colors"
+                                                    >
+                                                        <ChevronDown size={18} />
+                                                    </button>
+                                                    {showDiversDropdown === index && (
+                                                        <div className="absolute top-full left-0 w-full bg-white shadow-xl rounded-xl z-50 mt-1 max-h-48 overflow-y-auto border border-[#e6dace]">
+                                                            {commonDesignations
+                                                                .filter(d => d.toLowerCase().includes(designationSearch.toLowerCase()))
+                                                                .map((d) => (
+                                                                    <div
+                                                                        key={d}
+                                                                        className="p-3 hover:bg-[#f9f6f2] cursor-pointer font-medium text-[#4a3426] text-sm"
+                                                                        onClick={() => {
+                                                                            handleDiversChange(index, 'designation', d);
+                                                                            setShowDiversDropdown(null);
+                                                                        }}
+                                                                    >
+                                                                        {d}
+                                                                    </div>
+                                                                ))
+                                                            }
+                                                            <div
+                                                                className="p-3 bg-[#fcfaf8] border-t border-[#e6dace] hover:bg-[#c69f6e] hover:text-white cursor-pointer font-bold text-[#c69f6e] text-xs flex items-center gap-2"
+                                                                onClick={() => {
+                                                                    setShowDiversModal(true);
+                                                                    setShowDiversDropdown(null);
+                                                                }}
+                                                            >
+                                                                <Plus size={14} /> Nouveau
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
 
                                                 <button
@@ -1040,7 +1125,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                         </div>
                                     ))}
                                 </div>
-                                <button onClick={handleAddDivers} className="mt-4 w-full py-3 border-2 border-dashed border-[#e6dace] rounded-xl text-[#bba282] font-bold flex items-center justify-center gap-2 hover:border-[#c69f6e] hover:text-[#c69f6e] transition-all">
+                                <button onClick={() => handleAddDivers()} className="mt-4 w-full py-3 border-2 border-dashed border-[#e6dace] rounded-xl text-[#bba282] font-bold flex items-center justify-center gap-2 hover:border-[#c69f6e] hover:text-[#c69f6e] transition-all">
                                     <Plus size={18} /> Nouvelle Ligne (Divers)
                                 </button>
                             </section>
@@ -1305,7 +1390,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
 
             {/* Click outside to close dropdowns */}
             {showSupplierDropdown !== null && <div className="fixed inset-0 z-40" onClick={() => setShowSupplierDropdown(null)} />}
-            {showDesignationDropdown !== null && <div className="fixed inset-0 z-40" onClick={() => setShowDesignationDropdown(null)} />}
+            {showJournalierDropdown !== null && <div className="fixed inset-0 z-40" onClick={() => setShowJournalierDropdown(null)} />}
+            {showDiversDropdown !== null && <div className="fixed inset-0 z-40" onClick={() => setShowDiversDropdown(null)} />}
 
             {/* Supplier Modal */}
             {/* Details Modal */}
@@ -1461,15 +1547,14 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                 {(showJournalierModal || showDiversModal) && (
                     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => { setShowJournalierModal(false); setShowDiversModal(false); }} className="absolute inset-0 bg-[#4a3426]/40 backdrop-blur-md" />
-                        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-white rounded-[2.5rem] w-full max-w-lg p-8 shadow-2xl border border-[#e6dace] overflow-hidden" >
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-[#c69f6e]/5 rounded-full blur-3xl -mr-16 -mt-16"></div>
+                        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-white rounded-[2.5rem] w-full max-w-md p-8 shadow-2xl border border-[#e6dace] overflow-hidden" >
                             <div className="relative">
                                 <div className="text-center mb-8">
                                     <div className="bg-[#fcfaf8] w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-[#e6dace]">
-                                        <Sparkles size={32} className="text-[#c69f6e]" />
+                                        <Plus size={32} className="text-[#c69f6e]" />
                                     </div>
-                                    <h3 className="text-2xl font-black text-[#4a3426] tracking-tight">Choisir une désignation</h3>
-                                    <p className="text-[#8c8279] text-sm mt-1">Saisissez une désignation personnalisée ou utilisez un raccourci.</p>
+                                    <h3 className="text-2xl font-black text-[#4a3426] tracking-tight">Nouvelle Désignation</h3>
+                                    <p className="text-[#8c8279] text-sm mt-1">Ajoutez une nouvelle désignation à votre liste.</p>
                                 </div>
 
                                 <div className="space-y-6">
@@ -1495,27 +1580,6 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                             }}
                                             className="w-full bg-[#fcfaf8] border border-[#e6dace] rounded-2xl h-14 pl-12 pr-4 focus:border-[#c69f6e] outline-none font-bold text-[#4a3426] transition-all placeholder-[#bba282]/50"
                                         />
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-3">
-                                        {commonDesignations.map((designation) => (
-                                            <button
-                                                key={designation}
-                                                onClick={() => {
-                                                    if (showJournalierModal) {
-                                                        handleAddJournalier(designation);
-                                                        setShowJournalierModal(false);
-                                                    } else {
-                                                        handleAddDivers(designation);
-                                                        setShowDiversModal(false);
-                                                    }
-                                                    setDesignationSearch('');
-                                                }}
-                                                className="group relative overflow-hidden py-4 px-4 rounded-xl bg-[#fcfaf8] border border-[#e6dace] hover:border-[#c69f6e] hover:shadow-lg hover:shadow-[#c69f6e]/10 transition-all text-[#4a3426] font-bold text-xs uppercase tracking-widest text-center"
-                                            >
-                                                {designation}
-                                            </button>
-                                        ))}
                                     </div>
 
                                     <div className="flex gap-3 pt-2">
