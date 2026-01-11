@@ -677,6 +677,17 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     {expensesJournalier.map((journalier, index) => (
                                         <div key={index} className="group flex flex-col p-2 rounded-xl transition-all border hover:bg-[#f9f6f2] border-transparent hover:border-[#e6dace]">
                                             <div className="flex flex-col md:flex-row items-center gap-3 w-full">
+                                                <div className="w-full md:w-32 relative">
+                                                    <input
+                                                        type="number"
+                                                        placeholder="0.00"
+                                                        value={journalier.amount}
+                                                        onChange={(e) => handleJournalierChange(index, 'amount', e.target.value)}
+                                                        className="w-full bg-white border border-[#e6dace] rounded-xl h-12 px-3 font-black text-xl outline-none focus:border-[#c69f6e] text-right"
+                                                    />
+                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#bba282] text-xs font-black">DT</span>
+                                                </div>
+
                                                 <div className="flex-1 w-full relative">
                                                     <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
                                                         <Search className="text-[#bba282]" size={16} />
@@ -744,17 +755,6 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                     <span className="text-[10px] font-black uppercase tracking-widest">{journalier.details ? 'Détails OK' : 'Détails'}</span>
                                                 </button>
 
-                                                <div className="w-full md:w-32 relative">
-                                                    <input
-                                                        type="number"
-                                                        placeholder="0.00"
-                                                        value={journalier.amount}
-                                                        onChange={(e) => handleJournalierChange(index, 'amount', e.target.value)}
-                                                        className="w-full bg-white border border-[#e6dace] rounded-xl h-12 px-3 font-black text-xl outline-none focus:border-[#c69f6e] text-right"
-                                                    />
-                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#bba282] text-xs font-black">DT</span>
-                                                </div>
-
                                                 <div className="w-full md:w-36 relative">
                                                     <select
                                                         value={journalier.paymentMethod || 'Espèces'}
@@ -819,6 +819,18 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     {expenses.map((expense, index) => (
                                         <div key={index} className={`group flex flex-col p-2 rounded-xl transition-all border ${expense.isFromFacturation ? 'bg-[#f0faf5]/50 border-[#d1e7dd]' : 'hover:bg-[#f9f6f2] border-transparent hover:border-[#e6dace]'}`}>
                                             <div className="flex flex-col md:flex-row items-center gap-3 w-full">
+                                                <div className="w-full md:w-32 relative">
+                                                    <input
+                                                        type="number"
+                                                        placeholder="0.00"
+                                                        disabled={expense.isFromFacturation}
+                                                        value={expense.amount}
+                                                        onChange={(e) => handleDetailChange(index, 'amount', e.target.value)}
+                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 px-3 font-black text-xl outline-none focus:border-[#c69f6e] text-right ${expense.isFromFacturation ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                                    />
+                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#bba282] text-xs font-black">DT</span>
+                                                </div>
+
                                                 <div className="flex-1 w-full relative">
                                                     <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
                                                         <Search className="text-[#bba282]" size={16} />
@@ -875,18 +887,6 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                     <FileText size={16} />
                                                     <span className="text-[10px] font-black uppercase tracking-widest">{expense.details ? 'Détails OK' : 'Détails'}</span>
                                                 </button>
-
-                                                <div className="w-full md:w-32 relative">
-                                                    <input
-                                                        type="number"
-                                                        placeholder="0.00"
-                                                        disabled={expense.isFromFacturation}
-                                                        value={expense.amount}
-                                                        onChange={(e) => handleDetailChange(index, 'amount', e.target.value)}
-                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 px-3 font-black text-xl outline-none focus:border-[#c69f6e] text-right ${expense.isFromFacturation ? 'opacity-70 cursor-not-allowed' : ''}`}
-                                                    />
-                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#bba282] text-xs font-black">DT</span>
-                                                </div>
 
                                                 <div className="w-full md:w-36 relative">
                                                     <select
@@ -1011,6 +1011,17 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     {expensesDivers.map((divers, index) => (
                                         <div key={index} className="group flex flex-col p-2 rounded-xl transition-all border hover:bg-[#f9f6f2] border-transparent hover:border-[#e6dace]">
                                             <div className="flex flex-col md:flex-row items-center gap-3 w-full">
+                                                <div className="w-full md:w-32 relative">
+                                                    <input
+                                                        type="number"
+                                                        placeholder="0.00"
+                                                        value={divers.amount}
+                                                        onChange={(e) => handleDiversChange(index, 'amount', e.target.value)}
+                                                        className="w-full bg-white border border-[#e6dace] rounded-xl h-12 px-3 font-black text-xl outline-none focus:border-[#c69f6e] text-right"
+                                                    />
+                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#bba282] text-xs font-black">DT</span>
+                                                </div>
+
                                                 <div className="flex-1 w-full relative">
                                                     <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
                                                         <Search className="text-[#bba282]" size={16} />
@@ -1078,17 +1089,6 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                     <span className="text-[10px] font-black uppercase tracking-widest">{divers.details ? 'Détails OK' : 'Détails'}</span>
                                                 </button>
 
-                                                <div className="w-full md:w-32 relative">
-                                                    <input
-                                                        type="number"
-                                                        placeholder="0.00"
-                                                        value={divers.amount}
-                                                        onChange={(e) => handleDiversChange(index, 'amount', e.target.value)}
-                                                        className="w-full bg-white border border-[#e6dace] rounded-xl h-12 px-3 font-black text-xl outline-none focus:border-[#c69f6e] text-right"
-                                                    />
-                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#bba282] text-xs font-black">DT</span>
-                                                </div>
-
                                                 <div className="w-full md:w-36 relative">
                                                     <select
                                                         value={divers.paymentMethod || 'Espèces'}
@@ -1146,6 +1146,17 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     {expensesAdmin.map((admin, index) => (
                                         <div key={index} className="group flex flex-col p-2 rounded-xl transition-all border hover:bg-[#f9f6f2] border-transparent hover:border-[#e6dace]">
                                             <div className="flex flex-col md:flex-row items-center gap-3 w-full">
+                                                <div className="w-full md:w-40 relative">
+                                                    <input
+                                                        type="number"
+                                                        placeholder="0.00"
+                                                        value={admin.amount}
+                                                        onChange={(e) => handleAdminChange(index, 'amount', e.target.value)}
+                                                        className="w-full bg-white border border-[#e6dace] rounded-xl h-14 px-3 font-black text-2xl outline-none focus:border-[#c69f6e] text-right"
+                                                    />
+                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#bba282] text-xs font-black">DT</span>
+                                                </div>
+
                                                 <div className="flex-1 w-full relative">
                                                     <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
                                                         <User className="text-[#bba282]" size={16} />
@@ -1156,17 +1167,6 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         readOnly
                                                         className="w-full bg-[#f9f6f2] border border-[#e6dace] rounded-xl h-12 pl-10 pr-4 outline-none font-bold text-[#4a3426] opacity-70 cursor-not-allowed"
                                                     />
-                                                </div>
-
-                                                <div className="w-full md:w-40 relative">
-                                                    <input
-                                                        type="number"
-                                                        placeholder="0.00"
-                                                        value={admin.amount}
-                                                        onChange={(e) => handleAdminChange(index, 'amount', e.target.value)}
-                                                        className="w-full bg-white border border-[#e6dace] rounded-xl h-14 px-3 font-black text-2xl outline-none focus:border-[#c69f6e] text-right"
-                                                    />
-                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#bba282] text-xs font-black">DT</span>
                                                 </div>
 
                                                 <div className="w-full md:w-40 relative">
