@@ -547,9 +547,10 @@ export default function FacturationPage() {
                                                         <div className="flex justify-between items-start mb-4">
                                                             <div>
                                                                 <h3 className="font-black text-xl text-[#4a3426] tracking-tight">{inv.supplier_name}</h3>
-                                                                <div className="flex items-center gap-2 text-[#8c8279] text-xs font-bold mt-1">
-                                                                    <Calendar size={12} />
-                                                                    {new Date(inv.date).toLocaleDateString('fr-FR')}
+                                                                <div className="flex items-center gap-2 text-[#8c8279] text-[10px] font-black uppercase tracking-widest mt-1">
+                                                                    <Calendar size={12} className="text-[#c69f6e]" />
+                                                                    <span>Reçu le:</span>
+                                                                    <span className="text-[#4a3426]">{new Date(inv.date).toLocaleDateString('fr-FR')}</span>
                                                                 </div>
                                                             </div>
                                                             <div className="text-right">
@@ -640,9 +641,10 @@ export default function FacturationPage() {
                                                         <div className="flex justify-between items-start mb-4">
                                                             <div>
                                                                 <h3 className="font-black text-xl text-[#4a3426] tracking-tight opacity-70">{inv.supplier_name}</h3>
-                                                                <div className="flex items-center gap-2 text-[#8c8279] text-xs font-bold mt-1">
-                                                                    <Calendar size={12} />
-                                                                    {new Date(inv.date).toLocaleDateString('fr-FR')}
+                                                                <div className="flex items-center gap-2 text-[#8c8279] text-[10px] font-black uppercase tracking-widest mt-1">
+                                                                    <Calendar size={12} className="text-[#c69f6e]" />
+                                                                    <span>Reçu le:</span>
+                                                                    <span className="text-[#4a3426]">{new Date(inv.date).toLocaleDateString('fr-FR')}</span>
                                                                 </div>
                                                             </div>
                                                             <div className="text-right">
@@ -651,10 +653,16 @@ export default function FacturationPage() {
                                                             </div>
                                                         </div>
 
-                                                        <div className="bg-[#f0faf5] border border-[#d1e7dd] rounded-xl p-3 mb-4">
-                                                            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-wider text-[#2d6a4f]">
-                                                                <span>{inv.payment_method}</span>
-                                                                <span>{new Date(inv.paid_date).toLocaleDateString('fr-FR')}</span>
+                                                        <div className="bg-[#f0faf5] border border-[#d1e7dd] rounded-2xl p-4 mb-4">
+                                                            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-[0.1em] text-[#2d6a4f]">
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="w-1.5 h-1.5 rounded-full bg-[#2d6a4f]"></div>
+                                                                    {inv.payment_method}
+                                                                </div>
+                                                                <div className="flex items-center gap-2 bg-white/50 px-3 py-1.5 rounded-lg border border-[#2d6a4f]/10">
+                                                                    <span className="opacity-50">Réglé le:</span>
+                                                                    <span>{new Date(inv.paid_date).toLocaleDateString('fr-FR')}</span>
+                                                                </div>
                                                             </div>
                                                         </div>
 
