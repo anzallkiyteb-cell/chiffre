@@ -7,7 +7,7 @@ import {
     Wallet, TrendingDown, TrendingUp, CreditCard, Banknote, Coins, Calculator, Receipt,
     ChevronLeft, ChevronRight, LayoutDashboard, PieChart as PieChartIcon, BarChart3, LineChart as LineChartIcon,
     Zap, Sparkles, ChevronDown, User, MessageSquare, FileText, Check, Share2, ExternalLink,
-    Eye, EyeOff
+    Eye, EyeOff, ZoomIn, ZoomOut, RotateCcw, Maximize2, Download
 } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -1445,58 +1445,86 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             <div className="flex items-center justify-between mb-6">
                                 <h3 className="text-xl font-bold text-[#4a3426] flex items-center gap-2"><Receipt size={24} className="text-[#c69f6e]" /> Reçus & Factures</h3>
                                 {viewingInvoicesTarget && (
-                                    <label className="flex items-center gap-2 px-4 py-2 bg-[#2d6a4f] text-white rounded-xl text-xs font-black uppercase tracking-widest cursor-pointer hover:bg-[#1b4332] transition-all shadow-lg shadow-green-200">
-                                        <Plus size={16} /> Ajouter Photo
-                                        <input
-                                            type="file"
-                                            multiple
-                                            className="hidden"
-                                            onChange={async (e) => {
-                                                const files = e.target.files;
-                                                if (!files) return;
-                                                const loaders = Array.from(files).map(file => {
-                                                    return new Promise<string>((resolve) => {
-                                                        const reader = new FileReader();
-                                                        reader.onloadend = () => resolve(reader.result as string);
-                                                        reader.readAsDataURL(file);
+                                    <>
+                                        <label className="flex items-center gap-2 px-4 py-2 bg-[#2d6a4f] text-white rounded-xl text-xs font-black uppercase tracking-widest cursor-pointer hover:bg-[#1b4332] transition-all shadow-lg shadow-green-200">
+                                            <Plus size={16} /> Ajouter Photo
+                                            <input
+                                                type="file"
+                                                multiple
+                                                className="hidden"
+                                                onChange={async (e) => {
+                                                    const files = e.target.files;
+                                                    if (!files) return;
+                                                    const loaders = Array.from(files).map(file => {
+                                                        return new Promise<string>((resolve) => {
+                                                            const reader = new FileReader();
+                                                            reader.onloadend = () => resolve(reader.result as string);
+                                                            reader.readAsDataURL(file);
+                                                        });
                                                     });
-                                                });
-                                                const base64s = await Promise.all(loaders);
+                                                    const base64s = await Promise.all(loaders);
 
-                                                if (viewingInvoicesTarget.type === 'journalier') {
-                                                    const newJournalier = [...expensesJournalier];
-                                                    const currentInvoices = newJournalier[viewingInvoicesTarget.index].invoices || [];
-                                                    newJournalier[viewingInvoicesTarget.index].invoices = [...currentInvoices, ...base64s];
-                                                    setExpensesJournalier(newJournalier);
-                                                    setViewingInvoices(newJournalier[viewingInvoicesTarget.index].invoices);
-                                                } else if (viewingInvoicesTarget.type === 'divers') {
-                                                    const newDivers = [...expensesDivers];
-                                                    const currentInvoices = newDivers[viewingInvoicesTarget.index].invoices || [];
-                                                    newDivers[viewingInvoicesTarget.index].invoices = [...currentInvoices, ...base64s];
-                                                    setExpensesDivers(newDivers);
-                                                    setViewingInvoices(newDivers[viewingInvoicesTarget.index].invoices);
-                                                } else {
-                                                    const newExpenses = [...expenses];
-                                                    const currentInvoices = newExpenses[viewingInvoicesTarget.index].invoices || [];
-                                                    newExpenses[viewingInvoicesTarget.index].invoices = [...currentInvoices, ...base64s];
-                                                    setExpenses(newExpenses);
-                                                    setViewingInvoices(newExpenses[viewingInvoicesTarget.index].invoices);
-                                                }
-                                            }}
-                                        />
-                                    </label>
+                                                    if (viewingInvoicesTarget.type === 'journalier') {
+                                                        const newJournalier = [...expensesJournalier];
+                                                        const currentInvoices = newJournalier[viewingInvoicesTarget.index].invoices || [];
+                                                        newJournalier[viewingInvoicesTarget.index].invoices = [...currentInvoices, ...base64s];
+                                                        setExpensesJournalier(newJournalier);
+                                                        setViewingInvoices(newJournalier[viewingInvoicesTarget.index].invoices);
+                                                    } else if (viewingInvoicesTarget.type === 'divers') {
+                                                        const newDivers = [...expensesDivers];
+                                                        const currentInvoices = newDivers[viewingInvoicesTarget.index].invoices || [];
+                                                        newDivers[viewingInvoicesTarget.index].invoices = [...currentInvoices, ...base64s];
+                                                        setExpensesDivers(newDivers);
+                                                        setViewingInvoices(newDivers[viewingInvoicesTarget.index].invoices);
+                                                    } else {
+                                                        const newExpenses = [...expenses];
+                                                        const currentInvoices = newExpenses[viewingInvoicesTarget.index].invoices || [];
+                                                        newExpenses[viewingInvoicesTarget.index].invoices = [...currentInvoices, ...base64s];
+                                                        setExpenses(newExpenses);
+                                                        setViewingInvoices(newExpenses[viewingInvoicesTarget.index].invoices);
+                                                    }
+                                                }}
+                                            />
+                                        </label>
+                                        <div className="flex bg-[#fcfafb] rounded-2xl p-1 gap-1 border border-gray-100 ml-4 shadow-sm">
+                                            <button onClick={() => setImgZoom(prev => Math.max(0.5, prev - 0.25))} className="w-8 h-8 hover:bg-gray-100 rounded-xl flex items-center justify-center transition-all text-[#4a3426]" title="Zoom Arrière"><ZoomOut size={16} /></button>
+                                            <button onClick={() => setImgZoom(prev => Math.min(3, prev + 0.25))} className="w-8 h-8 hover:bg-gray-100 rounded-xl flex items-center justify-center transition-all text-[#4a3426]" title="Zoom Avant"><ZoomIn size={16} /></button>
+                                            <button onClick={() => setImgRotation(prev => prev + 90)} className="w-8 h-8 hover:bg-gray-100 rounded-xl flex items-center justify-center transition-all text-[#4a3426]" title="Tourner"><RotateCcw size={16} /></button>
+                                            <button onClick={resetView} className="w-8 h-8 hover:bg-gray-100 rounded-xl flex items-center justify-center transition-all text-[#4a3426]" title="Réinitialiser"><Maximize2 size={16} /></button>
+                                        </div>
+                                    </>
                                 )}
                             </div>
                             {viewingInvoices.length > 0 ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     {viewingInvoices.map((img, idx) => (
-                                        <div key={idx} className="relative group rounded-xl overflow-hidden border border-gray-200 shadow-sm transition-all hover:shadow-md">
-                                            <img src={img} className="w-full h-auto object-contain bg-gray-50" />
-                                            <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div
+                                            key={idx}
+                                            className="relative group rounded-3xl overflow-hidden border border-white/10 bg-black shadow-2xl h-[50vh] cursor-zoom-in"
+                                            onWheel={(e) => {
+                                                if (e.deltaY < 0) setImgZoom(prev => Math.min(3, prev + 0.1));
+                                                else setImgZoom(prev => Math.max(0.5, prev - 0.1));
+                                            }}
+                                        >
+                                            <motion.div
+                                                className="w-full h-full flex items-center justify-center p-4"
+                                                animate={{ scale: imgZoom, rotate: imgRotation }}
+                                                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                                drag={imgZoom > 1}
+                                                dragConstraints={{ left: -1000, right: 1000, top: -1000, bottom: 1000 }}
+                                            >
+                                                <img
+                                                    src={img}
+                                                    className={`max-w-full max-h-full rounded-xl object-contain shadow-2xl ${imgZoom > 1 ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                                                    style={{ pointerEvents: imgZoom > 1 ? 'auto' : 'none' }}
+                                                />
+                                            </motion.div>
+                                            <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                                <a href={img} download target="_blank" className="p-2 bg-white/90 hover:bg-white text-[#4a3426] rounded-lg shadow-lg backdrop-blur-sm transition-all hover:scale-110"><Download size={16} /></a>
                                                 <button onClick={() => handleShareInvoice(img)} className="p-2 bg-white/90 hover:bg-white text-[#4a3426] rounded-lg shadow-lg backdrop-blur-sm transition-all hover:scale-110"><Share2 size={16} /></button>
                                                 <button onClick={() => handleDeleteInvoice(idx)} className="p-2 bg-white/90 hover:bg-white text-red-600 rounded-lg shadow-lg backdrop-blur-sm transition-all hover:scale-110"><Trash2 size={16} /></button>
                                             </div>
-                                            <div className="absolute bottom-2 left-2 bg-black/40 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-1 rounded-lg">REÇU {idx + 1}</div>
+                                            <div className="absolute bottom-4 left-4 bg-black/40 backdrop-blur-md text-[#c69f6e] text-[10px] font-black px-3 py-1.5 rounded-full border border-[#c69f6e]/20 uppercase tracking-widest">Reçu {idx + 1} • Zoom: {Math.round(imgZoom * 100)}%</div>
                                         </div>
                                     ))}
                                 </div>

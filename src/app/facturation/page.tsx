@@ -8,7 +8,8 @@ import {
     Loader2, Search, Calendar, Plus,
     CreditCard, Banknote, Coins, Receipt,
     Trash2, UploadCloud, CheckCircle2,
-    Clock, Filter, X, Eye, DollarSign
+    Clock, Filter, X, Eye, DollarSign,
+    ZoomIn, ZoomOut, RotateCcw, Download, Maximize2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -201,6 +202,17 @@ export default function FacturationPage() {
     const [showAddModal, setShowAddModal] = useState(false);
     const [showPayModal, setShowPayModal] = useState<any>(null);
     const [viewingData, setViewingData] = useState<any>(null);
+    const [imgZoom, setImgZoom] = useState(1);
+    const [imgRotation, setImgRotation] = useState(0);
+
+    const resetView = () => {
+        setImgZoom(1);
+        setImgRotation(0);
+    };
+
+    useEffect(() => {
+        if (!viewingData) resetView();
+    }, [viewingData]);
 
     const today = new Date();
     const ty = today.getFullYear();
@@ -951,19 +963,58 @@ export default function FacturationPage() {
                                     <h2 className="text-3xl font-black uppercase tracking-tight">{viewingData.supplier_name}</h2>
                                     <p className="text-sm font-bold opacity-60 uppercase tracking-[0.3em]">{viewingData.amount} DT • {viewingData.status === 'paid' ? viewingData.payment_method : 'En attente'}</p>
                                 </div>
-                                <button onClick={() => setViewingData(null)} className="w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-all"><X size={32} /></button>
+                                <div className="flex items-center gap-4">
+                                    <div className="flex bg-white/10 rounded-2xl p-1 gap-1 border border-white/10">
+                                        <button onClick={() => setImgZoom(prev => Math.max(0.5, prev - 0.25))} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all" title="Zoom Arrière"><ZoomOut size={20} /></button>
+                                        <div className="w-16 flex items-center justify-center font-black text-xs tabular-nums text-[#c69f6e]">{Math.round(imgZoom * 100)}%</div>
+                                        <button onClick={() => setImgZoom(prev => Math.min(3, prev + 0.25))} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all" title="Zoom Avant"><ZoomIn size={20} /></button>
+                                        <div className="w-px h-6 bg-white/10 self-center mx-1"></div>
+                                        <button onClick={() => setImgRotation(prev => prev + 90)} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all" title="Tourner"><RotateCcw size={20} /></button>
+                                        <button onClick={resetView} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all" title="Réinitialiser"><Maximize2 size={20} /></button>
+                                    </div>
+                                    <button onClick={() => setViewingData(null)} className="w-12 h-12 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-all"><X size={32} /></button>
+                                </div>
                             </div>
 
                             <div className={`grid grid-cols-1 ${viewingData.payment_method === 'Chèque' ? 'md:grid-cols-3' : 'md:grid-cols-1'} gap-8`}>
                                 {/* Photo Facture */}
                                 <div className="space-y-4">
-                                    <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] text-center italic">Document Principal / Facture</p>
+                                    <div className="flex justify-between items-center">
+                                        <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] italic">Document Principal / Facture</p>
+                                        {viewingData.photo_url && (
+                                            <a href={viewingData.photo_url} download target="_blank" className="flex items-center gap-2 text-[9px] font-black text-[#c69f6e] uppercase tracking-widest hover:text-white transition-colors bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">
+                                                <Download size={12} /> Télécharger
+                                            </a>
+                                        )}
+                                    </div>
                                     {viewingData.photo_url ? (
-                                        <div className="bg-white/5 p-4 rounded-[2rem] border border-white/10 shadow-2xl">
-                                            <img src={viewingData.photo_url} className="w-full h-auto rounded-xl object-contain" alt="Facture" />
+                                        <div
+                                            className="bg-black rounded-[2rem] border border-white/10 shadow-2xl overflow-hidden group h-[70vh] relative cursor-zoom-in"
+                                            onWheel={(e) => {
+                                                if (e.deltaY < 0) setImgZoom(prev => Math.min(3, prev + 0.1));
+                                                else setImgZoom(prev => Math.max(0.5, prev - 0.1));
+                                            }}
+                                        >
+                                            <motion.div
+                                                className="w-full h-full flex items-center justify-center p-4"
+                                                animate={{ scale: imgZoom, rotate: imgRotation }}
+                                                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                                drag={imgZoom > 1}
+                                                dragConstraints={{ left: -1000, right: 1000, top: -1000, bottom: 1000 }}
+                                            >
+                                                <img
+                                                    src={viewingData.photo_url}
+                                                    className={`max-w-full max-h-full rounded-xl object-contain shadow-2xl transition-all ${imgZoom > 1 ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                                                    alt="Facture"
+                                                    style={{ pointerEvents: imgZoom > 1 ? 'auto' : 'none' }}
+                                                />
+                                            </motion.div>
+                                            <div className="absolute top-6 left-6 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <span className="bg-black/60 backdrop-blur-md text-[10px] font-black text-[#c69f6e] px-4 py-2 rounded-full border border-[#c69f6e]/20 shadow-lg uppercase tracking-widest">Loupe: {Math.round(imgZoom * 100)}% • Molette pour zoomer</span>
+                                            </div>
                                         </div>
                                     ) : (
-                                        <div className="aspect-video bg-white/5 rounded-[2rem] border-2 border-dashed border-white/10 flex items-center justify-center text-white/20 italic font-bold">Sans Facture</div>
+                                        <div className="h-[70vh] bg-white/5 rounded-[2rem] border-2 border-dashed border-white/10 flex items-center justify-center text-white/20 italic font-bold uppercase tracking-widest">Sans Facture</div>
                                     )}
                                 </div>
 
@@ -971,23 +1022,75 @@ export default function FacturationPage() {
                                 {viewingData.payment_method === 'Chèque' && (
                                     <>
                                         <div className="space-y-4">
-                                            <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] text-center italic">Chèque Recto</p>
+                                            <div className="flex justify-between items-center">
+                                                <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] italic">Chèque Recto</p>
+                                                {viewingData.photo_cheque_url && (
+                                                    <a href={viewingData.photo_cheque_url} download target="_blank" className="flex items-center gap-2 text-[9px] font-black text-[#c69f6e] uppercase tracking-widest hover:text-white transition-colors bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">
+                                                        <Download size={12} />
+                                                    </a>
+                                                )}
+                                            </div>
                                             {viewingData.photo_cheque_url ? (
-                                                <div className="bg-white/5 p-4 rounded-[2rem] border border-white/10 shadow-2xl">
-                                                    <img src={viewingData.photo_cheque_url} className="w-full h-auto rounded-xl object-contain" alt="Chèque Recto" />
+                                                <div
+                                                    className="bg-black rounded-[2rem] border border-white/10 shadow-2xl overflow-hidden h-[70vh] relative cursor-zoom-in"
+                                                    onWheel={(e) => {
+                                                        if (e.deltaY < 0) setImgZoom(prev => Math.min(3, prev + 0.1));
+                                                        else setImgZoom(prev => Math.max(0.5, prev - 0.1));
+                                                    }}
+                                                >
+                                                    <motion.div
+                                                        className="w-full h-full flex items-center justify-center p-4"
+                                                        animate={{ scale: imgZoom, rotate: imgRotation }}
+                                                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                                        drag={imgZoom > 1}
+                                                        dragConstraints={{ left: -1000, right: 1000, top: -1000, bottom: 1000 }}
+                                                    >
+                                                        <img
+                                                            src={viewingData.photo_cheque_url}
+                                                            className={`max-w-full max-h-full rounded-xl object-contain shadow-2xl transition-all ${imgZoom > 1 ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                                                            alt="Chèque Recto"
+                                                            style={{ pointerEvents: imgZoom > 1 ? 'auto' : 'none' }}
+                                                        />
+                                                    </motion.div>
                                                 </div>
                                             ) : (
-                                                <div className="aspect-video bg-white/5 rounded-[2rem] border-2 border-dashed border-white/10 flex items-center justify-center text-white/20 italic font-bold">Sans Recto</div>
+                                                <div className="h-[70vh] bg-white/5 rounded-[2rem] border-2 border-dashed border-white/10 flex items-center justify-center text-white/20 italic font-bold">Sans Recto</div>
                                             )}
                                         </div>
                                         <div className="space-y-4">
-                                            <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] text-center italic">Chèque Verso</p>
+                                            <div className="flex justify-between items-center">
+                                                <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] italic">Chèque Verso</p>
+                                                {viewingData.photo_verso_url && (
+                                                    <a href={viewingData.photo_verso_url} download target="_blank" className="flex items-center gap-2 text-[9px] font-black text-[#c69f6e] uppercase tracking-widest hover:text-white transition-colors bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">
+                                                        <Download size={12} />
+                                                    </a>
+                                                )}
+                                            </div>
                                             {viewingData.photo_verso_url ? (
-                                                <div className="bg-white/5 p-4 rounded-[2rem] border border-white/10 shadow-2xl">
-                                                    <img src={viewingData.photo_verso_url} className="w-full h-auto rounded-xl object-contain" alt="Chèque Verso" />
+                                                <div
+                                                    className="bg-black rounded-[2rem] border border-white/10 shadow-2xl overflow-hidden h-[70vh] relative cursor-zoom-in"
+                                                    onWheel={(e) => {
+                                                        if (e.deltaY < 0) setImgZoom(prev => Math.min(3, prev + 0.1));
+                                                        else setImgZoom(prev => Math.max(0.5, prev - 0.1));
+                                                    }}
+                                                >
+                                                    <motion.div
+                                                        className="w-full h-full flex items-center justify-center p-4"
+                                                        animate={{ scale: imgZoom, rotate: imgRotation }}
+                                                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                                        drag={imgZoom > 1}
+                                                        dragConstraints={{ left: -1000, right: 1000, top: -1000, bottom: 1000 }}
+                                                    >
+                                                        <img
+                                                            src={viewingData.photo_verso_url}
+                                                            className={`max-w-full max-h-full rounded-xl object-contain shadow-2xl transition-all ${imgZoom > 1 ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                                                            alt="Chèque Verso"
+                                                            style={{ pointerEvents: imgZoom > 1 ? 'auto' : 'none' }}
+                                                        />
+                                                    </motion.div>
                                                 </div>
                                             ) : (
-                                                <div className="aspect-video bg-white/5 rounded-[2rem] border-2 border-dashed border-white/10 flex items-center justify-center text-white/20 italic font-bold">Sans Verso</div>
+                                                <div className="h-[70vh] bg-white/5 rounded-[2rem] border-2 border-dashed border-white/10 flex items-center justify-center text-white/20 italic font-bold">Sans Verso</div>
                                             )}
                                         </div>
                                     </>
