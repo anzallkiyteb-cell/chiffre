@@ -195,6 +195,10 @@ export const resolvers = {
             const res = await query('SELECT * FROM suppliers ORDER BY name ASC');
             return res.rows;
         },
+        getDesignations: async () => {
+            const res = await query('SELECT * FROM designations ORDER BY name ASC');
+            return res.rows;
+        },
         getMonthlySalaries: async (_: any, { startDate, endDate }: { startDate: string, endDate: string }) => {
             const start = new Date(startDate);
             const end = new Date(endDate);
@@ -445,8 +449,28 @@ export const resolvers = {
             const res = await query('INSERT INTO suppliers (name) VALUES ($1) RETURNING *', [normalized]);
             return res.rows[0];
         },
+        updateSupplier: async (_: any, { id, name }: { id: number, name: string }) => {
+            const res = await query('UPDATE suppliers SET name = $1 WHERE id = $2 RETURNING *', [name.trim(), id]);
+            return res.rows[0];
+        },
         deleteSupplier: async (_: any, { id }: { id: number }) => {
             await query('DELETE FROM suppliers WHERE id = $1', [id]);
+            return true;
+        },
+        upsertDesignation: async (_: any, { name }: { name: string }) => {
+            const normalized = name.trim();
+            const existing = await query('SELECT * FROM designations WHERE LOWER(name) = LOWER($1)', [normalized]);
+            if (existing.rows.length > 0) return existing.rows[0];
+
+            const res = await query('INSERT INTO designations (name) VALUES ($1) RETURNING *', [normalized]);
+            return res.rows[0];
+        },
+        updateDesignation: async (_: any, { id, name }: { id: number, name: string }) => {
+            const res = await query('UPDATE designations SET name = $1 WHERE id = $2 RETURNING *', [name.trim(), id]);
+            return res.rows[0];
+        },
+        deleteDesignation: async (_: any, { id }: { id: number }) => {
+            await query('DELETE FROM designations WHERE id = $1', [id]);
             return true;
         },
         addBankDeposit: async (_: any, { amount, date }: { amount: string, date: string }) => {

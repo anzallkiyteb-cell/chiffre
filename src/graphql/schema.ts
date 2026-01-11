@@ -39,6 +39,11 @@ export const typeDefs = `#graphql
     name: String
   }
 
+  type Designation {
+    id: Int
+    name: String
+  }
+
   type SalaryHistory {
     month: String
     total: Float
@@ -81,6 +86,7 @@ export const typeDefs = `#graphql
     getChiffreByDate(date: String!): Chiffre
     getChiffresByRange(startDate: String!, endDate: String!): [Chiffre]
     getSuppliers: [Supplier]
+    getDesignations: [Designation]
     getMonthlySalaries(startDate: String!, endDate: String!): [SalaryHistory]
     getPaidUsers(month: String, startDate: String, endDate: String): [PaidUser]
     getInvoices(supplierName: String, startDate: String, endDate: String, month: String): [Invoice]
@@ -107,7 +113,12 @@ export const typeDefs = `#graphql
     ): Chiffre
     
     upsertSupplier(name: String!): Supplier
+    updateSupplier(id: Int!, name: String!): Supplier
     deleteSupplier(id: Int!): Boolean
+
+    upsertDesignation(name: String!): Designation
+    updateDesignation(id: Int!, name: String!): Designation
+    deleteDesignation(id: Int!): Boolean
 
     addInvoice(
       supplier_name: String!

@@ -78,13 +78,22 @@ const initDb = async () => {
     `);
 
     await query(`
-      CREATE TABLE IF NOT EXISTS public.bank_deposits (
+      CREATE TABLE IF NOT EXISTS public.designations (
         id serial NOT NULL,
-        amount character varying(255) NOT NULL,
-        date character varying(255) NOT NULL,
-        CONSTRAINT bank_deposits_pkey PRIMARY KEY (id)
+        name character varying(255) NOT NULL,
+        CONSTRAINT designations_pkey PRIMARY KEY (id),
+        CONSTRAINT designations_name_key UNIQUE (name)
       );
     `);
+
+    // Seed default designations if empty
+    const ds = await query('SELECT count(*) FROM public.designations');
+    if (parseInt(ds.rows[0].count) === 0) {
+      const defaults = ["Fruits", "khodhra", "Entretien", "Outils", "Transport", "Petit déjeuner", "Divers"];
+      for (const d of defaults) {
+        await query('INSERT INTO public.designations (name) VALUES ($1)', [d]);
+      }
+    }
 
     console.log('Database tables initialized');
   } catch (err) {

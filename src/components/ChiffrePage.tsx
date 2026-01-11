@@ -47,6 +47,24 @@ const GET_SUPPLIERS = gql`
     }
 `;
 
+const GET_DESIGNATIONS = gql`
+    query GetDesignations {
+        getDesignations {
+            id
+            name
+        }
+    }
+`;
+
+const UPSERT_DESIGNATION = gql`
+    mutation UpsertDesignation($name: String!) {
+        upsertDesignation(name: $name) {
+            id
+            name
+        }
+    }
+`;
+
 const SAVE_CHIFFRE = gql`
   mutation SaveChiffre(
     $date: String!
@@ -116,8 +134,10 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         skip: !date
     });
     const { data: suppliersData, refetch: refetchSuppliers } = useQuery(GET_SUPPLIERS);
+    const { data: designationsData, refetch: refetchDesignations } = useQuery(GET_DESIGNATIONS);
     const [saveChiffre, { loading: saving }] = useMutation(SAVE_CHIFFRE);
     const [upsertSupplier] = useMutation(UPSERT_SUPPLIER);
+    const [upsertDesignation] = useMutation(UPSERT_DESIGNATION);
 
     // Dashboard States
     const [recetteCaisse, setRecetteCaisse] = useState('0');
@@ -195,7 +215,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     const [tempDetails, setTempDetails] = useState('');
     const [lastFocusedValue, setLastFocusedValue] = useState('');
 
-    const commonDesignations = ["Fruits", "khodhra", "Entretien", "Outils", "Transport", "Petit déjeuner", "Divers"];
+    const commonDesignations = designationsData?.getDesignations?.map((d: any) => d.name) || ["Fruits", "khodhra", "Entretien", "Outils", "Transport", "Petit déjeuner", "Divers"];
 
     // Helper to get raw state data
     const getCurrentState = () => ({
@@ -653,8 +673,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                     {showJournalierDropdown === index && (
                                                         <div className="absolute top-full left-0 w-full bg-white shadow-xl rounded-xl z-50 mt-1 max-h-48 overflow-y-auto border border-[#e6dace]">
                                                             {commonDesignations
-                                                                .filter(d => d.toLowerCase().includes(designationSearch.toLowerCase()))
-                                                                .map((d) => (
+                                                                .filter((d: string) => d.toLowerCase().includes(designationSearch.toLowerCase()))
+                                                                .map((d: string) => (
                                                                     <div
                                                                         key={d}
                                                                         className="p-3 hover:bg-[#f9f6f2] cursor-pointer font-medium text-[#4a3426] text-sm"
@@ -987,8 +1007,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                     {showDiversDropdown === index && (
                                                         <div className="absolute top-full left-0 w-full bg-white shadow-xl rounded-xl z-50 mt-1 max-h-48 overflow-y-auto border border-[#e6dace]">
                                                             {commonDesignations
-                                                                .filter(d => d.toLowerCase().includes(designationSearch.toLowerCase()))
-                                                                .map((d) => (
+                                                                .filter((d: string) => d.toLowerCase().includes(designationSearch.toLowerCase()))
+                                                                .map((d: string) => (
                                                                     <div
                                                                         key={d}
                                                                         className="p-3 hover:bg-[#f9f6f2] cursor-pointer font-medium text-[#4a3426] text-sm"
@@ -1533,16 +1553,25 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                             Annuler
                                         </button>
                                         <button
-                                            onClick={() => {
+                                            onClick={async () => {
                                                 if (designationSearch.trim()) {
-                                                    if (showJournalierModal) {
-                                                        handleAddJournalier(designationSearch);
-                                                        setShowJournalierModal(false);
-                                                    } else {
-                                                        handleAddDivers(designationSearch);
-                                                        setShowDiversModal(false);
+                                                    try {
+                                                        await upsertDesignation({ variables: { name: designationSearch.trim() } });
+                                                        refetchDesignations();
+                                                        if (showJournalierModal) {
+                                                            handleAddJournalier(designationSearch.trim());
+                                                            setShowJournalierModal(false);
+                                                        } else {
+                                                            handleAddDivers(designationSearch.trim());
+                                                            setShowDiversModal(false);
+                                                        }
+                                                        setDesignationSearch('');
+                                                        setToast({ msg: 'Désignation ajoutée', type: 'success' });
+                                                        setTimeout(() => setToast(null), 3000);
+                                                    } catch (e) {
+                                                        setToast({ msg: 'Erreur lors de l’ajout', type: 'error' });
+                                                        setTimeout(() => setToast(null), 3000);
                                                     }
-                                                    setDesignationSearch('');
                                                 }
                                             }}
                                             disabled={!designationSearch.trim()}

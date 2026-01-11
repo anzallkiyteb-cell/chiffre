@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import {
     Truck, Plus, Trash2, Search, Loader2, Building2, AlertCircle,
-    CheckCircle2, X, ChevronRight, LayoutDashboard
+    CheckCircle2, X, ChevronRight, LayoutDashboard, Edit2, Bookmark
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -19,6 +19,15 @@ const GET_SUPPLIERS = gql`
   }
 `;
 
+const GET_DESIGNATIONS = gql`
+    query GetDesignations {
+        getDesignations {
+            id
+            name
+        }
+    }
+`;
+
 const UPSERT_SUPPLIER = gql`
   mutation UpsertSupplier($name: String!) {
     upsertSupplier(name: $name) {
@@ -28,10 +37,43 @@ const UPSERT_SUPPLIER = gql`
   }
 `;
 
+const UPDATE_SUPPLIER = gql`
+    mutation UpdateSupplier($id: Int!, $name: String!) {
+        updateSupplier(id: $id, name: $name) {
+            id
+            name
+        }
+    }
+`;
+
 const DELETE_SUPPLIER = gql`
   mutation DeleteSupplier($id: Int!) {
     deleteSupplier(id: $id)
   }
+`;
+
+const UPSERT_DESIGNATION = gql`
+    mutation UpsertDesignation($name: String!) {
+        upsertDesignation(name: $name) {
+            id
+            name
+        }
+    }
+`;
+
+const UPDATE_DESIGNATION = gql`
+    mutation UpdateDesignation($id: Int!, $name: String!) {
+        updateDesignation(id: $id, name: $name) {
+            id
+            name
+        }
+    }
+`;
+
+const DELETE_DESIGNATION = gql`
+    mutation DeleteDesignation($id: Int!) {
+        deleteDesignation(id: $id)
+    }
 `;
 
 export default function FournisseursPage() {
@@ -39,11 +81,16 @@ export default function FournisseursPage() {
     const [user, setUser] = useState<{ role: 'admin' | 'caissier', full_name: string } | null>(null);
     const [initializing, setInitializing] = useState(true);
 
+    // Navigation state
+    const [activeTab, setActiveTab] = useState<'suppliers' | 'designations'>('suppliers');
+
     // UI States
     const [searchTerm, setSearchTerm] = useState('');
-    const [newSupplierName, setNewSupplierName] = useState('');
+    const [newItemName, setNewItemName] = useState('');
     const [toast, setToast] = useState<{ msg: string, type: 'success' | 'error' } | null>(null);
     const [isAdding, setIsAdding] = useState(false);
+    const [editingItem, setEditingItem] = useState<{ id: number, name: string, type: 'supplier' | 'designation' } | null>(null);
+    const [editName, setEditName] = useState('');
 
     useEffect(() => {
         const savedUser = localStorage.getItem('bb_user');
@@ -55,13 +102,21 @@ export default function FournisseursPage() {
         setInitializing(false);
     }, [router]);
 
-    const { data, loading, refetch } = useQuery(GET_SUPPLIERS);
-    const [upsertSupplier, { loading: adding }] = useMutation(UPSERT_SUPPLIER);
-    const [deleteSupplier, { loading: deleting }] = useMutation(DELETE_SUPPLIER);
+    // Data handling
+    const { data: suppliersData, loading: loadingSuppliers, refetch: refetchSuppliers } = useQuery(GET_SUPPLIERS);
+    const { data: designationsData, loading: loadingDesignations, refetch: refetchDesignations } = useQuery(GET_DESIGNATIONS);
 
-    const suppliers = data?.getSuppliers || [];
-    const filteredSuppliers = suppliers.filter((s: any) =>
-        s.name.toLowerCase().includes(searchTerm.toLowerCase())
+    const [upsertSupplier, { loading: addingSupplier }] = useMutation(UPSERT_SUPPLIER);
+    const [updateSupplier, { loading: updatingSupplier }] = useMutation(UPDATE_SUPPLIER);
+    const [deleteSupplier] = useMutation(DELETE_SUPPLIER);
+
+    const [upsertDesignation, { loading: addingDesignation }] = useMutation(UPSERT_DESIGNATION);
+    const [updateDesignation, { loading: updatingDesignation }] = useMutation(UPDATE_DESIGNATION);
+    const [deleteDesignation] = useMutation(DELETE_DESIGNATION);
+
+    const items = activeTab === 'suppliers' ? (suppliersData?.getSuppliers || []) : (designationsData?.getDesignations || []);
+    const filteredItems = items.filter((item: any) =>
+        item.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     const showToast = (msg: string, type: 'success' | 'error') => {
@@ -69,40 +124,69 @@ export default function FournisseursPage() {
         setTimeout(() => setToast(null), 3000);
     };
 
-    const handleAddSupplier = async (e: React.FormEvent) => {
+    const handleAddItem = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newSupplierName.trim()) return;
+        if (!newItemName.trim()) return;
 
-        // Check for local duplicate first for faster UX
-        const isDuplicate = suppliers.some(
-            (s: any) => s.name.toLowerCase() === newSupplierName.trim().toLowerCase()
+        // Check for local duplicate
+        const isDuplicate = items.some(
+            (item: any) => item.name.toLowerCase() === newItemName.trim().toLowerCase()
         );
 
         if (isDuplicate) {
-            showToast('Ce fournisseur existe déjà', 'error');
+            showToast('Cet élément existe déjà', 'error');
             return;
         }
 
         try {
-            await upsertSupplier({
-                variables: { name: newSupplierName.trim() }
-            });
-            showToast('Fournisseur ajouté avec succès', 'success');
-            setNewSupplierName('');
+            if (activeTab === 'suppliers') {
+                await upsertSupplier({ variables: { name: newItemName.trim() } });
+                refetchSuppliers();
+            } else {
+                await upsertDesignation({ variables: { name: newItemName.trim() } });
+                refetchDesignations();
+            }
+            showToast('Ajouté avec succès', 'success');
+            setNewItemName('');
             setIsAdding(false);
-            refetch();
         } catch (err) {
             showToast("Erreur lors de l'ajout", 'error');
         }
     };
 
-    const handleDelete = async (id: number, name: string) => {
-        if (!confirm(`Voulez-vous vraiment supprimer le fournisseur "${name}" ?`)) return;
+    const handleUpdateItem = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingItem || !editName.trim()) return;
 
         try {
-            await deleteSupplier({ variables: { id } });
-            showToast('Fournisseur supprimé', 'success');
-            refetch();
+            if (editingItem.type === 'supplier') {
+                await updateSupplier({ variables: { id: editingItem.id, name: editName.trim() } });
+                refetchSuppliers();
+            } else {
+                await updateDesignation({ variables: { id: editingItem.id, name: editName.trim() } });
+                refetchDesignations();
+            }
+            showToast('Modifié avec succès', 'success');
+            setEditingItem(null);
+            setEditName('');
+        } catch (err) {
+            showToast("Erreur lors de la modification", 'error');
+        }
+    };
+
+    const handleDelete = async (id: number, name: string) => {
+        const typeLabel = activeTab === 'suppliers' ? 'fournisseur' : 'désignation';
+        if (!confirm(`Voulez-vous vraiment supprimer ce ${typeLabel} "${name}" ?`)) return;
+
+        try {
+            if (activeTab === 'suppliers') {
+                await deleteSupplier({ variables: { id } });
+                refetchSuppliers();
+            } else {
+                await deleteDesignation({ variables: { id } });
+                refetchDesignations();
+            }
+            showToast('Supprimé avec succès', 'success');
         } catch (err) {
             showToast('Erreur lors de la suppression', 'error');
         }
@@ -114,114 +198,153 @@ export default function FournisseursPage() {
         </div>
     );
 
+    const isLoading = activeTab === 'suppliers' ? loadingSuppliers : loadingDesignations;
+
     return (
-        <div className="min-h-screen bg-[#f8f5f2] text-[#2d241e] font-sans flex">
+        <div className="min-h-screen bg-[#f8f5f2] text-[#2d241e] font-sans flex text-sm md:text-base">
             <Sidebar role={user.role} />
 
             <div className="flex-1 min-w-0 pb-24 lg:pb-0">
                 {/* Header */}
                 <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-[#e6dace] py-4 md:py-6 px-4 md:px-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    <div>
-                        <div className="flex items-center gap-2 mb-1">
-                            <Truck className="text-[#c69f6e]" size={20} />
-                            <h1 className="text-xl md:text-2xl font-black text-[#4a3426] tracking-tight">Fournisseurs</h1>
+                    <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-1">
+                            <div className="bg-[#4a3426] p-2 rounded-xl text-white">
+                                {activeTab === 'suppliers' ? <Truck size={18} /> : <Bookmark size={18} />}
+                            </div>
+                            <div>
+                                <h1 className="text-xl md:text-2xl font-black text-[#4a3426] tracking-tight">
+                                    {activeTab === 'suppliers' ? 'Partenaires' : 'Catégories'}
+                                </h1>
+                                <p className="text-[10px] text-[#8c8279] font-bold uppercase tracking-widest leading-none">
+                                    {activeTab === 'suppliers' ? 'Fournisseurs & Prestataires' : 'Désignations Dépenses'}
+                                </p>
+                            </div>
                         </div>
-                        <p className="text-xs text-[#8c8279] font-bold uppercase tracking-widest">Base de données partenaires & prestataires</p>
                     </div>
 
-                    <div className="flex items-center gap-4 w-full md:w-auto">
+                    <div className="flex items-center gap-3 w-full md:w-auto">
                         <div className="relative flex-1 md:w-64">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#bba282]" size={18} />
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#bba282]" size={16} />
                             <input
                                 type="text"
                                 placeholder="Rechercher..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full bg-[#f4ece4] border border-transparent focus:border-[#c69f6e]/30 focus:bg-white rounded-2xl h-12 pl-12 pr-4 outline-none font-medium transition-all"
+                                className="w-full bg-[#f4ece4] border border-transparent focus:border-[#c69f6e]/30 focus:bg-white rounded-2xl h-11 pl-10 pr-4 outline-none font-medium transition-all"
                             />
                         </div>
                         <button
                             onClick={() => setIsAdding(true)}
-                            className="bg-[#4a3426] text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-[#2d241e] shadow-lg shadow-[#4a3426]/10 transition-all whitespace-nowrap"
+                            className="bg-[#4a3426] text-white px-5 h-11 rounded-2xl font-bold flex items-center gap-2 hover:bg-[#2d241e] shadow-lg shadow-[#4a3426]/10 transition-all whitespace-nowrap"
                         >
-                            <Plus size={20} /> <span className="hidden sm:inline">Nouveau</span>
+                            <Plus size={18} /> <span className="hidden sm:inline">Ajouter</span>
                         </button>
                     </div>
                 </header>
 
-                <main className="max-w-5xl mx-auto px-8 mt-12">
+                <main className="max-w-5xl mx-auto px-4 md:px-8 mt-6 md:mt-10">
+                    {/* Tabs Navigation */}
+                    <div className="flex gap-2 mb-8 bg-white/50 p-1.5 rounded-2xl border border-[#e6dace]/50 w-max">
+                        <button
+                            onClick={() => { setActiveTab('suppliers'); setSearchTerm(''); }}
+                            className={`px-6 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${activeTab === 'suppliers' ? 'bg-white text-[#4a3426] shadow-sm ring-1 ring-[#e6dace]' : 'text-[#8c8279] hover:text-[#4a3426]'}`}
+                        >
+                            Fournisseurs
+                        </button>
+                        <button
+                            onClick={() => { setActiveTab('designations'); setSearchTerm(''); }}
+                            className={`px-6 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${activeTab === 'designations' ? 'bg-white text-[#4a3426] shadow-sm ring-1 ring-[#e6dace]' : 'text-[#8c8279] hover:text-[#4a3426]'}`}
+                        >
+                            Désignations
+                        </button>
+                    </div>
+
                     {/* Stats Summary */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12">
-                        <div className="bg-white p-6 rounded-3xl luxury-shadow border border-[#e6dace]/50">
-                            <p className="text-[#8c8279] text-[10px] font-bold uppercase tracking-widest mb-1">Total Partenaires</p>
-                            <h3 className="text-3xl font-black text-[#4a3426]">{suppliers.length}</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                        <div className="bg-white p-5 rounded-3xl luxury-shadow border border-[#e6dace]/50">
+                            <p className="text-[#8c8279] text-[9px] font-bold uppercase tracking-widest mb-1 opacity-60">Total {activeTab === 'suppliers' ? 'Partner' : 'Cat'}</p>
+                            <h3 className="text-2xl font-black text-[#4a3426]">{items.length}</h3>
                         </div>
-                        <div className="bg-white p-6 rounded-3xl luxury-shadow border border-[#e6dace]/50">
-                            <p className="text-[#8c8279] text-[10px] font-bold uppercase tracking-widest mb-1">Actifs ce mois</p>
-                            <h3 className="text-3xl font-black text-[#c69f6e]">{Math.floor(suppliers.length * 0.8)}</h3>
+                        <div className="bg-white p-5 rounded-3xl luxury-shadow border border-[#e6dace]/50 hidden md:block">
+                            <p className="text-[#8c8279] text-[9px] font-bold uppercase tracking-widest mb-1 opacity-60">Filtré</p>
+                            <h3 className="text-2xl font-black text-[#c69f6e]">{filteredItems.length}</h3>
                         </div>
-                        <div className="bg-[#f0faf5] p-6 rounded-3xl luxury-shadow border border-[#d1fae5]">
-                            <p className="text-[#2d6a4f] text-[10px] font-bold uppercase tracking-widest mb-1">Status Système</p>
-                            <div className="flex items-center gap-2 text-green-700 font-bold">
-                                <CheckCircle2 size={18} />
-                                <span>Optimisé</span>
+                        <div className="bg-[#f0faf5] p-5 rounded-3xl border border-[#d1fae5] col-span-2">
+                            <p className="text-[#2d6a4f] text-[9px] font-bold uppercase tracking-widest mb-1 opacity-60">Status Système</p>
+                            <div className="flex items-center gap-2 text-green-700 font-bold text-sm">
+                                <CheckCircle2 size={16} />
+                                <span>Synchronisation Cloud Active</span>
                             </div>
                         </div>
                     </div>
 
-                    {/* Suppliers List */}
-                    <div className="bg-white rounded-[2.5rem] luxury-shadow border border-[#e6dace]/50 overflow-hidden">
-                        <div className="p-8 border-b border-[#e6dace] bg-[#fcfaf8] flex justify-between items-center">
-                            <h3 className="text-lg font-bold text-[#4a3426]">Liste des Fournisseurs</h3>
-                            <span className="text-xs font-bold text-[#8c8279]">{filteredSuppliers.length} résultats</span>
+                    {/* List */}
+                    <div className="bg-white rounded-[2.5rem] luxury-shadow border border-[#e6dace]/50 overflow-hidden mb-20">
+                        <div className="px-8 py-5 border-b border-[#e6dace] bg-[#fcfaf8] flex justify-between items-center">
+                            <h3 className="text-sm font-bold text-[#4a3426] uppercase tracking-wider">
+                                {activeTab === 'suppliers' ? 'Base de données Fournisseurs' : 'Liste des Désignations'}
+                            </h3>
+                            <span className="text-[10px] font-bold text-[#8c8279]">{filteredItems.length} Entrées</span>
                         </div>
 
-                        {loading && suppliers.length === 0 ? (
-                            <div className="py-20 flex flex-col items-center justify-center text-[#8c8279] gap-4">
-                                <Loader2 className="animate-spin text-[#c69f6e]" size={40} />
-                                <p className="font-bold">Chargement de la base...</p>
+                        {isLoading && items.length === 0 ? (
+                            <div className="py-24 flex flex-col items-center justify-center text-[#8c8279] gap-4">
+                                <Loader2 className="animate-spin text-[#c69f6e]" size={30} />
+                                <p className="font-bold text-xs uppercase tracking-widest">Initialisation...</p>
                             </div>
-                        ) : filteredSuppliers.length === 0 ? (
-                            <div className="py-20 flex flex-col items-center justify-center text-[#8c8279] gap-4">
-                                <div className="bg-[#f4ece4] p-6 rounded-full">
-                                    <Building2 size={48} className="opacity-20" />
+                        ) : filteredItems.length === 0 ? (
+                            <div className="py-24 flex flex-col items-center justify-center text-[#8c8279] gap-4">
+                                <div className="bg-[#f4ece4] p-6 rounded-3xl">
+                                    <Search size={40} className="opacity-20" />
                                 </div>
                                 <div className="text-center">
-                                    <p className="font-bold text-lg">Aucun fournisseur trouvé</p>
-                                    <p className="text-sm opacity-60">Essayez une autre recherche ou créez-en un nouveau.</p>
+                                    <p className="font-bold">Aucun résultat</p>
+                                    <p className="text-xs opacity-60">Ajustez votre recherche ou ajoutez un nouvel élément.</p>
                                 </div>
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 divide-y divide-[#f4ece4]">
-                                {filteredSuppliers.map((s: any, idx: number) => (
+                                {filteredItems.map((item: any) => (
                                     <motion.div
                                         initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                                        key={s.id}
-                                        className="group flex items-center justify-between p-6 hover:bg-[#fcfaf8] transition-all"
+                                        key={item.id}
+                                        className="group flex items-center justify-between p-5 md:p-6 hover:bg-[#fcfaf8] transition-all"
                                     >
                                         <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 bg-[#f4ece4] rounded-2xl flex items-center justify-center text-[#c69f6e] font-black group-hover:bg-[#4a3426] group-hover:text-white transition-all">
-                                                {s.name.charAt(0).toUpperCase()}
+                                            <div className="w-10 h-10 md:w-12 md:h-12 bg-[#f4ece4] rounded-2xl flex items-center justify-center text-[#c69f6e] font-black group-hover:bg-[#4a3426] group-hover:text-white transition-all text-lg md:text-xl">
+                                                {item.name.charAt(0).toUpperCase()}
                                             </div>
                                             <div>
-                                                <h4 className="font-bold text-[#4a3426] text-lg group-hover:text-[#c69f6e] transition-colors">{s.name}</h4>
-                                                <div className="flex items-center gap-3 mt-1">
-                                                    <span className="text-[10px] font-bold text-[#8c8279] uppercase tracking-tighter bg-gray-100 px-2 py-0.5 rounded">ID: #{s.id}</span>
-                                                    <span className="text-[10px] font-bold text-green-600 uppercase tracking-tighter bg-green-50 px-2 py-0.5 rounded">Vérifié</span>
-                                                </div>
+                                                <h4 className="font-bold text-[#4a3426] text-base md:text-lg group-hover:text-[#c69f6e] transition-colors">{item.name}</h4>
+                                                <span className="text-[9px] font-black text-[#8c8279] uppercase tracking-tighter bg-gray-100 px-2 py-0.5 rounded">UUID: {item.id}</span>
                                             </div>
                                         </div>
 
-                                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                                        <div className="flex items-center gap-1 md:gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                                            {activeTab === 'suppliers' && (
+                                                <button
+                                                    onClick={() => router.push(`/facturation?supplier=${encodeURIComponent(item.name)}`)}
+                                                    className="p-2.5 text-[#8c8279] hover:text-[#4a3426] hover:bg-white rounded-xl transition-all border border-transparent hover:border-[#e6dace]"
+                                                    title="Voir facturation"
+                                                >
+                                                    <LayoutDashboard size={18} />
+                                                </button>
+                                            )}
                                             <button
-                                                onClick={() => router.push(`/facturation?supplier=${encodeURIComponent(s.name)}`)}
-                                                className="p-3 text-[#8c8279] hover:text-[#4a3426] hover:bg-white rounded-xl transition-all border border-transparent hover:border-[#e6dace]"
+                                                onClick={() => {
+                                                    setEditingItem({ id: item.id, name: item.name, type: activeTab === 'suppliers' ? 'supplier' : 'designation' });
+                                                    setEditName(item.name);
+                                                }}
+                                                className="p-2.5 text-[#8c8279] hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all border border-transparent"
+                                                title="Modifier"
                                             >
-                                                <LayoutDashboard size={18} />
+                                                <Edit2 size={18} />
                                             </button>
                                             <button
-                                                onClick={() => handleDelete(s.id, s.name)}
-                                                className="p-3 text-red-300 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all border border-transparent hover:border-red-100"
+                                                onClick={() => handleDelete(item.id, item.name)}
+                                                className="p-2.5 text-red-300 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all border border-transparent"
+                                                title="Supprimer"
                                             >
                                                 <Trash2 size={18} />
                                             </button>
@@ -251,22 +374,30 @@ export default function FournisseursPage() {
                             onClick={e => e.stopPropagation()}
                         >
                             <div className="p-8 border-b border-[#f4ece4] flex justify-between items-center">
-                                <h3 className="text-xl font-bold text-[#4a3426]">Ajouter un Fournisseur</h3>
+                                <h3 className="text-xl font-bold text-[#4a3426]">
+                                    Ajouter {activeTab === 'suppliers' ? 'un Fournisseur' : 'une Désignation'}
+                                </h3>
                                 <button onClick={() => setIsAdding(false)} className="p-2 hover:bg-[#f4ece4] rounded-full transition-colors">
                                     <X size={20} />
                                 </button>
                             </div>
-                            <form onSubmit={handleAddSupplier} className="p-8 space-y-6">
+                            <form onSubmit={handleAddItem} className="p-8 space-y-6">
                                 <div className="space-y-2">
-                                    <label className="text-xs font-black text-[#8c8279] uppercase tracking-widest ml-1">Nom du Fournisseur</label>
+                                    <label className="text-xs font-black text-[#8c8279] uppercase tracking-widest ml-1">
+                                        Nom {activeTab === 'suppliers' ? 'du Fournisseur' : 'de la Désignation'}
+                                    </label>
                                     <div className="relative">
-                                        <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 text-[#c69f6e]" size={20} />
+                                        {activeTab === 'suppliers' ? (
+                                            <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 text-[#c69f6e]" size={20} />
+                                        ) : (
+                                            <Bookmark className="absolute left-4 top-1/2 -translate-y-1/2 text-[#c69f6e]" size={20} />
+                                        )}
                                         <input
                                             autoFocus
                                             type="text"
-                                            placeholder="Ex: Steg, Coca Cola..."
-                                            value={newSupplierName}
-                                            onChange={(e) => setNewSupplierName(e.target.value)}
+                                            placeholder={activeTab === 'suppliers' ? "Ex: Steg, Coca Cola..." : "Ex: Fruits, Transit..."}
+                                            value={newItemName}
+                                            onChange={(e) => setNewItemName(e.target.value)}
                                             className="w-full h-14 bg-[#f8f5f2] border-2 border-transparent focus:border-[#c69f6e]/30 focus:bg-white rounded-2xl pl-12 pr-4 outline-none font-bold text-[#4a3426] transition-all"
                                         />
                                     </div>
@@ -275,10 +406,64 @@ export default function FournisseursPage() {
 
                                 <button
                                     type="submit"
-                                    disabled={adding || !newSupplierName.trim()}
-                                    className="w-full h-14 bg-[#4a3426] text-white rounded-2xl font-black text-lg shadow-xl shadow-[#4a3426]/20 hover:bg-[#2d241e] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
+                                    disabled={addingSupplier || addingDesignation || !newItemName.trim()}
+                                    className="w-full h-14 bg-[#4a3426] text-white rounded-2xl font-black text-lg shadow-xl shadow-[#4a3426]/20 hover:bg-[#2d241e] disabled:opacity-50 transition-all flex items-center justify-center gap-2"
                                 >
-                                    {adding ? <Loader2 className="animate-spin" /> : <Plus size={20} />} Confirmer l'Ajout
+                                    {(addingSupplier || addingDesignation) ? <Loader2 className="animate-spin" /> : <Plus size={20} />}
+                                    Confirmer
+                                </button>
+                            </form>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Edit Modal */}
+            <AnimatePresence>
+                {editingItem && (
+                    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                            className="absolute inset-0 bg-[#4a3426]/40 backdrop-blur-sm"
+                            onClick={() => setEditingItem(null)}
+                        />
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                            className="relative bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden"
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <div className="p-8 border-b border-[#f4ece4] flex justify-between items-center">
+                                <h3 className="text-xl font-bold text-[#4a3426]">
+                                    Modifier
+                                </h3>
+                                <button onClick={() => setEditingItem(null)} className="p-2 hover:bg-[#f4ece4] rounded-full transition-colors">
+                                    <X size={20} />
+                                </button>
+                            </div>
+                            <form onSubmit={handleUpdateItem} className="p-8 space-y-6">
+                                <div className="space-y-2">
+                                    <label className="text-xs font-black text-[#8c8279] uppercase tracking-widest ml-1">Nouveau nom</label>
+                                    <div className="relative">
+                                        <Edit2 className="absolute left-4 top-1/2 -translate-y-1/2 text-[#c69f6e]" size={20} />
+                                        <input
+                                            autoFocus
+                                            type="text"
+                                            value={editName}
+                                            onChange={(e) => setEditName(e.target.value)}
+                                            className="w-full h-14 bg-[#f8f5f2] border-2 border-transparent focus:border-[#c69f6e]/30 focus:bg-white rounded-2xl pl-12 pr-4 outline-none font-bold text-[#4a3426] transition-all"
+                                        />
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    disabled={updatingSupplier || updatingDesignation || !editName.trim()}
+                                    className="w-full h-14 bg-[#c69f6e] text-white rounded-2xl font-black text-lg shadow-xl shadow-[#c69f6e]/20 hover:bg-[#b08d5d] disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+                                >
+                                    {(updatingSupplier || updatingDesignation) ? <Loader2 className="animate-spin" /> : <CheckCircle2 size={20} />}
+                                    Enregistrer
                                 </button>
                             </form>
                         </motion.div>
