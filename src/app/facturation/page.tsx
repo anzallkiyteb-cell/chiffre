@@ -215,6 +215,7 @@ const ADD_INVOICE = gql`
     addInvoice(supplier_name: $supplier_name, amount: $amount, date: $date, photo_url: $photo_url, photos: $photos, doc_type: $doc_type, doc_number: $doc_number) {
       id
       status
+      photos
       doc_type
       doc_number
     }
@@ -226,6 +227,7 @@ const PAY_INVOICE = gql`
     payInvoice(id: $id, payment_method: $payment_method, paid_date: $paid_date, photo_cheque_url: $photo_cheque_url, photo_verso_url: $photo_verso_url) {
       id
       status
+      photos
       paid_date
     }
   }
@@ -242,6 +244,7 @@ const UNPAY_INVOICE = gql`
     unpayInvoice(id: $id) {
       id
       status
+      photos
     }
   }
 `;
@@ -250,6 +253,7 @@ const UPDATE_INVOICE = gql`
   mutation UpdateInvoice($id: Int!, $supplier_name: String, $amount: String, $date: String, $photo_url: String, $photos: String, $doc_type: String, $doc_number: String) {
     updateInvoice(id: $id, supplier_name: $supplier_name, amount: $amount, date: $date, photo_url: $photo_url, photos: $photos, doc_type: $doc_type, doc_number: $doc_number) {
       id
+      photos
       supplier_name
       amount
       date

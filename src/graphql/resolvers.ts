@@ -146,6 +146,8 @@ export const resolvers = {
                         amount: inv.amount,
                         paymentMethod: inv.payment_method,
                         invoices: photos,
+                        photo_cheque: inv.photo_cheque_url,
+                        photo_verso: inv.photo_verso_url,
                         isFromFacturation: true,
                         invoiceId: inv.id,
                         doc_type: inv.doc_type,
@@ -451,7 +453,18 @@ export const resolvers = {
                 supplier: inv.supplier_name,
                 amount: inv.amount,
                 paymentMethod: inv.payment_method,
-                invoices: inv.photo_url ? [inv.photo_url] : [],
+                invoices: (() => {
+                    let photos = [];
+                    try {
+                        photos = typeof inv.photos === 'string' ? JSON.parse(inv.photos) : (Array.isArray(inv.photos) ? inv.photos : []);
+                    } catch (e) { photos = []; }
+                    if (inv.photo_url && !photos.includes(inv.photo_url)) {
+                        photos = [inv.photo_url, ...photos];
+                    }
+                    return photos;
+                })(),
+                photo_cheque: inv.photo_cheque_url,
+                photo_verso: inv.photo_verso_url,
                 isFromFacturation: true,
                 invoiceId: inv.id,
                 doc_type: inv.doc_type,
