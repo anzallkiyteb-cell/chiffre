@@ -508,12 +508,12 @@ export default function FacturationPage() {
 
     const handleUnpay = async (inv: any) => {
         if (lockedDates.includes(inv.paid_date)) {
-            alert("Cette date est verrouillée. Impossible de restaurer cette facture.");
+            alert("Cette date est verrouillée. Impossible d'annuler le paiement.");
             return;
         }
         setShowConfirm({
             type: 'unpay',
-            title: 'Restaurer Facture',
+            title: 'Annulation Payement',
             message: `Voulez-vous vraiment annuler le paiement de cette facture pour ${inv.supplier_name} ? Elle redeviendra "Impayée".`,
             color: 'brown',
             onConfirm: async () => {
@@ -983,7 +983,7 @@ export default function FacturationPage() {
                                                                 className="flex-1 h-11 bg-[#4a3426] text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-[#38261b] transition-all"
                                                             >
                                                                 <RotateCcw size={18} />
-                                                                <span className="text-xs uppercase">Restaurer</span>
+                                                                <span className="text-xs uppercase">Annuler Payement</span>
                                                             </button>
                                                             <button
                                                                 onClick={() => {
