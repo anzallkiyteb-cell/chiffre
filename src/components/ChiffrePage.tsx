@@ -755,110 +755,11 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             </section>
                         </div>
 
-                        {/* 2. Dépenses Divers */}
+                        {/* 2. Dépenses Fournisseur */}
                         <div>
                             <div className="flex justify-between items-center mb-4">
                                 <h3 className="text-lg font-bold text-[#4a3426] flex items-center gap-2">
-                                    <div className="bg-[#bba282] text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">2</div>
-                                    Dépenses divers
-                                </h3>
-                                <button
-                                    onClick={() => setShowDiversModal(true)}
-                                    className="flex items-center gap-2 px-3 py-1.5 bg-white border border-[#e6dace] rounded-xl text-[10px] font-black uppercase tracking-widest text-[#c69f6e] hover:bg-[#fcfaf8] transition-all"
-                                >
-                                    <Plus size={12} />
-                                    Ajouter Divers
-                                </button>
-                            </div>
-
-                            <section className="bg-white rounded-[2rem] p-6 luxury-shadow border border-[#e6dace]/50 space-y-4">
-                                <div className="space-y-3">
-                                    {expensesDivers.map((divers, index) => (
-                                        <div key={index} className="group flex flex-col p-2 rounded-xl transition-all border hover:bg-[#f9f6f2] border-transparent hover:border-[#e6dace]">
-                                            <div className="flex flex-col md:flex-row items-center gap-3 w-full">
-                                                <div className="flex-1 w-full relative">
-                                                    <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                                                        <Search className="text-[#bba282]" size={16} />
-                                                    </div>
-                                                    <input
-                                                        type="text"
-                                                        placeholder="Désignation Divers..."
-                                                        value={divers.designation}
-                                                        onChange={(e) => handleDiversChange(index, 'designation', e.target.value)}
-                                                        className="w-full bg-white border border-[#e6dace] rounded-xl h-12 pl-10 pr-4 focus:border-[#c69f6e] outline-none font-medium transition-all"
-                                                    />
-                                                </div>
-
-                                                <button
-                                                    onClick={() => {
-                                                        setModalDetailsTarget({ index, type: 'divers' });
-                                                        setTempDetails(divers.details || '');
-                                                        setShowDetailsModal(true);
-                                                    }}
-                                                    className={`h-12 px-4 rounded-xl border flex items-center gap-2 transition-all ${divers.details ? 'bg-[#c69f6e] text-white border-[#c69f6e]' : 'bg-[#fcfaf8] text-[#bba282] border-[#e6dace] hover:border-[#c69f6e] hover:text-[#c69f6e]'}`}
-                                                >
-                                                    <FileText size={16} />
-                                                    <span className="text-[10px] font-black uppercase tracking-widest">{divers.details ? 'Détails OK' : 'Détails'}</span>
-                                                </button>
-
-                                                <div className="w-full md:w-32 relative">
-                                                    <input
-                                                        type="number"
-                                                        placeholder="0.00"
-                                                        value={divers.amount}
-                                                        onChange={(e) => handleDiversChange(index, 'amount', e.target.value)}
-                                                        className="w-full bg-white border border-[#e6dace] rounded-xl h-12 px-3 font-black text-xl outline-none focus:border-[#c69f6e] text-right"
-                                                    />
-                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#bba282] text-xs font-black">DT</span>
-                                                </div>
-
-                                                <div className="w-full md:w-36 relative">
-                                                    <select
-                                                        value={divers.paymentMethod || 'Espèces'}
-                                                        onChange={(e) => handleDiversChange(index, 'paymentMethod', e.target.value)}
-                                                        className="w-full bg-white border border-[#e6dace] rounded-xl h-12 px-2 font-bold text-[10px] text-[#4a3426] focus:border-[#c69f6e] outline-none appearance-none cursor-pointer pr-6"
-                                                    >
-                                                        <option value="Espèces">💵 Espèces</option>
-                                                        <option value="Chèque">✍️ Chèque</option>
-                                                        <option value="TPE (Carte)">💳 TPE (Carte)</option>
-                                                        <option value="Ticket Restaurant">🎫 T. Restaurant</option>
-                                                    </select>
-                                                </div>
-
-                                                <div className="flex flex-wrap gap-2 w-full md:w-auto">
-                                                    <label
-                                                        onClick={(e) => {
-                                                            if (divers.invoices.length > 0) {
-                                                                setViewingInvoices(divers.invoices);
-                                                                e.preventDefault();
-                                                            }
-                                                        }}
-                                                        className={`h-12 px-3 rounded-xl border border-dashed flex items-center justify-center gap-2 cursor-pointer transition-colors relative whitespace-nowrap text-[10px] ${divers.invoices.length > 0 ? 'border-[#c69f6e] text-[#c69f6e] bg-[#c69f6e]/5' : 'border-[#bba282] text-[#bba282] hover:bg-[#f9f6f2]'}`}>
-                                                        <UploadCloud size={14} />
-                                                        <span className="font-black uppercase tracking-widest">{divers.invoices.length || 'Reçu'}</span>
-                                                        <input type="file" multiple className="hidden" onChange={(e) => handleFileUpload(index, e, 'invoice', true)} />
-                                                    </label>
-                                                    {(index > 0 || expensesDivers.length > 1) && (
-                                                        <button onClick={() => handleRemoveDivers(index)} className="h-12 w-12 flex items-center justify-center text-red-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors">
-                                                            <Trash2 size={20} />
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                                <button onClick={handleAddDivers} className="mt-4 w-full py-3 border-2 border-dashed border-[#e6dace] rounded-xl text-[#bba282] font-bold flex items-center justify-center gap-2 hover:border-[#c69f6e] hover:text-[#c69f6e] transition-all">
-                                    <Plus size={18} /> Nouvelle Ligne (Divers)
-                                </button>
-                            </section>
-                        </div>
-
-                        {/* 3. Dépenses Fournisseur */}
-                        <div>
-                            <div className="flex justify-between items-center mb-4">
-                                <h3 className="text-lg font-bold text-[#4a3426] flex items-center gap-2">
-                                    <div className="bg-[#4a3426] text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">3</div>
+                                    <div className="bg-[#4a3426] text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">2</div>
                                     Dépenses Fournisseur
                                 </h3>
                                 <button
@@ -871,10 +772,6 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             </div>
 
                             <section className="bg-white rounded-[2rem] p-6 luxury-shadow border border-[#e6dace]/50 space-y-4">
-                                <div className="flex justify-between items-center mb-2 px-2">
-                                    <h4 className="text-xs font-bold text-[#8c8279] uppercase tracking-widest">2.1 Dépenses Courantes</h4>
-                                </div>
-
                                 <div className="space-y-3">
                                     {expenses.map((expense, index) => (
                                         <div key={index} className={`group flex flex-col p-2 rounded-xl transition-all border ${expense.isFromFacturation ? 'bg-[#f0faf5]/50 border-[#d1e7dd]' : 'hover:bg-[#f9f6f2] border-transparent hover:border-[#e6dace]'}`}>
@@ -1046,6 +943,105 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
 
                                 <button onClick={handleAddExpense} className="mt-4 w-full py-3 border-2 border-dashed border-[#e6dace] rounded-xl text-[#bba282] font-bold flex items-center justify-center gap-2 hover:border-[#c69f6e] hover:text-[#c69f6e] transition-all">
                                     <Plus size={18} /> Nouvelle Ligne
+                                </button>
+                            </section>
+                        </div>
+
+                        {/* 3. Dépenses Divers */}
+                        <div>
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-lg font-bold text-[#4a3426] flex items-center gap-2">
+                                    <div className="bg-[#bba282] text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">3</div>
+                                    Dépenses divers
+                                </h3>
+                                <button
+                                    onClick={() => setShowDiversModal(true)}
+                                    className="flex items-center gap-2 px-3 py-1.5 bg-white border border-[#e6dace] rounded-xl text-[10px] font-black uppercase tracking-widest text-[#c69f6e] hover:bg-[#fcfaf8] transition-all"
+                                >
+                                    <Plus size={12} />
+                                    Ajouter Divers
+                                </button>
+                            </div>
+
+                            <section className="bg-white rounded-[2rem] p-6 luxury-shadow border border-[#e6dace]/50 space-y-4">
+                                <div className="space-y-3">
+                                    {expensesDivers.map((divers, index) => (
+                                        <div key={index} className="group flex flex-col p-2 rounded-xl transition-all border hover:bg-[#f9f6f2] border-transparent hover:border-[#e6dace]">
+                                            <div className="flex flex-col md:flex-row items-center gap-3 w-full">
+                                                <div className="flex-1 w-full relative">
+                                                    <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                                                        <Search className="text-[#bba282]" size={16} />
+                                                    </div>
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Désignation Divers..."
+                                                        value={divers.designation}
+                                                        onChange={(e) => handleDiversChange(index, 'designation', e.target.value)}
+                                                        className="w-full bg-white border border-[#e6dace] rounded-xl h-12 pl-10 pr-4 focus:border-[#c69f6e] outline-none font-medium transition-all"
+                                                    />
+                                                </div>
+
+                                                <button
+                                                    onClick={() => {
+                                                        setModalDetailsTarget({ index, type: 'divers' });
+                                                        setTempDetails(divers.details || '');
+                                                        setShowDetailsModal(true);
+                                                    }}
+                                                    className={`h-12 px-4 rounded-xl border flex items-center gap-2 transition-all ${divers.details ? 'bg-[#c69f6e] text-white border-[#c69f6e]' : 'bg-[#fcfaf8] text-[#bba282] border-[#e6dace] hover:border-[#c69f6e] hover:text-[#c69f6e]'}`}
+                                                >
+                                                    <FileText size={16} />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest">{divers.details ? 'Détails OK' : 'Détails'}</span>
+                                                </button>
+
+                                                <div className="w-full md:w-32 relative">
+                                                    <input
+                                                        type="number"
+                                                        placeholder="0.00"
+                                                        value={divers.amount}
+                                                        onChange={(e) => handleDiversChange(index, 'amount', e.target.value)}
+                                                        className="w-full bg-white border border-[#e6dace] rounded-xl h-12 px-3 font-black text-xl outline-none focus:border-[#c69f6e] text-right"
+                                                    />
+                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#bba282] text-xs font-black">DT</span>
+                                                </div>
+
+                                                <div className="w-full md:w-36 relative">
+                                                    <select
+                                                        value={divers.paymentMethod || 'Espèces'}
+                                                        onChange={(e) => handleDiversChange(index, 'paymentMethod', e.target.value)}
+                                                        className="w-full bg-white border border-[#e6dace] rounded-xl h-12 px-2 font-bold text-[10px] text-[#4a3426] focus:border-[#c69f6e] outline-none appearance-none cursor-pointer pr-6"
+                                                    >
+                                                        <option value="Espèces">💵 Espèces</option>
+                                                        <option value="Chèque">✍️ Chèque</option>
+                                                        <option value="TPE (Carte)">💳 TPE (Carte)</option>
+                                                        <option value="Ticket Restaurant">🎫 T. Restaurant</option>
+                                                    </select>
+                                                </div>
+
+                                                <div className="flex flex-wrap gap-2 w-full md:w-auto">
+                                                    <label
+                                                        onClick={(e) => {
+                                                            if (divers.invoices.length > 0) {
+                                                                setViewingInvoices(divers.invoices);
+                                                                e.preventDefault();
+                                                            }
+                                                        }}
+                                                        className={`h-12 px-3 rounded-xl border border-dashed flex items-center justify-center gap-2 cursor-pointer transition-colors relative whitespace-nowrap text-[10px] ${divers.invoices.length > 0 ? 'border-[#c69f6e] text-[#c69f6e] bg-[#c69f6e]/5' : 'border-[#bba282] text-[#bba282] hover:bg-[#f9f6f2]'}`}>
+                                                        <UploadCloud size={14} />
+                                                        <span className="font-black uppercase tracking-widest">{divers.invoices.length || 'Reçu'}</span>
+                                                        <input type="file" multiple className="hidden" onChange={(e) => handleFileUpload(index, e, 'invoice', true)} />
+                                                    </label>
+                                                    {(index > 0 || expensesDivers.length > 1) && (
+                                                        <button onClick={() => handleRemoveDivers(index)} className="h-12 w-12 flex items-center justify-center text-red-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors">
+                                                            <Trash2 size={20} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <button onClick={handleAddDivers} className="mt-4 w-full py-3 border-2 border-dashed border-[#e6dace] rounded-xl text-[#bba282] font-bold flex items-center justify-center gap-2 hover:border-[#c69f6e] hover:text-[#c69f6e] transition-all">
+                                    <Plus size={18} /> Nouvelle Ligne (Divers)
                                 </button>
                             </section>
                         </div>
