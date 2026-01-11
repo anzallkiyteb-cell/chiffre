@@ -1422,8 +1422,10 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     <h3 className="text-2xl font-black text-[#4a3426] tracking-tight">Ajouter des détails</h3>
                                     <p className="text-[10px] text-[#c69f6e] font-black uppercase tracking-[0.2em] mt-1">
                                         {modalDetailsTarget.type === 'divers'
-                                            ? `Catégorie : ${expensesDivers[modalDetailsTarget.index].designation}`
-                                            : `Fournisseur : ${expenses[modalDetailsTarget.index].supplier}`}
+                                            ? `Catégorie : ${expensesDivers[modalDetailsTarget.index]?.designation || ''}`
+                                            : modalDetailsTarget.type === 'journalier'
+                                                ? `Désignation : ${expensesJournalier[modalDetailsTarget.index]?.designation || ''}`
+                                                : `Fournisseur : ${expenses[modalDetailsTarget.index]?.supplier || ''}`}
                                     </p>
                                 </div>
                             </div>
