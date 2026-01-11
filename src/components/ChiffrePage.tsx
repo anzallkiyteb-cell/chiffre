@@ -693,7 +693,14 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             <div className="grid grid-cols-1 md:grid-cols-2 items-center gap-8 md:gap-4 relative z-10 w-full max-w-4xl mx-auto">
                                 {/* Date Side */}
                                 <div className="text-center md:text-left flex flex-col gap-1">
-                                    <div className="text-[#2d6a4f] text-[10px] md:text-xs font-black uppercase tracking-[0.4em] opacity-40">Session du</div>
+                                    <div className="flex items-center justify-center md:justify-start gap-3">
+                                        <div className="text-[#2d6a4f] text-[10px] md:text-xs font-black uppercase tracking-[0.4em] opacity-40">Session du</div>
+                                        {isLocked && (
+                                            <div className="flex items-center gap-1.5 text-red-600 text-[10px] font-black uppercase tracking-widest">
+                                                <LockIcon size={12} /> Verrouillée
+                                            </div>
+                                        )}
+                                    </div>
                                     <div className="text-3xl md:text-4xl lg:text-5xl font-black text-[#2d6a4f] leading-none tracking-tighter flex items-center gap-4">
                                         <span className="md:hidden">
                                             {new Date(date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
@@ -701,11 +708,6 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                         <span className="hidden md:inline">
                                             {new Date(date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
                                         </span>
-                                        {isLocked && (
-                                            <div className="flex items-center gap-1.5 px-4 py-1.5 bg-red-500/10 border border-red-500/20 rounded-full text-red-600 text-[10px] font-black uppercase tracking-[0.2em] animate-pulse">
-                                                <LockIcon size={12} /> Verrouillée
-                                            </div>
-                                        )}
                                     </div>
                                 </div>
 
