@@ -811,7 +811,7 @@ export default function FacturationPage() {
                                                     layout
                                                     initial={{ opacity: 0, scale: 0.9 }}
                                                     animate={{ opacity: 1, scale: 1 }}
-                                                    className="bg-red-100/50 rounded-[2.5rem] border-2 border-red-200 overflow-hidden group hover:shadow-xl hover:border-red-300 transition-all"
+                                                    className="bg-red-100 rounded-[2.5rem] border-2 border-red-400/50 overflow-hidden group hover:shadow-2xl hover:shadow-red-500/20 transition-all"
                                                 >
                                                     <div className="relative h-48 bg-[#f9f6f2] border-b border-[#e6dace] flex items-center justify-center overflow-hidden">
                                                         {inv.photo_url ? (
@@ -846,10 +846,10 @@ export default function FacturationPage() {
                                                                     {parseFloat(inv.amount || '0').toFixed(3)}
                                                                     <span className="text-[10px] font-bold text-red-500 uppercase ml-1">DT</span>
                                                                 </div>
-                                                                <div className="flex items-center gap-2 bg-[#f9f6f2] px-3 py-1.5 rounded-lg border border-[#e6dace] mt-2 justify-end">
-                                                                    <Calendar size={12} className="text-[#c69f6e]" />
-                                                                    <span className="text-[10px] font-black uppercase tracking-widest opacity-50">Reçu le:</span>
-                                                                    <span className="text-[10px] font-black text-[#4a3426]">{new Date(inv.date).toLocaleDateString('fr-FR')}</span>
+                                                                <div className="flex items-center gap-2 bg-white/60 px-3 py-1.5 rounded-lg border border-red-400/20 mt-2 justify-end">
+                                                                    <Calendar size={12} className="text-red-600" />
+                                                                    <span className="text-[10px] font-black uppercase tracking-widest text-red-600/70">Reçu le:</span>
+                                                                    <span className="text-[10px] font-black text-red-900">{new Date(inv.date).toLocaleDateString('fr-FR')}</span>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -921,7 +921,7 @@ export default function FacturationPage() {
                                                     layout
                                                     initial={{ opacity: 0, scale: 0.9 }}
                                                     animate={{ opacity: 1, scale: 1 }}
-                                                    className="bg-green-100/50 rounded-[2.5rem] border-2 border-green-200 overflow-hidden group hover:shadow-xl transition-all"
+                                                    className="bg-green-100 rounded-[2.5rem] border-2 border-green-400/50 overflow-hidden group hover:shadow-2xl hover:shadow-green-500/20 transition-all"
                                                 >
                                                     <div className="relative h-48 bg-[#f9f6f2] border-b border-[#e6dace] flex items-center justify-center overflow-hidden">
                                                         {inv.photo_url ? (
@@ -956,10 +956,10 @@ export default function FacturationPage() {
                                                                     {parseFloat(inv.amount || '0').toFixed(3)}
                                                                     <span className="text-[10px] font-bold text-green-600/60 uppercase ml-1">DT</span>
                                                                 </div>
-                                                                <div className="flex items-center gap-2 bg-[#f9f6f2] px-3 py-1.5 rounded-lg border border-[#e6dace] mt-2 justify-end">
-                                                                    <Calendar size={12} className="text-[#c69f6e]" />
-                                                                    <span className="text-[10px] font-black uppercase tracking-widest opacity-50">Reçu le:</span>
-                                                                    <span className="text-[10px] font-black text-[#4a3426]">{new Date(inv.date).toLocaleDateString('fr-FR')}</span>
+                                                                <div className="flex items-center gap-2 bg-white/60 px-3 py-1.5 rounded-lg border border-green-400/20 mt-2 justify-end">
+                                                                    <Calendar size={12} className="text-green-600" />
+                                                                    <span className="text-[10px] font-black uppercase tracking-widest text-green-600/70">Reçu le:</span>
+                                                                    <span className="text-[10px] font-black text-green-900">{new Date(inv.date).toLocaleDateString('fr-FR')}</span>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -970,9 +970,9 @@ export default function FacturationPage() {
                                                                     <div className="w-1.5 h-1.5 rounded-full bg-green-600"></div>
                                                                     {inv.payment_method}
                                                                 </div>
-                                                                <div className="flex items-center gap-2 bg-white/50 px-3 py-1.5 rounded-lg border border-green-700/10">
-                                                                    <span className="opacity-50">Réglé le:</span>
-                                                                    <span>{new Date(inv.paid_date).toLocaleDateString('fr-FR')}</span>
+                                                                <div className="flex items-center gap-2 bg-white/80 px-3 py-1.5 rounded-lg border border-green-700/20">
+                                                                    <span className="text-green-600/50 font-bold uppercase text-[9px]">Réglé le:</span>
+                                                                    <span className="text-green-800">{new Date(inv.paid_date).toLocaleDateString('fr-FR')}</span>
                                                                 </div>
                                                             </div>
                                                         </div>
