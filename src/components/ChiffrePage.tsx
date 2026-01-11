@@ -207,6 +207,17 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     const [showDiversDropdown, setShowDiversDropdown] = useState<number | null>(null);
     const [viewingInvoices, setViewingInvoices] = useState<string[] | null>(null);
     const [viewingInvoicesTarget, setViewingInvoicesTarget] = useState<{ index: number, type: 'expense' | 'divers' | 'journalier' } | null>(null);
+    const [imgZoom, setImgZoom] = useState(1);
+    const [imgRotation, setImgRotation] = useState(0);
+
+    const resetView = () => {
+        setImgZoom(1);
+        setImgRotation(0);
+    };
+
+    useEffect(() => {
+        if (!viewingInvoices) resetView();
+    }, [viewingInvoices]);
     const [showCalendar, setShowCalendar] = useState(false);
     const [showSupplierModal, setShowSupplierModal] = useState(false);
     const [showJournalierModal, setShowJournalierModal] = useState(false);
