@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, PieChart as PieChartIcon, Truck, LogOut, CreditCard } from 'lucide-react';
+import { LayoutDashboard, PieChart as PieChartIcon, Truck, LogOut, CreditCard, ShoppingBag } from 'lucide-react';
 
 interface SidebarProps {
     role: 'admin' | 'caissier';
@@ -20,6 +20,7 @@ export default function Sidebar({ role }: SidebarProps) {
 
     if (role === 'admin') {
         navItems.unshift({ name: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' });
+        navItems.push({ name: "Coût d'achat", icon: ShoppingBag, href: '/cout-achat' });
         navItems.push({ name: 'Statistiques', icon: PieChartIcon, href: '/statistiques' });
         navItems.push({ name: 'Paiements', icon: CreditCard, href: '/paiements' });
     }
