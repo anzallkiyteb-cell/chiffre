@@ -647,7 +647,7 @@ export default function FacturationPage() {
 
                 <main className="max-w-7xl mx-auto px-4 md:px-8 mt-6 md:mt-8 pb-20">
                     {/* Stat Boxes */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -689,57 +689,12 @@ export default function FacturationPage() {
                                 </div>
                             </div>
                             <div className="flex justify-between items-center text-[10px] font-bold text-white/80 uppercase tracking-wider relative z-10">
-                                <span>En attente de règlement</span>
+                                <span>Total Non Payé</span>
                                 <span className="bg-white/20 text-white px-2 py-0.5 rounded-full">{stats.countUnpaid}</span>
                             </div>
                             {statusFilter === 'unpaid' && <div className="absolute top-4 right-4 text-white/40"><Filter size={14} /></div>}
                         </motion.div>
 
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.2 }}
-                            onClick={() => setStatusFilter('paid')}
-                            className={`bg-white rounded-[2rem] p-6 border transition-all shadow-sm relative overflow-hidden group cursor-pointer ${statusFilter === 'paid' ? 'bg-[#f0faf5]/30' : 'border-[#e6dace]'}`}
-                        >
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-[#c69f6e]/5 rounded-full -mr-12 -mt-12 transition-transform group-hover:scale-110"></div>
-                            <div className="flex items-center gap-4 mb-4">
-                                <div className="w-12 h-12 bg-[#fff9f2] rounded-2xl flex items-center justify-center text-[#c69f6e]">
-                                    <Receipt size={24} />
-                                </div>
-                                <div>
-                                    <p className="text-[10px] font-black text-[#8c8279] uppercase tracking-widest">Factures Payées</p>
-                                    <h3 className="text-2xl font-black text-[#4a3426]">{stats.countPaid}</h3>
-                                </div>
-                            </div>
-                            <div className="bg-[#fcfaf8] rounded-xl p-2 flex items-center justify-center gap-2 border border-[#e6dace]/50">
-                                <div className="w-1.5 h-1.5 rounded-full bg-[#2d6a4f]"></div>
-                                <span className="text-[9px] font-black text-[#2d6a4f] uppercase tracking-widest">Voir Payées</span>
-                            </div>
-                        </motion.div>
-
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.3 }}
-                            onClick={() => setStatusFilter('unpaid')}
-                            className={`bg-white rounded-[2rem] p-6 border transition-all shadow-sm relative overflow-hidden group cursor-pointer ${statusFilter === 'unpaid' ? 'bg-red-50/10' : 'border-[#e6dace]'}`}
-                        >
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-[#4a3426]/5 rounded-full -mr-12 -mt-12 transition-transform group-hover:scale-110"></div>
-                            <div className="flex items-center gap-4 mb-4">
-                                <div className="w-12 h-12 bg-[#f9f6f2] rounded-2xl flex items-center justify-center text-[#4a3426]">
-                                    <Filter size={24} />
-                                </div>
-                                <div>
-                                    <p className="text-[10px] font-black text-[#8c8279] uppercase tracking-widest">Factures en cours</p>
-                                    <h3 className="text-2xl font-black text-[#4a3426]">{stats.countUnpaid}</h3>
-                                </div>
-                            </div>
-                            <div className="bg-[#fcfaf8] rounded-xl p-2 flex items-center justify-center gap-2 border border-[#e6dace]/50">
-                                <div className="w-1.5 h-1.5 rounded-full bg-[#c69f6e] animate-pulse"></div>
-                                <span className="text-[9px] font-black text-[#c69f6e] uppercase tracking-widest">Voir Impayées</span>
-                            </div>
-                        </motion.div>
                     </div>
 
                     {/* Filter Bar */}
@@ -832,7 +787,7 @@ export default function FacturationPage() {
                                                         )}
                                                         <div className="absolute top-4 right-4 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider shadow-sm flex items-center gap-1.5 bg-red-500 text-white">
                                                             <Clock size={12} />
-                                                            En attente
+                                                            Non Payé
                                                         </div>
                                                     </div>
 
@@ -1305,7 +1260,7 @@ export default function FacturationPage() {
                             <div className="flex justify-between items-center text-white mb-4">
                                 <div>
                                     <h2 className="text-3xl font-black uppercase tracking-tight">{viewingData.supplier_name}</h2>
-                                    <p className="text-sm font-bold opacity-60 uppercase tracking-[0.3em]">{viewingData.amount} DT • {viewingData.status === 'paid' ? viewingData.payment_method : 'En attente'}</p>
+                                    <p className="text-sm font-bold opacity-60 uppercase tracking-[0.3em]">{viewingData.amount} DT • {viewingData.status === 'paid' ? viewingData.payment_method : 'Non Payé'}</p>
                                 </div>
                                 <div className="flex items-center gap-4">
                                     <div className="flex bg-white/10 rounded-2xl p-1 gap-1 border border-white/10">
