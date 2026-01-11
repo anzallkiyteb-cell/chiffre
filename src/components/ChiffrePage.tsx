@@ -216,74 +216,13 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         expensesAdmin
     });
 
-    // Save draft to localStorage whenever relevant state changes, but only if user has interacted
-    useEffect(() => {
-        if (isClient && date && hasInteracted) {
-            const draft = {
-                date,
-                data: getCurrentState(),
-                timestamp: Date.now()
-            };
-            localStorage.setItem(`chiffre_draft_${date}`, JSON.stringify(draft));
-        }
-    }, [recetteCaisse, expenses, tpe, cheque, especes, ticketsRestaurant, extra, primes, date, avancesList, doublagesList, extrasList, primesList, expensesDivers, expensesJournalier, hasInteracted]);
 
-    // Warning for unsaved changes (roughly detected by presence of draft)
-    useEffect(() => {
-        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-            // This is a simple check; ideally we'd compare with server data
-            e.preventDefault();
-            e.returnValue = '';
-        };
-        window.addEventListener('beforeunload', handleBeforeUnload);
-        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-    }, []);
 
     // Load Data
     useEffect(() => {
         if (chiffreData?.getChiffreByDate) {
             const c = chiffreData.getChiffreByDate;
 
-            // Try to load from draft first
-            const savedDraft = localStorage.getItem(`chiffre_draft_${date}`);
-            if (savedDraft) {
-                try {
-                    const draft = JSON.parse(savedDraft);
-                    if (draft.date === date) {
-                        const d = draft.data;
-                        const isEmptyDraft = d.recetteCaisse === '0' &&
-                            (d.expenses.length === 0 || (d.expenses.length === 1 && d.expenses[0].amount === '0' && !d.expenses[0].supplier)) &&
-                            (d.expensesDivers.length === 0 || (d.expensesDivers.length === 1 && d.expensesDivers[0].amount === '0' && !d.expensesDivers[0].designation));
-
-                        if (!isEmptyDraft) {
-                            setRecetteCaisse(d.recetteCaisse);
-                            setExpenses(d.expenses);
-                            setTpe(d.tpe);
-                            setCheque(d.cheque);
-                            setEspeces(d.especes);
-                            setTicketsRestaurant(d.ticketsRestaurant);
-                            setExtra(d.extra);
-                            setPrimes(d.primes);
-                            setAvancesList(d.avancesList);
-                            setDoublagesList(d.doublagesList);
-                            setExtrasList(d.extrasList);
-                            setPrimesList(d.primesList);
-                            setExpensesDivers(d.expensesDivers || [{ designation: '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces' }]);
-                            setExpensesJournalier(d.expensesJournalier || [{ designation: '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces' }]);
-                            setExpensesAdmin(d.expensesAdmin || [
-                                { designation: 'Riadh', amount: '0', paymentMethod: 'Espèces' },
-                                { designation: 'Malika', amount: '0', paymentMethod: 'Espèces' },
-                                { designation: 'Salaires', amount: '0', paymentMethod: 'Espèces' }
-                            ]);
-
-                            setToast({ msg: 'Session locale récupérée', type: 'success' });
-                            setTimeout(() => setToast(null), 3000);
-                            return; // Stop here, use draft instead of server data
-                        }
-                        // If it's an empty draft, we continue and load server data
-                    }
-                } catch (e) { }
-            }
 
             setRecetteCaisse(c.recette_de_caisse);
             setExpenses(JSON.parse(c.diponce || '[]').map((e: any) => ({ ...e, details: e.details || '' })));
@@ -497,8 +436,6 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                 }
             });
             setToast({ msg: 'Session enregistrée avec succès', type: 'success' });
-            // Remove draft after successful save
-            localStorage.removeItem(`chiffre_draft_${date}`);
             setTimeout(() => setToast(null), 3000);
             refetchChiffre();
         } catch (e) {
