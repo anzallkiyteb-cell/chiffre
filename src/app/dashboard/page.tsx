@@ -327,7 +327,7 @@ export default function DashboardPage() {
                                         </div>
                                     </div>
                                     <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-2">
-                                        {aggregates.groupedDivers.length > 0 ? aggregates.groupedDivers.map((a, i) => (
+                                        {aggregates.groupedDivers.length > 0 ? aggregates.groupedDivers.map((a: any, i: number) => (
                                             <div key={i} className="flex justify-between items-center p-3 bg-[#fcfaf8] rounded-xl border border-[#e6dace]/30 group hover:bg-white hover:border-[#c69f6e]/30 transition-all">
                                                 <span className="font-bold text-[#4a3426] text-sm opacity-70 group-hover:opacity-100 transition-opacity truncate max-w-[60%]">{a.name}</span>
                                                 <span className="font-black text-[#4a3426]">{a.amount.toFixed(3)}</span>
@@ -356,7 +356,7 @@ export default function DashboardPage() {
                                         </div>
                                     </div>
                                     <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-2">
-                                        {aggregates.groupedExpenses.length > 0 ? aggregates.groupedExpenses.map((a, i) => (
+                                        {aggregates.groupedExpenses.length > 0 ? aggregates.groupedExpenses.map((a: any, i: number) => (
                                             <button
                                                 key={i}
                                                 onClick={() => setSelectedSupplier(a.name)}
@@ -392,7 +392,7 @@ export default function DashboardPage() {
                                         </div>
                                     </div>
                                     <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-2">
-                                        {aggregates.groupedAvances.map((a, i) => (
+                                        {aggregates.groupedAvances.map((a: any, i: number) => (
                                             <div key={i} className="flex justify-between items-center p-3 bg-[#f9f6f2] rounded-xl border border-transparent">
                                                 <span className="font-medium text-[#4a3426] text-sm opacity-70">{a.name}</span>
                                                 <b className="font-black text-[#4a3426]">{a.amount.toFixed(3)}</b>
@@ -421,7 +421,7 @@ export default function DashboardPage() {
                                         </div>
                                     </div>
                                     <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-2">
-                                        {aggregates.groupedDoublages.map((a, i) => (
+                                        {aggregates.groupedDoublages.map((a: any, i: number) => (
                                             <div key={i} className="flex justify-between items-center p-3 bg-[#f9f6f2] rounded-xl border border-transparent">
                                                 <span className="font-medium text-[#4a3426] text-sm opacity-70">{a.name}</span>
                                                 <b className="font-black text-[#4a3426]">{a.amount.toFixed(3)}</b>
@@ -450,7 +450,7 @@ export default function DashboardPage() {
                                         </div>
                                     </div>
                                     <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-2">
-                                        {aggregates.groupedExtras.map((a, i) => (
+                                        {aggregates.groupedExtras.map((a: any, i: number) => (
                                             <div key={i} className="flex justify-between items-center p-3 bg-[#f9f6f2] rounded-xl border border-transparent">
                                                 <span className="font-medium text-[#4a3426] text-sm opacity-70">{a.name}</span>
                                                 <b className="font-black text-[#4a3426]">{a.amount.toFixed(3)}</b>
@@ -479,7 +479,7 @@ export default function DashboardPage() {
                                         </div>
                                     </div>
                                     <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-2">
-                                        {aggregates.groupedPrimes.map((a, i) => (
+                                        {aggregates.groupedPrimes.map((a: any, i: number) => (
                                             <div key={i} className="flex justify-between items-center p-3 bg-[f9f6f2] rounded-xl border border-transparent">
                                                 <span className="font-medium text-[#4a3426] text-sm opacity-70">{a.name}</span>
                                                 <b className="font-black text-[#4a3426]">{a.amount.toFixed(3)}</b>
