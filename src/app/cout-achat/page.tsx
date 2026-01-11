@@ -7,7 +7,7 @@ import Sidebar from '@/components/Sidebar';
 import {
     LayoutDashboard, Loader2, Calendar,
     Wallet, TrendingUp, TrendingDown, CreditCard, Banknote, Coins, Receipt, Calculator,
-    Plus, Zap, Sparkles, Search, ChevronLeft, ChevronRight, ChevronDown, X, Eye, Truck, Download, Clock, Filter, RotateCcw,
+    Plus, Zap, Sparkles, Search, ChevronDown, X, Eye, Truck, Download, Clock, Filter, RotateCcw,
     ShoppingBag, AlertCircle, CheckCircle2, FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
