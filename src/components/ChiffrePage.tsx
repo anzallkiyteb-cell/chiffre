@@ -805,7 +805,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                                 setLastFocusedValue(expense.supplier);
                                                             }
                                                         }}
-                                                        onBlur={() => setShowSupplierDropdown(null)}
+                                                        onBlur={() => setTimeout(() => setShowSupplierDropdown(null), 200)}
                                                         onChange={(e) => { handleDetailChange(index, 'supplier', e.target.value); setSupplierSearch(e.target.value); }}
                                                         className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 pl-10 pr-10 focus:border-[#c69f6e] outline-none font-medium transition-all ${expense.isFromFacturation ? 'opacity-70 cursor-not-allowed' : ''}`}
                                                     />
@@ -829,6 +829,15 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                                     Aucun fournisseur trouvé
                                                                 </div>
                                                             )}
+                                                            <div
+                                                                className="p-3 bg-[#fcfaf8] border-t border-[#e6dace] hover:bg-[#c69f6e] hover:text-white cursor-pointer font-bold text-[#c69f6e] text-xs flex items-center gap-2"
+                                                                onClick={() => {
+                                                                    setShowSupplierModal(true);
+                                                                    setShowSupplierDropdown(null);
+                                                                }}
+                                                            >
+                                                                <Plus size={14} /> Nouveau
+                                                            </div>
                                                         </div>
                                                     )}
                                                 </div>
