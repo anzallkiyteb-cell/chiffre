@@ -619,6 +619,9 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 <h3 className="text-lg font-bold text-[#4a3426] flex items-center gap-2">
                                     <div className="bg-[#4a3426] text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">1</div>
                                     Dépenses Journalier
+                                    <span className="ml-2 px-2 py-0.5 bg-[#f4ece4] text-[#c69f6e] rounded-lg text-[10px] font-black uppercase tracking-wider">
+                                        Total: {totalExpensesJournalier.toFixed(3)} DT
+                                    </span>
                                 </h3>
                                 <button
                                     onClick={() => setShowJournalierModal(true)}
@@ -761,6 +764,9 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 <h3 className="text-lg font-bold text-[#4a3426] flex items-center gap-2">
                                     <div className="bg-[#4a3426] text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">2</div>
                                     Dépenses Fournisseur
+                                    <span className="ml-2 px-2 py-0.5 bg-[#f4ece4] text-[#c69f6e] rounded-lg text-[10px] font-black uppercase tracking-wider">
+                                        Total: {totalExpensesDynamic.toFixed(3)} DT
+                                    </span>
                                 </h3>
                                 <button
                                     onClick={() => setShowSupplierModal(true)}
@@ -962,6 +968,9 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 <h3 className="text-lg font-bold text-[#4a3426] flex items-center gap-2">
                                     <div className="bg-[#4a3426] text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">3</div>
                                     Dépenses divers
+                                    <span className="ml-2 px-2 py-0.5 bg-[#f4ece4] text-[#c69f6e] rounded-lg text-[10px] font-black uppercase tracking-wider">
+                                        Total: {totalExpensesDivers.toFixed(3)} DT
+                                    </span>
                                 </h3>
                                 <button
                                     onClick={() => setShowDiversModal(true)}
@@ -1104,6 +1113,9 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 <h3 className="text-lg font-bold text-[#4a3426] flex items-center gap-2">
                                     <div className="bg-[#4a3426] text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">4</div>
                                     Dépenses Administratif
+                                    <span className="ml-2 px-2 py-0.5 bg-[#f4ece4] text-[#c69f6e] rounded-lg text-[10px] font-black uppercase tracking-wider">
+                                        Total: {totalExpensesAdmin.toFixed(3)} DT
+                                    </span>
                                 </h3>
                             </div>
 
