@@ -557,6 +557,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             if (targetZero < yesterdayZero || targetZero > todayZero) return;
         }
         setDate(newDateStr);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const generateCalendarDays = (currentDateStr: string) => {
@@ -1457,7 +1458,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 {generateCalendarDays(date).map((day, i) => {
                                     if (!day) return <div key={i}></div>;
                                     const isSelected = new Date(date).getDate() === day;
-                                    return (<button key={i} onClick={() => { const newD = new Date(date); newD.setDate(day); setDate(newD.toISOString().split('T')[0]); setShowCalendar(false); }} className={`h-9 w-9 rounded-full flex items-center justify-center text-sm font-semibold transition-all ${isSelected ? 'bg-[#4a3426] text-white shadow-lg' : 'text-[#4a3426] hover:bg-[#f4ece4] hover:text-[#c69f6e]'}`}>{day}</button>);
+                                    return (<button key={i} onClick={() => { const newD = new Date(date); newD.setDate(day); setDate(newD.toISOString().split('T')[0]); setShowCalendar(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`h-9 w-9 rounded-full flex items-center justify-center text-sm font-semibold transition-all ${isSelected ? 'bg-[#4a3426] text-white shadow-lg' : 'text-[#4a3426] hover:bg-[#f4ece4] hover:text-[#c69f6e]'}`}>{day}</button>);
                                 })}
                             </div>
                         </motion.div>
