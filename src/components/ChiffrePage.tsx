@@ -411,8 +411,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     };
 
     const handleAddExpense = () => { setHasInteracted(true); setExpenses([...expenses, { supplier: '', amount: '0', details: '', invoices: [], photo_cheque: '', photo_verso: '', paymentMethod: 'Espèces' }]); };
-    const handleAddDivers = () => { setHasInteracted(true); setExpensesDivers([...expensesDivers, { designation: '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces' }]); };
-    const handleAddJournalier = () => { setHasInteracted(true); setExpensesJournalier([...expensesJournalier, { designation: '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces' }]); };
+    const handleAddDivers = (designation?: string) => { setHasInteracted(true); setExpensesDivers([...expensesDivers, { designation: designation || '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces' }]); };
+    const handleAddJournalier = (designation?: string) => { setHasInteracted(true); setExpensesJournalier([...expensesJournalier, { designation: designation || '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces' }]); };
 
     const handleRemoveExpense = (index: number) => { setHasInteracted(true); setExpenses(expenses.filter((_, i) => i !== index)); };
     const handleRemoveDivers = (index: number) => { setHasInteracted(true); setExpensesDivers(expensesDivers.filter((_, i) => i !== index)); };
@@ -1468,43 +1468,86 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     <div className="bg-[#fcfaf8] w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-[#e6dace]">
                                         <Sparkles size={32} className="text-[#c69f6e]" />
                                     </div>
-                                    <h3 className="text-2xl font-black text-[#4a3426] tracking-tight uppercase">Choisir une désignation</h3>
-                                    <p className="text-[#c69f6e] text-[10px] font-black uppercase tracking-[0.2em] mt-1">Sélection rapide pour gagner du temps</p>
+                                    <h3 className="text-2xl font-black text-[#4a3426] tracking-tight">Choisir une désignation</h3>
+                                    <p className="text-[#8c8279] text-sm mt-1">Saisissez une désignation personnalisée ou utilisez un raccourci.</p>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4">
-                                    {commonDesignations.map((designation) => (
-                                        <button
-                                            key={designation}
-                                            onClick={() => {
-                                                if (showJournalierModal) {
-                                                    setExpensesJournalier([...expensesJournalier, { designation, amount: '0', details: '', invoices: [], paymentMethod: 'Espèces' }]);
-                                                    setShowJournalierModal(false);
-                                                } else {
-                                                    setExpensesDivers([...expensesDivers, { designation, amount: '0', details: '', invoices: [], paymentMethod: 'Espèces' }]);
-                                                    setShowDiversModal(false);
+                                <div className="space-y-6">
+                                    <div className="relative">
+                                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#bba282]" size={18} />
+                                        <input
+                                            autoFocus
+                                            type="text"
+                                            placeholder="Nom de la désignation..."
+                                            value={designationSearch}
+                                            onChange={(e) => setDesignationSearch(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && designationSearch.trim()) {
+                                                    if (showJournalierModal) {
+                                                        handleAddJournalier(designationSearch);
+                                                        setShowJournalierModal(false);
+                                                    } else {
+                                                        handleAddDivers(designationSearch);
+                                                        setShowDiversModal(false);
+                                                    }
+                                                    setDesignationSearch('');
                                                 }
                                             }}
-                                            className="group relative overflow-hidden py-6 px-4 rounded-2xl bg-[#fcfaf8] border border-[#e6dace] hover:border-[#c69f6e] hover:shadow-lg hover:shadow-[#c69f6e]/10 transition-all text-[#4a3426] font-black text-sm uppercase tracking-widest text-center"
-                                        >
-                                            <div className="absolute inset-0 bg-[#c69f6e] translate-y-full group-hover:translate-y-0 transition-transform duration-300 opacity-[0.03]"></div>
-                                            {designation}
-                                        </button>
-                                    ))}
-                                    <button
-                                        onClick={() => {
-                                            if (showJournalierModal) {
-                                                handleAddJournalier();
+                                            className="w-full bg-[#fcfaf8] border border-[#e6dace] rounded-2xl h-14 pl-12 pr-4 focus:border-[#c69f6e] outline-none font-bold text-[#4a3426] transition-all placeholder-[#bba282]/50"
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {commonDesignations.map((designation) => (
+                                            <button
+                                                key={designation}
+                                                onClick={() => {
+                                                    if (showJournalierModal) {
+                                                        handleAddJournalier(designation);
+                                                        setShowJournalierModal(false);
+                                                    } else {
+                                                        handleAddDivers(designation);
+                                                        setShowDiversModal(false);
+                                                    }
+                                                    setDesignationSearch('');
+                                                }}
+                                                className="group relative overflow-hidden py-4 px-4 rounded-xl bg-[#fcfaf8] border border-[#e6dace] hover:border-[#c69f6e] hover:shadow-lg hover:shadow-[#c69f6e]/10 transition-all text-[#4a3426] font-bold text-xs uppercase tracking-widest text-center"
+                                            >
+                                                {designation}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <div className="flex gap-3 pt-2">
+                                        <button
+                                            onClick={() => {
                                                 setShowJournalierModal(false);
-                                            } else {
-                                                handleAddDivers();
                                                 setShowDiversModal(false);
-                                            }
-                                        }}
-                                        className="py-6 px-4 rounded-2xl bg-white border-2 border-dashed border-[#c69f6e] hover:bg-[#c69f6e] hover:text-white transition-all text-[#c69f6e] font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 group"
-                                    >
-                                        <Plus size={18} className="group-hover:rotate-90 transition-transform" /> Autre
-                                    </button>
+                                                setDesignationSearch('');
+                                            }}
+                                            className="flex-1 h-14 rounded-2xl border border-[#e6dace] text-[#8c8279] font-black uppercase text-xs tracking-widest hover:bg-[#fcfaf8] transition-all"
+                                        >
+                                            Annuler
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                if (designationSearch.trim()) {
+                                                    if (showJournalierModal) {
+                                                        handleAddJournalier(designationSearch);
+                                                        setShowJournalierModal(false);
+                                                    } else {
+                                                        handleAddDivers(designationSearch);
+                                                        setShowDiversModal(false);
+                                                    }
+                                                    setDesignationSearch('');
+                                                }
+                                            }}
+                                            disabled={!designationSearch.trim()}
+                                            className="flex-1 h-14 rounded-2xl bg-[#c69f6e] text-white font-black uppercase text-xs tracking-widest hover:bg-[#b08d5d] transition-all shadow-lg shadow-[#c69f6e]/20 disabled:opacity-50"
+                                        >
+                                            Confirmer
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </motion.div>
