@@ -768,27 +768,20 @@ export default function FacturationPage() {
                                                     animate={{ opacity: 1, scale: 1 }}
                                                     className="bg-red-100 rounded-[2.5rem] border-2 border-red-400/50 overflow-hidden group hover:shadow-2xl hover:shadow-red-500/20 transition-all"
                                                 >
-                                                    <div className="relative h-48 bg-[#f9f6f2] border-b border-[#e6dace] flex items-center justify-center overflow-hidden">
-                                                        {inv.photo_url ? (
-                                                            <>
-                                                                <img src={inv.photo_url} alt="Invoice" className="w-full h-full object-cover" />
-                                                                <button
-                                                                    onClick={() => setViewingData(inv)}
-                                                                    className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white"
-                                                                >
-                                                                    <Eye size={30} />
-                                                                </button>
-                                                            </>
-                                                        ) : (
-                                                            <div className="text-[#8c8279] flex flex-col items-center gap-2">
-                                                                <Receipt size={40} className="opacity-20" />
-                                                                <span className="text-[10px] font-black uppercase tracking-widest">Pas de photo</span>
-                                                            </div>
-                                                        )}
-                                                        <div className="absolute top-4 right-4 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider shadow-sm flex items-center gap-1.5 bg-red-500 text-white">
+                                                    <div className="p-6 pb-0 flex justify-between items-center">
+                                                        <div className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider shadow-sm flex items-center gap-1.5 bg-red-500 text-white">
                                                             <Clock size={12} />
                                                             Non Payé
                                                         </div>
+                                                        {inv.photo_url && (
+                                                            <button
+                                                                onClick={() => setViewingData(inv)}
+                                                                className="flex items-center gap-2 text-red-600 hover:text-red-700 transition-colors bg-white/60 px-3 py-1 rounded-lg border border-red-200"
+                                                            >
+                                                                <Eye size={14} />
+                                                                <span className="text-[10px] font-black uppercase tracking-widest">Voir Photo</span>
+                                                            </button>
+                                                        )}
                                                     </div>
 
                                                     <div className="p-6">
@@ -878,27 +871,20 @@ export default function FacturationPage() {
                                                     animate={{ opacity: 1, scale: 1 }}
                                                     className="bg-green-100 rounded-[2.5rem] border-2 border-green-400/50 overflow-hidden group hover:shadow-2xl hover:shadow-green-500/20 transition-all"
                                                 >
-                                                    <div className="relative h-48 bg-[#f9f6f2] border-b border-[#e6dace] flex items-center justify-center overflow-hidden">
-                                                        {inv.photo_url ? (
-                                                            <>
-                                                                <img src={inv.photo_url} alt="Invoice" className="w-full h-full object-cover grayscale-[0.5] group-hover:grayscale-0 transition-all" />
-                                                                <button
-                                                                    onClick={() => setViewingData(inv)}
-                                                                    className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white"
-                                                                >
-                                                                    <Eye size={30} />
-                                                                </button>
-                                                            </>
-                                                        ) : (
-                                                            <div className="text-[#8c8279] flex flex-col items-center gap-2">
-                                                                <Receipt size={40} className="opacity-20" />
-                                                                <span className="text-[10px] font-black uppercase tracking-widest">Pas de photo</span>
-                                                            </div>
-                                                        )}
-                                                        <div className="absolute top-4 right-4 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider shadow-sm flex items-center gap-1.5 bg-green-500 text-white">
+                                                    <div className="p-6 pb-0 flex justify-between items-center">
+                                                        <div className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider shadow-sm flex items-center gap-1.5 bg-green-500 text-white">
                                                             <CheckCircle2 size={12} />
                                                             Payé
                                                         </div>
+                                                        {inv.photo_url && (
+                                                            <button
+                                                                onClick={() => setViewingData(inv)}
+                                                                className="flex items-center gap-2 text-green-700 hover:text-green-800 transition-colors bg-white/60 px-3 py-1 rounded-lg border border-green-200"
+                                                            >
+                                                                <Eye size={14} />
+                                                                <span className="text-[10px] font-black uppercase tracking-widest">Voir Photo</span>
+                                                            </button>
+                                                        )}
                                                     </div>
 
                                                     <div className="p-6">
@@ -935,7 +921,7 @@ export default function FacturationPage() {
                                                         <div className="flex gap-2">
                                                             <button
                                                                 onClick={() => handleUnpay(inv)}
-                                                                className="flex-1 h-11 bg-[#4a3426] text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-[#38261b] transition-all"
+                                                                className="flex-1 h-11 bg-[#2D6B4E] text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-[#1f4b36] transition-all"
                                                             >
                                                                 <RotateCcw size={18} />
                                                                 <span className="text-xs uppercase">Annuler Payement</span>
