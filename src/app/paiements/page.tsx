@@ -203,8 +203,8 @@ const DELETE_INVOICE = gql`
 `;
 
 const PAY_INVOICE = gql`
-  mutation PayInvoice($id: Int!, $payment_method: String!, $paid_date: String!, $photo_cheque_url: String, $photo_verso_url: String) {
-    payInvoice(id: $id, payment_method: $payment_method, paid_date: $paid_date, photo_cheque_url: $photo_cheque_url, photo_verso_url: $photo_verso_url) {
+  mutation PayInvoice($id: Int!, $payment_method: String!, $paid_date: String!, $photo_cheque_url: String, $photo_verso_url: String, $payer: String) {
+    payInvoice(id: $id, payment_method: $payment_method, paid_date: $paid_date, photo_cheque_url: $photo_cheque_url, photo_verso_url: $photo_verso_url, payer: $payer) {
       id
       status
       paid_date
@@ -322,7 +322,8 @@ export default function PaiementsPage() {
                     payment_method: paymentDetails.method,
                     paid_date: paymentDetails.date,
                     photo_cheque_url: paymentDetails.photo_cheque_url,
-                    photo_verso_url: paymentDetails.photo_verso_url
+                    photo_verso_url: paymentDetails.photo_verso_url,
+                    payer: 'riadh'
                 }
             });
             await refetchUnpaid();
@@ -785,7 +786,7 @@ export default function PaiementsPage() {
                                                         setShowHistoryModal(true);
                                                         refetchHistory();
                                                     }}
-                                                    className="text-[9px] font-black uppercase tracking-widest text-[#c69f6e] hover:text-[#4a3426] transition-colors flex items-center gap-1 pr-1"
+                                                    className="w-full text-[10px] font-black uppercase tracking-widest bg-[#f4ece4] border border-[#e6dace] text-[#c69f6e] py-1.5 rounded-lg hover:bg-[#ebdccf] transition-all flex items-center justify-center gap-2 shadow-sm"
                                                 >
                                                     <Clock size={12} />
                                                     <span>Historique Riadh</span>
@@ -956,7 +957,7 @@ export default function PaiementsPage() {
                             <div className="bg-white p-6 rounded-[2.5rem] luxury-shadow border border-[#e6dace]/50">
                                 <div className="flex justify-between items-center px-2 mb-4">
                                     <h3 className="text-xl font-bold text-[#4a3426] flex items-center gap-2">
-                                        <User size={20} className="text-[#c69f6e]" /> Confirmations Salaires
+                                        <User size={20} className="text-[#c69f6e]" /> Restes Salaires
                                     </h3>
                                     <div className="relative">
                                         <input
@@ -1195,84 +1196,74 @@ export default function PaiementsPage() {
                                 onClick={e => e.stopPropagation()}
                                 className="bg-[#f9f6f2] rounded-[2.5rem] w-full max-w-6xl max-h-[90vh] overflow-hidden shadow-2xl border border-white/20 flex flex-col"
                             >
-                                <div className="p-6 bg-white border-b border-[#e6dace] shrink-0">
-                                    <div className="flex justify-between items-center mb-4">
-                                        <h2 className="text-xl font-black text-[#4a3426] uppercase tracking-tight flex items-center gap-3">
-                                            <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center text-red-600">
-                                                <Clock size={22} />
-                                            </div>
-                                            Factures Non Payées
-                                            <span className="bg-red-50 text-red-600 px-3 py-1 rounded-full text-sm border border-red-100">
-                                                {unpaidData?.getInvoices?.filter((inv: any) => inv.status !== 'paid').length || 0}
-                                            </span>
-                                        </h2>
-                                        <button onClick={() => setShowUnpaidModal(false)} className="w-10 h-10 rounded-full hover:bg-[#fcfaf8] flex items-center justify-center text-[#8c8279] transition-colors">
-                                            <ChevronRight size={24} className="rotate-90" />
-                                        </button>
-                                    </div>
-
-                                    {/* Total Amount Display */}
-                                    <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-2xl p-6 mb-4 text-white">
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <p className="text-xs font-bold uppercase tracking-widest opacity-90 mb-1">Total Impayé</p>
-                                                <div className="flex items-baseline gap-2">
-                                                    <span className="text-4xl font-black tracking-tighter">
-                                                        {(unpaidData?.getInvoices?.filter((inv: any) => inv.status !== 'paid')
-                                                            .reduce((sum: number, inv: any) => sum + parseFloat(inv.amount || 0), 0) || 0)
-                                                            .toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
-                                                    </span>
-                                                    <span className="text-lg font-bold opacity-80">DT</span>
+                                <div className="p-4 bg-white border-b border-[#e6dace] shrink-0">
+                                    <div className="flex flex-col md:flex-row items-center gap-4">
+                                        <div className="flex items-center gap-3 shrink-0">
+                                            <h2 className="text-lg font-black text-[#4a3426] uppercase tracking-tight flex items-center gap-2">
+                                                <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center text-red-600">
+                                                    <Clock size={16} />
                                                 </div>
-                                            </div>
-                                            <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center">
-                                                <Clock size={32} className="opacity-50" />
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Search and Date Filter */}
-                                    <div className="space-y-3">
-                                        {/* Search by Supplier */}
-                                        <div className="relative">
-                                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8c8279]" size={18} />
-                                            <input
-                                                type="text"
-                                                placeholder="Rechercher par fournisseur..."
-                                                value={unpaidSearchFilter}
-                                                onChange={(e) => setUnpaidSearchFilter(e.target.value)}
-                                                className="w-full h-12 pl-12 pr-4 bg-[#fcfaf8] border border-[#e6dace] rounded-xl font-medium text-[#4a3426] placeholder:text-[#8c8279]/50 focus:border-red-300 focus:ring-2 focus:ring-red-100 outline-none transition-all"
-                                            />
+                                                Factures Non Payées
+                                                <span className="bg-red-50 text-red-600 px-2 py-0.5 rounded-full text-xs border border-red-100">
+                                                    {unpaidData?.getInvoices?.filter((inv: any) => inv.status !== 'paid').length || 0}
+                                                </span>
+                                            </h2>
                                         </div>
 
-                                        {/* Date Range Filter */}
-                                        <div className="flex items-center gap-2">
-                                            <div className="flex-1">
-                                                <label className="text-[9px] font-black uppercase tracking-widest text-[#8c8279] mb-1 block ml-1">Date Début</label>
-                                                <PremiumDatePicker
-                                                    label="Début"
-                                                    value={unpaidDateRange.start}
-                                                    onChange={(val) => setUnpaidDateRange(prev => ({ ...prev, start: val }))}
-                                                />
-                                            </div>
-                                            <span className="text-[#c69f6e] font-black text-sm opacity-30 mt-5">→</span>
-                                            <div className="flex-1">
-                                                <label className="text-[9px] font-black uppercase tracking-widest text-[#8c8279] mb-1 block ml-1">Date Fin</label>
-                                                <PremiumDatePicker
-                                                    label="Fin"
-                                                    value={unpaidDateRange.end}
-                                                    onChange={(val) => setUnpaidDateRange(prev => ({ ...prev, end: val }))}
-                                                />
-                                            </div>
-                                            {(unpaidDateRange.start || unpaidDateRange.end) && (
-                                                <button
-                                                    onClick={() => setUnpaidDateRange({ start: '', end: '' })}
-                                                    className="mt-5 px-3 h-10 bg-red-50 text-red-600 rounded-xl text-xs font-bold hover:bg-red-100 transition-all"
-                                                >
-                                                    Réinitialiser
-                                                </button>
-                                            )}
+                                        <div className="h-8 w-[1px] bg-[#e6dace] hidden md:block"></div>
+
+                                        <div className="flex items-center gap-2 whitespace-nowrap bg-red-50 px-3 py-1.5 rounded-lg border border-red-100 shrink-0">
+                                            <span className="text-[10px] font-bold uppercase text-red-400">Total:</span>
+                                            <span className="text-sm font-black text-red-600">
+                                                {(unpaidData?.getInvoices?.filter((inv: any) => inv.status !== 'paid')
+                                                    .reduce((sum: number, inv: any) => sum + parseFloat(inv.amount || 0), 0) || 0)
+                                                    .toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                            </span>
+                                            <span className="text-[10px] font-bold text-red-400">DT</span>
                                         </div>
+
+                                        <div className="flex-1 flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+                                            <div className="relative min-w-[200px] flex-1">
+                                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8c8279]" size={14} />
+                                                <input
+                                                    type="text"
+                                                    placeholder="Rechercher..."
+                                                    value={unpaidSearchFilter}
+                                                    onChange={(e) => setUnpaidSearchFilter(e.target.value)}
+                                                    className="w-full h-9 pl-9 pr-3 bg-[#fcfaf8] border border-[#e6dace] rounded-lg text-xs font-bold text-[#4a3426] placeholder:text-[#8c8279]/50 focus:border-red-300 focus:ring-1 focus:ring-red-100 outline-none transition-all"
+                                                />
+                                            </div>
+
+                                            <div className="flex items-center gap-2 shrink-0">
+                                                <div className="w-32">
+                                                    <PremiumDatePicker
+                                                        label="Début"
+                                                        value={unpaidDateRange.start}
+                                                        onChange={(val) => setUnpaidDateRange(prev => ({ ...prev, start: val }))}
+                                                    />
+                                                </div>
+                                                <span className="text-[#c69f6e] font-black text-xs opacity-30">→</span>
+                                                <div className="w-32">
+                                                    <PremiumDatePicker
+                                                        label="Fin"
+                                                        value={unpaidDateRange.end}
+                                                        onChange={(val) => setUnpaidDateRange(prev => ({ ...prev, end: val }))}
+                                                    />
+                                                </div>
+                                                {(unpaidDateRange.start || unpaidDateRange.end) && (
+                                                    <button
+                                                        onClick={() => setUnpaidDateRange({ start: '', end: '' })}
+                                                        className="h-9 px-3 bg-red-50 text-red-600 rounded-lg text-[10px] font-bold hover:bg-red-100 transition-all"
+                                                    >
+                                                        RàZ
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <button onClick={() => setShowUnpaidModal(false)} className="w-8 h-8 rounded-full hover:bg-[#fcfaf8] flex items-center justify-center text-[#8c8279] transition-colors shrink-0">
+                                            <ChevronRight size={20} className="rotate-90" />
+                                        </button>
                                     </div>
                                 </div>
 

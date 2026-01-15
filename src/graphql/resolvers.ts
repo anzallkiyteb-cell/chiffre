@@ -505,10 +505,10 @@ export const resolvers = {
                 photos: JSON.stringify(row.photos || [])
             };
         },
-        payInvoice: async (_: any, { id, payment_method, paid_date, photo_cheque_url, photo_verso_url }: any) => {
+        payInvoice: async (_: any, { id, payment_method, paid_date, photo_cheque_url, photo_verso_url, payer }: any) => {
             const res = await query(
-                "UPDATE invoices SET status = 'paid', payment_method = $1, paid_date = $2, photo_cheque_url = $3, photo_verso_url = $4 WHERE id = $5 RETURNING *",
-                [payment_method, paid_date, photo_cheque_url, photo_verso_url, id]
+                "UPDATE invoices SET status = 'paid', payment_method = $1, paid_date = $2, photo_cheque_url = $3, photo_verso_url = $4, payer = $5 WHERE id = $6 RETURNING *",
+                [payment_method, paid_date, photo_cheque_url, photo_verso_url, payer, id]
             );
             const row = res.rows[0];
             return {

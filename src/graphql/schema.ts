@@ -156,6 +156,7 @@ export const typeDefs = `#graphql
       paid_date: String!
       photo_cheque_url: String
       photo_verso_url: String
+      payer: String
     ): Invoice
 
     deleteInvoice(id: Int!): Boolean
