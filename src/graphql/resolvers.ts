@@ -31,15 +31,16 @@ export const resolvers = {
                 };
             });
 
-            // Fetch from bey database
-            const [avances, doublages, extrasPrimes] = await Promise.all([
-                beyQuery('SELECT username, montant FROM avances WHERE date = $1', [date]),
-                beyQuery('SELECT username, montant FROM doublages WHERE date::date = $1', [date]), // Cast timestamp to date
-                beyQuery('SELECT username, montant, motif FROM extras WHERE date_extra = $1', [date])
+            // Fetch from local database
+            const [avances, doublages, extras, primes] = await Promise.all([
+                query('SELECT id, employee_name as username, montant FROM advances WHERE date = $1', [date]),
+                query('SELECT id, employee_name as username, montant FROM doublages WHERE date = $1', [date]),
+                query('SELECT id, employee_name as username, montant FROM extras WHERE date = $1', [date]),
+                query('SELECT id, employee_name as username, montant FROM primes WHERE date = $1', [date])
             ]);
 
-            const extraDetails = extrasPrimes.rows.filter(r => r.motif && r.motif.toLowerCase().includes('extra'));
-            const primesDetails = extrasPrimes.rows.filter(r => r.motif && r.motif.toLowerCase().includes('prime'));
+            const extraDetails = extras.rows;
+            const primesDetails = primes.rows;
 
             let data = res.rows.length > 0 ? { ...res.rows[0] } : { date };
 
@@ -60,10 +61,10 @@ export const resolvers = {
                 diponce_divers: typeof data.diponce_divers === 'string' ? data.diponce_divers : JSON.stringify(data.diponce_divers || []),
                 diponce_journalier: typeof data.diponce_journalier === 'string' ? data.diponce_journalier : JSON.stringify(data.diponce_journalier || []),
                 diponce_admin: typeof data.diponce_admin === 'string' ? data.diponce_admin : JSON.stringify(data.diponce_admin || []),
-                avances_details: avances.rows.map(r => ({ username: r.username, montant: r.montant.toString() })),
-                doublages_details: doublages.rows.map(r => ({ username: r.username, montant: r.montant.toString() })),
-                extras_details: extraDetails.map(r => ({ username: r.username, montant: r.montant.toString() })),
-                primes_details: primesDetails.map(r => ({ username: r.username, montant: r.montant.toString() }))
+                avances_details: avances.rows.map(r => ({ id: r.id, username: r.username, montant: r.montant.toString() })),
+                doublages_details: doublages.rows.map(r => ({ id: r.id, username: r.username, montant: r.montant.toString() })),
+                extras_details: extraDetails.map(r => ({ id: r.id, username: r.username, montant: r.montant.toString() })),
+                primes_details: primesDetails.map(r => ({ id: r.id, username: r.username, montant: r.montant.toString() }))
             };
         },
         getInvoices: async (_: any, { supplierName, startDate, endDate, month }: any) => {
@@ -93,11 +94,12 @@ export const resolvers = {
             }));
         },
         getChiffresByRange: async (_: any, { startDate, endDate }: { startDate: string, endDate: string }) => {
-            const [res, avances, doublages, extrasPrimes, paidInvoicesRes] = await Promise.all([
+            const [res, avances, doublages, extras, primes, paidInvoicesRes] = await Promise.all([
                 query('SELECT * FROM chiffres WHERE date >= $1 AND date <= $2 ORDER BY date ASC', [startDate, endDate]),
-                beyQuery('SELECT date, username, montant FROM avances WHERE date >= $1 AND date <= $2', [startDate, endDate]),
-                beyQuery('SELECT date, username, montant FROM doublages WHERE date::date >= $1 AND date::date <= $2', [startDate, endDate]),
-                beyQuery('SELECT date_extra as date, username, montant, motif FROM extras WHERE date_extra >= $1 AND date_extra <= $2', [startDate, endDate]),
+                query('SELECT id, date, employee_name as username, montant FROM advances WHERE date >= $1 AND date <= $2', [startDate, endDate]),
+                query('SELECT id, date, employee_name as username, montant FROM doublages WHERE date >= $1 AND date <= $2', [startDate, endDate]),
+                query('SELECT id, date, employee_name as username, montant FROM extras WHERE date >= $1 AND date <= $2', [startDate, endDate]),
+                query('SELECT id, date, employee_name as username, montant FROM primes WHERE date >= $1 AND date <= $2', [startDate, endDate]),
                 query("SELECT * FROM invoices WHERE status = 'paid' AND paid_date >= $1 AND paid_date <= $2", [startDate, endDate])
             ]);
 
@@ -121,7 +123,8 @@ export const resolvers = {
             res.rows.forEach(r => { const d = normalizeDate(r.date); if (d) allDatesSet.add(d); });
             avances.rows.forEach(r => { const d = normalizeDate(r.date); if (d) allDatesSet.add(d); });
             doublages.rows.forEach(r => { const d = normalizeDate(r.date); if (d) allDatesSet.add(d); });
-            extrasPrimes.rows.forEach(r => { const d = normalizeDate(r.date); if (d) allDatesSet.add(d); });
+            extras.rows.forEach(r => { const d = normalizeDate(r.date); if (d) allDatesSet.add(d); });
+            primes.rows.forEach(r => { const d = normalizeDate(r.date); if (d) allDatesSet.add(d); });
             paidInvoicesRes.rows.forEach(r => { const d = normalizeDate(r.paid_date); if (d) allDatesSet.add(d); });
 
             const sortedDates = Array.from(allDatesSet).sort();
@@ -176,7 +179,8 @@ export const resolvers = {
 
                 const dayAvances = avances.rows.filter(r => normalizeDate(r.date) === dayStr);
                 const dayDoublages = doublages.rows.filter(r => normalizeDate(r.date) === dayStr);
-                const dayExtrasPrimes = extrasPrimes.rows.filter(r => normalizeDate(r.date) === dayStr);
+                const dayExtras = extras.rows.filter(r => normalizeDate(r.date) === dayStr);
+                const dayPrimes = primes.rows.filter(r => normalizeDate(r.date) === dayStr);
                 const dayPaidInvoices = paidInvoicesByDate[dayStr] || [];
 
                 let diponceList = [];
@@ -200,16 +204,9 @@ export const resolvers = {
                 const sumDivers = diversList.reduce((s: number, i: any) => s + (parseFloat(i.amount) || 0), 0);
                 const sumJournalier = journalierList.reduce((s: number, i: any) => s + (parseFloat(i.amount) || 0), 0);
                 const sumAdmin = adminList.reduce((s: number, i: any) => s + (parseFloat(i.amount) || 0), 0);
-                const sumAvances = dayAvances.reduce((s: number, i: any) => s + (parseFloat(i.montant) || 0), 0);
-                const sumDoublages = dayDoublages.reduce((s: number, i: any) => s + (parseFloat(i.montant) || 0), 0);
-                const sumExtrasPrimes = dayExtrasPrimes.reduce((s: number, i: any) => s + (parseFloat(i.montant) || 0), 0);
-
-                const totalDiponce = sumDiponce + sumDivers + sumJournalier + sumAdmin + sumAvances + sumDoublages + sumExtrasPrimes;
+                const totalDiponce = sumDiponce + sumDivers + sumJournalier + sumAdmin + dayAvances.reduce((s, r) => s + (parseFloat(r.montant) || 0), 0) + dayDoublages.reduce((s, r) => s + (parseFloat(r.montant) || 0), 0) + dayExtras.reduce((s, r) => s + (parseFloat(r.montant) || 0), 0) + dayPrimes.reduce((s, r) => s + (parseFloat(r.montant) || 0), 0);
                 const recetteCaisse = parseFloat(row.recette_de_caisse) || 0;
                 const recetteNet = recetteCaisse - totalDiponce;
-
-                const extraDetails = dayExtrasPrimes.filter(r => r.motif && r.motif.toLowerCase().includes('extra'));
-                const primesDetails = dayExtrasPrimes.filter(r => r.motif && r.motif.toLowerCase().includes('prime'));
 
                 return {
                     ...row,
@@ -220,10 +217,10 @@ export const resolvers = {
                     diponce_divers: typeof row.diponce_divers === 'string' ? row.diponce_divers : JSON.stringify(row.diponce_divers || []),
                     diponce_journalier: typeof row.diponce_journalier === 'string' ? row.diponce_journalier : JSON.stringify(row.diponce_journalier || []),
                     diponce_admin: typeof row.diponce_admin === 'string' ? row.diponce_admin : JSON.stringify(row.diponce_admin || []),
-                    avances_details: dayAvances.map(r => ({ username: r.username, montant: r.montant.toString() })),
-                    doublages_details: dayDoublages.map(r => ({ username: r.username, montant: r.montant.toString() })),
-                    extras_details: extraDetails.map(r => ({ username: r.username, montant: r.montant.toString() })),
-                    primes_details: primesDetails.map(r => ({ username: r.username, montant: r.montant.toString() }))
+                    avances_details: dayAvances.map(r => ({ id: r.id, username: r.username, montant: r.montant.toString() })),
+                    doublages_details: dayDoublages.map(r => ({ id: r.id, username: r.username, montant: r.montant.toString() })),
+                    extras_details: dayExtras.map(r => ({ id: r.id, username: r.username, montant: r.montant.toString() })),
+                    primes_details: dayPrimes.map(r => ({ id: r.id, username: r.username, montant: r.montant.toString() }))
                 };
             });
         },
@@ -308,7 +305,7 @@ export const resolvers = {
                         sql += ` GROUP BY username`;
                         const res = await beyQuery(sql, params);
 
-                        res.rows.forEach(r => {
+                        res.rows.forEach((r: any) => {
                             processedUsers[r.username] = (processedUsers[r.username] || 0) + (parseFloat(r.amount) || 0);
                         });
                     }
@@ -369,6 +366,10 @@ export const resolvers = {
             }
 
             const res = await query(`SELECT * FROM bank_deposits ${dateFilter} ORDER BY date DESC`, params);
+            return res.rows;
+        },
+        getEmployees: async () => {
+            const res = await query('SELECT * FROM employees ORDER BY name ASC');
             return res.rows;
         },
         getLockedDates: async () => {
@@ -614,6 +615,53 @@ export const resolvers = {
         unlockChiffre: async (_: any, { date }: { date: string }) => {
             const res = await query('UPDATE chiffres SET is_locked = false WHERE date = $1 RETURNING *', [date]);
             return res.rows[0];
+        },
+        upsertEmployee: async (_: any, { name }: { name: string }) => {
+            const normalized = name.trim();
+            const existing = await query('SELECT * FROM employees WHERE LOWER(name) = LOWER($1)', [normalized]);
+            if (existing.rows.length > 0) return existing.rows[0];
+            const res = await query('INSERT INTO employees (name) VALUES ($1) RETURNING *', [normalized]);
+            return res.rows[0];
+        },
+        deleteEmployee: async (_: any, { id }: { id: number }) => {
+            await query('DELETE FROM employees WHERE id = $1', [id]);
+            return true;
+        },
+        addAvance: async (_: any, { username, amount, date }: any) => {
+            const res = await query('INSERT INTO advances (employee_name, montant, date) VALUES ($1, $2, $3) ON CONFLICT (employee_name, date) DO UPDATE SET montant = $2 RETURNING id, employee_name as username, montant', [username, amount, date]);
+            const row = res.rows[0];
+            return { ...row, montant: row.montant.toString() };
+        },
+        deleteAvance: async (_: any, { id }: any) => {
+            await query('DELETE FROM advances WHERE id = $1', [id]);
+            return true;
+        },
+        addDoublage: async (_: any, { username, amount, date }: any) => {
+            const res = await query('INSERT INTO doublages (employee_name, montant, date) VALUES ($1, $2, $3) ON CONFLICT (employee_name, date) DO UPDATE SET montant = $2 RETURNING id, employee_name as username, montant', [username, amount, date]);
+            const row = res.rows[0];
+            return { ...row, montant: row.montant.toString() };
+        },
+        deleteDoublage: async (_: any, { id }: any) => {
+            await query('DELETE FROM doublages WHERE id = $1', [id]);
+            return true;
+        },
+        addExtra: async (_: any, { username, amount, date }: any) => {
+            const res = await query('INSERT INTO extras (employee_name, montant, date) VALUES ($1, $2, $3) ON CONFLICT (employee_name, date) DO UPDATE SET montant = $2 RETURNING id, employee_name as username, montant', [username, amount, date]);
+            const row = res.rows[0];
+            return { ...row, montant: row.montant.toString() };
+        },
+        deleteExtra: async (_: any, { id }: any) => {
+            await query('DELETE FROM extras WHERE id = $1', [id]);
+            return true;
+        },
+        addPrime: async (_: any, { username, amount, date }: any) => {
+            const res = await query('INSERT INTO primes (employee_name, montant, date) VALUES ($1, $2, $3) ON CONFLICT (employee_name, date) DO UPDATE SET montant = $2 RETURNING id, employee_name as username, montant', [username, amount, date]);
+            const row = res.rows[0];
+            return { ...row, montant: row.montant.toString() };
+        },
+        deletePrime: async (_: any, { id }: any) => {
+            await query('DELETE FROM primes WHERE id = $1', [id]);
+            return true;
         },
     },
 };

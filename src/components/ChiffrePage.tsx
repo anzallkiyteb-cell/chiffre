@@ -29,10 +29,10 @@ const GET_CHIFFRE = gql`
         tickets_restaurant
         extra
         primes
-        avances_details { username montant }
-        doublages_details { username montant }
-        extras_details { username montant }
-        primes_details { username montant }
+        avances_details { id username montant }
+        doublages_details { id username montant }
+        extras_details { id username montant }
+        primes_details { id username montant }
         diponce_divers
         diponce_journalier
         diponce_admin
@@ -133,6 +133,164 @@ const UNPAY_INVOICE = gql`
   }
 `;
 
+const GET_EMPLOYEES = gql`
+  query GetEmployees {
+    getEmployees {
+      id
+      name
+    }
+  }
+`;
+
+const UPSERT_EMPLOYEE = gql`
+  mutation UpsertEmployee($name: String!) {
+    upsertEmployee(name: $name) {
+      id
+      name
+    }
+  }
+`;
+
+const ADD_AVANCE = gql`
+  mutation AddAvance($username: String!, $amount: String!, $date: String!) {
+    addAvance(username: $username, amount: $amount, date: $date) { id username montant }
+  }
+`;
+const DELETE_AVANCE = gql`
+  mutation DeleteAvance($id: Int!) { deleteAvance(id: $id) }
+`;
+
+const ADD_DOUBLAGE = gql`
+  mutation AddDoublage($username: String!, $amount: String!, $date: String!) {
+    addDoublage(username: $username, amount: $amount, date: $date) { id username montant }
+  }
+`;
+const DELETE_DOUBLAGE = gql`
+  mutation DeleteDoublage($id: Int!) { deleteDoublage(id: $id) }
+`;
+
+const ADD_EXTRA = gql`
+  mutation AddExtra($username: String!, $amount: String!, $date: String!) {
+    addExtra(username: $username, amount: $amount, date: $date) { id username montant }
+  }
+`;
+const DELETE_EXTRA = gql`
+  mutation DeleteExtra($id: Int!) { deleteExtra(id: $id) }
+`;
+
+const ADD_PRIME = gql`
+  mutation AddPrime($username: String!, $amount: String!, $date: String!) {
+    addPrime(username: $username, amount: $amount, date: $date) { id username montant }
+  }
+`;
+const DELETE_PRIME = gql`
+  mutation DeletePrime($id: Int!) { deletePrime(id: $id) }
+`;
+
+const EntryModal = ({ isOpen, onClose, onSubmit, type, employees = [] }: any) => {
+    const [search, setSearch] = useState('');
+    const [amount, setAmount] = useState('');
+    const [showDropdown, setShowDropdown] = useState(false);
+
+    if (!isOpen) return null;
+
+    const filteredEmployees = employees.filter((e: any) =>
+        e.name.toLowerCase().includes(search.toLowerCase())
+    );
+
+    const titleMap: any = {
+        avance: 'Ajouter Accompte',
+        doublage: 'Ajouter Doublage',
+        extra: 'Ajouter Extra',
+        prime: 'Ajouter Prime'
+    };
+
+    return (
+        <AnimatePresence>
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[400] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
+                onClick={onClose}
+            >
+                <motion.div
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.9, opacity: 0 }}
+                    onClick={e => e.stopPropagation()}
+                    className="bg-white rounded-[2.5rem] w-full max-w-md overflow-hidden shadow-2xl border border-[#e6dace]"
+                >
+                    <div className="p-8 space-y-6">
+                        <div className="flex justify-between items-center">
+                            <h3 className="text-xl font-black text-[#4a3426] uppercase tracking-tighter">{titleMap[type]}</h3>
+                            <button onClick={onClose} className="p-2 hover:bg-[#f9f6f2] rounded-xl transition-colors text-[#bba282]"><X size={20} /></button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="relative">
+                                <label className="text-[10px] font-black text-[#bba282] uppercase tracking-[0.2em] mb-2 block ml-1">Employé</label>
+                                <div className="relative">
+                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[#bba282]"><User size={18} /></div>
+                                    <input
+                                        type="text"
+                                        placeholder="Rechercher un employé..."
+                                        value={search}
+                                        onChange={(e) => { setSearch(e.target.value); setShowDropdown(true); }}
+                                        onFocus={() => setShowDropdown(true)}
+                                        className="w-full h-14 bg-[#fcfaf8] border border-[#e6dace] rounded-2xl pl-12 pr-4 font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all"
+                                    />
+                                    {search && filteredEmployees.length > 0 && (
+                                        <div className="absolute left-0 right-0 top-full mt-2 bg-white rounded-2xl shadow-xl border border-[#e6dace] max-h-48 overflow-y-auto z-10 custom-scrollbar">
+                                            {filteredEmployees.map((emp: any) => (
+                                                <button
+                                                    key={emp.id}
+                                                    onClick={() => { setSearch(emp.name); setShowDropdown(false); }}
+                                                    className="w-full text-left px-5 py-3 hover:bg-[#fcfaf8] font-bold text-[#4a3426] border-b border-[#f9f6f2] last:border-0 transition-colors"
+                                                >
+                                                    {emp.name}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="relative">
+                                <label className="text-[10px] font-black text-[#bba282] uppercase tracking-[0.2em] mb-2 block ml-1">Montant (DT)</label>
+                                <div className="relative">
+                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[#bba282] font-black">DT</div>
+                                    <input
+                                        type="number"
+                                        placeholder="0.000"
+                                        step="0.001"
+                                        value={amount}
+                                        onChange={(e) => setAmount(e.target.value)}
+                                        className="w-full h-14 bg-[#fcfaf8] border border-[#e6dace] rounded-2xl pl-12 pr-4 font-black text-2xl text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <button
+                            disabled={!search || !amount || parseFloat(amount) <= 0 || !employees.some((e: any) => e.name === search)}
+                            onClick={() => {
+                                onSubmit(type, search, amount);
+                                onClose();
+                                setSearch('');
+                                setAmount('');
+                            }}
+                            className="w-full h-14 bg-[#4a3426] text-white rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-lg shadow-[#4a3426]/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-40 disabled:grayscale disabled:scale-100"
+                        >
+                            Valider l'entrée
+                        </button>
+                    </div>
+                </motion.div>
+            </motion.div>
+        </AnimatePresence>
+    );
+};
+
 interface ChiffrePageProps {
     role: 'admin' | 'caissier';
     onLogout: () => void;
@@ -227,6 +385,17 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     const [upsertSupplier] = useMutation(UPSERT_SUPPLIER);
     const [upsertDesignation] = useMutation(UPSERT_DESIGNATION);
     const [unpayInvoice] = useMutation(UNPAY_INVOICE);
+    const { data: employeesData, refetch: refetchEmployees } = useQuery(GET_EMPLOYEES);
+
+    const [upsertEmployee] = useMutation(UPSERT_EMPLOYEE);
+    const [addAvance] = useMutation(ADD_AVANCE);
+    const [deleteAvance] = useMutation(DELETE_AVANCE);
+    const [addDoublage] = useMutation(ADD_DOUBLAGE);
+    const [deleteDoublage] = useMutation(DELETE_DOUBLAGE);
+    const [addExtra] = useMutation(ADD_EXTRA);
+    const [deleteExtra] = useMutation(DELETE_EXTRA);
+    const [addPrime] = useMutation(ADD_PRIME);
+    const [deletePrime] = useMutation(DELETE_PRIME);
 
     // Dashboard States
     const [recetteCaisse, setRecetteCaisse] = useState('0');
@@ -281,11 +450,11 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     const [extra, setExtra] = useState('0');
     const [primes, setPrimes] = useState('0');
 
-    // Bey Details
-    const [avancesList, setAvancesList] = useState<{ username: string, montant: string }[]>([]);
-    const [doublagesList, setDoublagesList] = useState<{ username: string, montant: string }[]>([]);
-    const [extrasList, setExtrasList] = useState<{ username: string, montant: string }[]>([]);
-    const [primesList, setPrimesList] = useState<{ username: string, montant: string }[]>([]);
+    // Bey Details (Now Local)
+    const [avancesList, setAvancesList] = useState<{ id?: number, username: string, montant: string }[]>([]);
+    const [doublagesList, setDoublagesList] = useState<{ id?: number, username: string, montant: string }[]>([]);
+    const [extrasList, setExtrasList] = useState<{ id?: number, username: string, montant: string }[]>([]);
+    const [primesList, setPrimesList] = useState<{ id?: number, username: string, montant: string }[]>([]);
 
     // UI States
     const [toast, setToast] = useState<{ msg: string, type: 'success' | 'error' } | null>(null);
@@ -295,6 +464,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     const [showSupplierDropdown, setShowSupplierDropdown] = useState<number | null>(null);
     const [showJournalierDropdown, setShowJournalierDropdown] = useState<number | null>(null);
     const [showDiversDropdown, setShowDiversDropdown] = useState<number | null>(null);
+    const [showEntryModal, setShowEntryModal] = useState<any>(null); // { type: 'avance' | 'doublage' | 'extra' | 'prime' }
+    const [employeeSearch, setEmployeeSearch] = useState('');
     const [viewingInvoices, setViewingInvoices] = useState<string[] | null>(null);
     const [viewingInvoicesTarget, setViewingInvoicesTarget] = useState<{ index: number, type: 'expense' | 'divers' | 'journalier' } | null>(null);
     const [imgZoom, setImgZoom] = useState(1);
@@ -312,6 +483,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     const [showSupplierModal, setShowSupplierModal] = useState(false);
     const [showJournalierModal, setShowJournalierModal] = useState(false);
     const [showDiversModal, setShowDiversModal] = useState(false);
+    const [showEmployeeModal, setShowEmployeeModal] = useState(false);
     const [hideRecetteCaisse, setHideRecetteCaisse] = useState(false);
     const [newSupplierName, setNewSupplierName] = useState('');
     const [hasInteracted, setHasInteracted] = useState(false);
@@ -521,6 +693,61 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         }
         setHasInteracted(true);
         setExpensesJournalier([...expensesJournalier, { designation: designation || '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces', doc_type: 'PHOTO' }]);
+    };
+
+    const handleEntrySubmit = async (type: string, username: string, amount: string) => {
+        if (isLocked) return;
+        try {
+            // New employees are now added only via the dedicated "Ajouter Employé" button
+            // So we don't upsert here anymore to maintain a clean directory
+
+            if (type === 'avance') await addAvance({ variables: { username, amount, date } });
+            if (type === 'doublage') await addDoublage({ variables: { username, amount, date } });
+            if (type === 'extra') await addExtra({ variables: { username, amount, date } });
+            if (type === 'prime') await addPrime({ variables: { username, amount, date } });
+
+            refetchChiffre();
+            setToast({ msg: 'Ajouté avec succès', type: 'success' });
+            setTimeout(() => setToast(null), 3000);
+        } catch (e) {
+            console.error(e);
+            setToast({ msg: 'Erreur lors de l’ajout', type: 'error' });
+            setTimeout(() => setToast(null), 3000);
+        }
+    };
+
+    const handleDeleteEntry = async (type: string, id: number) => {
+        if (isLocked) {
+            setShowConfirm({
+                type: 'alert',
+                title: 'INTERDIT',
+                message: 'Cette date est verrouillée. Impossible de supprimer.',
+                color: 'red',
+                alert: true
+            });
+            return;
+        }
+
+        setShowConfirm({
+            type: 'delete',
+            title: 'Supprimer',
+            message: 'Voulez-vous vraiment supprimer cet élément ?',
+            color: 'red',
+            onConfirm: async () => {
+                try {
+                    if (type === 'avance') await deleteAvance({ variables: { id } });
+                    if (type === 'doublage') await deleteDoublage({ variables: { id } });
+                    if (type === 'extra') await deleteExtra({ variables: { id } });
+                    if (type === 'prime') await deletePrime({ variables: { id } });
+
+                    refetchChiffre();
+                    setToast({ msg: 'Supprimé avec succès', type: 'success' });
+                    setTimeout(() => setToast(null), 3000);
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+        });
     };
     const handleRemoveExpense = (index: number) => {
         if (isLocked) {
@@ -1074,15 +1301,11 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                                     </div>
                                                                 ))
                                                             }
-                                                            <div
-                                                                className="p-3 bg-[#fcfaf8] border-t border-[#e6dace] hover:bg-[#c69f6e] hover:text-white cursor-pointer font-bold text-[#c69f6e] text-xs flex items-center gap-2"
-                                                                onClick={() => {
-                                                                    setShowJournalierModal(true);
-                                                                    setShowJournalierDropdown(null);
-                                                                }}
-                                                            >
-                                                                <Plus size={14} /> Nouveau
-                                                            </div>
+                                                            {commonDesignations.filter((d: string) => d.toLowerCase().includes(designationSearch.toLowerCase())).length === 0 && designationSearch && (
+                                                                <div className="p-4 text-center text-[#bba282] text-xs italic">
+                                                                    Aucune désignation trouvée
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     )}
                                                 </div>
@@ -1162,11 +1385,12 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 <button
                                     onClick={() => {
                                         if (isLocked) return;
+                                        setNewSupplierName('');
                                         setShowSupplierModal(true);
                                     }}
-                                    className={`flex items-center gap-2 px-3 py-1.5 bg-white border border-[#e6dace] rounded-xl text-[10px] font-black uppercase tracking-widest text-[#c69f6e] hover:bg-[#fcfaf8] transition-all ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    className={`flex items-center gap-2 px-6 py-2 bg-white border border-[#e6dace] rounded-full text-[11px] font-bold uppercase tracking-widest text-[#c69f6e] shadow-sm hover:shadow-md hover:bg-[#fcfaf8] transition-all ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 >
-                                    <Plus size={12} />
+                                    <Plus size={14} />
                                     Ajouter Fournisseur
                                 </button>
                             </div>
@@ -1231,15 +1455,6 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                                     Aucun fournisseur trouvé
                                                                 </div>
                                                             )}
-                                                            <div
-                                                                className="p-3 bg-[#fcfaf8] border-t border-[#e6dace] hover:bg-[#c69f6e] hover:text-white cursor-pointer font-bold text-[#c69f6e] text-xs flex items-center gap-2"
-                                                                onClick={() => {
-                                                                    setShowSupplierModal(true);
-                                                                    setShowSupplierDropdown(null);
-                                                                }}
-                                                            >
-                                                                <Plus size={14} /> Nouveau
-                                                            </div>
                                                         </div>
                                                     )}
                                                 </div>
@@ -1377,9 +1592,9 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                         if (isLocked) return;
                                         setShowDiversModal(true);
                                     }}
-                                    className={`flex items-center gap-2 px-3 py-1.5 bg-white border border-[#e6dace] rounded-xl text-[10px] font-black uppercase tracking-widest text-[#c69f6e] hover:bg-[#fcfaf8] transition-all ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    className={`flex items-center gap-2 px-6 py-2 bg-white border border-[#e6dace] rounded-full text-[11px] font-bold uppercase tracking-widest text-[#c69f6e] shadow-sm hover:shadow-md hover:bg-[#fcfaf8] transition-all ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 >
-                                    <Plus size={12} />
+                                    <Plus size={14} />
                                     Ajouter Divers
                                 </button>
                             </div>
@@ -1447,15 +1662,11 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                                     </div>
                                                                 ))
                                                             }
-                                                            <div
-                                                                className="p-3 bg-[#fcfaf8] border-t border-[#e6dace] hover:bg-[#c69f6e] hover:text-white cursor-pointer font-bold text-[#c69f6e] text-xs flex items-center gap-2"
-                                                                onClick={() => {
-                                                                    setShowDiversModal(true);
-                                                                    setShowDiversDropdown(null);
-                                                                }}
-                                                            >
-                                                                <Plus size={14} /> Nouveau
-                                                            </div>
+                                                            {commonDesignations.filter((d: string) => d.toLowerCase().includes(designationSearch.toLowerCase())).length === 0 && designationSearch && (
+                                                                <div className="p-4 text-center text-[#bba282] text-xs italic">
+                                                                    Aucune désignation trouvée
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     )}
                                                 </div>
@@ -1572,19 +1783,54 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 </div>
                             </section>
                         </div>
+                        {/* Employee Related Actions Section */}
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-xl font-black text-[#4a3426] flex items-center gap-2">
+                                <div className="bg-[#4a3426] text-white w-8 h-8 rounded-full flex items-center justify-center text-xs">3</div>
+                                Collaborateurs
+                            </h3>
+                            <button
+                                onClick={() => {
+                                    if (isLocked) return;
+                                    setEmployeeSearch('');
+                                    setShowEmployeeModal(true);
+                                }}
+                                className={`flex items-center gap-2 px-6 py-2 bg-white border border-[#e6dace] rounded-full text-[11px] font-bold uppercase tracking-widest text-[#c69f6e] shadow-sm hover:shadow-md hover:bg-[#fcfaf8] transition-all ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            >
+                                <Plus size={14} />
+                                Ajouter Employé
+                            </button>
+                        </div>
+
                         {/* 3. Fixes Grid (2x2) */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {/* 2.2 Accompte */}
                             <div className="bg-white rounded-[2rem] p-6 luxury-shadow relative overflow-hidden border border-[#e6dace]/50">
                                 <div className="flex justify-between items-center mb-4">
-                                    <h4 className="font-bold text-[#8c8279] text-xs uppercase tracking-wider">2.2 Accompte</h4>
+                                    <div className="flex items-center gap-3">
+                                        <h4 className="font-bold text-[#8c8279] text-xs uppercase tracking-wider">2.2 Accompte</h4>
+                                        <button
+                                            disabled={isLocked}
+                                            onClick={() => setShowEntryModal({ type: 'avance' })}
+                                            className="text-[#c69f6e] hover:scale-110 transition-transform disabled:opacity-30"
+                                        >
+                                            <PlusCircle size={22} strokeWidth={1.5} />
+                                        </button>
+                                    </div>
                                     <span className="bg-[#f4ece4] text-[#4a3426] px-4 py-2 rounded-2xl font-black text-xl">{acompte.toFixed(3)} DT</span>
                                 </div>
-                                <div className="space-y-2 text-sm text-[#4a3426] max-h-32 overflow-y-auto custom-scrollbar">
+                                <div className="space-y-2 text-sm text-[#4a3426] max-h-48 overflow-y-auto custom-scrollbar">
                                     {avancesList.length > 0 ? avancesList.map((a, i) => (
-                                        <div key={i} className="flex justify-between p-2 bg-[#f9f6f2] rounded-lg items-center">
-                                            <span className="font-medium opacity-70">{a.username}</span>
-                                            <b className="font-black text-[#4a3426]">{parseFloat(a.montant).toFixed(3)}</b>
+                                        <div key={i} className="flex justify-between p-3 bg-[#f9f6f2] rounded-2xl items-center group">
+                                            <span className="font-bold text-[#4a3426]">{a.username}</span>
+                                            <div className="flex items-center gap-3">
+                                                <b className="font-black text-[#4a3426]">{parseFloat(a.montant).toFixed(3)}</b>
+                                                {!isLocked && (
+                                                    <button onClick={() => a.id && handleDeleteEntry('avance', a.id)} className="text-red-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
                                     )) : (
                                         <p className="text-center py-4 text-[#8c8279] italic opacity-50">Aucune avance</p>
@@ -1595,17 +1841,33 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             {/* 2.3 Doublage */}
                             <div className="bg-white rounded-[2rem] p-6 luxury-shadow relative overflow-hidden border border-[#e6dace]/50">
                                 <div className="flex justify-between items-center mb-4">
-                                    <h4 className="font-bold text-[#8c8279] text-xs uppercase tracking-wider">2.3 Doublage</h4>
+                                    <div className="flex items-center gap-3">
+                                        <h4 className="font-bold text-[#8c8279] text-xs uppercase tracking-wider">2.3 Doublage</h4>
+                                        <button
+                                            disabled={isLocked}
+                                            onClick={() => setShowEntryModal({ type: 'doublage' })}
+                                            className="text-[#c69f6e] hover:scale-110 transition-transform disabled:opacity-30"
+                                        >
+                                            <PlusCircle size={22} strokeWidth={1.5} />
+                                        </button>
+                                    </div>
                                     <span className="bg-[#f4ece4] text-[#4a3426] px-4 py-2 rounded-2xl font-black text-xl">{doublage.toFixed(3)} DT</span>
                                 </div>
-                                <div className="space-y-2 text-sm text-[#4a3426] max-h-32 overflow-y-auto custom-scrollbar">
+                                <div className="space-y-2 text-sm text-[#4a3426] max-h-48 overflow-y-auto custom-scrollbar">
                                     {doublagesList.length > 0 ? doublagesList.map((d, i) => (
-                                        <div key={i} className="flex justify-between p-2 bg-[#f9f6f2] rounded-lg items-center">
-                                            <span className="font-medium opacity-70">{d.username}</span>
-                                            <b className="font-black text-[#4a3426]">{parseFloat(d.montant).toFixed(3)}</b>
+                                        <div key={i} className="flex justify-between p-3 bg-[#f9f6f2] rounded-2xl items-center group">
+                                            <span className="font-bold text-[#4a3426]">{d.username}</span>
+                                            <div className="flex items-center gap-3">
+                                                <b className="font-black text-[#4a3426]">{parseFloat(d.montant).toFixed(3)}</b>
+                                                {!isLocked && (
+                                                    <button onClick={() => d.id && handleDeleteEntry('doublage', d.id)} className="text-red-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
                                     )) : (
-                                        <p className="text-center py-4 text-[#8c8279] italic opacity-50">Aucune doublage</p>
+                                        <p className="text-center py-4 text-[#8c8279] italic opacity-50">Aucun doublage</p>
                                     )}
                                 </div>
                             </div>
@@ -1613,17 +1875,31 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             {/* 2.4 Extra */}
                             <div className="bg-white rounded-[2rem] p-6 luxury-shadow relative overflow-hidden border border-[#e6dace]/50">
                                 <div className="flex justify-between items-center mb-4">
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-3">
                                         <Zap size={16} className="text-[#c69f6e]" />
                                         <h4 className="font-bold text-[#8c8279] text-xs uppercase tracking-wider">2.4 Extra</h4>
+                                        <button
+                                            disabled={isLocked}
+                                            onClick={() => setShowEntryModal({ type: 'extra' })}
+                                            className="text-[#c69f6e] hover:scale-110 transition-transform disabled:opacity-30"
+                                        >
+                                            <PlusCircle size={22} strokeWidth={1.5} />
+                                        </button>
                                     </div>
                                     <span className="bg-[#f4ece4] text-[#4a3426] px-4 py-2 rounded-2xl font-black text-xl">{extraTotal.toFixed(3)} DT</span>
                                 </div>
-                                <div className="space-y-2 text-sm text-[#4a3426] max-h-32 overflow-y-auto custom-scrollbar">
+                                <div className="space-y-2 text-sm text-[#4a3426] max-h-48 overflow-y-auto custom-scrollbar">
                                     {extrasList.length > 0 ? extrasList.map((e, i) => (
-                                        <div key={i} className="flex justify-between p-2 bg-[#f9f6f2] rounded-lg items-center">
-                                            <span className="font-medium opacity-70">{e.username}</span>
-                                            <b className="font-black text-[#4a3426]">{parseFloat(e.montant).toFixed(3)}</b>
+                                        <div key={i} className="flex justify-between p-3 bg-[#f9f6f2] rounded-2xl items-center group">
+                                            <span className="font-bold text-[#4a3426]">{e.username}</span>
+                                            <div className="flex items-center gap-3">
+                                                <b className="font-black text-[#4a3426]">{parseFloat(e.montant).toFixed(3)}</b>
+                                                {!isLocked && (
+                                                    <button onClick={() => e.id && handleDeleteEntry('extra', e.id)} className="text-red-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
                                     )) : (
                                         <p className="text-center py-4 text-[#8c8279] italic opacity-50">Aucun extra</p>
@@ -1634,17 +1910,31 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             {/* 2.5 Primes */}
                             <div className="bg-white rounded-[2rem] p-6 luxury-shadow relative overflow-hidden border border-[#e6dace]/50">
                                 <div className="flex justify-between items-center mb-4">
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-3">
                                         <Sparkles size={16} className="text-[#2d6a4f]" />
                                         <h4 className="font-bold text-[#8c8279] text-xs uppercase tracking-wider">2.5 Primes</h4>
+                                        <button
+                                            disabled={isLocked}
+                                            onClick={() => setShowEntryModal({ type: 'prime' })}
+                                            className="text-[#c69f6e] hover:scale-110 transition-transform disabled:opacity-30"
+                                        >
+                                            <PlusCircle size={22} strokeWidth={1.5} />
+                                        </button>
                                     </div>
                                     <span className="bg-[#f4ece4] text-[#4a3426] px-4 py-2 rounded-2xl font-black text-xl">{primesTotal.toFixed(3)} DT</span>
                                 </div>
-                                <div className="space-y-2 text-sm text-[#4a3426] max-h-32 overflow-y-auto custom-scrollbar">
+                                <div className="space-y-2 text-sm text-[#4a3426] max-h-48 overflow-y-auto custom-scrollbar">
                                     {primesList.length > 0 ? primesList.map((p, i) => (
-                                        <div key={i} className="flex justify-between p-2 bg-[#f9f6f2] rounded-lg items-center">
-                                            <span className="font-medium opacity-70">{p.username}</span>
-                                            <b className="font-black text-[#4a3426]">{parseFloat(p.montant).toFixed(3)}</b>
+                                        <div key={i} className="flex justify-between p-3 bg-[#f9f6f2] rounded-2xl items-center group">
+                                            <span className="font-bold text-[#4a3426]">{p.username}</span>
+                                            <div className="flex items-center gap-3">
+                                                <b className="font-black text-[#4a3426]">{parseFloat(p.montant).toFixed(3)}</b>
+                                                {!isLocked && (
+                                                    <button onClick={() => p.id && handleDeleteEntry('prime', p.id)} className="text-red-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
                                     )) : (
                                         <p className="text-center py-4 text-[#8c8279] italic opacity-50">Aucune prime</p>
@@ -2075,150 +2365,114 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             </AnimatePresence>
 
             <AnimatePresence>
-                {showSupplierModal && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            onClick={() => setShowSupplierModal(false)}
-                            className="absolute inset-0 bg-[#4a3426]/40 backdrop-blur-md"
-                        />
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                            className="relative w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl border border-[#e6dace] overflow-hidden p-8"
-                        >
-                            <div className="space-y-6">
-                                <div className="text-center">
-                                    <div className="bg-[#fcfaf8] w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-[#e6dace]">
-                                        <Plus size={32} className="text-[#c69f6e]" />
-                                    </div>
-                                    <h3 className="text-2xl font-black text-[#4a3426] tracking-tight">Nouveau Fournisseur</h3>
-                                    <p className="text-[#8c8279] text-sm mt-1">Ajoutez un nouveau partenaire à votre liste.</p>
-                                </div>
-
-                                <div className="space-y-4">
-                                    <div className="relative">
-                                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#bba282]" size={18} />
-                                        <input
-                                            autoFocus
-                                            type="text"
-                                            placeholder="Nom du fournisseur..."
-                                            value={newSupplierName}
-                                            onChange={(e) => setNewSupplierName(e.target.value)}
-                                            onKeyDown={(e) => e.key === 'Enter' && handleAddNewSupplier(newSupplierName)}
-                                            className="w-full bg-[#fcfaf8] border border-[#e6dace] rounded-2xl h-14 pl-12 pr-4 focus:border-[#c69f6e] outline-none font-bold text-[#4a3426] transition-all placeholder-[#bba282]/50"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="flex gap-3">
-                                    <button
-                                        onClick={() => setShowSupplierModal(false)}
-                                        className="flex-1 h-14 rounded-2xl border border-[#e6dace] text-[#8c8279] font-black uppercase text-xs tracking-widest hover:bg-[#fcfaf8] transition-all"
-                                    >
-                                        Annuler
-                                    </button>
-                                    <button
-                                        onClick={() => handleAddNewSupplier(newSupplierName)}
-                                        disabled={!newSupplierName.trim()}
-                                        className="flex-1 h-14 rounded-2xl bg-[#c69f6e] text-white font-black uppercase text-xs tracking-widest hover:bg-[#b08d5d] transition-all shadow-lg shadow-[#c69f6e]/20 disabled:opacity-50"
-                                    >
-                                        Confirmer
-                                    </button>
-                                </div>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
+                {/* Removed old showSupplierModal */}
             </AnimatePresence>
 
             {/* Selection Modals Journalier/Divers */}
             <AnimatePresence>
-                {(showJournalierModal || showDiversModal) && (
-                    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => { setShowJournalierModal(false); setShowDiversModal(false); }} className="absolute inset-0 bg-[#4a3426]/40 backdrop-blur-md" />
-                        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-white rounded-[2.5rem] w-full max-w-md p-8 shadow-2xl border border-[#e6dace] overflow-hidden" >
-                            <div className="relative">
-                                <div className="text-center mb-8">
-                                    <div className="bg-[#fcfaf8] w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-[#e6dace]">
-                                        <Plus size={32} className="text-[#c69f6e]" />
+                {(showSupplierModal || showJournalierModal || showDiversModal || showEmployeeModal) && (
+                    <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="absolute inset-0 bg-black/40 backdrop-blur-md"
+                            onClick={() => {
+                                setShowSupplierModal(false);
+                                setShowJournalierModal(false);
+                                setShowDiversModal(false);
+                                setShowEmployeeModal(false);
+                                setDesignationSearch('');
+                                setNewSupplierName('');
+                                setEmployeeSearch('');
+                            }}
+                        />
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                            className="relative bg-white rounded-[3rem] w-full max-w-sm overflow-hidden shadow-2xl border border-white/20 p-10"
+                        >
+                            <div className="space-y-8">
+                                <div className="flex flex-col items-center text-center space-y-4">
+                                    <div className="w-16 h-16 bg-[#fcfaf8] border border-[#e6dace] rounded-3xl flex items-center justify-center text-[#c69f6e]">
+                                        <Plus size={32} />
                                     </div>
-                                    <h3 className="text-2xl font-black text-[#4a3426] tracking-tight">Nouvelle Désignation</h3>
-                                    <p className="text-[#8c8279] text-sm mt-1">Ajoutez une nouvelle désignation à votre liste.</p>
+                                    <div className="space-y-2">
+                                        <h3 className="text-2xl font-black text-[#4a3426]">
+                                            {showSupplierModal ? 'Nouveau Fournisseur' : showEmployeeModal ? 'Nouveau Employé' : 'Nouvelle Désignation'}
+                                        </h3>
+                                        <p className="text-sm font-bold text-[#8c8279] opacity-60">
+                                            {showSupplierModal ? 'Ajoutez un nouveau partenaire à votre liste.' : showEmployeeModal ? 'Ajoutez un nouveau collaborateur à votre liste.' : 'Ajoutez une nouvelle désignation à votre liste.'}
+                                        </p>
+                                    </div>
                                 </div>
 
                                 <div className="space-y-6">
                                     <div className="relative">
-                                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#bba282]" size={18} />
+                                        <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-[#bba282]" size={20} />
                                         <input
                                             autoFocus
                                             type="text"
-                                            placeholder="Nom de la désignation..."
-                                            value={designationSearch}
-                                            onChange={(e) => setDesignationSearch(e.target.value)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter' && designationSearch.trim()) {
-                                                    if (showJournalierModal) {
-                                                        handleAddJournalier(designationSearch);
-                                                        setShowJournalierModal(false);
-                                                    } else {
-                                                        handleAddDivers(designationSearch);
-                                                        setShowDiversModal(false);
-                                                    }
-                                                    setDesignationSearch('');
-                                                }
-                                            }}
-                                            className="w-full bg-[#fcfaf8] border border-[#e6dace] rounded-2xl h-14 pl-12 pr-4 focus:border-[#c69f6e] outline-none font-bold text-[#4a3426] transition-all placeholder-[#bba282]/50"
+                                            placeholder={showSupplierModal ? "Nom du fournisseur..." : showEmployeeModal ? "Nom de l'employé..." : "Nom de la désignation..."}
+                                            value={showSupplierModal ? newSupplierName : showEmployeeModal ? employeeSearch : designationSearch}
+                                            onChange={(e) => showSupplierModal ? setNewSupplierName(e.target.value) : showEmployeeModal ? setEmployeeSearch(e.target.value) : setDesignationSearch(e.target.value)}
+                                            className="w-full h-16 bg-[#fcfaf8] border border-[#e6dace] rounded-2xl pl-14 pr-6 font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all placeholder-[#bba282]/50"
                                         />
                                     </div>
 
-                                    <div className="flex gap-3 pt-2">
+                                    <div className="flex gap-4">
                                         <button
                                             onClick={() => {
+                                                setShowSupplierModal(false);
                                                 setShowJournalierModal(false);
                                                 setShowDiversModal(false);
+                                                setShowEmployeeModal(false);
                                                 setDesignationSearch('');
+                                                setNewSupplierName('');
+                                                setEmployeeSearch('');
                                             }}
-                                            className="flex-1 h-14 rounded-2xl border border-[#e6dace] text-[#8c8279] font-black uppercase text-xs tracking-widest hover:bg-[#fcfaf8] transition-all"
+                                            className="flex-1 h-14 rounded-2xl border border-[#e6dace] text-[#8c8279] font-black uppercase text-xs tracking-[0.2em] hover:bg-[#fcfaf8] transition-all"
                                         >
                                             Annuler
                                         </button>
                                         <button
                                             onClick={async () => {
-                                                const normalizedNew = designationSearch.trim().toLowerCase();
-                                                const exists = commonDesignations.some((d: string) => d.toLowerCase() === normalizedNew);
+                                                const val = showSupplierModal ? newSupplierName : showEmployeeModal ? employeeSearch : designationSearch;
+                                                if (!val.trim()) return;
 
-                                                if (exists) {
-                                                    setToast({ msg: 'Cette désignation existe déjà', type: 'error' });
-                                                    setTimeout(() => setToast(null), 3000);
-                                                    return;
-                                                }
-
-                                                if (designationSearch.trim()) {
-                                                    try {
-                                                        await upsertDesignation({ variables: { name: designationSearch.trim() } });
+                                                try {
+                                                    if (showSupplierModal) {
+                                                        await upsertSupplier({ variables: { name: val.trim() } });
+                                                        refetchSuppliers();
+                                                        setShowSupplierModal(false);
+                                                        setNewSupplierName('');
+                                                    } else if (showEmployeeModal) {
+                                                        await upsertEmployee({ variables: { name: val.trim() } });
+                                                        refetchEmployees();
+                                                        setShowEmployeeModal(false);
+                                                        setEmployeeSearch('');
+                                                    } else {
+                                                        await upsertDesignation({ variables: { name: val.trim() } });
                                                         refetchDesignations();
                                                         if (showJournalierModal) {
-                                                            handleAddJournalier(designationSearch.trim());
+                                                            handleAddJournalier(val.trim());
                                                             setShowJournalierModal(false);
                                                         } else {
-                                                            handleAddDivers(designationSearch.trim());
+                                                            handleAddDivers(val.trim());
                                                             setShowDiversModal(false);
                                                         }
                                                         setDesignationSearch('');
-                                                        setToast({ msg: 'Désignation ajoutée', type: 'success' });
-                                                        setTimeout(() => setToast(null), 3000);
-                                                    } catch (e) {
-                                                        setToast({ msg: 'Erreur lors de l’ajout', type: 'error' });
-                                                        setTimeout(() => setToast(null), 3000);
                                                     }
+                                                    setToast({ msg: 'Ajouté avec succès', type: 'success' });
+                                                    setTimeout(() => setToast(null), 3000);
+                                                } catch (e) {
+                                                    setToast({ msg: 'Erreur lors de l’ajout', type: 'error' });
+                                                    setTimeout(() => setToast(null), 3000);
                                                 }
                                             }}
-                                            disabled={!designationSearch.trim()}
-                                            className="flex-1 h-14 rounded-2xl bg-[#c69f6e] text-white font-black uppercase text-xs tracking-widest hover:bg-[#b08d5d] transition-all shadow-lg shadow-[#c69f6e]/20 disabled:opacity-50"
+                                            disabled={showSupplierModal ? !newSupplierName.trim() : showEmployeeModal ? !employeeSearch.trim() : !designationSearch.trim()}
+                                            className="flex-1 h-14 rounded-2xl bg-[#e2d6c9] text-[#4a3426] font-black uppercase text-xs tracking-[0.2em] hover:bg-[#d6c7b8] transition-all shadow-md disabled:opacity-50"
                                         >
                                             Confirmer
                                         </button>
@@ -2229,6 +2483,23 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                     </div>
                 )}
             </AnimatePresence>
+            <EntryModal
+                isOpen={!!showEntryModal}
+                onClose={() => setShowEntryModal(null)}
+                type={showEntryModal?.type}
+                employees={employeesData?.getEmployees || []}
+                onSubmit={handleEntrySubmit}
+            />
+
+            <ConfirmModal
+                isOpen={!!showConfirm}
+                onClose={() => setShowConfirm(null)}
+                onConfirm={showConfirm?.onConfirm}
+                title={showConfirm?.title}
+                message={showConfirm?.message}
+                color={showConfirm?.color}
+                alert={showConfirm?.type === 'alert'}
+            />
         </div>
     );
 }

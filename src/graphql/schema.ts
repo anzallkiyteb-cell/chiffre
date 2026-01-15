@@ -7,8 +7,14 @@ export const typeDefs = `#graphql
   }
 
   type DetailItem {
+    id: Int
     username: String
     montant: String
+  }
+
+  type Employee {
+    id: Int
+    name: String
   }
 
   type Chiffre {
@@ -98,6 +104,7 @@ export const typeDefs = `#graphql
     getPaymentStats(month: String, startDate: String, endDate: String): PaymentStats
     getBankDeposits(month: String, startDate: String, endDate: String): [BankDeposit]
     getLockedDates: [String]
+    getEmployees: [Employee]
   }
 
   type Mutation {
@@ -178,5 +185,20 @@ export const typeDefs = `#graphql
     ): Invoice
 
     unlockChiffre(date: String!): Chiffre
+
+    upsertEmployee(name: String!): Employee
+    deleteEmployee(id: Int!): Boolean
+
+    addAvance(username: String!, amount: String!, date: String!): DetailItem
+    deleteAvance(id: Int!): Boolean
+
+    addDoublage(username: String!, amount: String!, date: String!): DetailItem
+    deleteDoublage(id: Int!): Boolean
+
+    addExtra(username: String!, amount: String!, date: String!): DetailItem
+    deleteExtra(id: Int!): Boolean
+
+    addPrime(username: String!, amount: String!, date: String!): DetailItem
+    deletePrime(id: Int!): Boolean
   }
 `;
