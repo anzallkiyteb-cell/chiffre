@@ -521,9 +521,29 @@ export default function PaiementsPage() {
                             </div>
                         </motion.div>
 
-                        {/* 2. Recette Nette Globale */}
+                        {/* 2. Total Dépenses (Moved here and made BIG) */}
                         <motion.div
                             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
+                            className="col-span-1 sm:col-span-2 lg:col-span-3 bg-gradient-to-br from-[#6b7280] to-[#4b5563] p-10 rounded-[2.5rem] shadow-lg relative overflow-hidden group hover:scale-[1.01] transition-all text-white"
+                        >
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
+                            <div className="relative z-10">
+                                <div className="flex items-center gap-3 text-white/80 mb-4 uppercase text-xs font-black tracking-widest">
+                                    <Banknote size={16} /> Total Dépenses
+                                </div>
+                                <h3 className="text-5xl lg:text-7xl font-black tracking-tighter">
+                                    {stats.totalExpenses.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                </h3>
+                                <span className="text-lg font-bold opacity-70 mt-2 block">DT</span>
+                            </div>
+                            <div className="absolute -right-8 -bottom-8 opacity-10 group-hover:scale-125 transition-transform duration-500 text-white">
+                                <Banknote size={180} />
+                            </div>
+                        </motion.div>
+
+                        {/* 3. Recette Nette Globale */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
                             className="col-span-1 sm:col-span-2 lg:col-span-3 bg-gradient-to-br from-[#22c55e] to-[#16a34a] p-10 rounded-[2.5rem] shadow-lg relative overflow-hidden group hover:scale-[1.01] transition-all text-white"
                         >
                             <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
@@ -541,9 +561,9 @@ export default function PaiementsPage() {
                             </div>
                         </motion.div>
 
-                        {/* 3. Total Cash */}
+                        {/* 4. Total Cash */}
                         <motion.div
-                            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+                            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
                             className="bg-gradient-to-br from-[#f59e0b] to-[#d97706] p-6 rounded-[2rem] shadow-lg relative overflow-hidden group hover:scale-[1.02] transition-all text-white"
                         >
                             <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -mr-12 -mt-12"></div>
@@ -561,9 +581,9 @@ export default function PaiementsPage() {
                             </div>
                         </motion.div>
 
-                        {/* 4. Bancaire */}
+                        {/* 5. Bancaire */}
                         <motion.div
-                            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+                            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
                             className="bg-gradient-to-br from-[#3b82f6] to-[#2563eb] p-6 rounded-[2rem] shadow-lg relative overflow-hidden group hover:scale-[1.02] transition-all text-white"
                         >
                             <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -mr-12 -mt-12"></div>
@@ -581,9 +601,9 @@ export default function PaiementsPage() {
                             </div>
                         </motion.div>
 
-                        {/* 5. Factures non Payées */}
+                        {/* 6. Factures non Payées */}
                         <motion.div
-                            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+                            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
                             className="bg-gradient-to-br from-[#ef4444] to-[#dc2626] p-6 rounded-[2rem] shadow-lg relative overflow-hidden group hover:scale-[1.02] transition-all text-white"
                         >
                             <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -mr-12 -mt-12"></div>
@@ -598,26 +618,6 @@ export default function PaiementsPage() {
                             </div>
                             <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-125 transition-transform duration-500 text-white">
                                 <Receipt size={80} />
-                            </div>
-                        </motion.div>
-
-                        {/* 6. Total Dépenses */}
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
-                            className="bg-gradient-to-br from-[#6b7280] to-[#4b5563] p-6 rounded-[2rem] shadow-lg relative overflow-hidden group hover:scale-[1.02] transition-all text-white"
-                        >
-                            <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -mr-12 -mt-12"></div>
-                            <div className="relative z-10">
-                                <div className="flex items-center gap-2 text-white/80 mb-2 uppercase text-[9px] font-black tracking-widest">
-                                    <Banknote size={12} /> Total Dépenses
-                                </div>
-                                <h3 className="text-3xl font-black tracking-tighter">
-                                    {stats.totalExpenses.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
-                                </h3>
-                                <span className="text-xs font-bold opacity-70">DT</span>
-                            </div>
-                            <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-125 transition-transform duration-500 text-white">
-                                <Banknote size={80} />
                             </div>
                         </motion.div>
                     </div>
