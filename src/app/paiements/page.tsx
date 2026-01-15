@@ -761,28 +761,40 @@ export default function PaiementsPage() {
                                     </h3>
                                     <div className="flex items-center gap-2">
                                         {!showExpForm && (
-                                            <button
-                                                onClick={() => {
-                                                    refetchUnpaid();
-                                                    setShowUnpaidModal(true);
-                                                }}
-                                                className="text-[10px] font-black uppercase tracking-widest bg-red-50 border-2 border-red-200 text-red-600 px-4 py-2 rounded-xl hover:bg-red-100 transition-all flex items-center gap-2 shadow-sm"
-                                            >
-                                                <Clock size={14} className="text-red-500" />
-                                                <span className="flex items-baseline gap-1">
-                                                    <span className="text-xs">Total Impayé:</span>
-                                                    <span className="text-sm font-black">
-                                                        {(unpaidData?.getInvoices?.filter((inv: any) => inv.status !== 'paid')
-                                                            .reduce((sum: number, inv: any) => sum + parseFloat(inv.amount || 0), 0) || 0)
-                                                            .toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                            <div className="flex flex-col items-end gap-1">
+                                                <button
+                                                    onClick={() => {
+                                                        refetchUnpaid();
+                                                        setShowUnpaidModal(true);
+                                                    }}
+                                                    className="text-[10px] font-black uppercase tracking-widest bg-red-50 border-2 border-red-200 text-red-600 px-4 py-2 rounded-xl hover:bg-red-100 transition-all flex items-center gap-2 shadow-sm"
+                                                >
+                                                    <Clock size={14} className="text-red-500" />
+                                                    <span className="flex items-baseline gap-1">
+                                                        <span className="text-xs">Total Impayé:</span>
+                                                        <span className="text-sm font-black">
+                                                            {(unpaidData?.getInvoices?.filter((inv: any) => inv.status !== 'paid')
+                                                                .reduce((sum: number, inv: any) => sum + parseFloat(inv.amount || 0), 0) || 0)
+                                                                .toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                                        </span>
+                                                        <span className="text-[9px]">DT</span>
                                                     </span>
-                                                    <span className="text-[9px]">DT</span>
-                                                </span>
-                                            </button>
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        setShowHistoryModal(true);
+                                                        refetchHistory();
+                                                    }}
+                                                    className="text-[9px] font-black uppercase tracking-widest text-[#c69f6e] hover:text-[#4a3426] transition-colors flex items-center gap-1 pr-1"
+                                                >
+                                                    <Clock size={12} />
+                                                    <span>Historique Riadh</span>
+                                                </button>
+                                            </div>
                                         )}
                                         <button
                                             onClick={() => setShowExpForm(!showExpForm)}
-                                            className="text-[10px] font-black uppercase tracking-widest bg-red-50 text-red-500 px-3 py-2 rounded-xl hover:bg-red-100 transition-all"
+                                            className="text-[10px] font-black uppercase tracking-widest bg-red-50 text-red-500 px-3 py-2 rounded-xl hover:bg-red-100 transition-all h-10"
                                         >
                                             {showExpForm ? 'Annuler' : 'Ajouter une dépense'}
                                         </button>
@@ -937,70 +949,72 @@ export default function PaiementsPage() {
                                         </div>
                                     </div>
 
-                                    <div className="border-t border-[#e6dace]/30 pt-6">
-                                        <div className="flex justify-between items-center px-2 mb-4">
-                                            <h3 className="text-xl font-bold text-[#4a3426] flex items-center gap-2">
-                                                <User size={20} className="text-[#c69f6e]" /> Confirmations Salaires
-                                            </h3>
-                                            <div className="relative">
-                                                <input
-                                                    type="text"
-                                                    placeholder="Filtrer employé..."
-                                                    value={search}
-                                                    onChange={(e) => setSearch(e.target.value)}
-                                                    className="bg-[#fcfaf8] border border-[#e6dace] rounded-xl h-10 pl-10 pr-4 font-bold text-[11px] outline-none focus:border-[#c69f6e]"
-                                                />
-                                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#c69f6e]" size={14} />
-                                            </div>
-                                        </div>
+                                </div>
+                            </div>
 
-                                        {loading ? (
-                                            <div className="py-20 flex justify-center">
-                                                <Loader2 className="animate-spin text-[#c69f6e]" size={30} />
-                                            </div>
-                                        ) : (
-                                            <div className="overflow-x-auto rounded-[2rem] border border-[#e6dace]/30">
-                                                <table className="w-full text-left">
-                                                    <thead className="bg-[#fcfaf8] border-b border-[#e6dace]">
-                                                        <tr>
-                                                            <th className="px-8 py-5 text-xs font-black text-[#8c8279] uppercase tracking-widest">Employé</th>
-                                                            <th className="px-8 py-5 text-xs font-black text-[#8c8279] uppercase tracking-widest text-right">Montant</th>
-                                                            <th className="px-8 py-5 text-xs font-black text-[#8c8279] uppercase tracking-widest text-center">Statut</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {filteredUsers.length > 0 ? (
-                                                            filteredUsers.map((u: any, i: number) => (
-                                                                <tr key={i} className="border-b border-[#fcfaf8] hover:bg-[#fdfbf7] transition-colors">
-                                                                    <td className="px-8 py-4">
-                                                                        <div className="flex items-center gap-3">
-                                                                            <div className="w-8 h-8 rounded-full bg-[#f4ece4] flex items-center justify-center text-[#c69f6e] font-black uppercase text-[10px]">
-                                                                                {u.username.substring(0, 2)}
-                                                                            </div>
-                                                                            <span className="font-black text-[#4a3426] text-sm">{u.username}</span>
-                                                                        </div>
-                                                                    </td>
-                                                                    <td className="px-8 py-4 text-right font-black text-[#4a3426] text-sm">
-                                                                        {u.amount.toLocaleString('fr-FR', { minimumFractionDigits: 3 })} DT
-                                                                    </td>
-                                                                    <td className="px-8 py-4 text-center">
-                                                                        <span className="px-3 py-1 rounded-full bg-green-50 text-green-700 text-[9px] font-black uppercase tracking-tighter shadow-sm border border-green-100">
-                                                                            Confirmé ✓
-                                                                        </span>
-                                                                    </td>
-                                                                </tr>
-                                                            ))
-                                                        ) : (
-                                                            <tr>
-                                                                <td colSpan={3} className="py-12 text-center text-[#8c8279] italic text-sm">Aucun paiement trouvé</td>
-                                                            </tr>
-                                                        )}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        )}
+                            {/* Confirmations Salaires Section */}
+                            <div className="bg-white p-6 rounded-[2.5rem] luxury-shadow border border-[#e6dace]/50">
+                                <div className="flex justify-between items-center px-2 mb-4">
+                                    <h3 className="text-xl font-bold text-[#4a3426] flex items-center gap-2">
+                                        <User size={20} className="text-[#c69f6e]" /> Confirmations Salaires
+                                    </h3>
+                                    <div className="relative">
+                                        <input
+                                            type="text"
+                                            placeholder="Filtrer employé..."
+                                            value={search}
+                                            onChange={(e) => setSearch(e.target.value)}
+                                            className="bg-[#fcfaf8] border border-[#e6dace] rounded-xl h-10 pl-10 pr-4 font-bold text-[11px] outline-none focus:border-[#c69f6e]"
+                                        />
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#c69f6e]" size={14} />
                                     </div>
                                 </div>
+
+                                {loading ? (
+                                    <div className="py-20 flex justify-center">
+                                        <Loader2 className="animate-spin text-[#c69f6e]" size={30} />
+                                    </div>
+                                ) : (
+                                    <div className="overflow-x-auto rounded-[2rem] border border-[#e6dace]/30">
+                                        <table className="w-full text-left">
+                                            <thead className="bg-[#fcfaf8] border-b border-[#e6dace]">
+                                                <tr>
+                                                    <th className="px-8 py-5 text-xs font-black text-[#8c8279] uppercase tracking-widest">Employé</th>
+                                                    <th className="px-8 py-5 text-xs font-black text-[#8c8279] uppercase tracking-widest text-right">Montant</th>
+                                                    <th className="px-8 py-5 text-xs font-black text-[#8c8279] uppercase tracking-widest text-center">Statut</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {filteredUsers.length > 0 ? (
+                                                    filteredUsers.map((u: any, i: number) => (
+                                                        <tr key={i} className="border-b border-[#fcfaf8] hover:bg-[#fdfbf7] transition-colors">
+                                                            <td className="px-8 py-4">
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className="w-8 h-8 rounded-full bg-[#f4ece4] flex items-center justify-center text-[#c69f6e] font-black uppercase text-[10px]">
+                                                                        {u.username.substring(0, 2)}
+                                                                    </div>
+                                                                    <span className="font-black text-[#4a3426] text-sm">{u.username}</span>
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-8 py-4 text-right font-black text-[#4a3426] text-sm">
+                                                                {u.amount.toLocaleString('fr-FR', { minimumFractionDigits: 3 })} DT
+                                                            </td>
+                                                            <td className="px-8 py-4 text-center">
+                                                                <span className="px-3 py-1 rounded-full bg-green-50 text-green-700 text-[9px] font-black uppercase tracking-tighter shadow-sm border border-green-100">
+                                                                    Confirmé ✓
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    ))
+                                                ) : (
+                                                    <tr>
+                                                        <td colSpan={3} className="py-12 text-center text-[#8c8279] italic text-sm">Aucun paiement trouvé</td>
+                                                    </tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
                             </div>
                         </div>
                         {/* Bancaire Section */}
@@ -1079,15 +1093,7 @@ export default function PaiementsPage() {
                                     )}
                                 </div>
 
-                                <button
-                                    onClick={() => {
-                                        setShowHistoryModal(true);
-                                        refetchHistory();
-                                    }}
-                                    className="w-full mt-4 h-11 bg-white border border-[#e6dace] hover:border-[#c69f6e] rounded-xl font-black text-xs uppercase tracking-widest text-[#4a3426] transition-all flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
-                                >
-                                    <Clock size={16} className="text-[#c69f6e]" /> Historique Riadh
-                                </button>
+
                             </div>
                         </div>
 
@@ -1601,21 +1607,23 @@ export default function PaiementsPage() {
                                                             </div>
                                                             <h3 className="font-black text-[#4a3426]">{inv.supplier_name}</h3>
                                                         </div>
-                                                        <div className="flex items-center gap-4">
+                                                        <div className="flex items-center gap-4 min-w-[200px] justify-end">
                                                             <div className="text-right">
                                                                 <div className="font-black text-[#4a3426] text-lg">{parseFloat(inv.amount).toFixed(3)} DT</div>
                                                             </div>
-                                                            {(inv.photo_url || inv.photo_cheque_url) && (
-                                                                <button
-                                                                    onClick={() => {
-                                                                        setSelectedInvoice(inv);
-                                                                        setShowHistoryModal(false);
-                                                                    }}
-                                                                    className="w-8 h-8 rounded-full bg-[#fcfaf8] hover:bg-[#c69f6e] hover:text-white flex items-center justify-center transition-colors text-[#8c8279]"
-                                                                >
-                                                                    <Eye size={16} />
-                                                                </button>
-                                                            )}
+                                                            <div className="w-8 h-8 flex items-center justify-center">
+                                                                {(inv.photo_url || inv.photo_cheque_url) && (
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setSelectedInvoice(inv);
+                                                                            setShowHistoryModal(false);
+                                                                        }}
+                                                                        className="w-8 h-8 rounded-full bg-[#fcfaf8] hover:bg-[#c69f6e] hover:text-white flex items-center justify-center transition-colors text-[#8c8279]"
+                                                                    >
+                                                                        <Eye size={16} />
+                                                                    </button>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 ));
