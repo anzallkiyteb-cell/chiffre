@@ -404,7 +404,7 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message, color = 'bro
     );
 };
 
-const HistoryModal = ({ isOpen, onClose, type, startDate, endDate }: any) => {
+const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }: any) => {
     const { data: historyData, loading, error } = useQuery(GET_CHIFFRES_RANGE, {
         variables: { startDate, endDate },
         skip: !isOpen,
@@ -487,7 +487,7 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate }: any) => {
         });
     });
 
-    const employeesList = Object.values(groupedData).map((emp: any) => ({
+    let employeesList = Object.values(groupedData).map((emp: any) => ({
         ...emp,
         dates: emp.dates.sort((a: string, b: string) => {
             const [da, ma, ya] = a.split('/').map(Number);
@@ -495,6 +495,10 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate }: any) => {
             return new Date(yb, mb - 1, db).getTime() - new Date(ya, ma - 1, da).getTime();
         })
     })).sort((a: any, b: any) => b.total - a.total);
+
+    if (targetName) {
+        employeesList = employeesList.filter((e: any) => e.username.toLowerCase() === targetName.toLowerCase());
+    }
 
     return (
         <AnimatePresence>
@@ -518,7 +522,9 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate }: any) => {
                                 <div className="p-3 bg-[#fcfaf8] rounded-2xl text-[#c69f6e]">
                                     <LayoutDashboard size={24} />
                                 </div>
-                                <h3 className="text-2xl font-black text-[#4a3426] tracking-tighter uppercase">{titleMap[type]}</h3>
+                                <h3 className="text-2xl font-black text-[#4a3426] tracking-tighter uppercase">
+                                    {targetName ? `Historique: ${targetName}` : titleMap[type]}
+                                </h3>
                             </div>
                             <button onClick={onClose} className="p-2 hover:bg-[#f9f6f2] rounded-xl transition-colors text-[#bba282]"><X size={24} /></button>
                         </div>
@@ -1470,7 +1476,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                     }}
                                                 >
                                                     <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                                                        <Search className="text-[#bba282]" size={16} />
+                                                        <Search className="text-[#bba282] cursor-pointer hover:text-[#c69f6e] transition-colors" size={16} onClick={() => journalier.designation && setShowHistoryModal({ type: "journalier", targetName: journalier.designation })} />
                                                     </div>
                                                     <input
                                                         type="text"
@@ -1643,7 +1649,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
 
                                                 <div className="flex-1 w-full relative">
                                                     <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                                                        <Search className="text-[#bba282]" size={16} />
+                                                        <Search className="text-[#bba282] cursor-pointer hover:text-[#c69f6e] transition-colors" size={16} onClick={() => expense.supplier && setShowHistoryModal({ type: "supplier", targetName: expense.supplier })} />
                                                     </div>
                                                     <input
                                                         type="text"
@@ -1854,7 +1860,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
 
                                                 <div className="flex-1 w-full relative">
                                                     <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                                                        <Search className="text-[#bba282]" size={16} />
+                                                        <Search className="text-[#bba282] cursor-pointer hover:text-[#c69f6e] transition-colors" size={16} onClick={() => divers.designation && setShowHistoryModal({ type: "divers", targetName: divers.designation })} />
                                                     </div>
                                                     <input
                                                         type="text"
@@ -2000,7 +2006,11 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
 
                                                 <div className="flex-1 w-full relative">
                                                     <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                                                        <Users className="text-[#bba282]" size={16} />
+                                                        <Users
+                                                            className="text-[#bba282] cursor-pointer hover:text-[#c69f6e] transition-colors"
+                                                            size={16}
+                                                            onClick={() => admin.designation && setShowHistoryModal({ type: 'admin', targetName: admin.designation })}
+                                                        />
                                                     </div>
                                                     <input
                                                         type="text"
@@ -2033,7 +2043,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-xl font-black text-[#4a3426] flex items-center gap-2">
                                 <div className="bg-[#4a3426] text-white w-8 h-8 rounded-full flex items-center justify-center text-xs">3</div>
-                                Collaborateurs
+                                Personnels
                             </h3>
                             <div className="flex gap-2">
                                 <button
@@ -2090,7 +2100,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                         <div key={i} className="flex justify-between p-3 bg-[#f9f6f2] rounded-2xl items-center group">
                                             <span
                                                 className="font-bold text-[#4a3426] cursor-pointer hover:text-[#c69f6e] transition-colors"
-                                                onClick={() => setShowHistoryModal({ type: 'avance' })}
+                                                onClick={() => setShowHistoryModal({ type: 'avance', targetName: a.username })}
                                             >
                                                 {a.username}
                                             </span>
@@ -2151,7 +2161,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                         <div key={i} className="flex justify-between p-3 bg-[#f9f6f2] rounded-2xl items-center group">
                                             <span
                                                 className="font-bold text-[#4a3426] cursor-pointer hover:text-[#c69f6e] transition-colors"
-                                                onClick={() => setShowHistoryModal({ type: 'doublage' })}
+                                                onClick={() => setShowHistoryModal({ type: 'doublage', targetName: d.username })}
                                             >
                                                 {d.username}
                                             </span>
@@ -2213,7 +2223,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                         <div key={i} className="flex justify-between p-3 bg-[#f9f6f2] rounded-2xl items-center group">
                                             <span
                                                 className="font-bold text-[#4a3426] cursor-pointer hover:text-[#c69f6e] transition-colors"
-                                                onClick={() => setShowHistoryModal({ type: 'extra' })}
+                                                onClick={() => setShowHistoryModal({ type: 'extra', targetName: e.username })}
                                             >
                                                 {e.username}
                                             </span>
@@ -2275,7 +2285,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                         <div key={i} className="flex justify-between p-3 bg-[#f9f6f2] rounded-2xl items-center group">
                                             <span
                                                 className="font-bold text-[#4a3426] cursor-pointer hover:text-[#c69f6e] transition-colors"
-                                                onClick={() => setShowHistoryModal({ type: 'prime' })}
+                                                onClick={() => setShowHistoryModal({ type: 'prime', targetName: p.username })}
                                             >
                                                 {p.username}
                                             </span>
@@ -2860,6 +2870,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                 isOpen={!!showHistoryModal}
                 onClose={() => setShowHistoryModal(null)}
                 type={showHistoryModal?.type}
+                targetName={showHistoryModal?.targetName}
                 startDate={`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`}
                 endDate={`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()).padStart(2, '0')}`}
             />
