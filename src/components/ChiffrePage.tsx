@@ -8,7 +8,8 @@ import {
     Download, Filter, DownloadCloud, Loader2, Users, Receipt, CreditCard,
     Banknote, Coins, Plus, Search, Trash2, FileText, UploadCloud, ChevronDown, Check,
     LogOut, ZoomIn, ZoomOut, Maximize2, RotateCcw, LockIcon, UnlockIcon, X, PlusCircle, AlertCircle,
-    Wallet, Eye, EyeOff, Save, Calculator, Zap, Sparkles, User, MessageSquare, Share2, ExternalLink, List, Pencil
+    Wallet, Eye, EyeOff, ChevronsRight, Upload, SlidersHorizontal, ArrowUpDown, Lock, Unlock, Settings,
+    Briefcase, User, MessageSquare, Share2, ExternalLink, List, Pencil, Save, Calculator, Zap, Sparkles
 } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -159,22 +160,24 @@ const GET_EMPLOYEES = gql`
     getEmployees {
       id
       name
+      department
     }
   }
 `;
 
 const UPSERT_EMPLOYEE = gql`
-  mutation UpsertEmployee($name: String!) {
-    upsertEmployee(name: $name) {
+  mutation UpsertEmployee($name: String!, $department: String) {
+    upsertEmployee(name: $name, department: $department) {
       id
       name
+      department
     }
   }
 `;
 
 const UPDATE_EMPLOYEE = gql`
-  mutation UpdateEmployee($id: Int!, $name: String!) {
-    updateEmployee(id: $id, name: $name) { id name }
+  mutation UpdateEmployee($id: Int!, $name: String!, $department: String) {
+    updateEmployee(id: $id, name: $name, department: $department) { id name department }
   }
 `;
 
@@ -689,6 +692,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     const [showEmployeeList, setShowEmployeeList] = useState(false);
     const [showHistoryModal, setShowHistoryModal] = useState<any>(null); // { type: 'avance' | 'doublage' | 'extra' | 'prime' }
     const [employeeSearch, setEmployeeSearch] = useState('');
+    const [employeeDepartment, setEmployeeDepartment] = useState('');
     const [viewingInvoices, setViewingInvoices] = useState<string[] | null>(null);
     const [viewingInvoicesTarget, setViewingInvoicesTarget] = useState<{ index: number, type: 'expense' | 'divers' | 'journalier' } | null>(null);
     const [imgZoom, setImgZoom] = useState(1);
@@ -1250,7 +1254,11 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
 
     // --- SUB-COMPONENTS ---
 
-
+    const getDepartment = (name: string) => {
+        if (!employeesData?.getEmployees) return null;
+        const emp = employeesData.getEmployees.find((e: any) => e.name.toLowerCase() === name.toLowerCase());
+        return emp?.department;
+    };
 
     return (
         <div className="min-h-screen bg-[#f8f5f2] text-[#2d241e] font-sans flex">
@@ -2098,12 +2106,19 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 <div className="space-y-2 text-sm text-[#4a3426] max-h-48 overflow-y-auto custom-scrollbar">
                                     {avancesList.length > 0 ? avancesList.map((a, i) => (
                                         <div key={i} className="flex justify-between p-3 bg-[#f9f6f2] rounded-2xl items-center group">
-                                            <span
-                                                className="font-bold text-[#4a3426] cursor-pointer hover:text-[#c69f6e] transition-colors"
-                                                onClick={() => setShowHistoryModal({ type: 'avance', targetName: a.username })}
-                                            >
-                                                {a.username}
-                                            </span>
+                                            <div className="flex items-center gap-2">
+                                                <span
+                                                    className="font-bold text-[#4a3426] cursor-pointer hover:text-[#c69f6e] transition-colors"
+                                                    onClick={() => setShowHistoryModal({ type: 'avance', targetName: a.username })}
+                                                >
+                                                    {a.username}
+                                                </span>
+                                                {getDepartment(a.username) && (
+                                                    <span className="text-[10px] font-black text-[#8c8279] uppercase tracking-wider bg-[#f4ece4] px-2 py-0.5 rounded-lg border border-[#e6dace]/50">
+                                                        {getDepartment(a.username)}
+                                                    </span>
+                                                )}
+                                            </div>
                                             <div className="flex items-center gap-3">
                                                 <b className="font-black text-[#4a3426]">{parseFloat(a.montant).toFixed(3)}</b>
                                                 {!isLocked && (
@@ -2157,26 +2172,33 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     </span>
                                 </div>
                                 <div className="space-y-2 text-sm text-[#4a3426] max-h-48 overflow-y-auto custom-scrollbar">
-                                    {doublagesList.length > 0 ? doublagesList.map((d, i) => (
+                                    {doublagesList.length > 0 ? doublagesList.map((a, i) => (
                                         <div key={i} className="flex justify-between p-3 bg-[#f9f6f2] rounded-2xl items-center group">
-                                            <span
-                                                className="font-bold text-[#4a3426] cursor-pointer hover:text-[#c69f6e] transition-colors"
-                                                onClick={() => setShowHistoryModal({ type: 'doublage', targetName: d.username })}
-                                            >
-                                                {d.username}
-                                            </span>
+                                            <div className="flex items-center gap-2">
+                                                <span
+                                                    className="font-bold text-[#4a3426] cursor-pointer hover:text-[#c69f6e] transition-colors"
+                                                    onClick={() => setShowHistoryModal({ type: 'doublage', targetName: a.username })}
+                                                >
+                                                    {a.username}
+                                                </span>
+                                                {getDepartment(a.username) && (
+                                                    <span className="text-[10px] font-black text-[#8c8279] uppercase tracking-wider bg-[#f4ece4] px-2 py-0.5 rounded-lg border border-[#e6dace]/50">
+                                                        {getDepartment(a.username)}
+                                                    </span>
+                                                )}
+                                            </div>
                                             <div className="flex items-center gap-3">
-                                                <b className="font-black text-[#4a3426]">{parseFloat(d.montant).toFixed(3)}</b>
+                                                <b className="font-black text-[#4a3426]">{parseFloat(a.montant).toFixed(3)}</b>
                                                 {!isLocked && (
                                                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
                                                         <button
-                                                            onClick={() => setShowEntryModal({ type: 'doublage', data: d })}
+                                                            onClick={() => setShowEntryModal({ type: 'doublage', data: a })}
                                                             className="text-[#c69f6e] hover:text-[#4a3426] transition-colors"
                                                         >
                                                             <Pencil size={14} />
                                                         </button>
                                                         <button
-                                                            onClick={() => d.id && handleDeleteEntry('doublage', d.id)}
+                                                            onClick={() => a.id && handleDeleteEntry('doublage', a.id)}
                                                             className="text-red-300 hover:text-red-500 transition-all"
                                                         >
                                                             <Trash2 size={16} />
@@ -2219,26 +2241,33 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     </span>
                                 </div>
                                 <div className="space-y-2 text-sm text-[#4a3426] max-h-48 overflow-y-auto custom-scrollbar">
-                                    {extrasList.length > 0 ? extrasList.map((e, i) => (
+                                    {extrasList.length > 0 ? extrasList.map((a, i) => (
                                         <div key={i} className="flex justify-between p-3 bg-[#f9f6f2] rounded-2xl items-center group">
-                                            <span
-                                                className="font-bold text-[#4a3426] cursor-pointer hover:text-[#c69f6e] transition-colors"
-                                                onClick={() => setShowHistoryModal({ type: 'extra', targetName: e.username })}
-                                            >
-                                                {e.username}
-                                            </span>
+                                            <div className="flex items-center gap-2">
+                                                <span
+                                                    className="font-bold text-[#4a3426] cursor-pointer hover:text-[#c69f6e] transition-colors"
+                                                    onClick={() => setShowHistoryModal({ type: 'extra', targetName: a.username })}
+                                                >
+                                                    {a.username}
+                                                </span>
+                                                {getDepartment(a.username) && (
+                                                    <span className="text-[10px] font-black text-[#8c8279] uppercase tracking-wider bg-[#f4ece4] px-2 py-0.5 rounded-lg border border-[#e6dace]/50">
+                                                        {getDepartment(a.username)}
+                                                    </span>
+                                                )}
+                                            </div>
                                             <div className="flex items-center gap-3">
-                                                <b className="font-black text-[#4a3426]">{parseFloat(e.montant).toFixed(3)}</b>
+                                                <b className="font-black text-[#4a3426]">{parseFloat(a.montant).toFixed(3)}</b>
                                                 {!isLocked && (
                                                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
                                                         <button
-                                                            onClick={() => setShowEntryModal({ type: 'extra', data: e })}
+                                                            onClick={() => setShowEntryModal({ type: 'extra', data: a })}
                                                             className="text-[#c69f6e] hover:text-[#4a3426] transition-colors"
                                                         >
                                                             <Pencil size={14} />
                                                         </button>
                                                         <button
-                                                            onClick={() => e.id && handleDeleteEntry('extra', e.id)}
+                                                            onClick={() => a.id && handleDeleteEntry('extra', a.id)}
                                                             className="text-red-300 hover:text-red-500 transition-all"
                                                         >
                                                             <Trash2 size={16} />
@@ -2283,12 +2312,19 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 <div className="space-y-2 text-sm text-[#4a3426] max-h-48 overflow-y-auto custom-scrollbar">
                                     {primesList.length > 0 ? primesList.map((p, i) => (
                                         <div key={i} className="flex justify-between p-3 bg-[#f9f6f2] rounded-2xl items-center group">
-                                            <span
-                                                className="font-bold text-[#4a3426] cursor-pointer hover:text-[#c69f6e] transition-colors"
-                                                onClick={() => setShowHistoryModal({ type: 'prime', targetName: p.username })}
-                                            >
-                                                {p.username}
-                                            </span>
+                                            <div className="flex items-center gap-2">
+                                                <span
+                                                    className="font-bold text-[#4a3426] cursor-pointer hover:text-[#c69f6e] transition-colors"
+                                                    onClick={() => setShowHistoryModal({ type: 'prime', targetName: p.username })}
+                                                >
+                                                    {p.username}
+                                                </span>
+                                                {getDepartment(p.username) && (
+                                                    <span className="text-[10px] font-black text-[#8c8279] uppercase tracking-wider bg-[#f4ece4] px-2 py-0.5 rounded-lg border border-[#e6dace]/50">
+                                                        {getDepartment(p.username)}
+                                                    </span>
+                                                )}
+                                            </div>
                                             <div className="flex items-center gap-3">
                                                 <b className="font-black text-[#4a3426]">{parseFloat(p.montant).toFixed(3)}</b>
                                                 {!isLocked && (
@@ -2413,16 +2449,17 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     ))}
                                 </div>
                             </div>
-                        </div>
+                        </div >
 
                         {/* Centered Save Button (Integrated in content) */}
-                        <div className="flex flex-col items-center gap-4 pt-8">
+                        < div className="flex flex-col items-center gap-4 pt-8" >
                             {isLocked && (
                                 <div className="flex items-center gap-2 px-6 py-3 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-500 font-bold animate-pulse">
                                     <LockIcon size={18} />
                                     Cette session est clôturée et verrouillée
                                 </div>
-                            )}
+                            )
+                            }
                             <div className="flex gap-4 w-full max-w-md">
                                 {isLocked && role === 'admin' && (
                                     <button
@@ -2454,184 +2491,179 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             </div>
                         </div>
                     </div>
-                </main>
             </div>
+        </main>
 
-            {/* Confirmation Modal */}
-            <ConfirmModal
-                isOpen={!!showConfirm}
-                onClose={() => setShowConfirm(null)}
-                title={showConfirm?.title}
-                message={showConfirm?.message}
-                color={showConfirm?.color}
-                alert={showConfirm?.alert}
-                onConfirm={showConfirm?.onConfirm}
-            />
+            {/* Toast */ }
+    <AnimatePresence>
+        {
+            toast && (
+                <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className={`fixed top-6 left-0 right-0 mx-auto w-max z-50 px-6 py-3 rounded-full font-bold shadow-xl flex items-center gap-2 ${toast.type === 'success' ? 'bg-[#2d6a4f] text-white' : 'bg-red-600 text-white'}`}>{toast.msg}</motion.div>
+            )
+        }
+    </AnimatePresence >
 
-            {/* Toast */}
-            <AnimatePresence>
-                {toast && (
-                    <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className={`fixed top-6 left-0 right-0 mx-auto w-max z-50 px-6 py-3 rounded-full font-bold shadow-xl flex items-center gap-2 ${toast.type === 'success' ? 'bg-[#2d6a4f] text-white' : 'bg-red-600 text-white'}`}>{toast.msg}</motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* Image Modal */}
-            <AnimatePresence>
-                {viewingInvoices && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-md flex items-center justify-center p-2" onClick={() => { setViewingInvoices(null); setViewingInvoicesTarget(null); }}>
-                        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-[#fcfaf8] rounded-[2.5rem] p-6 max-w-[98vw] w-full h-[95vh] overflow-y-auto relative border border-white/10 shadow-2xl" onClick={e => e.stopPropagation()}>
-                            <button onClick={() => { setViewingInvoices(null); setViewingInvoicesTarget(null); }} className="absolute top-6 right-6 p-3 bg-white hover:bg-red-50 text-[#4a3426] hover:text-red-500 rounded-full transition-all z-50 shadow-lg border border-[#e6dace]"><LogOut size={24} className="rotate-180" /></button>
-                            <div className="flex items-center justify-between mb-8 px-2">
-                                <h3 className="text-3xl font-black text-[#4a3426] flex items-center gap-4 uppercase tracking-tight"><Receipt size={32} className="text-[#c69f6e]" /> Reçus & Factures</h3>
-                                {viewingInvoicesTarget && (
-                                    <div className="flex items-center gap-4 mr-16">
-                                        <label className={`flex items-center gap-3 px-6 py-3 ${isLocked && role !== 'admin' ? 'bg-gray-400 cursor-not-allowed opacity-50' : 'bg-[#2d6a4f] hover:bg-[#1b4332] cursor-pointer'} text-white rounded-2xl text-xs font-black uppercase tracking-[0.2em] transition-all shadow-xl shadow-[#2d6a4f]/20`}>
-                                            <Plus size={18} /> Ajouter Photo
-                                            <input
-                                                type="file"
-                                                multiple
-                                                disabled={isLocked && role !== 'admin'}
-                                                className="hidden"
-                                                onChange={async (e) => {
-                                                    const files = e.target.files;
-                                                    if (!files) return;
-                                                    const loaders = Array.from(files).map(file => {
-                                                        return new Promise<string>((resolve) => {
-                                                            const reader = new FileReader();
-                                                            reader.onloadend = () => resolve(reader.result as string);
-                                                            reader.readAsDataURL(file);
-                                                        });
+    {/* Image Modal */ }
+    <AnimatePresence>
+        {
+            viewingInvoices && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-md flex items-center justify-center p-2" onClick={() => { setViewingInvoices(null); setViewingInvoicesTarget(null); }}>
+                    <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-[#fcfaf8] rounded-[2.5rem] p-6 max-w-[98vw] w-full h-[95vh] overflow-y-auto relative border border-white/10 shadow-2xl" onClick={e => e.stopPropagation()}>
+                        <button onClick={() => { setViewingInvoices(null); setViewingInvoicesTarget(null); }} className="absolute top-6 right-6 p-3 bg-white hover:bg-red-50 text-[#4a3426] hover:text-red-500 rounded-full transition-all z-50 shadow-lg border border-[#e6dace]"><LogOut size={24} className="rotate-180" /></button>
+                        <div className="flex items-center justify-between mb-8 px-2">
+                            <h3 className="text-3xl font-black text-[#4a3426] flex items-center gap-4 uppercase tracking-tight"><Receipt size={32} className="text-[#c69f6e]" /> Reçus & Factures</h3>
+                            {viewingInvoicesTarget && (
+                                <div className="flex items-center gap-4 mr-16">
+                                    <label className={`flex items-center gap-3 px-6 py-3 ${isLocked && role !== 'admin' ? 'bg-gray-400 cursor-not-allowed opacity-50' : 'bg-[#2d6a4f] hover:bg-[#1b4332] cursor-pointer'} text-white rounded-2xl text-xs font-black uppercase tracking-[0.2em] transition-all shadow-xl shadow-[#2d6a4f]/20`}>
+                                        <Plus size={18} /> Ajouter Photo
+                                        <input
+                                            type="file"
+                                            multiple
+                                            disabled={isLocked && role !== 'admin'}
+                                            className="hidden"
+                                            onChange={async (e) => {
+                                                const files = e.target.files;
+                                                if (!files) return;
+                                                const loaders = Array.from(files).map(file => {
+                                                    return new Promise<string>((resolve) => {
+                                                        const reader = new FileReader();
+                                                        reader.onloadend = () => resolve(reader.result as string);
+                                                        reader.readAsDataURL(file);
                                                     });
-                                                    const base64s = await Promise.all(loaders);
+                                                });
+                                                const base64s = await Promise.all(loaders);
 
-                                                    if (viewingInvoicesTarget.type === 'journalier') {
-                                                        const newJournalier = [...expensesJournalier];
-                                                        const currentInvoices = newJournalier[viewingInvoicesTarget.index].invoices || [];
-                                                        newJournalier[viewingInvoicesTarget.index].invoices = [...currentInvoices, ...base64s];
-                                                        setExpensesJournalier(newJournalier);
-                                                        setViewingInvoices(newJournalier[viewingInvoicesTarget.index].invoices);
-                                                    } else if (viewingInvoicesTarget.type === 'divers') {
-                                                        const newDivers = [...expensesDivers];
-                                                        const currentInvoices = newDivers[viewingInvoicesTarget.index].invoices || [];
-                                                        newDivers[viewingInvoicesTarget.index].invoices = [...currentInvoices, ...base64s];
-                                                        setExpensesDivers(newDivers);
-                                                        setViewingInvoices(newDivers[viewingInvoicesTarget.index].invoices);
-                                                    } else {
-                                                        const newExpenses = [...expenses];
-                                                        const currentInvoices = newExpenses[viewingInvoicesTarget.index].invoices || [];
-                                                        newExpenses[viewingInvoicesTarget.index].invoices = [...currentInvoices, ...base64s];
-                                                        setExpenses(newExpenses);
-                                                        setViewingInvoices(newExpenses[viewingInvoicesTarget.index].invoices);
-                                                    }
-                                                }}
-                                            />
-                                        </label>
-                                        <div className="flex bg-white rounded-2xl p-1.5 gap-1 border border-[#e6dace] shadow-lg">
-                                            <button onClick={() => setImgZoom(prev => Math.max(0.5, prev - 0.25))} className="w-10 h-10 hover:bg-[#fcfaf8] rounded-xl flex items-center justify-center transition-all text-[#4a3426]" title="Zoom Arrière"><ZoomOut size={20} /></button>
-                                            <button onClick={() => setImgZoom(prev => Math.min(4, prev + 0.25))} className="w-10 h-10 hover:bg-[#fcfaf8] rounded-xl flex items-center justify-center transition-all text-[#4a3426]" title="Zoom Avant"><ZoomIn size={20} /></button>
-                                            <button onClick={() => setImgRotation(prev => prev + 90)} className="w-10 h-10 hover:bg-[#fcfaf8] rounded-xl flex items-center justify-center transition-all text-[#4a3426]" title="Tourner"><RotateCcw size={20} /></button>
-                                            <button onClick={resetView} className="w-10 h-10 hover:bg-[#fcfaf8] rounded-xl flex items-center justify-center transition-all text-[#4a3426]" title="Réinitialiser"><Maximize2 size={20} /></button>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                            {viewingInvoices.length > 0 ? (
-                                <div className={`grid grid-cols-1 ${viewingInvoices.length > 1 ? 'md:grid-cols-2' : ''} gap-8`}>
-                                    {viewingInvoices.map((img, idx) => (
-                                        <div
-                                            key={idx}
-                                            className="relative group rounded-[2.5rem] overflow-hidden border border-white/10 bg-black shadow-2xl h-[75vh]"
-                                            onWheel={(e) => {
-                                                if (e.deltaY < 0) setImgZoom(prev => Math.min(4, prev + 0.1));
-                                                else setImgZoom(prev => Math.max(0.5, prev - 0.1));
+                                                if (viewingInvoicesTarget.type === 'journalier') {
+                                                    const newJournalier = [...expensesJournalier];
+                                                    const currentInvoices = newJournalier[viewingInvoicesTarget.index].invoices || [];
+                                                    newJournalier[viewingInvoicesTarget.index].invoices = [...currentInvoices, ...base64s];
+                                                    setExpensesJournalier(newJournalier);
+                                                    setViewingInvoices(newJournalier[viewingInvoicesTarget.index].invoices);
+                                                } else if (viewingInvoicesTarget.type === 'divers') {
+                                                    const newDivers = [...expensesDivers];
+                                                    const currentInvoices = newDivers[viewingInvoicesTarget.index].invoices || [];
+                                                    newDivers[viewingInvoicesTarget.index].invoices = [...currentInvoices, ...base64s];
+                                                    setExpensesDivers(newDivers);
+                                                    setViewingInvoices(newDivers[viewingInvoicesTarget.index].invoices);
+                                                } else {
+                                                    const newExpenses = [...expenses];
+                                                    const currentInvoices = newExpenses[viewingInvoicesTarget.index].invoices || [];
+                                                    newExpenses[viewingInvoicesTarget.index].invoices = [...currentInvoices, ...base64s];
+                                                    setExpenses(newExpenses);
+                                                    setViewingInvoices(newExpenses[viewingInvoicesTarget.index].invoices);
+                                                }
                                             }}
-                                        >
-                                            <motion.div
-                                                className={`w-full h-full flex items-center justify-center p-4 ${imgZoom > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-zoom-in'}`}
-                                                animate={{ scale: imgZoom, rotate: imgRotation }}
-                                                transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                                                drag={imgZoom > 1}
-                                                dragConstraints={{ left: -1000, right: 1000, top: -1000, bottom: 1000 }}
-                                                dragElastic={0.1}
-                                            >
-                                                <img
-                                                    src={img}
-                                                    draggable="false"
-                                                    className="max-w-full max-h-full rounded-xl object-contain shadow-2xl"
-                                                    style={{ pointerEvents: 'none', userSelect: 'none' }}
-                                                />
-                                            </motion.div>
-                                            <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                                                <a href={img} download target="_blank" className="p-2 bg-white/90 hover:bg-white text-[#4a3426] rounded-lg shadow-lg backdrop-blur-sm transition-all hover:scale-110"><Download size={16} /></a>
-                                                <button onClick={() => handleShareInvoice(img)} className="p-2 bg-white/90 hover:bg-white text-[#4a3426] rounded-lg shadow-lg backdrop-blur-sm transition-all hover:scale-110"><Share2 size={16} /></button>
-                                                <button
-                                                    onClick={() => {
-                                                        if (isLocked && role !== 'admin') {
-                                                            setShowConfirm({
-                                                                type: 'alert',
-                                                                title: 'INTERDIT',
-                                                                message: 'Cette date est verrouillée. Impossible de supprimer ce reçu.',
-                                                                color: 'red',
-                                                                alert: true
-                                                            });
-                                                            return;
-                                                        }
-                                                        handleDeleteInvoice(idx);
-                                                    }}
-                                                    className={`p-2 bg-white/90 hover:bg-white text-red-600 rounded-lg shadow-lg backdrop-blur-sm transition-all hover:scale-110 ${isLocked && role !== 'admin' ? 'opacity-50' : ''}`}
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
-                                            </div>
-                                            <div className="absolute bottom-4 left-4 bg-black/40 backdrop-blur-md text-[#c69f6e] text-[10px] font-black px-3 py-1.5 rounded-full border border-[#c69f6e]/20 uppercase tracking-widest">Reçu {idx + 1} • Zoom: {Math.round(imgZoom * 100)}%</div>
-                                        </div>
-                                    ))}
+                                        />
+                                    </label>
+                                    <div className="flex bg-white rounded-2xl p-1.5 gap-1 border border-[#e6dace] shadow-lg">
+                                        <button onClick={() => setImgZoom(prev => Math.max(0.5, prev - 0.25))} className="w-10 h-10 hover:bg-[#fcfaf8] rounded-xl flex items-center justify-center transition-all text-[#4a3426]" title="Zoom Arrière"><ZoomOut size={20} /></button>
+                                        <button onClick={() => setImgZoom(prev => Math.min(4, prev + 0.25))} className="w-10 h-10 hover:bg-[#fcfaf8] rounded-xl flex items-center justify-center transition-all text-[#4a3426]" title="Zoom Avant"><ZoomIn size={20} /></button>
+                                        <button onClick={() => setImgRotation(prev => prev + 90)} className="w-10 h-10 hover:bg-[#fcfaf8] rounded-xl flex items-center justify-center transition-all text-[#4a3426]" title="Tourner"><RotateCcw size={20} /></button>
+                                        <button onClick={resetView} className="w-10 h-10 hover:bg-[#fcfaf8] rounded-xl flex items-center justify-center transition-all text-[#4a3426]" title="Réinitialiser"><Maximize2 size={20} /></button>
+                                    </div>
                                 </div>
-                            ) : <div className="text-center py-20 text-gray-400"><UploadCloud size={60} className="mx-auto mb-4 opacity-20" /><p>Aucun reçu attaché</p></div>}
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* Admin Calendar Modal */}
-            <AnimatePresence>
-                {showCalendar && role === 'admin' && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] bg-black/20 backdrop-blur-[2px] flex items-start justify-center pt-24" onClick={() => setShowCalendar(false)}>
-                        <motion.div initial={{ scale: 0.9, opacity: 0, y: -20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: -20 }} className="bg-white rounded-3xl p-6 shadow-2xl border border-[#c69f6e]/20 w-80" onClick={e => e.stopPropagation()}>
-                            <div className="flex items-center justify-between mb-6">
-                                <button onClick={() => changeMonth(-1)} className="p-2 hover:bg-[#f4ece4] rounded-full text-[#4a3426]"><ChevronLeft size={18} /></button>
-                                <h3 className="text-lg font-bold text-[#4a3426] capitalize">{new Date(date).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}</h3>
-                                <button onClick={() => changeMonth(1)} className="p-2 hover:bg-[#f4ece4] rounded-full text-[#4a3426]"><ChevronRight size={18} /></button>
+                            )}
+                        </div>
+                        {viewingInvoices.length > 0 ? (
+                            <div className={`grid grid-cols-1 ${viewingInvoices.length > 1 ? 'md:grid-cols-2' : ''} gap-8`}>
+                                {viewingInvoices.map((img, idx) => (
+                                    <div
+                                        key={idx}
+                                        className="relative group rounded-[2.5rem] overflow-hidden border border-white/10 bg-black shadow-2xl h-[75vh]"
+                                        onWheel={(e) => {
+                                            if (e.deltaY < 0) setImgZoom(prev => Math.min(4, prev + 0.1));
+                                            else setImgZoom(prev => Math.max(0.5, prev - 0.1));
+                                        }}
+                                    >
+                                        <motion.div
+                                            className={`w-full h-full flex items-center justify-center p-4 ${imgZoom > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-zoom-in'}`}
+                                            animate={{ scale: imgZoom, rotate: imgRotation }}
+                                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                            drag={imgZoom > 1}
+                                            dragConstraints={{ left: -1000, right: 1000, top: -1000, bottom: 1000 }}
+                                            dragElastic={0.1}
+                                        >
+                                            <img
+                                                src={img}
+                                                draggable="false"
+                                                className="max-w-full max-h-full rounded-xl object-contain shadow-2xl"
+                                                style={{ pointerEvents: 'none', userSelect: 'none' }}
+                                            />
+                                        </motion.div>
+                                        <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                            <a href={img} download target="_blank" className="p-2 bg-white/90 hover:bg-white text-[#4a3426] rounded-lg shadow-lg backdrop-blur-sm transition-all hover:scale-110"><Download size={16} /></a>
+                                            <button onClick={() => handleShareInvoice(img)} className="p-2 bg-white/90 hover:bg-white text-[#4a3426] rounded-lg shadow-lg backdrop-blur-sm transition-all hover:scale-110"><Share2 size={16} /></button>
+                                            <button
+                                                onClick={() => {
+                                                    if (isLocked && role !== 'admin') {
+                                                        setShowConfirm({
+                                                            type: 'alert',
+                                                            title: 'INTERDIT',
+                                                            message: 'Cette date est verrouillée. Impossible de supprimer ce reçu.',
+                                                            color: 'red',
+                                                            alert: true
+                                                        });
+                                                        return;
+                                                    }
+                                                    handleDeleteInvoice(idx);
+                                                }}
+                                                className={`p-2 bg-white/90 hover:bg-white text-red-600 rounded-lg shadow-lg backdrop-blur-sm transition-all hover:scale-110 ${isLocked && role !== 'admin' ? 'opacity-50' : ''}`}
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                        <div className="absolute bottom-4 left-4 bg-black/40 backdrop-blur-md text-[#c69f6e] text-[10px] font-black px-3 py-1.5 rounded-full border border-[#c69f6e]/20 uppercase tracking-widest">Reçu {idx + 1} • Zoom: {Math.round(imgZoom * 100)}%</div>
+                                    </div>
+                                ))}
                             </div>
-                            <div className="grid grid-cols-7 gap-1 text-center mb-2">{['D', 'L', 'M', 'M', 'J', 'V', 'S'].map((d, i) => (<span key={i} className="text-xs font-bold text-[#bba282] uppercase">{d}</span>))}</div>
-                            <div className="grid grid-cols-7 gap-1">
-                                {generateCalendarDays(date).map((day, i) => {
-                                    if (!day) return <div key={i}></div>;
-                                    const isSelected = new Date(date).getDate() === day;
-                                    return (<button key={i} onClick={() => {
-                                        const parts = date.split('-');
-                                        const newD = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, day);
-                                        const ny = newD.getFullYear();
-                                        const nm = String(newD.getMonth() + 1).padStart(2, '0');
-                                        const nd = String(newD.getDate()).padStart(2, '0');
-                                        setDate(`${ny}-${nm}-${nd}`);
-                                        setShowCalendar(false);
-                                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                                    }} className={`h-9 w-9 rounded-full flex items-center justify-center text-sm font-semibold transition-all ${isSelected ? 'bg-[#4a3426] text-white shadow-lg' : 'text-[#4a3426] hover:bg-[#f4ece4] hover:text-[#c69f6e]'}`}>{day}</button>);
-                                })}
-                            </div>
-                        </motion.div>
+                        ) : <div className="text-center py-20 text-gray-400"><UploadCloud size={60} className="mx-auto mb-4 opacity-20" /><p>Aucun reçu attaché</p></div>}
                     </motion.div>
-                )}
-            </AnimatePresence>
+                </motion.div>
+            )
+        }
+    </AnimatePresence >
 
-            {/* Click outside to close dropdowns */}
-            {showSupplierDropdown !== null && <div className="fixed inset-0 z-40" onClick={() => setShowSupplierDropdown(null)} />}
-            {showJournalierDropdown !== null && <div className="fixed inset-0 z-40" onClick={() => setShowJournalierDropdown(null)} />}
-            {showDiversDropdown !== null && <div className="fixed inset-0 z-40" onClick={() => setShowDiversDropdown(null)} />}
+    {/* Admin Calendar Modal */ }
+    <AnimatePresence>
+        {
+            showCalendar && role === 'admin' && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] bg-black/20 backdrop-blur-[2px] flex items-start justify-center pt-24" onClick={() => setShowCalendar(false)}>
+                    <motion.div initial={{ scale: 0.9, opacity: 0, y: -20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: -20 }} className="bg-white rounded-3xl p-6 shadow-2xl border border-[#c69f6e]/20 w-80" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between mb-6">
+                            <button onClick={() => changeMonth(-1)} className="p-2 hover:bg-[#f4ece4] rounded-full text-[#4a3426]"><ChevronLeft size={18} /></button>
+                            <h3 className="text-lg font-bold text-[#4a3426] capitalize">{new Date(date).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}</h3>
+                            <button onClick={() => changeMonth(1)} className="p-2 hover:bg-[#f4ece4] rounded-full text-[#4a3426]"><ChevronRight size={18} /></button>
+                        </div>
+                        <div className="grid grid-cols-7 gap-1 text-center mb-2">{['D', 'L', 'M', 'M', 'J', 'V', 'S'].map((d, i) => (<span key={i} className="text-xs font-bold text-[#bba282] uppercase">{d}</span>))}</div>
+                        <div className="grid grid-cols-7 gap-1">
+                            {generateCalendarDays(date).map((day, i) => {
+                                if (!day) return <div key={i}></div>;
+                                const isSelected = new Date(date).getDate() === day;
+                                return (<button key={i} onClick={() => {
+                                    const parts = date.split('-');
+                                    const newD = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, day);
+                                    const ny = newD.getFullYear();
+                                    const nm = String(newD.getMonth() + 1).padStart(2, '0');
+                                    const nd = String(newD.getDate()).padStart(2, '0');
+                                    setDate(`${ny}-${nm}-${nd}`);
+                                    setShowCalendar(false);
+                                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                                }} className={`h-9 w-9 rounded-full flex items-center justify-center text-sm font-semibold transition-all ${isSelected ? 'bg-[#4a3426] text-white shadow-lg' : 'text-[#4a3426] hover:bg-[#f4ece4] hover:text-[#c69f6e]'}`}>{day}</button>);
+                            })}
+                        </div>
+                    </motion.div>
+                </motion.div>
+            )
+        }
+    </AnimatePresence >
 
-            {/* Supplier Modal */}
-            {/* Details Modal */}
+    {/* Click outside to close dropdowns */ }
+    { showSupplierDropdown !== null && <div className="fixed inset-0 z-40" onClick={() => setShowSupplierDropdown(null)} /> }
+    { showJournalierDropdown !== null && <div className="fixed inset-0 z-40" onClick={() => setShowJournalierDropdown(null)} /> }
+    { showDiversDropdown !== null && <div className="fixed inset-0 z-40" onClick={() => setShowDiversDropdown(null)} /> }
+
+    {/* Supplier Modal */ }
+    {/* Details Modal */ }
             <AnimatePresence>
                 {showDetailsModal && modalDetailsTarget && (
                     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
@@ -2742,7 +2774,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                 {/* Removed old showSupplierModal */}
             </AnimatePresence>
 
-            {/* Selection Modals Journalier/Divers */}
+    {/* Selection Modals Journalier/Divers */ }
             <AnimatePresence>
                 {(showSupplierModal || showJournalierModal || showDiversModal || showEmployeeModal) && (
                     <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
@@ -2783,16 +2815,31 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 </div>
 
                                 <div className="space-y-6">
-                                    <div className="relative">
-                                        <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-[#bba282]" size={20} />
-                                        <input
-                                            autoFocus
-                                            type="text"
-                                            placeholder={showSupplierModal ? "Nom du fournisseur..." : showEmployeeModal ? "Nom de l'employé..." : "Nom de la désignation..."}
-                                            value={showSupplierModal ? newSupplierName : showEmployeeModal ? employeeSearch : designationSearch}
-                                            onChange={(e) => showSupplierModal ? setNewSupplierName(e.target.value) : showEmployeeModal ? setEmployeeSearch(e.target.value) : setDesignationSearch(e.target.value)}
-                                            className="w-full h-16 bg-[#fcfaf8] border border-[#e6dace] rounded-2xl pl-14 pr-6 font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all placeholder-[#bba282]/50"
-                                        />
+                                    <div className="space-y-4">
+                                        <div className="relative">
+                                            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-[#bba282]" size={20} />
+                                            <input
+                                                autoFocus
+                                                type="text"
+                                                placeholder={showSupplierModal ? "Nom du fournisseur..." : showEmployeeModal ? "Nom de l'employé..." : "Nom de la désignation..."}
+                                                value={showSupplierModal ? newSupplierName : showEmployeeModal ? employeeSearch : designationSearch}
+                                                onChange={(e) => showSupplierModal ? setNewSupplierName(e.target.value) : showEmployeeModal ? setEmployeeSearch(e.target.value) : setDesignationSearch(e.target.value)}
+                                                className="w-full h-16 bg-[#fcfaf8] border border-[#e6dace] rounded-2xl pl-14 pr-6 font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all placeholder-[#bba282]/50"
+                                            />
+                                        </div>
+
+                                        {showEmployeeModal && (
+                                            <div className="relative animate-in fade-in slide-in-from-top-4 duration-300">
+                                                <Briefcase className="absolute left-5 top-1/2 -translate-y-1/2 text-[#bba282]" size={20} />
+                                                <input
+                                                    type="text"
+                                                    placeholder="Département (optionnel)..."
+                                                    value={employeeDepartment}
+                                                    onChange={(e) => setEmployeeDepartment(e.target.value)}
+                                                    className="w-full h-16 bg-[#fcfaf8] border border-[#e6dace] rounded-2xl pl-14 pr-6 font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all placeholder-[#bba282]/50"
+                                                />
+                                            </div>
+                                        )}
                                     </div>
 
                                     <div className="flex gap-4">
@@ -2805,6 +2852,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                 setDesignationSearch('');
                                                 setNewSupplierName('');
                                                 setEmployeeSearch('');
+                                                setEmployeeDepartment('');
                                             }}
                                             className="flex-1 h-14 rounded-2xl border border-[#e6dace] text-[#8c8279] font-black uppercase text-xs tracking-[0.2em] hover:bg-[#fcfaf8] transition-all"
                                         >
@@ -2822,10 +2870,11 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         setShowSupplierModal(false);
                                                         setNewSupplierName('');
                                                     } else if (showEmployeeModal) {
-                                                        await upsertEmployee({ variables: { name: val.trim() } });
+                                                        await upsertEmployee({ variables: { name: val.trim(), department: employeeDepartment.trim() || null } });
                                                         refetchEmployees();
                                                         setShowEmployeeModal(false);
                                                         setEmployeeSearch('');
+                                                        setEmployeeDepartment('');
                                                     } else {
                                                         await upsertDesignation({ variables: { name: val.trim() } });
                                                         refetchDesignations();
@@ -2904,10 +2953,12 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                             <div className="flex items-center gap-3">
                                                 <button
                                                     onClick={async () => {
-                                                        const { value: newName } = await MySwal.fire({
-                                                            title: 'Renommer employé',
-                                                            input: 'text',
-                                                            inputValue: emp.name,
+                                                        const { value: formValues } = await MySwal.fire({
+                                                            title: 'Modifier Employé',
+                                                            html:
+                                                                `<input id="swal-input1" class="swal2-input" placeholder="Nom" value="${emp.name}">` +
+                                                                `<input id="swal-input2" class="swal2-input" placeholder="Département" value="${emp.department || ''}">`,
+                                                            focusConfirm: false,
                                                             showCancelButton: true,
                                                             confirmButtonText: 'Enregistrer',
                                                             cancelButtonText: 'Annuler',
@@ -2915,14 +2966,23 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                             background: '#fff',
                                                             customClass: {
                                                                 title: 'text-lg font-black uppercase text-[#4a3426]',
-                                                                input: 'rounded-xl border-[#e6dace]',
                                                                 confirmButton: 'rounded-xl font-bold uppercase tracking-widest text-xs py-3',
                                                                 cancelButton: 'rounded-xl font-bold uppercase tracking-widest text-xs py-3'
+                                                            },
+                                                            preConfirm: () => {
+                                                                return [
+                                                                    (document.getElementById('swal-input1') as HTMLInputElement).value,
+                                                                    (document.getElementById('swal-input2') as HTMLInputElement).value
+                                                                ]
                                                             }
                                                         });
-                                                        if (newName && newName.trim() !== emp.name) {
-                                                            await updateEmployee({ variables: { id: emp.id, name: newName.trim() } });
-                                                            refetchEmployees();
+
+                                                        if (formValues) {
+                                                            const [newName, newDept] = formValues;
+                                                            if (newName && (newName.trim() !== emp.name || newDept.trim() !== (emp.department || ''))) {
+                                                                await updateEmployee({ variables: { id: emp.id, name: newName.trim(), department: newDept.trim() || null } });
+                                                                refetchEmployees();
+                                                            }
                                                         }
                                                     }}
                                                     className="p-2 text-[#c69f6e] hover:bg-[#f4ece4] rounded-lg transition-colors"
@@ -2977,6 +3037,6 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                 color={showConfirm?.color || 'blue'}
                 alert={showConfirm?.alert || showConfirm?.type === 'alert'}
             />
-        </div>
+        </div >
     );
 }
