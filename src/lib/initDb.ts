@@ -145,6 +145,21 @@ const initDb = async () => {
       }
     }
 
+    // Create tables for details if they don't exist
+    const detailTables = ['advances', 'doublages', 'extras', 'primes'];
+    for (const table of detailTables) {
+      await query(`
+        CREATE TABLE IF NOT EXISTS public.${table} (
+          id serial NOT NULL,
+          employee_name character varying(255) NOT NULL,
+          montant character varying(255) NOT NULL,
+          date character varying(255) NOT NULL,
+          CONSTRAINT ${table}_pkey PRIMARY KEY (id),
+          CONSTRAINT ${table}_unique_emp_date UNIQUE (employee_name, date)
+        );
+      `);
+    }
+
     console.log('Database tables initialized');
   } catch (err) {
     console.error('Error initializing database:', err);

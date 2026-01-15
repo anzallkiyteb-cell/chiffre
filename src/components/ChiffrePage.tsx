@@ -188,7 +188,7 @@ const DELETE_EMPLOYEE = gql`
 `;
 
 const ADD_AVANCE = gql`
-  mutation AddAvance($username: String!, $amount: String!, $date: String!) {
+  mutation AddAvance($username: String!, $amount: Float!, $date: String!) {
     addAvance(username: $username, amount: $amount, date: $date) { id username montant }
   }
 `;
@@ -197,7 +197,7 @@ const DELETE_AVANCE = gql`
 `;
 
 const ADD_DOUBLAGE = gql`
-  mutation AddDoublage($username: String!, $amount: String!, $date: String!) {
+  mutation AddDoublage($username: String!, $amount: Float!, $date: String!) {
     addDoublage(username: $username, amount: $amount, date: $date) { id username montant }
   }
 `;
@@ -206,7 +206,7 @@ const DELETE_DOUBLAGE = gql`
 `;
 
 const ADD_EXTRA = gql`
-  mutation AddExtra($username: String!, $amount: String!, $date: String!) {
+  mutation AddExtra($username: String!, $amount: Float!, $date: String!) {
     addExtra(username: $username, amount: $amount, date: $date) { id username montant }
   }
 `;
@@ -215,7 +215,7 @@ const DELETE_EXTRA = gql`
 `;
 
 const ADD_PRIME = gql`
-  mutation AddPrime($username: String!, $amount: String!, $date: String!) {
+  mutation AddPrime($username: String!, $amount: Float!, $date: String!) {
     addPrime(username: $username, amount: $amount, date: $date) { id username montant }
   }
 `;
@@ -928,10 +928,10 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             // New employees are now added only via the dedicated "Ajouter Employé" button
             // So we don't upsert here anymore to maintain a clean directory
 
-            if (type === 'avance') await addAvance({ variables: { username, amount, date } });
-            if (type === 'doublage') await addDoublage({ variables: { username, amount, date } });
-            if (type === 'extra') await addExtra({ variables: { username, amount, date } });
-            if (type === 'prime') await addPrime({ variables: { username, amount, date } });
+            if (type === 'avance') await addAvance({ variables: { username, amount: parseFloat(amount), date } });
+            if (type === 'doublage') await addDoublage({ variables: { username, amount: parseFloat(amount), date } });
+            if (type === 'extra') await addExtra({ variables: { username, amount: parseFloat(amount), date } });
+            if (type === 'prime') await addPrime({ variables: { username, amount: parseFloat(amount), date } });
 
             refetchChiffre();
             setToast({ msg: 'Ajouté avec succès', type: 'success' });
@@ -1407,12 +1407,9 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                         {/* 1. Dépenses Journalier */}
                         <div>
                             <div className="flex justify-between items-center mb-4">
-                                <h3
-                                    className="text-lg font-bold text-[#4a3426] flex items-center gap-2 cursor-pointer group/title"
-                                    onClick={() => setShowHistoryModal({ type: 'journalier' })}
-                                >
-                                    <div className="bg-[#4a3426] text-white w-6 h-6 rounded-full flex items-center justify-center text-xs group-hover/title:bg-[#c69f6e] transition-colors">1</div>
-                                    <span className="group-hover/title:text-[#c69f6e] transition-colors">Dépenses Journalier</span>
+                                <h3 className="text-lg font-bold text-[#4a3426] flex items-center gap-2">
+                                    <div className="bg-[#4a3426] text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">1</div>
+                                    <span>Dépenses Journalier</span>
                                 </h3>
                                 <button
                                     onClick={() => {
@@ -1604,10 +1601,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 >
                                     <Plus size={18} /> Nouvelle Ligne (Journalier)
                                 </button>
-                                <div
-                                    className="mt-4 p-4 bg-[#fcfaf8] rounded-2xl flex justify-between items-center border border-[#e6dace]/50 cursor-pointer hover:bg-[#f9f6f2] transition-colors"
-                                    onClick={() => setShowHistoryModal({ type: 'journalier' })}
-                                >
+                                <div className="mt-4 p-4 bg-[#fcfaf8] rounded-2xl flex justify-between items-center border border-[#e6dace]/50">
                                     <span className="text-xs font-black text-[#8c8279] uppercase tracking-widest">Total Dépenses Journalier</span>
                                     <span className="text-2xl font-black text-[#4a3426]">{totalExpensesJournalier.toFixed(3)} <span className="text-sm">DT</span></span>
                                 </div>
@@ -1617,12 +1611,9 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                         {/* 2. Dépenses Fournisseur */}
                         <div>
                             <div className="flex justify-between items-center mb-4">
-                                <h3
-                                    className="text-lg font-bold text-[#4a3426] flex items-center gap-2 cursor-pointer group/title"
-                                    onClick={() => setShowHistoryModal({ type: 'supplier' })}
-                                >
-                                    <div className="bg-[#4a3426] text-white w-6 h-6 rounded-full flex items-center justify-center text-xs group-hover/title:bg-[#c69f6e] transition-colors">2</div>
-                                    <span className="group-hover/title:text-[#c69f6e] transition-colors">Dépenses Fournisseur</span>
+                                <h3 className="text-lg font-bold text-[#4a3426] flex items-center gap-2">
+                                    <div className="bg-[#4a3426] text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">2</div>
+                                    <span>Dépenses Fournisseur</span>
                                 </h3>
                                 <button
                                     onClick={() => {
@@ -1971,10 +1962,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 >
                                     <Plus size={18} /> Nouvelle Ligne (Divers)
                                 </button>
-                                <div
-                                    className="mt-4 p-4 bg-[#fcfaf8] rounded-2xl flex justify-between items-center border border-[#e6dace]/50 cursor-pointer hover:bg-[#f9f6f2] transition-colors"
-                                    onClick={() => setShowHistoryModal({ type: 'divers' })}
-                                >
+                                <div className="mt-4 p-4 bg-[#fcfaf8] rounded-2xl flex justify-between items-center border border-[#e6dace]/50">
                                     <span className="text-xs font-black text-[#8c8279] uppercase tracking-widest">Total Dépenses Divers</span>
                                     <span className="text-2xl font-black text-[#4a3426]">{totalExpensesDivers.toFixed(3)} <span className="text-sm">DT</span></span>
                                 </div>
@@ -1985,12 +1973,9 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                         {/* 4. Dépenses Administratif */}
                         <div>
                             <div className="flex justify-between items-center mb-4">
-                                <h3
-                                    className="text-lg font-bold text-[#4a3426] flex items-center gap-2 cursor-pointer group/title"
-                                    onClick={() => setShowHistoryModal({ type: 'admin' })}
-                                >
-                                    <div className="bg-[#4a3426] text-white w-6 h-6 rounded-full flex items-center justify-center text-xs group-hover/title:bg-[#c69f6e] transition-colors">4</div>
-                                    <span className="group-hover/title:text-[#c69f6e] transition-colors">Dépenses Administratif</span>
+                                <h3 className="text-lg font-bold text-[#4a3426] flex items-center gap-2">
+                                    <div className="bg-[#4a3426] text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">4</div>
+                                    <span>Dépenses Administratif</span>
                                 </h3>
                             </div>
 
@@ -2038,10 +2023,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                         </div>
                                     ))}
                                 </div>
-                                <div
-                                    className="mt-4 p-4 bg-[#fcfaf8] rounded-2xl flex justify-between items-center border border-[#e6dace]/50 cursor-pointer hover:bg-[#f9f6f2] transition-colors"
-                                    onClick={() => setShowHistoryModal({ type: 'admin' })}
-                                >
+                                <div className="mt-4 p-4 bg-[#fcfaf8] rounded-2xl flex justify-between items-center border border-[#e6dace]/50">
                                     <span className="text-xs font-black text-[#8c8279] uppercase tracking-widest">Total Dépenses Administratif</span>
                                     <span className="text-2xl font-black text-[#4a3426]">{totalExpensesAdmin.toFixed(3)} <span className="text-sm">DT</span></span>
                                 </div>

@@ -61,10 +61,10 @@ export const resolvers = {
                 diponce_divers: typeof data.diponce_divers === 'string' ? data.diponce_divers : JSON.stringify(data.diponce_divers || []),
                 diponce_journalier: typeof data.diponce_journalier === 'string' ? data.diponce_journalier : JSON.stringify(data.diponce_journalier || []),
                 diponce_admin: typeof data.diponce_admin === 'string' ? data.diponce_admin : JSON.stringify(data.diponce_admin || []),
-                avances_details: avances.rows.map(r => ({ id: r.id, username: r.username, montant: r.montant.toString() })),
-                doublages_details: doublages.rows.map(r => ({ id: r.id, username: r.username, montant: r.montant.toString() })),
-                extras_details: extraDetails.map(r => ({ id: r.id, username: r.username, montant: r.montant.toString() })),
-                primes_details: primesDetails.map(r => ({ id: r.id, username: r.username, montant: r.montant.toString() }))
+                avances_details: avances.rows.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant) })),
+                doublages_details: doublages.rows.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant) })),
+                extras_details: extraDetails.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant) })),
+                primes_details: primesDetails.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant) }))
             };
         },
         getInvoices: async (_: any, { supplierName, startDate, endDate, month }: any) => {
@@ -640,7 +640,7 @@ export const resolvers = {
         addAvance: async (_: any, { username, amount, date }: any) => {
             const res = await query('INSERT INTO advances (employee_name, montant, date) VALUES ($1, $2, $3) ON CONFLICT (employee_name, date) DO UPDATE SET montant = $2 RETURNING id, employee_name as username, montant', [username, amount, date]);
             const row = res.rows[0];
-            return { ...row, montant: row.montant.toString() };
+            return { ...row, montant: parseFloat(row.montant) };
         },
         deleteAvance: async (_: any, { id }: any) => {
             await query('DELETE FROM advances WHERE id = $1', [id]);
@@ -649,7 +649,7 @@ export const resolvers = {
         addDoublage: async (_: any, { username, amount, date }: any) => {
             const res = await query('INSERT INTO doublages (employee_name, montant, date) VALUES ($1, $2, $3) ON CONFLICT (employee_name, date) DO UPDATE SET montant = $2 RETURNING id, employee_name as username, montant', [username, amount, date]);
             const row = res.rows[0];
-            return { ...row, montant: row.montant.toString() };
+            return { ...row, montant: parseFloat(row.montant) };
         },
         deleteDoublage: async (_: any, { id }: any) => {
             await query('DELETE FROM doublages WHERE id = $1', [id]);
@@ -658,7 +658,7 @@ export const resolvers = {
         addExtra: async (_: any, { username, amount, date }: any) => {
             const res = await query('INSERT INTO extras (employee_name, montant, date) VALUES ($1, $2, $3) ON CONFLICT (employee_name, date) DO UPDATE SET montant = $2 RETURNING id, employee_name as username, montant', [username, amount, date]);
             const row = res.rows[0];
-            return { ...row, montant: row.montant.toString() };
+            return { ...row, montant: parseFloat(row.montant) };
         },
         deleteExtra: async (_: any, { id }: any) => {
             await query('DELETE FROM extras WHERE id = $1', [id]);
@@ -667,7 +667,7 @@ export const resolvers = {
         addPrime: async (_: any, { username, amount, date }: any) => {
             const res = await query('INSERT INTO primes (employee_name, montant, date) VALUES ($1, $2, $3) ON CONFLICT (employee_name, date) DO UPDATE SET montant = $2 RETURNING id, employee_name as username, montant', [username, amount, date]);
             const row = res.rows[0];
-            return { ...row, montant: row.montant.toString() };
+            return { ...row, montant: parseFloat(row.montant) };
         },
         deletePrime: async (_: any, { id }: any) => {
             await query('DELETE FROM primes WHERE id = $1', [id]);
