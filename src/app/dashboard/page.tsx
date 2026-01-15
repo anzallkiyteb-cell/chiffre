@@ -126,6 +126,7 @@ const PremiumDatePicker = ({ value, onChange, label, align = 'left' }: { value: 
 const GET_CHIFFRES_MONTHLY = gql`
   query GetChiffresRange($startDate: String!, $endDate: String!) {
     getChiffresByRange(startDate: $startDate, endDate: $endDate) {
+      date
       recette_de_caisse
       total_diponce
       diponce
