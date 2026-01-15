@@ -2672,13 +2672,13 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             </AnimatePresence>
 
             <ConfirmModal
-                isOpen={showConfirm.isOpen}
-                onClose={() => setShowConfirm({ ...showConfirm, isOpen: false })}
-                onConfirm={showConfirm.onConfirm}
-                title={showConfirm.title}
-                message={showConfirm.message}
-                color={showConfirm.color}
-                alert={showConfirm.alert}
+                isOpen={!!showConfirm}
+                onClose={() => setShowConfirm(null)}
+                onConfirm={showConfirm?.onConfirm}
+                title={showConfirm?.title || ''}
+                message={showConfirm?.message || ''}
+                color={showConfirm?.color || 'blue'}
+                alert={showConfirm?.alert || showConfirm?.type === 'alert'}
             />
         </div>
     );
