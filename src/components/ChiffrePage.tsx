@@ -124,6 +124,15 @@ const UPSERT_SUPPLIER = gql`
 }
 `;
 
+const UNPAY_INVOICE = gql`
+  mutation UnpayInvoice($id: Int!) {
+    unpayInvoice(id: $id) {
+      id
+      status
+    }
+  }
+`;
+
 interface ChiffrePageProps {
     role: 'admin' | 'caissier';
     onLogout: () => void;
@@ -217,6 +226,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     const [unlockChiffre, { loading: unlocking }] = useMutation(UNLOCK_CHIFFRE);
     const [upsertSupplier] = useMutation(UPSERT_SUPPLIER);
     const [upsertDesignation] = useMutation(UPSERT_DESIGNATION);
+    const [unpayInvoice] = useMutation(UNPAY_INVOICE);
 
     // Dashboard States
     const [recetteCaisse, setRecetteCaisse] = useState('0');
@@ -523,8 +533,28 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             });
             return;
         }
-        setHasInteracted(true);
-        setExpenses(expenses.filter((_, i) => i !== index));
+
+        const expense = expenses[index];
+        if (expense.isFromFacturation && expense.invoiceId) {
+            setShowConfirm({
+                type: 'unpay',
+                title: 'Annuler Payement',
+                message: `Cette dépense provient d'une facture. Voulez-vous vraiment l'enlever ? Elle redeviendra "Impayée" dans la facturation.`,
+                color: 'red',
+                onConfirm: async () => {
+                    try {
+                        await unpayInvoice({ variables: { id: expense.invoiceId } });
+                        setHasInteracted(true);
+                        setExpenses(expenses.filter((_, i) => i !== index));
+                    } catch (e) {
+                        console.error(e);
+                    }
+                }
+            });
+        } else {
+            setHasInteracted(true);
+            setExpenses(expenses.filter((_, i) => i !== index));
+        }
     };
     const handleRemoveDivers = (index: number) => {
         if (isLocked) {
