@@ -504,40 +504,40 @@ export default function PaiementsPage() {
                         {/* 1. Chiffre d'Affaire */}
                         <motion.div
                             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0 }}
-                            className="bg-gradient-to-br from-[#10b981] to-[#059669] p-6 rounded-[2rem] shadow-lg relative overflow-hidden group hover:scale-[1.02] transition-all text-white"
+                            className="col-span-1 sm:col-span-2 lg:col-span-3 bg-gradient-to-br from-[#10b981] to-[#059669] p-10 rounded-[2.5rem] shadow-lg relative overflow-hidden group hover:scale-[1.01] transition-all text-white"
                         >
-                            <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -mr-12 -mt-12"></div>
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
                             <div className="relative z-10">
-                                <div className="flex items-center gap-2 text-white/80 mb-2 uppercase text-[9px] font-black tracking-widest">
-                                    <Wallet size={12} /> Chiffre d'Affaire
+                                <div className="flex items-center gap-3 text-white/80 mb-4 uppercase text-xs font-black tracking-widest">
+                                    <Wallet size={16} /> Chiffre d'Affaire
                                 </div>
-                                <h3 className="text-3xl font-black tracking-tighter">
+                                <h3 className="text-5xl lg:text-7xl font-black tracking-tighter">
                                     {stats.totalRecetteCaisse.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
                                 </h3>
-                                <span className="text-xs font-bold opacity-70">DT</span>
+                                <span className="text-lg font-bold opacity-70 mt-2 block">DT</span>
                             </div>
-                            <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-125 transition-transform duration-500 text-white">
-                                <Wallet size={80} />
+                            <div className="absolute -right-8 -bottom-8 opacity-10 group-hover:scale-125 transition-transform duration-500 text-white">
+                                <Wallet size={180} />
                             </div>
                         </motion.div>
 
                         {/* 2. Recette Nette Globale */}
                         <motion.div
                             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-                            className="bg-gradient-to-br from-[#22c55e] to-[#16a34a] p-6 rounded-[2rem] shadow-lg relative overflow-hidden group hover:scale-[1.02] transition-all text-white"
+                            className="col-span-1 sm:col-span-2 lg:col-span-3 bg-gradient-to-br from-[#22c55e] to-[#16a34a] p-10 rounded-[2.5rem] shadow-lg relative overflow-hidden group hover:scale-[1.01] transition-all text-white"
                         >
-                            <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -mr-12 -mt-12"></div>
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
                             <div className="relative z-10">
-                                <div className="flex items-center gap-2 text-white/80 mb-2 uppercase text-[9px] font-black tracking-widest">
-                                    <TrendingUp size={12} /> Recette Nette Globale
+                                <div className="flex items-center gap-3 text-white/80 mb-4 uppercase text-xs font-black tracking-widest">
+                                    <TrendingUp size={16} /> Recette Nette Globale
                                 </div>
-                                <h3 className="text-3xl font-black tracking-tighter">
+                                <h3 className="text-5xl lg:text-7xl font-black tracking-tighter">
                                     {stats.totalRecetteNette.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
                                 </h3>
-                                <span className="text-xs font-bold opacity-70">DT</span>
+                                <span className="text-lg font-bold opacity-70 mt-2 block">DT</span>
                             </div>
-                            <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-125 transition-transform duration-500 text-white">
-                                <TrendingUp size={80} />
+                            <div className="absolute -right-8 -bottom-8 opacity-10 group-hover:scale-125 transition-transform duration-500 text-white">
+                                <TrendingUp size={180} />
                             </div>
                         </motion.div>
 
