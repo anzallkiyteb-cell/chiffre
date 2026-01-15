@@ -601,25 +601,7 @@ export default function PaiementsPage() {
                             </div>
                         </motion.div>
 
-                        {/* 6. Factures non Payées */}
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
-                            className="bg-gradient-to-br from-[#ef4444] to-[#dc2626] p-6 rounded-[2rem] shadow-lg relative overflow-hidden group hover:scale-[1.02] transition-all text-white"
-                        >
-                            <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -mr-12 -mt-12"></div>
-                            <div className="relative z-10">
-                                <div className="flex items-center gap-2 text-white/80 mb-2 uppercase text-[9px] font-black tracking-widest">
-                                    <Receipt size={12} /> Factures non Payées
-                                </div>
-                                <h3 className="text-3xl font-black tracking-tighter">
-                                    {stats.totalUnpaidInvoices.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
-                                </h3>
-                                <span className="text-xs font-bold opacity-70">DT</span>
-                            </div>
-                            <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-125 transition-transform duration-500 text-white">
-                                <Receipt size={80} />
-                            </div>
-                        </motion.div>
+
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
