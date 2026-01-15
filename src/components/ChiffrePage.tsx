@@ -992,25 +992,6 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                 >
                                                     <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
                                                         <Search className="text-[#bba282]" size={16} />
-                                                        <span
-                                                            onClick={() => {
-                                                                if (isLocked) {
-                                                                    setShowConfirm({
-                                                                        type: 'alert',
-                                                                        title: 'INTERDIT',
-                                                                        message: 'Cette date est verrouillée. Impossible de modifier ce document.',
-                                                                        color: 'red',
-                                                                        alert: true
-                                                                    });
-                                                                    return;
-                                                                }
-                                                                const nextType = (journalier.doc_type || 'PHOTO') === 'Facture' ? 'PHOTO' : 'Facture';
-                                                                handleJournalierChange(index, 'doc_type', nextType);
-                                                            }}
-                                                            className={`text-[8px] font-black uppercase tracking-tighter ${(journalier.doc_type || 'PHOTO') === 'Facture' ? 'bg-[#2d6a4f]' : 'bg-[#c69f6e]'} text-white px-1.5 py-0.5 rounded leading-none transition-all cursor-pointer hover:scale-105 z-10 flex items-center justify-center min-w-[32px] shadow-sm doc-type-toggle`}
-                                                        >
-                                                            {journalier.doc_type || 'PHOTO'}
-                                                        </span>
                                                     </div>
                                                     <input
                                                         type="text"
@@ -1026,7 +1007,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                             handleJournalierChange(index, 'designation', e.target.value);
                                                             setDesignationSearch(e.target.value);
                                                         }}
-                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 pl-20 pr-10 focus:border-[#c69f6e] outline-none font-medium transition-all ${isLocked ? 'cursor-not-allowed opacity-50 pointer-events-none' : ''}`}
+                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 pl-12 pr-10 focus:border-[#c69f6e] outline-none font-medium transition-all ${isLocked ? 'cursor-not-allowed opacity-50 pointer-events-none' : ''}`}
                                                     />
                                                     <button
                                                         onClick={() => {
@@ -1111,9 +1092,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                     >
                                                         <UploadCloud size={14} />
                                                         <span className="font-black uppercase tracking-widest">
-                                                            {journalier.invoices.length > 0
-                                                                ? `${journalier.doc_type || 'PHOTO'} (${journalier.invoices.length})`
-                                                                : (journalier.doc_type || 'PHOTO')}
+                                                            PHOTO {journalier.invoices.length > 0 ? `(${journalier.invoices.length})` : ''}
                                                         </span>
                                                         <input type="file" multiple disabled={isLocked} className="hidden" onChange={(e) => handleFileUpload(index, e, 'invoice', 'journalier' as any)} />
                                                     </label>
@@ -1182,16 +1161,6 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                 <div className="flex-1 w-full relative">
                                                     <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
                                                         <Search className="text-[#bba282]" size={16} />
-                                                        <span
-                                                            onClick={() => {
-                                                                if (isLocked || expense.isFromFacturation) return;
-                                                                const nextType = (expense.doc_type || 'BL') === 'Facture' ? 'BL' : 'Facture';
-                                                                handleDetailChange(index, 'doc_type', nextType);
-                                                            }}
-                                                            className={`text-[8px] font-black uppercase tracking-tighter ${(expense.doc_type || (expense.isFromFacturation ? 'Facture' : 'BL')) === 'Facture' ? 'bg-[#2d6a4f]' : 'bg-[#c69f6e]'} text-white px-1.5 py-0.5 rounded leading-none transition-all ${!expense.isFromFacturation && !isLocked ? 'cursor-pointer hover:scale-105 shadow-sm' : ''} z-10 flex items-center justify-center min-w-[32px]`}
-                                                        >
-                                                            {expense.doc_type || (expense.isFromFacturation ? 'Facture' : 'BL')}
-                                                        </span>
                                                     </div>
                                                     <input
                                                         type="text"
@@ -1207,7 +1176,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         }}
                                                         onBlur={() => setTimeout(() => setShowSupplierDropdown(null), 200)}
                                                         onChange={(e) => { handleDetailChange(index, 'supplier', e.target.value); setSupplierSearch(e.target.value); }}
-                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 pl-20 pr-10 focus:border-[#c69f6e] outline-none font-medium transition-all ${(expense.isFromFacturation || isLocked) ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 pl-12 pr-10 focus:border-[#c69f6e] outline-none font-medium transition-all ${(expense.isFromFacturation || isLocked) ? 'opacity-70 cursor-not-allowed' : ''}`}
                                                     />
                                                     {!expense.isFromFacturation && (
                                                         <button
@@ -1275,11 +1244,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                     >
                                                         <UploadCloud size={14} />
                                                         <span className="font-black uppercase tracking-widest">
-                                                            {expense.isFromFacturation && expense.doc_type
-                                                                ? `${expense.doc_type} ${expense.doc_number ? '#' + expense.doc_number : ''}`
-                                                                : (expense.invoices.length > 0
-                                                                    ? `${expense.doc_type || 'BL'} (${expense.invoices.length})`
-                                                                    : (expense.doc_type || 'BL'))}
+                                                            PHOTO {expense.invoices.length > 0 ? `(${expense.invoices.length})` : ''}
                                                         </span>
                                                         {!expense.isFromFacturation && <input type="file" multiple disabled={isLocked} className="hidden" onChange={(e) => handleFileUpload(index, e, 'invoice')} />}
                                                     </label>
@@ -1409,16 +1374,6 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                 <div className="flex-1 w-full relative">
                                                     <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
                                                         <Search className="text-[#bba282]" size={16} />
-                                                        <span
-                                                            onClick={() => {
-                                                                if (isLocked) return;
-                                                                const nextType = (divers.doc_type || 'BL') === 'Facture' ? 'BL' : 'Facture';
-                                                                handleDiversChange(index, 'doc_type', nextType);
-                                                            }}
-                                                            className={`text-[8px] font-black uppercase tracking-tighter ${(divers.doc_type || 'BL') === 'Facture' ? 'bg-[#2d6a4f]' : 'bg-[#c69f6e]'} text-white px-1.5 py-0.5 rounded leading-none transition-all cursor-pointer hover:scale-105 z-10 flex items-center justify-center min-w-[32px] shadow-sm`}
-                                                        >
-                                                            {divers.doc_type || 'BL'}
-                                                        </span>
                                                     </div>
                                                     <input
                                                         type="text"
@@ -1434,7 +1389,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                             handleDiversChange(index, 'designation', e.target.value);
                                                             setDesignationSearch(e.target.value);
                                                         }}
-                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 pl-20 pr-10 focus:border-[#c69f6e] outline-none font-medium transition-all ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 pl-12 pr-10 focus:border-[#c69f6e] outline-none font-medium transition-all ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
                                                     />
                                                     <button
                                                         onClick={() => {
@@ -1502,9 +1457,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         className={`h-12 w-24 rounded-xl border flex items-center justify-center gap-2 cursor-pointer transition-colors relative whitespace-nowrap text-[10px] ${divers.invoices.length > 0 ? 'bg-[#2d6a4f] text-white border-[#2d6a4f]' : 'border-dashed border-[#bba282] text-[#bba282] hover:bg-[#f9f6f2]'} ${isLocked && divers.invoices.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}>
                                                         <UploadCloud size={14} />
                                                         <span className="font-black uppercase tracking-widest">
-                                                            {divers.invoices.length > 0
-                                                                ? `${divers.doc_type || 'BL'} (${divers.invoices.length})`
-                                                                : (divers.doc_type || 'BL')}
+                                                            PHOTO {divers.invoices.length > 0 ? `(${divers.invoices.length})` : ''}
                                                         </span>
                                                         <input type="file" multiple disabled={isLocked} className="hidden" onChange={(e) => handleFileUpload(index, e, 'invoice', true)} />
                                                     </label>
