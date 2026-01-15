@@ -2949,7 +2949,14 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 <div className="space-y-3 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
                                     {employeesData?.getEmployees?.map((emp: any) => (
                                         <div key={emp.id} className="flex justify-between items-center p-4 bg-[#fcfaf8] rounded-2xl border border-[#e6dace]/30 group hover:border-[#c69f6e]/30 transition-all">
-                                            <span className="font-bold text-[#4a3426]">{emp.name}</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-bold text-[#4a3426]">{emp.name}</span>
+                                                {emp.department && (
+                                                    <span className="text-[10px] font-black text-[#8c8279] uppercase tracking-wider bg-[#f4ece4] px-2 py-0.5 rounded-lg border border-[#e6dace]/50">
+                                                        {emp.department}
+                                                    </span>
+                                                )}
+                                            </div>
                                             <div className="flex items-center gap-3">
                                                 <button
                                                     onClick={async () => {
