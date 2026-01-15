@@ -746,24 +746,26 @@ export default function PaiementsPage() {
                                         Nouvelle Dépense
                                     </h3>
                                     <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={() => {
-                                                refetchUnpaid();
-                                                setShowUnpaidModal(true);
-                                            }}
-                                            className="text-[10px] font-black uppercase tracking-widest bg-red-50 border-2 border-red-200 text-red-600 px-4 py-2 rounded-xl hover:bg-red-100 transition-all flex items-center gap-2 shadow-sm"
-                                        >
-                                            <Clock size={14} className="text-red-500" />
-                                            <span className="flex items-baseline gap-1">
-                                                <span className="text-xs">Total Impayé:</span>
-                                                <span className="text-sm font-black">
-                                                    {(unpaidData?.getInvoices?.filter((inv: any) => inv.status !== 'paid')
-                                                        .reduce((sum: number, inv: any) => sum + parseFloat(inv.amount || 0), 0) || 0)
-                                                        .toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                        {!showExpForm && (
+                                            <button
+                                                onClick={() => {
+                                                    refetchUnpaid();
+                                                    setShowUnpaidModal(true);
+                                                }}
+                                                className="text-[10px] font-black uppercase tracking-widest bg-red-50 border-2 border-red-200 text-red-600 px-4 py-2 rounded-xl hover:bg-red-100 transition-all flex items-center gap-2 shadow-sm"
+                                            >
+                                                <Clock size={14} className="text-red-500" />
+                                                <span className="flex items-baseline gap-1">
+                                                    <span className="text-xs">Total Impayé:</span>
+                                                    <span className="text-sm font-black">
+                                                        {(unpaidData?.getInvoices?.filter((inv: any) => inv.status !== 'paid')
+                                                            .reduce((sum: number, inv: any) => sum + parseFloat(inv.amount || 0), 0) || 0)
+                                                            .toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                                    </span>
+                                                    <span className="text-[9px]">DT</span>
                                                 </span>
-                                                <span className="text-[9px]">DT</span>
-                                            </span>
-                                        </button>
+                                            </button>
+                                        )}
                                         <button
                                             onClick={() => setShowExpForm(!showExpForm)}
                                             className="text-[10px] font-black uppercase tracking-widest bg-red-50 text-red-500 px-3 py-2 rounded-xl hover:bg-red-100 transition-all"
@@ -1189,7 +1191,7 @@ export default function PaiementsPage() {
                                         </div>
 
                                         {/* Date Range Filter */}
-                                        <div className="flex items-center gap-3">
+                                        <div className="flex items-center gap-2">
                                             <div className="flex-1">
                                                 <label className="text-[9px] font-black uppercase tracking-widest text-[#8c8279] mb-1 block ml-1">Date Début</label>
                                                 <PremiumDatePicker
