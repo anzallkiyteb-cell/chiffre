@@ -333,7 +333,7 @@ export const resolvers = {
                 return { totalRecetteNette: 0, totalFacturesPayees: 0, totalTPE: 0, totalCheque: 0, totalCash: 0, totalBankDeposits: 0 };
             }
 
-            const [netRes, invoicesRes, unpaidInvoicesRes, tpeRes, chequeRes, cashRes, bankRes, caisseRes, expRes] = await Promise.all([
+            const [netRes, invoicesRes, unpaidInvoicesRes, tpeRes, chequeRes, cashRes, bankRes, caisseRes, expRes, ticketRes] = await Promise.all([
                 query(`SELECT SUM(CAST(NULLIF(REPLACE(recette_net, ',', '.'), '') AS NUMERIC)) as total FROM chiffres WHERE date ${dateFilter}`, params),
                 query(`SELECT SUM(CAST(NULLIF(REPLACE(amount, ',', '.'), '') AS NUMERIC)) as total FROM invoices WHERE status = 'paid' AND paid_date ${dateFilter.replace('date', 'paid_date')}`, params),
                 query(`SELECT SUM(CAST(NULLIF(REPLACE(amount, ',', '.'), '') AS NUMERIC)) as total FROM invoices WHERE status = 'unpaid' AND date ${dateFilter}`, params),
@@ -343,18 +343,20 @@ export const resolvers = {
                 query(`SELECT SUM(CAST(NULLIF(REPLACE(amount, ',', '.'), '') AS NUMERIC)) as total FROM bank_deposits WHERE date ${dateFilter}`, params),
                 query(`SELECT SUM(CAST(NULLIF(REPLACE(recette_de_caisse, ',', '.'), '') AS NUMERIC)) as total FROM chiffres WHERE date ${dateFilter}`, params),
                 query(`SELECT SUM(CAST(NULLIF(REPLACE(total_diponce, ',', '.'), '') AS NUMERIC)) as total FROM chiffres WHERE date ${dateFilter}`, params),
+                query(`SELECT SUM(CAST(NULLIF(REPLACE(tickets_restaurant, ',', '.'), '') AS NUMERIC)) as total FROM chiffres WHERE date ${dateFilter}`, params)
             ]);
 
             return {
-                totalRecetteNette: parseFloat(netRes.rows[0].total) || 0,
-                totalFacturesPayees: parseFloat(invoicesRes.rows[0].total) || 0,
-                totalUnpaidInvoices: parseFloat(unpaidInvoicesRes.rows[0].total) || 0,
-                totalTPE: parseFloat(tpeRes.rows[0].total) || 0,
-                totalCheque: parseFloat(chequeRes.rows[0].total) || 0,
-                totalCash: parseFloat(cashRes.rows[0].total) || 0,
-                totalBankDeposits: parseFloat(bankRes.rows[0].total) || 0,
-                totalRecetteCaisse: parseFloat(caisseRes.rows[0].total) || 0,
-                totalExpenses: parseFloat(expRes.rows[0].total) || 0,
+                totalRecetteNette: parseFloat(netRes.rows[0]?.total || '0'),
+                totalFacturesPayees: parseFloat(invoicesRes.rows[0]?.total || '0'),
+                totalUnpaidInvoices: parseFloat(unpaidInvoicesRes.rows[0]?.total || '0'),
+                totalTPE: parseFloat(tpeRes.rows[0]?.total || '0'),
+                totalCheque: parseFloat(chequeRes.rows[0]?.total || '0'),
+                totalCash: parseFloat(cashRes.rows[0]?.total || '0'),
+                totalBankDeposits: parseFloat(bankRes.rows[0]?.total || '0'),
+                totalRecetteCaisse: parseFloat(caisseRes.rows[0]?.total || '0'),
+                totalExpenses: parseFloat(expRes.rows[0]?.total || '0'),
+                totalTicketsRestaurant: parseFloat(ticketRes.rows[0]?.total || '0')
             };
         },
         getBankDeposits: async (_: any, { month, startDate, endDate }: { month?: string, startDate?: string, endDate?: string }) => {

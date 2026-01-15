@@ -8,7 +8,7 @@ import {
     CreditCard, Loader2, Search, Calendar,
     ArrowUpRight, Download, Filter, User,
     TrendingUp, Receipt, Wallet, UploadCloud, Coins, Banknote,
-    ChevronLeft, ChevronRight, Image as ImageIcon
+    ChevronLeft, ChevronRight, Image as ImageIcon, Ticket
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -499,12 +499,12 @@ export default function PaiementsPage() {
                 </header>
 
                 <main className="max-w-7xl mx-auto px-4 md:px-8 mt-8 space-y-8">
-                    {/* Financial Summary Grid - Now 2 columns max for better spacing of bottom cards */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
+                    {/* Financial Summary Grid - 3 Columns */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {/* 1. Chiffre d'Affaire */}
                         <motion.div
                             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0 }}
-                            className="col-span-1 sm:col-span-2 lg:col-span-2 bg-gradient-to-br from-[#10b981] to-[#059669] p-10 rounded-[2.5rem] shadow-lg relative overflow-hidden group hover:scale-[1.01] transition-all text-white"
+                            className="col-span-1 sm:col-span-2 lg:col-span-3 bg-gradient-to-br from-[#10b981] to-[#059669] p-10 rounded-[2.5rem] shadow-lg relative overflow-hidden group hover:scale-[1.01] transition-all text-white"
                         >
                             <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
                             <div className="relative z-10">
@@ -524,7 +524,7 @@ export default function PaiementsPage() {
                         {/* 2. Total Dépenses (Moved here and made BIG) */}
                         <motion.div
                             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-                            className="col-span-1 sm:col-span-2 lg:col-span-2 bg-gradient-to-br from-[#6b7280] to-[#4b5563] p-10 rounded-[2.5rem] shadow-lg relative overflow-hidden group hover:scale-[1.01] transition-all text-white"
+                            className="col-span-1 sm:col-span-2 lg:col-span-3 bg-gradient-to-br from-[#6b7280] to-[#4b5563] p-10 rounded-[2.5rem] shadow-lg relative overflow-hidden group hover:scale-[1.01] transition-all text-white"
                         >
                             <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
                             <div className="relative z-10">
@@ -541,10 +541,10 @@ export default function PaiementsPage() {
                             </div>
                         </motion.div>
 
-                        {/* 3. Recette Nette Globale */}
+                        {/* 3. Reste */}
                         <motion.div
                             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-                            className="col-span-1 sm:col-span-2 lg:col-span-2 bg-gradient-to-br from-[#22c55e] to-[#16a34a] p-10 rounded-[2.5rem] shadow-lg relative overflow-hidden group hover:scale-[1.01] transition-all text-white"
+                            className="col-span-1 sm:col-span-2 lg:col-span-3 bg-gradient-to-br from-[#22c55e] to-[#16a34a] p-10 rounded-[2.5rem] shadow-lg relative overflow-hidden group hover:scale-[1.01] transition-all text-white"
                         >
                             <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
                             <div className="relative z-10">
@@ -601,7 +601,25 @@ export default function PaiementsPage() {
                             </div>
                         </motion.div>
 
-
+                        {/* 6. Ticket Restaurant */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
+                            className="bg-gradient-to-br from-[#8b5cf6] to-[#6d28d9] p-6 rounded-[2rem] shadow-lg relative overflow-hidden group hover:scale-[1.02] transition-all text-white"
+                        >
+                            <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -mr-12 -mt-12"></div>
+                            <div className="relative z-10">
+                                <div className="flex items-center gap-2 text-white/80 mb-2 uppercase text-[9px] font-black tracking-widest">
+                                    <Ticket size={12} /> Ticket Restaurant
+                                </div>
+                                <h3 className="text-3xl font-black tracking-tighter">
+                                    {(stats.totalTicketsRestaurant || 0).toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                </h3>
+                                <span className="text-xs font-bold opacity-70">DT</span>
+                            </div>
+                            <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-125 transition-transform duration-500 text-white">
+                                <Ticket size={80} />
+                            </div>
+                        </motion.div>
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

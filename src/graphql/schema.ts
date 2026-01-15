@@ -90,6 +90,7 @@ export const typeDefs = `#graphql
     totalRecetteNette: Float
     totalFacturesPayees: Float
     totalUnpaidInvoices: Float
+    totalTicketsRestaurant: Float
     totalTPE: Float
     totalCheque: Float
     totalCash: Float
