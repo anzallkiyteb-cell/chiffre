@@ -89,10 +89,13 @@ export const typeDefs = `#graphql
   type PaymentStats {
     totalRecetteNette: Float
     totalFacturesPayees: Float
+    totalUnpaidInvoices: Float
     totalTPE: Float
     totalCheque: Float
     totalCash: Float
     totalBankDeposits: Float
+    totalRecetteCaisse: Float
+    totalExpenses: Float
   }
 
   type Query {

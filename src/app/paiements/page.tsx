@@ -154,6 +154,9 @@ const GET_PAYMENT_DATA = gql`
       totalCheque
       totalCash
       totalBankDeposits
+      totalRecetteCaisse
+      totalExpenses
+      totalUnpaidInvoices
     }
     getBankDeposits(month: $month, startDate: $startDate, endDate: $endDate) {
       id
@@ -310,10 +313,13 @@ export default function PaiementsPage() {
     const stats = data?.getPaymentStats || {
         totalRecetteNette: 0,
         totalFacturesPayees: 0,
+        totalUnpaidInvoices: 0,
         totalTPE: 0,
         totalCheque: 0,
         totalCash: 0,
-        totalBankDeposits: 0
+        totalBankDeposits: 0,
+        totalRecetteCaisse: 0,
+        totalExpenses: 0
     };
 
     const handleBankSubmit = async () => {
@@ -493,68 +499,127 @@ export default function PaiementsPage() {
                 </header>
 
                 <main className="max-w-7xl mx-auto px-4 md:px-8 mt-8 space-y-8">
-                    {/* Stats Grid */}
-                    {/* Main Stats Card - Recette Nette (Larger) */}
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="bg-green-600 p-10 md:p-14 rounded-[3.5rem] shadow-2xl relative overflow-hidden group text-white border-4 border-white/20"
-                    >
-                        <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-6">
-                            <div>
-                                <div className="flex items-center gap-3 text-white/70 mb-4 uppercase text-xs font-black tracking-[0.3em]">
-                                    <Wallet size={20} /> Recette Nette Globale
+                    {/* Financial Summary Grid - 6 Cards */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {/* 1. Chiffre d'Affaire */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0 }}
+                            className="bg-gradient-to-br from-[#10b981] to-[#059669] p-6 rounded-[2rem] shadow-lg relative overflow-hidden group hover:scale-[1.02] transition-all text-white"
+                        >
+                            <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -mr-12 -mt-12"></div>
+                            <div className="relative z-10">
+                                <div className="flex items-center gap-2 text-white/80 mb-2 uppercase text-[9px] font-black tracking-widest">
+                                    <Wallet size={12} /> Chiffre d'Affaire
                                 </div>
-                                <h2 className="text-6xl md:text-8xl lg:text-9xl font-black tracking-tighter flex items-baseline gap-4">
-                                    {stats.totalRecetteNette.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
-                                    <span className="text-2xl md:text-4xl font-bold opacity-40">DT</span>
-                                </h2>
+                                <h3 className="text-3xl font-black tracking-tighter">
+                                    {stats.totalRecetteCaisse.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                </h3>
+                                <span className="text-xs font-bold opacity-70">DT</span>
                             </div>
-                            <div className="bg-white/10 backdrop-blur-md p-6 rounded-[2.5rem] border border-white/10 flex flex-col items-center justify-center min-w-[200px]">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-white/50 mb-1">Période Active</p>
-                                <p className="text-lg font-black uppercase tracking-tight">
-                                    {activeFilter === 'month' && month ? months[parseInt(month.split('-')[1]) - 1] : 'Période Sélect.'}
-                                </p>
-                                {activeFilter !== 'month' && (
-                                    <p className="text-[10px] font-bold opacity-60 bg-white/10 px-3 py-1 rounded-full mt-2">
-                                        {formatDateDisplay(dateRange.start)} au {formatDateDisplay(dateRange.end)}
-                                    </p>
-                                )}
+                            <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-125 transition-transform duration-500 text-white">
+                                <Wallet size={80} />
                             </div>
-                        </div>
-                        <div className="absolute -right-20 -bottom-20 opacity-10 group-hover:scale-110 transition-transform duration-700 text-white">
-                            <Wallet size={400} />
-                        </div>
-                    </motion.div>
+                        </motion.div>
 
-                    {/* Secondary Stats Grid */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        {[
-                            { label: 'Factures Payées', val: stats.totalFacturesPayees, icon: Receipt, color: 'bg-gradient-to-br from-[#ef4444] to-[#dc2626]' },
-                            { label: 'Total Cash', val: stats.totalCash, icon: Coins, color: 'bg-gradient-to-br from-[#f59e0b] to-[#d97706]' },
-                            { label: 'Bancaire (TPE + Vers.)', val: stats.totalTPE + stats.totalBankDeposits, icon: TrendingUp, color: 'bg-gradient-to-br from-[#3b82f6] to-[#2563eb]' },
-                            { label: 'Total Chèques', val: stats.totalCheque, icon: Banknote, color: 'bg-gradient-to-br from-[#6b7280] to-[#4b5563]' }
-                        ].map((s, i) => (
-                            <motion.div
-                                key={i}
-                                initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-                                className={`${s.color} p-6 rounded-[2rem] shadow-lg relative overflow-hidden group hover:scale-[1.02] transition-all text-white`}
-                            >
-                                <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -mr-12 -mt-12"></div>
-                                <div className="relative z-10">
-                                    <div className="flex items-center gap-2 text-white/80 mb-2 uppercase text-[9px] font-black tracking-widest">
-                                        <s.icon size={12} /> {s.label}
-                                    </div>
-                                    <h3 className="text-3xl font-black tracking-tighter">
-                                        {s.val.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
-                                    </h3>
-                                    <span className="text-xs font-bold opacity-70">DT</span>
+                        {/* 2. Recette Nette Globale */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
+                            className="bg-gradient-to-br from-[#22c55e] to-[#16a34a] p-6 rounded-[2rem] shadow-lg relative overflow-hidden group hover:scale-[1.02] transition-all text-white"
+                        >
+                            <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -mr-12 -mt-12"></div>
+                            <div className="relative z-10">
+                                <div className="flex items-center gap-2 text-white/80 mb-2 uppercase text-[9px] font-black tracking-widest">
+                                    <TrendingUp size={12} /> Recette Nette Globale
                                 </div>
-                                <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-125 transition-transform duration-500 text-white">
-                                    <s.icon size={80} />
+                                <h3 className="text-3xl font-black tracking-tighter">
+                                    {stats.totalRecetteNette.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                </h3>
+                                <span className="text-xs font-bold opacity-70">DT</span>
+                            </div>
+                            <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-125 transition-transform duration-500 text-white">
+                                <TrendingUp size={80} />
+                            </div>
+                        </motion.div>
+
+                        {/* 3. Total Cash */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+                            className="bg-gradient-to-br from-[#f59e0b] to-[#d97706] p-6 rounded-[2rem] shadow-lg relative overflow-hidden group hover:scale-[1.02] transition-all text-white"
+                        >
+                            <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -mr-12 -mt-12"></div>
+                            <div className="relative z-10">
+                                <div className="flex items-center gap-2 text-white/80 mb-2 uppercase text-[9px] font-black tracking-widest">
+                                    <Coins size={12} /> Total Cash
                                 </div>
-                            </motion.div>
-                        ))}
+                                <h3 className="text-3xl font-black tracking-tighter">
+                                    {stats.totalCash.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                </h3>
+                                <span className="text-xs font-bold opacity-70">DT</span>
+                            </div>
+                            <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-125 transition-transform duration-500 text-white">
+                                <Coins size={80} />
+                            </div>
+                        </motion.div>
+
+                        {/* 4. Bancaire */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+                            className="bg-gradient-to-br from-[#3b82f6] to-[#2563eb] p-6 rounded-[2rem] shadow-lg relative overflow-hidden group hover:scale-[1.02] transition-all text-white"
+                        >
+                            <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -mr-12 -mt-12"></div>
+                            <div className="relative z-10">
+                                <div className="flex items-center gap-2 text-white/80 mb-2 uppercase text-[9px] font-black tracking-widest">
+                                    <CreditCard size={12} /> Bancaire (TPE + Vers. + Chèques)
+                                </div>
+                                <h3 className="text-3xl font-black tracking-tighter">
+                                    {(stats.totalTPE + stats.totalBankDeposits + stats.totalCheque).toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                </h3>
+                                <span className="text-xs font-bold opacity-70">DT</span>
+                            </div>
+                            <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-125 transition-transform duration-500 text-white">
+                                <CreditCard size={80} />
+                            </div>
+                        </motion.div>
+
+                        {/* 5. Factures non Payées */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+                            className="bg-gradient-to-br from-[#ef4444] to-[#dc2626] p-6 rounded-[2rem] shadow-lg relative overflow-hidden group hover:scale-[1.02] transition-all text-white"
+                        >
+                            <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -mr-12 -mt-12"></div>
+                            <div className="relative z-10">
+                                <div className="flex items-center gap-2 text-white/80 mb-2 uppercase text-[9px] font-black tracking-widest">
+                                    <Receipt size={12} /> Factures non Payées
+                                </div>
+                                <h3 className="text-3xl font-black tracking-tighter">
+                                    {stats.totalUnpaidInvoices.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                </h3>
+                                <span className="text-xs font-bold opacity-70">DT</span>
+                            </div>
+                            <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-125 transition-transform duration-500 text-white">
+                                <Receipt size={80} />
+                            </div>
+                        </motion.div>
+
+                        {/* 6. Total Dépenses */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
+                            className="bg-gradient-to-br from-[#6b7280] to-[#4b5563] p-6 rounded-[2rem] shadow-lg relative overflow-hidden group hover:scale-[1.02] transition-all text-white"
+                        >
+                            <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -mr-12 -mt-12"></div>
+                            <div className="relative z-10">
+                                <div className="flex items-center gap-2 text-white/80 mb-2 uppercase text-[9px] font-black tracking-widest">
+                                    <Banknote size={12} /> Total Dépenses
+                                </div>
+                                <h3 className="text-3xl font-black tracking-tighter">
+                                    {stats.totalExpenses.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                </h3>
+                                <span className="text-xs font-bold opacity-70">DT</span>
+                            </div>
+                            <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-125 transition-transform duration-500 text-white">
+                                <Banknote size={80} />
+                            </div>
+                        </motion.div>
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
