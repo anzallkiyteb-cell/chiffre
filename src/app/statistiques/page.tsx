@@ -342,7 +342,7 @@ export default function StatistiquesPage() {
                     </div>
                 </header>
 
-                <main className="max-w-7xl mx-auto px-8 mt-8 space-y-8">
+                <main className="max-w-[1600px] mx-auto px-4 md:px-8 mt-8 space-y-8">
                     {/* Top KPIs */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         {[
@@ -374,7 +374,7 @@ export default function StatistiquesPage() {
                     </div>
 
                     {/* Main Analytics Chart */}
-                    <div className="bg-white p-8 rounded-[2.5rem] luxury-shadow border border-[#e6dace]/50 relative overflow-hidden">
+                    <div className="bg-white p-4 md:p-8 rounded-[2rem] md:rounded-[2.5rem] luxury-shadow border border-[#e6dace]/50 relative overflow-hidden">
                         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-10">
                             <div>
                                 <h3 className="text-xl font-bold text-[#4a3426] flex items-center gap-2">
@@ -387,7 +387,7 @@ export default function StatistiquesPage() {
                             </button>
                         </div>
 
-                        <div className="h-[450px] w-full">
+                        <div className="h-[350px] md:h-[500px] lg:h-[600px] w-full">
                             {loading ? (
                                 <div className="h-full flex flex-col items-center justify-center gap-4">
                                     <Loader2 className="animate-spin text-[#c69f6e]" size={40} />
@@ -423,13 +423,13 @@ export default function StatistiquesPage() {
                     {/* Multi-charts Row */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         {/* Suppliers Breakdown */}
-                        <div className="bg-white p-8 rounded-[2.5rem] luxury-shadow border border-[#e6dace]/50">
+                        <div className="bg-white p-4 md:p-8 rounded-[2rem] md:rounded-[2.5rem] luxury-shadow border border-[#e6dace]/50">
                             <h3 className="text-xl font-bold text-[#4a3426] mb-8 flex items-center gap-2">
                                 <LayoutDashboard className="text-[#c69f6e]" /> Top Dépenses Fournisseurs
                             </h3>
                             <div className="h-[300px] w-full">
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={supplierData} layout="vertical" margin={{ left: 30 }}>
+                                    <BarChart data={supplierData} layout="vertical" margin={{ left: 10, right: 30 }}>
                                         <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f0e6dd" />
                                         <XAxis type="number" hide />
                                         <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} width={120} tick={{ fill: '#4a3426', fontSize: 11, fontWeight: 700 }} />
@@ -445,7 +445,7 @@ export default function StatistiquesPage() {
                         </div>
 
                         {/* Payment Methods Breakdown */}
-                        <div className="bg-white p-8 rounded-[2.5rem] luxury-shadow border border-[#e6dace]/50">
+                        <div className="bg-white p-4 md:p-8 rounded-[2rem] md:rounded-[2.5rem] luxury-shadow border border-[#e6dace]/50">
                             <h3 className="text-xl font-bold text-[#4a3426] mb-8 flex items-center gap-2">
                                 <PieChartIcon className="text-[#c69f6e]" /> Répartition des Encaissements
                             </h3>
@@ -483,14 +483,14 @@ export default function StatistiquesPage() {
                     </div>
 
                     {/* Monthly Charges & Payment Types Chart */}
-                    <div className="bg-white p-8 rounded-[2.5rem] luxury-shadow border border-[#e6dace]/50">
+                    <div className="bg-white p-4 md:p-8 rounded-[2rem] md:rounded-[2.5rem] luxury-shadow border border-[#e6dace]/50">
                         <div className="mb-8">
                             <h3 className="text-xl font-bold text-[#4a3426] flex items-center gap-2">
                                 <TrendingDown className="text-red-500" /> Analyse des Dépenses & Charges
                             </h3>
                             <p className="text-xs text-[#8c8279] mt-1">Évolution {aggregation === 'day' ? 'journalière' : 'mensuelle'} des charges par fournisseur</p>
                         </div>
-                        <div className="h-[400px] w-full">
+                        <div className="h-[350px] md:h-[500px] w-full">
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={aggregatedExpensesDetailed.data}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0e6dd" />
@@ -511,7 +511,7 @@ export default function StatistiquesPage() {
                     </div>
 
                     {/* Salary Evolution Chart */}
-                    <div className="bg-white p-8 rounded-[2.5rem] luxury-shadow border border-[#e6dace]/50">
+                    <div className="bg-white p-4 md:p-8 rounded-[2rem] md:rounded-[2.5rem] luxury-shadow border border-[#e6dace]/50">
                         <div className="mb-8">
                             <h3 className="text-xl font-bold text-[#4a3426] flex items-center gap-2">
                                 <Users className="text-[#c69f6e]" /> Evolution des Salaires
@@ -543,8 +543,8 @@ export default function StatistiquesPage() {
                     </div>
 
                     {/* Detailed Data Table */}
-                    <div className="bg-white rounded-[2.5rem] luxury-shadow border border-[#e6dace]/50 overflow-hidden">
-                        <div className="p-8 border-b border-[#e6dace]">
+                    <div className="bg-white rounded-[2rem] md:rounded-[2.5rem] luxury-shadow border border-[#e6dace]/50 overflow-hidden">
+                        <div className="p-4 md:p-8 border-b border-[#e6dace]">
                             <h3 className="text-xl font-bold text-[#4a3426]">Tableau de Données Détaillé</h3>
                         </div>
                         <div className="overflow-x-auto">

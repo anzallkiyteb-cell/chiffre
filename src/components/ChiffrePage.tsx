@@ -3,11 +3,12 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, gql } from '@apollo/client';
 import {
-    Plus, Trash2, UploadCloud, Save, Search, LogOut, Loader2, Calendar,
-    Wallet, TrendingDown, TrendingUp, CreditCard, Banknote, Coins, Calculator, Receipt,
-    ChevronLeft, ChevronRight, LayoutDashboard, PieChart as PieChartIcon, BarChart3, LineChart as LineChartIcon,
-    Zap, Sparkles, ChevronDown, User, MessageSquare, FileText, Check, Share2, ExternalLink,
-    Eye, EyeOff, ZoomIn, ZoomOut, RotateCcw, Maximize2, Download, Lock as LockIcon, Unlock as UnlockIcon
+    LayoutDashboard, TrendingDown, TrendingUp, Calendar, ChevronLeft, ChevronRight,
+    BarChart3, LineChart, PieChart as PieChartIcon, ArrowUpRight, ArrowDownRight,
+    Download, Filter, DownloadCloud, Loader2, Users, Receipt, CreditCard,
+    Banknote, Coins, Plus, Search, Trash2, FileText, UploadCloud, ChevronDown, Check,
+    LogOut, ZoomIn, ZoomOut, Maximize2, RotateCcw, LockIcon, UnlockIcon, X, PlusCircle, AlertCircle,
+    Wallet, Eye, EyeOff, Save, Calculator, Zap, Sparkles, User, MessageSquare, Share2, ExternalLink
 } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -128,6 +129,69 @@ interface ChiffrePageProps {
     onLogout: () => void;
 }
 
+const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message, color = 'brown', alert = false }: any) => {
+    if (!isOpen) return null;
+    const colors: { [key: string]: string } = {
+        brown: 'bg-[#4a3426] hover:bg-[#38261b]',
+        red: 'bg-red-500 hover:bg-red-600',
+        green: 'bg-[#2d6a4f] hover:bg-[#1b4332]'
+    };
+    const backdropColors: { [key: string]: string } = {
+        brown: 'bg-black/40',
+        red: 'bg-red-600/90',
+        green: 'bg-[#2d6a4f]/60'
+    };
+    const headerColors: { [key: string]: string } = {
+        brown: 'bg-[#4a3426]',
+        red: 'bg-red-500',
+        green: 'bg-[#2d6a4f]'
+    };
+    return (
+        <AnimatePresence>
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className={`fixed inset-0 z-[300] ${backdropColors[color]} backdrop-blur-md flex items-center justify-center p-4 text-left`}
+                onClick={onClose}
+            >
+                <motion.div
+                    initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                    animate={{ scale: 1, opacity: 1, y: 0 }}
+                    exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                    onClick={e => e.stopPropagation()}
+                    className="bg-white rounded-[2rem] w-full max-w-sm overflow-hidden shadow-2xl border border-white/20"
+                >
+                    <div className={`p-6 ${headerColors[color]} text-white`}>
+                        <h3 className="text-lg font-black uppercase tracking-tight">{title}</h3>
+                    </div>
+                    <div className="p-6 space-y-6">
+                        <p className="text-sm font-bold text-[#8c8279] uppercase tracking-wide leading-relaxed">
+                            {message}
+                        </p>
+                        <div className="flex gap-3">
+                            {!alert && (
+                                <button
+                                    onClick={onClose}
+                                    className="flex-1 h-12 bg-[#f9f6f2] text-[#8c8279] rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-[#ece6df] transition-all"
+                                >
+                                    Annuler
+                                </button>
+                            )}
+                            <button
+                                onClick={() => { if (onConfirm) onConfirm(); onClose(); }}
+                                className={`flex-1 h-12 ${colors[color]} text-white rounded-xl font-black uppercase text-[10px] tracking-widest transition-all shadow-lg`}
+                            >
+                                {alert ? 'OK' : 'Confirmer'}
+                            </button>
+                        </div>
+                    </div>
+                </motion.div>
+            </motion.div>
+        </AnimatePresence>
+    );
+};
+
 export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     // Global State
     const [date, setDate] = useState<string>('');
@@ -169,25 +233,27 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         doc_type?: string,
         doc_number?: string
     }[]>([
-        { supplier: '', amount: '0', details: '', invoices: [], photo_cheque: '', photo_verso: '', paymentMethod: 'Espèces' }
+        { supplier: '', amount: '0', details: '', invoices: [], photo_cheque: '', photo_verso: '', paymentMethod: 'Espèces', doc_type: 'BL' }
     ]);
     const [expensesDivers, setExpensesDivers] = useState<{
         designation: string,
         amount: string,
         details: string,
         invoices: string[],
-        paymentMethod: string
+        paymentMethod: string,
+        doc_type?: string
     }[]>([
-        { designation: '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces' }
+        { designation: '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces', doc_type: 'BL' }
     ]);
     const [expensesJournalier, setExpensesJournalier] = useState<{
         designation: string,
         amount: string,
         details: string,
         invoices: string[],
-        paymentMethod: string
+        paymentMethod: string,
+        doc_type?: string
     }[]>([
-        { designation: '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces' }
+        { designation: '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces', doc_type: 'BL' }
     ]);
     const [expensesAdmin, setExpensesAdmin] = useState<{
         designation: string,
@@ -213,6 +279,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
 
     // UI States
     const [toast, setToast] = useState<{ msg: string, type: 'success' | 'error' } | null>(null);
+    const [showConfirm, setShowConfirm] = useState<any>(null);
     const [supplierSearch, setSupplierSearch] = useState('');
     const [designationSearch, setDesignationSearch] = useState('');
     const [showSupplierDropdown, setShowSupplierDropdown] = useState<number | null>(null);
@@ -403,13 +470,90 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         setExpensesAdmin(newAdmin);
     };
 
-    const handleAddExpense = () => { if (isLocked) return; setHasInteracted(true); setExpenses([...expenses, { supplier: '', amount: '0', details: '', invoices: [], photo_cheque: '', photo_verso: '', paymentMethod: 'Espèces' }]); };
-    const handleAddDivers = (designation?: string) => { if (isLocked) return; setHasInteracted(true); setExpensesDivers([...expensesDivers, { designation: designation || '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces' }]); };
-    const handleAddJournalier = (designation?: string) => { if (isLocked) return; setHasInteracted(true); setExpensesJournalier([...expensesJournalier, { designation: designation || '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces' }]); };
-
-    const handleRemoveExpense = (index: number) => { if (isLocked) return; setHasInteracted(true); setExpenses(expenses.filter((_, i) => i !== index)); };
-    const handleRemoveDivers = (index: number) => { if (isLocked) return; setHasInteracted(true); setExpensesDivers(expensesDivers.filter((_, i) => i !== index)); };
-    const handleRemoveJournalier = (index: number) => { if (isLocked) return; setHasInteracted(true); setExpensesJournalier(expensesJournalier.filter((_, i) => i !== index)); };
+    const handleAddExpense = () => {
+        if (isLocked) {
+            setShowConfirm({
+                type: 'alert',
+                title: 'INTERDIT',
+                message: 'Cette date est verrouillée. Impossible d’ajouter des dépenses.',
+                color: 'red',
+                alert: true
+            });
+            return;
+        }
+        setHasInteracted(true);
+        setExpenses([...expenses, { supplier: '', amount: '0', details: '', invoices: [], photo_cheque: '', photo_verso: '', paymentMethod: 'Espèces', doc_type: 'BL' }]);
+    };
+    const handleAddDivers = (designation?: string) => {
+        if (isLocked) {
+            setShowConfirm({
+                type: 'alert',
+                title: 'INTERDIT',
+                message: 'Cette date est verrouillée. Impossible d’ajouter des dépenses.',
+                color: 'red',
+                alert: true
+            });
+            return;
+        }
+        setHasInteracted(true);
+        setExpensesDivers([...expensesDivers, { designation: designation || '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces', doc_type: 'BL' }]);
+    };
+    const handleAddJournalier = (designation?: string) => {
+        if (isLocked) {
+            setShowConfirm({
+                type: 'alert',
+                title: 'INTERDIT',
+                message: 'Cette date est verrouillée. Impossible d’ajouter des dépenses.',
+                color: 'red',
+                alert: true
+            });
+            return;
+        }
+        setHasInteracted(true);
+        setExpensesJournalier([...expensesJournalier, { designation: designation || '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces', doc_type: 'PHOTO' }]);
+    };
+    const handleRemoveExpense = (index: number) => {
+        if (isLocked) {
+            setShowConfirm({
+                type: 'alert',
+                title: 'INTERDIT',
+                message: 'Cette date est verrouillée. Impossible de supprimer cette dépense.',
+                color: 'red',
+                alert: true
+            });
+            return;
+        }
+        setHasInteracted(true);
+        setExpenses(expenses.filter((_, i) => i !== index));
+    };
+    const handleRemoveDivers = (index: number) => {
+        if (isLocked) {
+            setShowConfirm({
+                type: 'alert',
+                title: 'INTERDIT',
+                message: 'Cette date est verrouillée. Impossible de supprimer cette dépense.',
+                color: 'red',
+                alert: true
+            });
+            return;
+        }
+        setHasInteracted(true);
+        setExpensesDivers(expensesDivers.filter((_, i) => i !== index));
+    };
+    const handleRemoveJournalier = (index: number) => {
+        if (isLocked) {
+            setShowConfirm({
+                type: 'alert',
+                title: 'INTERDIT',
+                message: 'Cette date est verrouillée. Impossible de supprimer cette dépense.',
+                color: 'red',
+                alert: true
+            });
+            return;
+        }
+        setHasInteracted(true);
+        setExpensesJournalier(expensesJournalier.filter((_, i) => i !== index));
+    };
 
     const handleShareInvoice = async (img: string) => {
         try {
@@ -534,6 +678,16 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     };
 
     const handleSave = async () => {
+        if (isLocked) {
+            setShowConfirm({
+                type: 'alert',
+                title: 'INTERDIT',
+                message: 'Cette session est verrouillée. Impossible de modifier les données.',
+                color: 'red',
+                alert: true
+            });
+            return;
+        }
         try {
             await saveChiffre({
                 variables: {
@@ -726,23 +880,36 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                 {hideRecetteCaisse ? <EyeOff size={14} /> : <Eye size={14} />}
                                             </button>
                                         </div>
-                                        <div className="flex items-baseline justify-center md:justify-end gap-3">
-                                            {hideRecetteCaisse ? (
-                                                <div className="text-6xl md:text-7xl lg:text-8xl font-black text-[#4a3426] py-1">
-                                                    ********
-                                                </div>
-                                            ) : (
+                                        {hideRecetteCaisse ? (
+                                            <div className="text-6xl md:text-7xl lg:text-8xl font-black text-[#4a3426] py-1">
+                                                ********
+                                            </div>
+                                        ) : (
+                                            <div
+                                                className="flex items-baseline justify-center md:justify-end gap-3"
+                                                onClick={() => {
+                                                    if (isLocked) {
+                                                        setShowConfirm({
+                                                            type: 'alert',
+                                                            title: 'INTERDIT',
+                                                            message: 'Cette date est verrouillée. Impossible de modifier la recette.',
+                                                            color: 'red',
+                                                            alert: true
+                                                        });
+                                                    }
+                                                }}
+                                            >
                                                 <input
                                                     type="number"
                                                     value={recetteCaisse}
                                                     disabled={isLocked}
                                                     onChange={(e) => { setRecetteCaisse(e.target.value); setHasInteracted(true); }}
-                                                    className={`text-6xl md:text-7xl lg:text-8xl font-black bg-transparent text-[#4a3426] outline-none placeholder-[#e6dace] text-center md:text-right w-full md:w-auto min-w-[150px] ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                    className={`text-6xl md:text-7xl lg:text-8xl font-black bg-transparent text-[#4a3426] outline-none placeholder-[#e6dace] text-center md:text-right w-full md:w-auto min-w-[150px] ${isLocked ? 'cursor-not-allowed opacity-50 pointer-events-none' : ''}`}
                                                     placeholder="0"
                                                 />
-                                            )}
-                                            <span className="text-xl md:text-2xl lg:text-3xl font-black text-[#c69f6e] shrink-0">DT</span>
-                                        </div>
+                                                <span className="text-xl md:text-2xl lg:text-3xl font-black text-[#c69f6e] shrink-0">DT</span>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -757,10 +924,19 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 </h3>
                                 <button
                                     onClick={() => {
-                                        if (isLocked) return;
+                                        if (isLocked) {
+                                            setShowConfirm({
+                                                type: 'alert',
+                                                title: 'INTERDIT',
+                                                message: 'Cette date est verrouillée. Impossible d’ajouter des dépenses.',
+                                                color: 'red',
+                                                alert: true
+                                            });
+                                            return;
+                                        }
                                         setShowJournalierModal(true);
                                     }}
-                                    className={`flex items-center gap-2 px-3 py-1.5 bg-white border border-[#e6dace] rounded-xl text-[10px] font-black uppercase tracking-widest text-[#c69f6e] hover:bg-[#fcfaf8] transition-all ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    className={`flex items-center gap-2 px-3 py-1.5 bg-white border border-[#e6dace] rounded-xl text-[10px] font-black uppercase tracking-widest text-[#c69f6e] hover:bg-[#fcfaf8] transition-all`}
                                 >
                                     <Plus size={12} />
                                     Ajouter Journalier
@@ -772,21 +948,69 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     {expensesJournalier.map((journalier, index) => (
                                         <div key={index} className="group flex flex-col p-2 rounded-xl transition-all border hover:bg-[#f9f6f2] border-transparent hover:border-[#e6dace]">
                                             <div className="flex flex-col md:flex-row items-center gap-3 w-full">
-                                                <div className="w-full md:w-32 relative">
+                                                <div
+                                                    className="w-full md:w-32 relative"
+                                                    onClick={() => {
+                                                        if (isLocked) {
+                                                            setShowConfirm({
+                                                                type: 'alert',
+                                                                title: 'INTERDIT',
+                                                                message: 'Cette date est verrouillée. Impossible de modifier cette dépense.',
+                                                                color: 'red',
+                                                                alert: true
+                                                            });
+                                                        }
+                                                    }}
+                                                >
                                                     <input
                                                         type="number"
                                                         placeholder="0.00"
                                                         value={journalier.amount}
                                                         disabled={isLocked}
                                                         onChange={(e) => handleJournalierChange(index, 'amount', e.target.value)}
-                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 px-3 font-black text-xl outline-none focus:border-[#c69f6e] text-center ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 px-3 font-black text-xl outline-none focus:border-[#c69f6e] text-center ${isLocked ? 'cursor-not-allowed opacity-50 pointer-events-none' : ''}`}
                                                     />
                                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#bba282] text-xs font-black">DT</span>
                                                 </div>
 
-                                                <div className="flex-1 w-full relative">
+                                                <div
+                                                    className="flex-1 w-full relative"
+                                                    onClick={(e) => {
+                                                        if (isLocked) {
+                                                            const target = e.target as HTMLElement;
+                                                            if (!target.closest('.doc-type-toggle')) {
+                                                                setShowConfirm({
+                                                                    type: 'alert',
+                                                                    title: 'INTERDIT',
+                                                                    message: 'Cette date est verrouillée. Impossible de modifier cette dépense.',
+                                                                    color: 'red',
+                                                                    alert: true
+                                                                });
+                                                            }
+                                                        }
+                                                    }}
+                                                >
                                                     <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
                                                         <Search className="text-[#bba282]" size={16} />
+                                                        <span
+                                                            onClick={() => {
+                                                                if (isLocked) {
+                                                                    setShowConfirm({
+                                                                        type: 'alert',
+                                                                        title: 'INTERDIT',
+                                                                        message: 'Cette date est verrouillée. Impossible de modifier ce document.',
+                                                                        color: 'red',
+                                                                        alert: true
+                                                                    });
+                                                                    return;
+                                                                }
+                                                                const nextType = (journalier.doc_type || 'PHOTO') === 'Facture' ? 'PHOTO' : 'Facture';
+                                                                handleJournalierChange(index, 'doc_type', nextType);
+                                                            }}
+                                                            className={`text-[8px] font-black uppercase tracking-tighter ${(journalier.doc_type || 'PHOTO') === 'Facture' ? 'bg-[#2d6a4f]' : 'bg-[#c69f6e]'} text-white px-1.5 py-0.5 rounded leading-none transition-all cursor-pointer hover:scale-105 z-10 flex items-center justify-center min-w-[32px] shadow-sm doc-type-toggle`}
+                                                        >
+                                                            {journalier.doc_type || 'PHOTO'}
+                                                        </span>
                                                     </div>
                                                     <input
                                                         type="text"
@@ -802,14 +1026,23 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                             handleJournalierChange(index, 'designation', e.target.value);
                                                             setDesignationSearch(e.target.value);
                                                         }}
-                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 pl-10 pr-10 focus:border-[#c69f6e] outline-none font-medium transition-all ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 pl-20 pr-10 focus:border-[#c69f6e] outline-none font-medium transition-all ${isLocked ? 'cursor-not-allowed opacity-50 pointer-events-none' : ''}`}
                                                     />
                                                     <button
                                                         onClick={() => {
-                                                            if (isLocked) return;
+                                                            if (isLocked) {
+                                                                setShowConfirm({
+                                                                    type: 'alert',
+                                                                    title: 'INTERDIT',
+                                                                    message: 'Cette date est verrouillée. Impossible de modifier ce document.',
+                                                                    color: 'red',
+                                                                    alert: true
+                                                                });
+                                                                return;
+                                                            }
                                                             setShowJournalierDropdown(showJournalierDropdown === index ? null : index);
                                                         }}
-                                                        className={`absolute right-3 top-1/2 -translate-y-1/2 text-[#bba282] hover:text-[#c69f6e] transition-colors ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                        className={`absolute right-3 top-1/2 -translate-y-1/2 text-[#bba282] hover:text-[#c69f6e] transition-colors`}
                                                     >
                                                         <ChevronDown size={18} />
                                                     </button>
@@ -864,13 +1097,24 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                                 setViewingInvoicesTarget({ index, type: 'journalier' });
                                                                 e.preventDefault();
                                                             } else if (isLocked) {
+                                                                setShowConfirm({
+                                                                    type: 'alert',
+                                                                    title: 'INTERDIT',
+                                                                    message: 'Cette date est verrouillée. Impossible d\'ajouter des photos.',
+                                                                    color: 'red',
+                                                                    alert: true
+                                                                });
                                                                 e.preventDefault();
                                                             }
                                                         }}
                                                         className={`h-12 w-24 rounded-xl border flex items-center justify-center gap-2 cursor-pointer transition-colors relative whitespace-nowrap text-[10px] ${journalier.invoices.length > 0 ? 'bg-[#2d6a4f] text-white border-[#2d6a4f]' : 'border-dashed border-[#bba282] text-[#bba282] hover:bg-[#f9f6f2]'} ${isLocked && journalier.invoices.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                     >
                                                         <UploadCloud size={14} />
-                                                        <span className="font-black uppercase tracking-widest">{journalier.invoices.length || 'Reçu'}</span>
+                                                        <span className="font-black uppercase tracking-widest">
+                                                            {journalier.invoices.length > 0
+                                                                ? `${journalier.doc_type || 'PHOTO'} (${journalier.invoices.length})`
+                                                                : (journalier.doc_type || 'PHOTO')}
+                                                        </span>
                                                         <input type="file" multiple disabled={isLocked} className="hidden" onChange={(e) => handleFileUpload(index, e, 'invoice', 'journalier' as any)} />
                                                     </label>
                                                     <div className="w-12 flex justify-center">
@@ -938,7 +1182,16 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                 <div className="flex-1 w-full relative">
                                                     <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
                                                         <Search className="text-[#bba282]" size={16} />
-                                                        {expense.isFromFacturation && <span className="text-[8px] font-black uppercase tracking-tighter bg-[#2d6a4f] text-white px-1.5 py-0.5 rounded leading-none">Facture</span>}
+                                                        <span
+                                                            onClick={() => {
+                                                                if (isLocked || expense.isFromFacturation) return;
+                                                                const nextType = (expense.doc_type || 'BL') === 'Facture' ? 'BL' : 'Facture';
+                                                                handleDetailChange(index, 'doc_type', nextType);
+                                                            }}
+                                                            className={`text-[8px] font-black uppercase tracking-tighter ${(expense.doc_type || (expense.isFromFacturation ? 'Facture' : 'BL')) === 'Facture' ? 'bg-[#2d6a4f]' : 'bg-[#c69f6e]'} text-white px-1.5 py-0.5 rounded leading-none transition-all ${!expense.isFromFacturation && !isLocked ? 'cursor-pointer hover:scale-105 shadow-sm' : ''} z-10 flex items-center justify-center min-w-[32px]`}
+                                                        >
+                                                            {expense.doc_type || (expense.isFromFacturation ? 'Facture' : 'BL')}
+                                                        </span>
                                                     </div>
                                                     <input
                                                         type="text"
@@ -954,7 +1207,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         }}
                                                         onBlur={() => setTimeout(() => setShowSupplierDropdown(null), 200)}
                                                         onChange={(e) => { handleDetailChange(index, 'supplier', e.target.value); setSupplierSearch(e.target.value); }}
-                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 ${expense.isFromFacturation ? 'pl-[8.5rem]' : 'pl-10'} pr-10 focus:border-[#c69f6e] outline-none font-medium transition-all ${(expense.isFromFacturation || isLocked) ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 pl-20 pr-10 focus:border-[#c69f6e] outline-none font-medium transition-all ${(expense.isFromFacturation || isLocked) ? 'opacity-70 cursor-not-allowed' : ''}`}
                                                     />
                                                     {!expense.isFromFacturation && (
                                                         <button
@@ -1022,9 +1275,11 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                     >
                                                         <UploadCloud size={14} />
                                                         <span className="font-black uppercase tracking-widest">
-                                                            {expense.isFromFacturation
-                                                                ? `${expense.doc_type || 'Reçu'} ${expense.doc_number ? '#' + expense.doc_number : ''}`
-                                                                : (expense.invoices.length || 'Reçu')}
+                                                            {expense.isFromFacturation && expense.doc_type
+                                                                ? `${expense.doc_type} ${expense.doc_number ? '#' + expense.doc_number : ''}`
+                                                                : (expense.invoices.length > 0
+                                                                    ? `${expense.doc_type || 'BL'} (${expense.invoices.length})`
+                                                                    : (expense.doc_type || 'BL'))}
                                                         </span>
                                                         {!expense.isFromFacturation && <input type="file" multiple disabled={isLocked} className="hidden" onChange={(e) => handleFileUpload(index, e, 'invoice')} />}
                                                     </label>
@@ -1154,6 +1409,16 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                 <div className="flex-1 w-full relative">
                                                     <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
                                                         <Search className="text-[#bba282]" size={16} />
+                                                        <span
+                                                            onClick={() => {
+                                                                if (isLocked) return;
+                                                                const nextType = (divers.doc_type || 'BL') === 'Facture' ? 'BL' : 'Facture';
+                                                                handleDiversChange(index, 'doc_type', nextType);
+                                                            }}
+                                                            className={`text-[8px] font-black uppercase tracking-tighter ${(divers.doc_type || 'BL') === 'Facture' ? 'bg-[#2d6a4f]' : 'bg-[#c69f6e]'} text-white px-1.5 py-0.5 rounded leading-none transition-all cursor-pointer hover:scale-105 z-10 flex items-center justify-center min-w-[32px] shadow-sm`}
+                                                        >
+                                                            {divers.doc_type || 'BL'}
+                                                        </span>
                                                     </div>
                                                     <input
                                                         type="text"
@@ -1169,7 +1434,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                             handleDiversChange(index, 'designation', e.target.value);
                                                             setDesignationSearch(e.target.value);
                                                         }}
-                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 pl-10 pr-10 focus:border-[#c69f6e] outline-none font-medium transition-all ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 pl-20 pr-10 focus:border-[#c69f6e] outline-none font-medium transition-all ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
                                                     />
                                                     <button
                                                         onClick={() => {
@@ -1236,7 +1501,11 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         }}
                                                         className={`h-12 w-24 rounded-xl border flex items-center justify-center gap-2 cursor-pointer transition-colors relative whitespace-nowrap text-[10px] ${divers.invoices.length > 0 ? 'bg-[#2d6a4f] text-white border-[#2d6a4f]' : 'border-dashed border-[#bba282] text-[#bba282] hover:bg-[#f9f6f2]'} ${isLocked && divers.invoices.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}>
                                                         <UploadCloud size={14} />
-                                                        <span className="font-black uppercase tracking-widest">{divers.invoices.length || 'Reçu'}</span>
+                                                        <span className="font-black uppercase tracking-widest">
+                                                            {divers.invoices.length > 0
+                                                                ? `${divers.doc_type || 'BL'} (${divers.invoices.length})`
+                                                                : (divers.doc_type || 'BL')}
+                                                        </span>
                                                         <input type="file" multiple disabled={isLocked} className="hidden" onChange={(e) => handleFileUpload(index, e, 'invoice', true)} />
                                                     </label>
                                                     <div className="w-12 flex justify-center">
@@ -1294,7 +1563,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
 
                                                 <div className="flex-1 w-full relative">
                                                     <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                                                        <User className="text-[#bba282]" size={16} />
+                                                        <Users className="text-[#bba282]" size={16} />
                                                     </div>
                                                     <input
                                                         type="text"
@@ -1529,8 +1798,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 )}
                                 <button
                                     onClick={handleSave}
-                                    className={`${isLocked ? 'bg-gray-500/50 cursor-not-allowed opacity-50' : 'gold-gradient'} text-white px-12 py-5 rounded-[2.5rem] shadow-2xl shadow-[#c69f6e]/30 flex items-center gap-3 font-black text-xl hover:scale-105 active:scale-95 transition-all flex-1 justify-center border border-white/20`}
-                                    disabled={saving || isLocked}
+                                    className={`${isLocked ? 'bg-gray-500/50 opacity-50 hover:bg-red-500' : 'gold-gradient'} text-white px-12 py-5 rounded-[2.5rem] shadow-2xl shadow-[#c69f6e]/30 flex items-center gap-3 font-black text-xl hover:scale-105 active:scale-95 transition-all flex-1 justify-center border border-white/20`}
+                                    disabled={saving}
                                 >
                                     {saving ? <Loader2 className="animate-spin" /> : (isLocked ? <LockIcon size={24} /> : <Save size={24} />)}
                                     {isLocked ? 'Session Clôturée' : 'Enregistrer la Session'}
@@ -1540,6 +1809,17 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                     </div>
                 </main>
             </div>
+
+            {/* Confirmation Modal */}
+            <ConfirmModal
+                isOpen={!!showConfirm}
+                onClose={() => setShowConfirm(null)}
+                title={showConfirm?.title}
+                message={showConfirm?.message}
+                color={showConfirm?.color}
+                alert={showConfirm?.alert}
+                onConfirm={showConfirm?.onConfirm}
+            />
 
             {/* Toast */}
             <AnimatePresence>
@@ -1639,10 +1919,19 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                 <button onClick={() => handleShareInvoice(img)} className="p-2 bg-white/90 hover:bg-white text-[#4a3426] rounded-lg shadow-lg backdrop-blur-sm transition-all hover:scale-110"><Share2 size={16} /></button>
                                                 <button
                                                     onClick={() => {
-                                                        if (isLocked && role !== 'admin') return;
+                                                        if (isLocked && role !== 'admin') {
+                                                            setShowConfirm({
+                                                                type: 'alert',
+                                                                title: 'INTERDIT',
+                                                                message: 'Cette date est verrouillée. Impossible de supprimer ce reçu.',
+                                                                color: 'red',
+                                                                alert: true
+                                                            });
+                                                            return;
+                                                        }
                                                         handleDeleteInvoice(idx);
                                                     }}
-                                                    className={`p-2 bg-white/90 hover:bg-white text-red-600 rounded-lg shadow-lg backdrop-blur-sm transition-all hover:scale-110 ${isLocked && role !== 'admin' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    className={`p-2 bg-white/90 hover:bg-white text-red-600 rounded-lg shadow-lg backdrop-blur-sm transition-all hover:scale-110 ${isLocked && role !== 'admin' ? 'opacity-50' : ''}`}
                                                 >
                                                     <Trash2 size={16} />
                                                 </button>
@@ -1740,6 +2029,17 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                             value={tempDetails}
                                             readOnly={isLocked}
                                             onChange={(e) => !isLocked && setTempDetails(e.target.value)}
+                                            onClick={() => {
+                                                if (isLocked) {
+                                                    setShowConfirm({
+                                                        type: 'alert',
+                                                        title: 'INTERDIT',
+                                                        message: 'Cette date est verrouillée. Impossible de modifier les détails.',
+                                                        color: 'red',
+                                                        alert: true
+                                                    });
+                                                }
+                                            }}
                                             placeholder={isLocked ? "Aucun détail supplémentaire." : "Notez ici les détails de la dépense..."}
                                             className={`w-full bg-[#fcfaf8] border border-[#e6dace] rounded-3xl p-6 text-base font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none min-h-[160px] resize-none transition-all shadow-inner placeholder-[#bba282]/30 ${isLocked ? 'cursor-default opacity-80' : ''}`}
                                         />
@@ -1778,8 +2078,9 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                             }
                                             setShowDetailsModal(false);
                                             setModalDetailsTarget(null);
+                                            setHasInteracted(true);
                                         }}
-                                        className="flex-[2] py-5 gold-gradient rounded-[1.5rem] font-black uppercase tracking-widest text-[10px] text-white shadow-xl shadow-[#c69f6e]/20 hover:scale-[1.02] active:scale-95 transition-all"
+                                        className={`flex-[2] py-5 rounded-[1.5rem] font-black uppercase tracking-widest text-[10px] text-white shadow-xl transition-all ${isLocked ? 'bg-[#8c8279] hover:bg-[#4a3426]' : 'bg-[#c69f6e] hover:bg-[#b08d5d] shadow-[#c69f6e]/20'}`}
                                     >
                                         {isLocked ? 'Fermer' : 'Enregistrer les détails'}
                                     </button>

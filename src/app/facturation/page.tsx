@@ -273,7 +273,7 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message, color = 'bro
     };
     const backdropColors: { [key: string]: string } = {
         brown: 'bg-black/40',
-        red: 'bg-red-500/60',
+        red: 'bg-red-600/90',
         green: 'bg-[#2d6a4f]/60'
     };
     const headerColors: { [key: string]: string } = {
@@ -598,12 +598,16 @@ export default function FacturationPage() {
     };
 
     const handleDelete = async (inv: any) => {
-        const targetDate = inv.status === 'paid' ? inv.paid_date : inv.date;
-        if (lockedDates.includes(targetDate)) {
-            alert("Cette date est verrouillée. Impossible de supprimer cette facture.");
+        if (inv.status === 'paid' && lockedDates.includes(inv.paid_date)) {
+            setShowConfirm({
+                type: 'alert',
+                title: 'INTERDIT',
+                message: 'Cette date est verrouillée. Impossible de supprimer cette facture.',
+                color: 'red',
+                alert: true
+            });
             return;
         }
-
         setShowConfirm({
             type: 'delete',
             title: 'Supprimer Facture',
@@ -993,6 +997,16 @@ export default function FacturationPage() {
                                                             </button>
                                                             <button
                                                                 onClick={() => {
+                                                                    if (lockedDates.includes(inv.paid_date)) {
+                                                                        setShowConfirm({
+                                                                            type: 'alert',
+                                                                            title: 'INTERDIT',
+                                                                            message: 'Cette date est verrouillée. Impossible de modifier cette facture.',
+                                                                            color: 'red',
+                                                                            alert: true
+                                                                        });
+                                                                        return;
+                                                                    }
                                                                     setShowEditModal({
                                                                         id: inv.id,
                                                                         supplier_name: inv.supplier_name,
