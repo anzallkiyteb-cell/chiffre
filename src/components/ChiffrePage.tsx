@@ -142,6 +142,15 @@ const GET_EMPLOYEES = gql`
   }
 `;
 
+const UPSERT_EMPLOYEE = gql`
+  mutation UpsertEmployee($name: String!) {
+    upsertEmployee(name: $name) {
+      id
+      name
+    }
+  }
+`;
+
 const UPDATE_EMPLOYEE = gql`
   mutation UpdateEmployee($id: Int!, $name: String!) {
     updateEmployee(id: $id, name: $name) { id name }
@@ -152,6 +161,42 @@ const DELETE_EMPLOYEE = gql`
   mutation DeleteEmployee($id: Int!) {
     deleteEmployee(id: $id)
   }
+`;
+
+const ADD_AVANCE = gql`
+  mutation AddAvance($username: String!, $amount: String!, $date: String!) {
+    addAvance(username: $username, amount: $amount, date: $date) { id username montant }
+  }
+`;
+const DELETE_AVANCE = gql`
+  mutation DeleteAvance($id: Int!) { deleteAvance(id: $id) }
+`;
+
+const ADD_DOUBLAGE = gql`
+  mutation AddDoublage($username: String!, $amount: String!, $date: String!) {
+    addDoublage(username: $username, amount: $amount, date: $date) { id username montant }
+  }
+`;
+const DELETE_DOUBLAGE = gql`
+  mutation DeleteDoublage($id: Int!) { deleteDoublage(id: $id) }
+`;
+
+const ADD_EXTRA = gql`
+  mutation AddExtra($username: String!, $amount: String!, $date: String!) {
+    addExtra(username: $username, amount: $amount, date: $date) { id username montant }
+  }
+`;
+const DELETE_EXTRA = gql`
+  mutation DeleteExtra($id: Int!) { deleteExtra(id: $id) }
+`;
+
+const ADD_PRIME = gql`
+  mutation AddPrime($username: String!, $amount: String!, $date: String!) {
+    addPrime(username: $username, amount: $amount, date: $date) { id username montant }
+  }
+`;
+const DELETE_PRIME = gql`
+  mutation DeletePrime($id: Int!) { deletePrime(id: $id) }
 `;
 
 const EntryModal = ({ isOpen, onClose, onSubmit, type, employees = [], initialData = null }: any) => {
@@ -367,6 +412,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     const { data: employeesData, refetch: refetchEmployees } = useQuery(GET_EMPLOYEES);
 
     const [upsertEmployee] = useMutation(UPSERT_EMPLOYEE);
+    const [updateEmployee] = useMutation(UPDATE_EMPLOYEE);
+    const [deleteEmployee] = useMutation(DELETE_EMPLOYEE);
     const [addAvance] = useMutation(ADD_AVANCE);
     const [deleteAvance] = useMutation(DELETE_AVANCE);
     const [addDoublage] = useMutation(ADD_DOUBLAGE);
