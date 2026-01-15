@@ -2491,179 +2491,179 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             </div>
                         </div>
                     </div>
+                </main>
             </div>
-        </main>
 
-            {/* Toast */ }
-    <AnimatePresence>
-        {
-            toast && (
-                <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className={`fixed top-6 left-0 right-0 mx-auto w-max z-50 px-6 py-3 rounded-full font-bold shadow-xl flex items-center gap-2 ${toast.type === 'success' ? 'bg-[#2d6a4f] text-white' : 'bg-red-600 text-white'}`}>{toast.msg}</motion.div>
-            )
-        }
-    </AnimatePresence >
+            {/* Toast */}
+            <AnimatePresence>
+                {
+                    toast && (
+                        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className={`fixed top-6 left-0 right-0 mx-auto w-max z-50 px-6 py-3 rounded-full font-bold shadow-xl flex items-center gap-2 ${toast.type === 'success' ? 'bg-[#2d6a4f] text-white' : 'bg-red-600 text-white'}`}>{toast.msg}</motion.div>
+                    )
+                }
+            </AnimatePresence >
 
-    {/* Image Modal */ }
-    <AnimatePresence>
-        {
-            viewingInvoices && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-md flex items-center justify-center p-2" onClick={() => { setViewingInvoices(null); setViewingInvoicesTarget(null); }}>
-                    <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-[#fcfaf8] rounded-[2.5rem] p-6 max-w-[98vw] w-full h-[95vh] overflow-y-auto relative border border-white/10 shadow-2xl" onClick={e => e.stopPropagation()}>
-                        <button onClick={() => { setViewingInvoices(null); setViewingInvoicesTarget(null); }} className="absolute top-6 right-6 p-3 bg-white hover:bg-red-50 text-[#4a3426] hover:text-red-500 rounded-full transition-all z-50 shadow-lg border border-[#e6dace]"><LogOut size={24} className="rotate-180" /></button>
-                        <div className="flex items-center justify-between mb-8 px-2">
-                            <h3 className="text-3xl font-black text-[#4a3426] flex items-center gap-4 uppercase tracking-tight"><Receipt size={32} className="text-[#c69f6e]" /> Reçus & Factures</h3>
-                            {viewingInvoicesTarget && (
-                                <div className="flex items-center gap-4 mr-16">
-                                    <label className={`flex items-center gap-3 px-6 py-3 ${isLocked && role !== 'admin' ? 'bg-gray-400 cursor-not-allowed opacity-50' : 'bg-[#2d6a4f] hover:bg-[#1b4332] cursor-pointer'} text-white rounded-2xl text-xs font-black uppercase tracking-[0.2em] transition-all shadow-xl shadow-[#2d6a4f]/20`}>
-                                        <Plus size={18} /> Ajouter Photo
-                                        <input
-                                            type="file"
-                                            multiple
-                                            disabled={isLocked && role !== 'admin'}
-                                            className="hidden"
-                                            onChange={async (e) => {
-                                                const files = e.target.files;
-                                                if (!files) return;
-                                                const loaders = Array.from(files).map(file => {
-                                                    return new Promise<string>((resolve) => {
-                                                        const reader = new FileReader();
-                                                        reader.onloadend = () => resolve(reader.result as string);
-                                                        reader.readAsDataURL(file);
-                                                    });
-                                                });
-                                                const base64s = await Promise.all(loaders);
-
-                                                if (viewingInvoicesTarget.type === 'journalier') {
-                                                    const newJournalier = [...expensesJournalier];
-                                                    const currentInvoices = newJournalier[viewingInvoicesTarget.index].invoices || [];
-                                                    newJournalier[viewingInvoicesTarget.index].invoices = [...currentInvoices, ...base64s];
-                                                    setExpensesJournalier(newJournalier);
-                                                    setViewingInvoices(newJournalier[viewingInvoicesTarget.index].invoices);
-                                                } else if (viewingInvoicesTarget.type === 'divers') {
-                                                    const newDivers = [...expensesDivers];
-                                                    const currentInvoices = newDivers[viewingInvoicesTarget.index].invoices || [];
-                                                    newDivers[viewingInvoicesTarget.index].invoices = [...currentInvoices, ...base64s];
-                                                    setExpensesDivers(newDivers);
-                                                    setViewingInvoices(newDivers[viewingInvoicesTarget.index].invoices);
-                                                } else {
-                                                    const newExpenses = [...expenses];
-                                                    const currentInvoices = newExpenses[viewingInvoicesTarget.index].invoices || [];
-                                                    newExpenses[viewingInvoicesTarget.index].invoices = [...currentInvoices, ...base64s];
-                                                    setExpenses(newExpenses);
-                                                    setViewingInvoices(newExpenses[viewingInvoicesTarget.index].invoices);
-                                                }
-                                            }}
-                                        />
-                                    </label>
-                                    <div className="flex bg-white rounded-2xl p-1.5 gap-1 border border-[#e6dace] shadow-lg">
-                                        <button onClick={() => setImgZoom(prev => Math.max(0.5, prev - 0.25))} className="w-10 h-10 hover:bg-[#fcfaf8] rounded-xl flex items-center justify-center transition-all text-[#4a3426]" title="Zoom Arrière"><ZoomOut size={20} /></button>
-                                        <button onClick={() => setImgZoom(prev => Math.min(4, prev + 0.25))} className="w-10 h-10 hover:bg-[#fcfaf8] rounded-xl flex items-center justify-center transition-all text-[#4a3426]" title="Zoom Avant"><ZoomIn size={20} /></button>
-                                        <button onClick={() => setImgRotation(prev => prev + 90)} className="w-10 h-10 hover:bg-[#fcfaf8] rounded-xl flex items-center justify-center transition-all text-[#4a3426]" title="Tourner"><RotateCcw size={20} /></button>
-                                        <button onClick={resetView} className="w-10 h-10 hover:bg-[#fcfaf8] rounded-xl flex items-center justify-center transition-all text-[#4a3426]" title="Réinitialiser"><Maximize2 size={20} /></button>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                        {viewingInvoices.length > 0 ? (
-                            <div className={`grid grid-cols-1 ${viewingInvoices.length > 1 ? 'md:grid-cols-2' : ''} gap-8`}>
-                                {viewingInvoices.map((img, idx) => (
-                                    <div
-                                        key={idx}
-                                        className="relative group rounded-[2.5rem] overflow-hidden border border-white/10 bg-black shadow-2xl h-[75vh]"
-                                        onWheel={(e) => {
-                                            if (e.deltaY < 0) setImgZoom(prev => Math.min(4, prev + 0.1));
-                                            else setImgZoom(prev => Math.max(0.5, prev - 0.1));
-                                        }}
-                                    >
-                                        <motion.div
-                                            className={`w-full h-full flex items-center justify-center p-4 ${imgZoom > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-zoom-in'}`}
-                                            animate={{ scale: imgZoom, rotate: imgRotation }}
-                                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                                            drag={imgZoom > 1}
-                                            dragConstraints={{ left: -1000, right: 1000, top: -1000, bottom: 1000 }}
-                                            dragElastic={0.1}
-                                        >
-                                            <img
-                                                src={img}
-                                                draggable="false"
-                                                className="max-w-full max-h-full rounded-xl object-contain shadow-2xl"
-                                                style={{ pointerEvents: 'none', userSelect: 'none' }}
-                                            />
-                                        </motion.div>
-                                        <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                                            <a href={img} download target="_blank" className="p-2 bg-white/90 hover:bg-white text-[#4a3426] rounded-lg shadow-lg backdrop-blur-sm transition-all hover:scale-110"><Download size={16} /></a>
-                                            <button onClick={() => handleShareInvoice(img)} className="p-2 bg-white/90 hover:bg-white text-[#4a3426] rounded-lg shadow-lg backdrop-blur-sm transition-all hover:scale-110"><Share2 size={16} /></button>
-                                            <button
-                                                onClick={() => {
-                                                    if (isLocked && role !== 'admin') {
-                                                        setShowConfirm({
-                                                            type: 'alert',
-                                                            title: 'INTERDIT',
-                                                            message: 'Cette date est verrouillée. Impossible de supprimer ce reçu.',
-                                                            color: 'red',
-                                                            alert: true
+            {/* Image Modal */}
+            <AnimatePresence>
+                {
+                    viewingInvoices && (
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-md flex items-center justify-center p-2" onClick={() => { setViewingInvoices(null); setViewingInvoicesTarget(null); }}>
+                            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-[#fcfaf8] rounded-[2.5rem] p-6 max-w-[98vw] w-full h-[95vh] overflow-y-auto relative border border-white/10 shadow-2xl" onClick={e => e.stopPropagation()}>
+                                <button onClick={() => { setViewingInvoices(null); setViewingInvoicesTarget(null); }} className="absolute top-6 right-6 p-3 bg-white hover:bg-red-50 text-[#4a3426] hover:text-red-500 rounded-full transition-all z-50 shadow-lg border border-[#e6dace]"><LogOut size={24} className="rotate-180" /></button>
+                                <div className="flex items-center justify-between mb-8 px-2">
+                                    <h3 className="text-3xl font-black text-[#4a3426] flex items-center gap-4 uppercase tracking-tight"><Receipt size={32} className="text-[#c69f6e]" /> Reçus & Factures</h3>
+                                    {viewingInvoicesTarget && (
+                                        <div className="flex items-center gap-4 mr-16">
+                                            <label className={`flex items-center gap-3 px-6 py-3 ${isLocked && role !== 'admin' ? 'bg-gray-400 cursor-not-allowed opacity-50' : 'bg-[#2d6a4f] hover:bg-[#1b4332] cursor-pointer'} text-white rounded-2xl text-xs font-black uppercase tracking-[0.2em] transition-all shadow-xl shadow-[#2d6a4f]/20`}>
+                                                <Plus size={18} /> Ajouter Photo
+                                                <input
+                                                    type="file"
+                                                    multiple
+                                                    disabled={isLocked && role !== 'admin'}
+                                                    className="hidden"
+                                                    onChange={async (e) => {
+                                                        const files = e.target.files;
+                                                        if (!files) return;
+                                                        const loaders = Array.from(files).map(file => {
+                                                            return new Promise<string>((resolve) => {
+                                                                const reader = new FileReader();
+                                                                reader.onloadend = () => resolve(reader.result as string);
+                                                                reader.readAsDataURL(file);
+                                                            });
                                                         });
-                                                        return;
-                                                    }
-                                                    handleDeleteInvoice(idx);
-                                                }}
-                                                className={`p-2 bg-white/90 hover:bg-white text-red-600 rounded-lg shadow-lg backdrop-blur-sm transition-all hover:scale-110 ${isLocked && role !== 'admin' ? 'opacity-50' : ''}`}
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
+                                                        const base64s = await Promise.all(loaders);
+
+                                                        if (viewingInvoicesTarget.type === 'journalier') {
+                                                            const newJournalier = [...expensesJournalier];
+                                                            const currentInvoices = newJournalier[viewingInvoicesTarget.index].invoices || [];
+                                                            newJournalier[viewingInvoicesTarget.index].invoices = [...currentInvoices, ...base64s];
+                                                            setExpensesJournalier(newJournalier);
+                                                            setViewingInvoices(newJournalier[viewingInvoicesTarget.index].invoices);
+                                                        } else if (viewingInvoicesTarget.type === 'divers') {
+                                                            const newDivers = [...expensesDivers];
+                                                            const currentInvoices = newDivers[viewingInvoicesTarget.index].invoices || [];
+                                                            newDivers[viewingInvoicesTarget.index].invoices = [...currentInvoices, ...base64s];
+                                                            setExpensesDivers(newDivers);
+                                                            setViewingInvoices(newDivers[viewingInvoicesTarget.index].invoices);
+                                                        } else {
+                                                            const newExpenses = [...expenses];
+                                                            const currentInvoices = newExpenses[viewingInvoicesTarget.index].invoices || [];
+                                                            newExpenses[viewingInvoicesTarget.index].invoices = [...currentInvoices, ...base64s];
+                                                            setExpenses(newExpenses);
+                                                            setViewingInvoices(newExpenses[viewingInvoicesTarget.index].invoices);
+                                                        }
+                                                    }}
+                                                />
+                                            </label>
+                                            <div className="flex bg-white rounded-2xl p-1.5 gap-1 border border-[#e6dace] shadow-lg">
+                                                <button onClick={() => setImgZoom(prev => Math.max(0.5, prev - 0.25))} className="w-10 h-10 hover:bg-[#fcfaf8] rounded-xl flex items-center justify-center transition-all text-[#4a3426]" title="Zoom Arrière"><ZoomOut size={20} /></button>
+                                                <button onClick={() => setImgZoom(prev => Math.min(4, prev + 0.25))} className="w-10 h-10 hover:bg-[#fcfaf8] rounded-xl flex items-center justify-center transition-all text-[#4a3426]" title="Zoom Avant"><ZoomIn size={20} /></button>
+                                                <button onClick={() => setImgRotation(prev => prev + 90)} className="w-10 h-10 hover:bg-[#fcfaf8] rounded-xl flex items-center justify-center transition-all text-[#4a3426]" title="Tourner"><RotateCcw size={20} /></button>
+                                                <button onClick={resetView} className="w-10 h-10 hover:bg-[#fcfaf8] rounded-xl flex items-center justify-center transition-all text-[#4a3426]" title="Réinitialiser"><Maximize2 size={20} /></button>
+                                            </div>
                                         </div>
-                                        <div className="absolute bottom-4 left-4 bg-black/40 backdrop-blur-md text-[#c69f6e] text-[10px] font-black px-3 py-1.5 rounded-full border border-[#c69f6e]/20 uppercase tracking-widest">Reçu {idx + 1} • Zoom: {Math.round(imgZoom * 100)}%</div>
+                                    )}
+                                </div>
+                                {viewingInvoices.length > 0 ? (
+                                    <div className={`grid grid-cols-1 ${viewingInvoices.length > 1 ? 'md:grid-cols-2' : ''} gap-8`}>
+                                        {viewingInvoices.map((img, idx) => (
+                                            <div
+                                                key={idx}
+                                                className="relative group rounded-[2.5rem] overflow-hidden border border-white/10 bg-black shadow-2xl h-[75vh]"
+                                                onWheel={(e) => {
+                                                    if (e.deltaY < 0) setImgZoom(prev => Math.min(4, prev + 0.1));
+                                                    else setImgZoom(prev => Math.max(0.5, prev - 0.1));
+                                                }}
+                                            >
+                                                <motion.div
+                                                    className={`w-full h-full flex items-center justify-center p-4 ${imgZoom > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-zoom-in'}`}
+                                                    animate={{ scale: imgZoom, rotate: imgRotation }}
+                                                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                                    drag={imgZoom > 1}
+                                                    dragConstraints={{ left: -1000, right: 1000, top: -1000, bottom: 1000 }}
+                                                    dragElastic={0.1}
+                                                >
+                                                    <img
+                                                        src={img}
+                                                        draggable="false"
+                                                        className="max-w-full max-h-full rounded-xl object-contain shadow-2xl"
+                                                        style={{ pointerEvents: 'none', userSelect: 'none' }}
+                                                    />
+                                                </motion.div>
+                                                <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                                    <a href={img} download target="_blank" className="p-2 bg-white/90 hover:bg-white text-[#4a3426] rounded-lg shadow-lg backdrop-blur-sm transition-all hover:scale-110"><Download size={16} /></a>
+                                                    <button onClick={() => handleShareInvoice(img)} className="p-2 bg-white/90 hover:bg-white text-[#4a3426] rounded-lg shadow-lg backdrop-blur-sm transition-all hover:scale-110"><Share2 size={16} /></button>
+                                                    <button
+                                                        onClick={() => {
+                                                            if (isLocked && role !== 'admin') {
+                                                                setShowConfirm({
+                                                                    type: 'alert',
+                                                                    title: 'INTERDIT',
+                                                                    message: 'Cette date est verrouillée. Impossible de supprimer ce reçu.',
+                                                                    color: 'red',
+                                                                    alert: true
+                                                                });
+                                                                return;
+                                                            }
+                                                            handleDeleteInvoice(idx);
+                                                        }}
+                                                        className={`p-2 bg-white/90 hover:bg-white text-red-600 rounded-lg shadow-lg backdrop-blur-sm transition-all hover:scale-110 ${isLocked && role !== 'admin' ? 'opacity-50' : ''}`}
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
+                                                <div className="absolute bottom-4 left-4 bg-black/40 backdrop-blur-md text-[#c69f6e] text-[10px] font-black px-3 py-1.5 rounded-full border border-[#c69f6e]/20 uppercase tracking-widest">Reçu {idx + 1} • Zoom: {Math.round(imgZoom * 100)}%</div>
+                                            </div>
+                                        ))}
                                     </div>
-                                ))}
-                            </div>
-                        ) : <div className="text-center py-20 text-gray-400"><UploadCloud size={60} className="mx-auto mb-4 opacity-20" /><p>Aucun reçu attaché</p></div>}
-                    </motion.div>
-                </motion.div>
-            )
-        }
-    </AnimatePresence >
+                                ) : <div className="text-center py-20 text-gray-400"><UploadCloud size={60} className="mx-auto mb-4 opacity-20" /><p>Aucun reçu attaché</p></div>}
+                            </motion.div>
+                        </motion.div>
+                    )
+                }
+            </AnimatePresence >
 
-    {/* Admin Calendar Modal */ }
-    <AnimatePresence>
-        {
-            showCalendar && role === 'admin' && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] bg-black/20 backdrop-blur-[2px] flex items-start justify-center pt-24" onClick={() => setShowCalendar(false)}>
-                    <motion.div initial={{ scale: 0.9, opacity: 0, y: -20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: -20 }} className="bg-white rounded-3xl p-6 shadow-2xl border border-[#c69f6e]/20 w-80" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between mb-6">
-                            <button onClick={() => changeMonth(-1)} className="p-2 hover:bg-[#f4ece4] rounded-full text-[#4a3426]"><ChevronLeft size={18} /></button>
-                            <h3 className="text-lg font-bold text-[#4a3426] capitalize">{new Date(date).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}</h3>
-                            <button onClick={() => changeMonth(1)} className="p-2 hover:bg-[#f4ece4] rounded-full text-[#4a3426]"><ChevronRight size={18} /></button>
-                        </div>
-                        <div className="grid grid-cols-7 gap-1 text-center mb-2">{['D', 'L', 'M', 'M', 'J', 'V', 'S'].map((d, i) => (<span key={i} className="text-xs font-bold text-[#bba282] uppercase">{d}</span>))}</div>
-                        <div className="grid grid-cols-7 gap-1">
-                            {generateCalendarDays(date).map((day, i) => {
-                                if (!day) return <div key={i}></div>;
-                                const isSelected = new Date(date).getDate() === day;
-                                return (<button key={i} onClick={() => {
-                                    const parts = date.split('-');
-                                    const newD = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, day);
-                                    const ny = newD.getFullYear();
-                                    const nm = String(newD.getMonth() + 1).padStart(2, '0');
-                                    const nd = String(newD.getDate()).padStart(2, '0');
-                                    setDate(`${ny}-${nm}-${nd}`);
-                                    setShowCalendar(false);
-                                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                                }} className={`h-9 w-9 rounded-full flex items-center justify-center text-sm font-semibold transition-all ${isSelected ? 'bg-[#4a3426] text-white shadow-lg' : 'text-[#4a3426] hover:bg-[#f4ece4] hover:text-[#c69f6e]'}`}>{day}</button>);
-                            })}
-                        </div>
-                    </motion.div>
-                </motion.div>
-            )
-        }
-    </AnimatePresence >
+            {/* Admin Calendar Modal */}
+            <AnimatePresence>
+                {
+                    showCalendar && role === 'admin' && (
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] bg-black/20 backdrop-blur-[2px] flex items-start justify-center pt-24" onClick={() => setShowCalendar(false)}>
+                            <motion.div initial={{ scale: 0.9, opacity: 0, y: -20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: -20 }} className="bg-white rounded-3xl p-6 shadow-2xl border border-[#c69f6e]/20 w-80" onClick={e => e.stopPropagation()}>
+                                <div className="flex items-center justify-between mb-6">
+                                    <button onClick={() => changeMonth(-1)} className="p-2 hover:bg-[#f4ece4] rounded-full text-[#4a3426]"><ChevronLeft size={18} /></button>
+                                    <h3 className="text-lg font-bold text-[#4a3426] capitalize">{new Date(date).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}</h3>
+                                    <button onClick={() => changeMonth(1)} className="p-2 hover:bg-[#f4ece4] rounded-full text-[#4a3426]"><ChevronRight size={18} /></button>
+                                </div>
+                                <div className="grid grid-cols-7 gap-1 text-center mb-2">{['D', 'L', 'M', 'M', 'J', 'V', 'S'].map((d, i) => (<span key={i} className="text-xs font-bold text-[#bba282] uppercase">{d}</span>))}</div>
+                                <div className="grid grid-cols-7 gap-1">
+                                    {generateCalendarDays(date).map((day, i) => {
+                                        if (!day) return <div key={i}></div>;
+                                        const isSelected = new Date(date).getDate() === day;
+                                        return (<button key={i} onClick={() => {
+                                            const parts = date.split('-');
+                                            const newD = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, day);
+                                            const ny = newD.getFullYear();
+                                            const nm = String(newD.getMonth() + 1).padStart(2, '0');
+                                            const nd = String(newD.getDate()).padStart(2, '0');
+                                            setDate(`${ny}-${nm}-${nd}`);
+                                            setShowCalendar(false);
+                                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                                        }} className={`h-9 w-9 rounded-full flex items-center justify-center text-sm font-semibold transition-all ${isSelected ? 'bg-[#4a3426] text-white shadow-lg' : 'text-[#4a3426] hover:bg-[#f4ece4] hover:text-[#c69f6e]'}`}>{day}</button>);
+                                    })}
+                                </div>
+                            </motion.div>
+                        </motion.div>
+                    )
+                }
+            </AnimatePresence >
 
-    {/* Click outside to close dropdowns */ }
-    { showSupplierDropdown !== null && <div className="fixed inset-0 z-40" onClick={() => setShowSupplierDropdown(null)} /> }
-    { showJournalierDropdown !== null && <div className="fixed inset-0 z-40" onClick={() => setShowJournalierDropdown(null)} /> }
-    { showDiversDropdown !== null && <div className="fixed inset-0 z-40" onClick={() => setShowDiversDropdown(null)} /> }
+            {/* Click outside to close dropdowns */}
+            {showSupplierDropdown !== null && <div className="fixed inset-0 z-40" onClick={() => setShowSupplierDropdown(null)} />}
+            {showJournalierDropdown !== null && <div className="fixed inset-0 z-40" onClick={() => setShowJournalierDropdown(null)} />}
+            {showDiversDropdown !== null && <div className="fixed inset-0 z-40" onClick={() => setShowDiversDropdown(null)} />}
 
-    {/* Supplier Modal */ }
-    {/* Details Modal */ }
+            {/* Supplier Modal */}
+            {/* Details Modal */}
             <AnimatePresence>
                 {showDetailsModal && modalDetailsTarget && (
                     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
@@ -2774,7 +2774,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                 {/* Removed old showSupplierModal */}
             </AnimatePresence>
 
-    {/* Selection Modals Journalier/Divers */ }
+            {/* Selection Modals Journalier/Divers */}
             <AnimatePresence>
                 {(showSupplierModal || showJournalierModal || showDiversModal || showEmployeeModal) && (
                     <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
