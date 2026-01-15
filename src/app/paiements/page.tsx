@@ -8,9 +8,11 @@ import {
     CreditCard, Loader2, Search, Calendar,
     ArrowUpRight, Download, Filter, User,
     TrendingUp, Receipt, Wallet, UploadCloud, Coins, Banknote,
-    ChevronLeft, ChevronRight, Image as ImageIcon, Ticket
+    ChevronLeft, ChevronRight, Image as ImageIcon, Ticket,
+    Clock, CheckCircle2, Eye, Edit2, Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Swal from 'sweetalert2';
 
 // --- Helper Components & Utilities ---
 
@@ -157,6 +159,7 @@ const GET_PAYMENT_DATA = gql`
       totalRecetteCaisse
       totalExpenses
       totalUnpaidInvoices
+      totalTicketsRestaurant
     }
     getBankDeposits(month: $month, startDate: $startDate, endDate: $endDate) {
       id
@@ -193,9 +196,45 @@ const ADD_PAID_INVOICE = gql`
   }
 `;
 
+const DELETE_INVOICE = gql`
+  mutation DeleteInvoice($id: Int!) {
+    deleteInvoice(id: $id)
+  }
+`;
+
+const PAY_INVOICE = gql`
+  mutation PayInvoice($id: Int!, $payment_method: String!, $paid_date: String!, $photo_cheque_url: String, $photo_verso_url: String) {
+    payInvoice(id: $id, payment_method: $payment_method, paid_date: $paid_date, photo_cheque_url: $photo_cheque_url, photo_verso_url: $photo_verso_url) {
+      id
+      status
+      paid_date
+    }
+  }
+`;
+
+const GET_INVOICES = gql`
+  query GetInvoices($supplierName: String, $startDate: String, $endDate: String) {
+    getInvoices(supplierName: $supplierName, startDate: $startDate, endDate: $endDate) {
+      id
+      supplier_name
+      amount
+      date
+      photo_url
+      photo_cheque_url
+      photo_verso_url
+      status
+      payment_method
+      paid_date
+      photos
+      doc_type
+      doc_number
+    }
+  }
+`;
+
 export default function PaiementsPage() {
     const router = useRouter();
-    const [user, setUser] = useState<{ role: 'admin' | 'caissier' } | null>(null);
+    const [user, setUser] = useState<{ role: 'admin' | 'caissier', full_name: string } | null>(null);
     const [initializing, setInitializing] = useState(true);
 
     const today = new Date();
@@ -237,6 +276,80 @@ export default function PaiementsPage() {
     const [expPhotoVerso, setExpPhotoVerso] = useState('');
     const [showExpForm, setShowExpForm] = useState(false);
     const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
+
+    // Unpaid Invoices Modal State & Logic
+    const [showUnpaidModal, setShowUnpaidModal] = useState(false);
+    const [showPayModal, setShowPayModal] = useState<any>(null);
+    const [viewingUnpaidPhoto, setViewingUnpaidPhoto] = useState<any>(null);
+    const [paymentDetails, setPaymentDetails] = useState({
+        method: 'Espèces',
+        date: todayStr,
+        photo_cheque_url: '',
+        photo_verso_url: ''
+    });
+    const [imgZoom, setImgZoom] = useState(1);
+    const [imgRotation, setImgRotation] = useState(0);
+
+    const { data: unpaidData, refetch: refetchUnpaid } = useQuery(GET_INVOICES, {
+        variables: { supplierName: '', startDate: '', endDate: '' },
+        pollInterval: 5000
+    });
+
+    const [execPayInvoice] = useMutation(PAY_INVOICE);
+    const [execDeleteInvoice] = useMutation(DELETE_INVOICE);
+
+    const handlePaySubmit = async () => {
+        if (!showPayModal) return;
+        try {
+            await execPayInvoice({
+                variables: {
+                    id: parseInt(showPayModal.id),
+                    payment_method: paymentDetails.method,
+                    paid_date: paymentDetails.date,
+                    photo_cheque_url: paymentDetails.photo_cheque_url,
+                    photo_verso_url: paymentDetails.photo_verso_url
+                }
+            });
+            await refetchUnpaid();
+            await refetch();
+            setShowPayModal(null);
+            Swal.fire({
+                icon: 'success',
+                title: 'Succès',
+                text: 'Facture marquée comme payée',
+                timer: 1500,
+                showConfirmButton: false
+            });
+        } catch (e) {
+            console.error(e);
+            Swal.fire('Erreur', 'Impossible de payer la facture', 'error');
+        }
+    };
+
+    const handleDelete = async (inv: any) => {
+        Swal.fire({
+            title: 'Êtes-vous sûr?',
+            text: "Cette action est irréversible!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Oui, supprimer!',
+            cancelButtonText: 'Annuler'
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                try {
+                    await execDeleteInvoice({ variables: { id: parseInt(inv.id) } });
+                    await refetchUnpaid();
+                    await refetch();
+                    Swal.fire('Supprimé!', 'La facture a été supprimée.', 'success');
+                } catch (e) {
+                    console.error(e);
+                    Swal.fire('Erreur', 'Impossible de supprimer', 'error');
+                }
+            }
+        });
+    };
 
     useEffect(() => {
         const savedUser = localStorage.getItem('bb_user');
@@ -319,7 +432,8 @@ export default function PaiementsPage() {
         totalCash: 0,
         totalBankDeposits: 0,
         totalRecetteCaisse: 0,
-        totalExpenses: 0
+        totalExpenses: 0,
+        totalTicketsRestaurant: 0
     };
 
     const handleBankSubmit = async () => {
@@ -478,12 +592,7 @@ export default function PaiementsPage() {
                                                                 setActiveFilter('month');
                                                                 setShowMonthPicker(false);
                                                             }}
-                                                            className={`h-10 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all
-                                                                ${isActive
-                                                                    ? 'bg-[#c69f6e] text-white shadow-lg shadow-[#c69f6e]/20'
-                                                                    : 'text-[#8c8279] hover:bg-[#fcfaf8] hover:text-[#4a3426] border border-transparent hover:border-[#e6dace]'
-                                                                }
-                                                            `}
+                                                            className={`h-10 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all ${isActive ? 'bg-[#c69f6e] text-white shadow-lg shadow-[#c69f6e]/20' : 'text-[#8c8279] hover:bg-[#fcfaf8] hover:text-[#4a3426] border border-transparent hover:border-[#e6dace]'}`}
                                                         >
                                                             {m.substring(0, 3)}
                                                         </button>
@@ -634,12 +743,32 @@ export default function PaiementsPage() {
                                         </div>
                                         Nouvelle Dépense
                                     </h3>
-                                    <button
-                                        onClick={() => setShowExpForm(!showExpForm)}
-                                        className="text-[10px] font-black uppercase tracking-widest bg-red-50 text-red-500 px-3 py-2 rounded-xl hover:bg-red-100 transition-all"
-                                    >
-                                        {showExpForm ? 'Annuler' : 'Ajouter une dépense'}
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => {
+                                                refetchUnpaid();
+                                                setShowUnpaidModal(true);
+                                            }}
+                                            className="text-[10px] font-black uppercase tracking-widest bg-red-50 border-2 border-red-200 text-red-600 px-4 py-2 rounded-xl hover:bg-red-100 transition-all flex items-center gap-2 shadow-sm"
+                                        >
+                                            <Clock size={14} className="text-red-500" />
+                                            <span className="flex items-baseline gap-1">
+                                                <span className="text-xs">Total Impayé:</span>
+                                                <span className="text-sm font-black">
+                                                    {(unpaidData?.getInvoices?.filter((inv: any) => inv.status !== 'paid')
+                                                        .reduce((sum: number, inv: any) => sum + parseFloat(inv.amount || 0), 0) || 0)
+                                                        .toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                                </span>
+                                                <span className="text-[9px]">DT</span>
+                                            </span>
+                                        </button>
+                                        <button
+                                            onClick={() => setShowExpForm(!showExpForm)}
+                                            className="text-[10px] font-black uppercase tracking-widest bg-red-50 text-red-500 px-3 py-2 rounded-xl hover:bg-red-100 transition-all"
+                                        >
+                                            {showExpForm ? 'Annuler' : 'Ajouter une dépense'}
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <AnimatePresence>
@@ -986,6 +1115,202 @@ export default function PaiementsPage() {
                                     )}
                                 </div>
                             </motion.div>
+                        </div>
+                    )}
+                </AnimatePresence>
+
+                {/* Unpaid Invoices List Modal */}
+                <AnimatePresence>
+                    {showUnpaidModal && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 z-[200] bg-[#4a3426]/60 backdrop-blur-md flex items-center justify-center p-4"
+                            onClick={() => setShowUnpaidModal(false)}
+                        >
+                            <motion.div
+                                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                                animate={{ scale: 1, opacity: 1, y: 0 }}
+                                exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                                onClick={e => e.stopPropagation()}
+                                className="bg-[#f9f6f2] rounded-[2.5rem] w-full max-w-6xl max-h-[90vh] overflow-hidden shadow-2xl border border-white/20 flex flex-col"
+                            >
+                                <div className="p-6 bg-white border-b border-[#e6dace] flex justify-between items-center shrink-0">
+                                    <h2 className="text-xl font-black text-[#4a3426] uppercase tracking-tight flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center text-red-600">
+                                            <Clock size={22} />
+                                        </div>
+                                        Factures Non Payées
+                                        <span className="bg-red-50 text-red-600 px-3 py-1 rounded-full text-sm border border-red-100">
+                                            {unpaidData?.getInvoices?.filter((inv: any) => inv.status !== 'paid').length || 0}
+                                        </span>
+                                    </h2>
+                                    <button onClick={() => setShowUnpaidModal(false)} className="w-10 h-10 rounded-full hover:bg-[#fcfaf8] flex items-center justify-center text-[#8c8279] transition-colors">
+                                        <ChevronRight size={24} className="rotate-90" />
+                                    </button>
+                                </div>
+
+                                <div className="flex-1 overflow-y-auto p-6 md:p-8 custom-scrollbar">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                        {unpaidData?.getInvoices?.filter((inv: any) => inv.status !== 'paid').map((inv: any) => (
+                                            <motion.div
+                                                key={inv.id}
+                                                layout
+                                                initial={{ opacity: 0, scale: 0.9 }}
+                                                animate={{ opacity: 1, scale: 1 }}
+                                                className="bg-red-50 rounded-[2rem] border-2 border-red-200 overflow-hidden group hover:shadow-xl hover:shadow-red-500/10 transition-all flex flex-col"
+                                            >
+                                                <div className="p-5 flex justify-between items-start border-b border-red-100/50 bg-red-100/30">
+                                                    <div>
+                                                        <span className="px-3 py-1 bg-red-500 text-white rounded-full text-[10px] font-black uppercase flex items-center gap-1 w-fit mb-2">
+                                                            <Clock size={12} /> Impayé
+                                                        </span>
+                                                        <h3 className="font-black text-lg text-[#4a3426] tracking-tight leading-tight line-clamp-1" title={inv.supplier_name}>{inv.supplier_name}</h3>
+                                                        <p className="text-[10px] font-bold text-red-400 uppercase tracking-wider mt-1">Reçu le {new Date(inv.date).toLocaleDateString('fr-FR')}</p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <div className="text-xl font-black text-red-600 leading-none">{parseFloat(inv.amount).toFixed(3)}</div>
+                                                        <div className="text-[10px] font-bold text-red-400">TND</div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="p-4 bg-white flex-1">
+                                                    <div className="flex items-center justify-between mb-4">
+                                                        <div className="flex items-center gap-2">
+                                                            {inv.photo_url ? (
+                                                                <button onClick={() => setViewingUnpaidPhoto(inv)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 text-red-600 text-[10px] font-black uppercase hover:bg-red-100 transition-colors">
+                                                                    <Eye size={12} /> Voir
+                                                                </button>
+                                                            ) : (
+                                                                <span className="text-[10px] font-bold text-gray-300 italic px-2">Sans photo</span>
+                                                            )}
+                                                        </div>
+                                                        <span className="text-[10px] font-bold text-[#8c8279] bg-[#f9f6f2] px-2 py-1 rounded-md border border-[#e6dace] uppercase">
+                                                            {inv.doc_type || 'Facture'} N°{inv.doc_number || '-'}
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="flex gap-2 mt-auto">
+                                                        <button
+                                                            onClick={() => setShowPayModal(inv)}
+                                                            className="flex-1 h-10 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold uppercase text-[10px] tracking-wider shadow-lg shadow-red-500/20 flex items-center justify-center gap-2 transition-all active:scale-95"
+                                                        >
+                                                            <CheckCircle2 size={14} /> Régler
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDelete(inv)}
+                                                            className="w-10 h-10 border border-red-200 rounded-xl flex items-center justify-center text-red-400 hover:bg-red-50 hover:text-red-600 transition-all active:scale-95"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </motion.div>
+                                        ))}
+                                    </div>
+                                    {!unpaidData?.getInvoices?.some((inv: any) => inv.status !== 'paid') && (
+                                        <div className="flex flex-col items-center justify-center h-64 text-[#8c8279] opacity-50 space-y-4">
+                                            <CheckCircle2 size={48} />
+                                            <p className="font-bold italic">Aucune facture impayée</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </motion.div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* Payment Modal */}
+                <AnimatePresence>
+                    {showPayModal && (
+                        <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">
+                            <motion.div
+                                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                                className="absolute inset-0 bg-[#4a3426]/80 backdrop-blur-sm"
+                                onClick={() => setShowPayModal(null)}
+                            />
+                            <motion.div
+                                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                                animate={{ scale: 1, opacity: 1, y: 0 }}
+                                exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                                className="relative bg-white w-full max-w-md rounded-[2rem] overflow-hidden shadow-2xl"
+                            >
+                                <div className="bg-[#10b981] p-6 text-white text-center relative overflow-hidden">
+                                    <div className="relative z-10">
+                                        <h3 className="text-lg font-black uppercase tracking-widest mb-1">Règlement Facture</h3>
+                                        <p className="text-sm font-medium opacity-90">{showPayModal.supplier_name}</p>
+                                        <div className="mt-4 text-4xl font-black tracking-tighter">
+                                            {parseFloat(showPayModal.amount).toFixed(3)} <span className="text-lg opacity-80">DT</span>
+                                        </div>
+                                    </div>
+                                    <div className="absolute top-0 right-0 opacity-10 transform translate-x-1/4 -translate-y-1/4">
+                                        <CheckCircle2 size={150} />
+                                    </div>
+                                </div>
+                                <div className="p-6 space-y-4">
+                                    <div>
+                                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8c8279] mb-1 block ml-1">Mode de paiement</label>
+                                        <div className="flex gap-2">
+                                            {['Espèces', 'Chèque', 'Virement'].map(m => (
+                                                <button
+                                                    key={m}
+                                                    onClick={() => setPaymentDetails({ ...paymentDetails, method: m })}
+                                                    className={`flex-1 h-10 rounded-xl font-bold text-xs transition-all ${paymentDetails.method === m ? 'bg-[#10b981] text-white shadow-lg shadow-[#10b981]/30' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                                                >
+                                                    {m}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8c8279] mb-1 block ml-1">Date de paiement</label>
+                                        <input
+                                            type="date"
+                                            value={paymentDetails.date}
+                                            onChange={(e) => setPaymentDetails({ ...paymentDetails, date: e.target.value })}
+                                            className="w-full h-10 bg-[#f9f6f2] border border-[#e6dace] rounded-xl px-4 font-bold text-[#4a3426] focus:border-[#10b981] outline-none text-sm"
+                                        />
+                                    </div>
+                                    {paymentDetails.method === 'Chèque' && (
+                                        <div className="p-3 bg-yellow-50 rounded-xl border border-yellow-100 text-center">
+                                            <p className="text-xs text-yellow-700 font-bold mb-2">Photos Chèque (Optionnel)</p>
+                                            <div className="flex gap-2 justify-center">
+                                                <button className="px-3 py-1 bg-white border border-yellow-200 rounded-lg text-[10px] font-bold text-yellow-600 uppercase">Recto</button>
+                                                <button className="px-3 py-1 bg-white border border-yellow-200 rounded-lg text-[10px] font-bold text-yellow-600 uppercase">Verso</button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <button
+                                        onClick={handlePaySubmit}
+                                        className="w-full h-12 bg-[#10b981] hover:bg-[#059669] text-white rounded-xl font-black uppercase tracking-widest text-sm shadow-xl shadow-[#10b981]/20 transition-all active:scale-95 flex items-center justify-center gap-2 mt-4"
+                                    >
+                                        <CheckCircle2 size={18} /> Confirmer le paiement
+                                    </button>
+                                </div>
+                            </motion.div>
+                        </div>
+                    )}
+                </AnimatePresence>
+
+                {/* Photo Viewer for Unpaid Invoices */}
+                <AnimatePresence>
+                    {viewingUnpaidPhoto && (
+                        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md" onClick={() => setViewingUnpaidPhoto(null)}>
+                            <div className="relative max-w-4xl max-h-[90vh] w-full bg-black rounded-2xl overflow-hidden shadow-2xl border border-white/10" onClick={e => e.stopPropagation()}>
+                                <div className="absolute top-4 right-4 z-10">
+                                    <button onClick={() => setViewingUnpaidPhoto(null)} className="bg-black/50 hover:bg-black text-white p-2 rounded-full backdrop-blur-md transition-all"><ChevronRight className="rotate-90" /></button>
+                                </div>
+                                <div className="h-[80vh] flex items-center justify-center p-4">
+                                    <img src={viewingUnpaidPhoto.photo_url} className="max-w-full max-h-full object-contain rounded-lg" />
+                                </div>
+                                <div className="absolute bottom-0 inset-x-0 p-4 bg-gradient-to-t from-black via-black/80 to-transparent text-white text-center">
+                                    <p className="font-bold">{viewingUnpaidPhoto.supplier_name}</p>
+                                    <p className="text-xs opacity-70">{viewingUnpaidPhoto.amount} DT - {viewingUnpaidPhoto.date}</p>
+                                </div>
+                            </div>
                         </div>
                     )}
                 </AnimatePresence>
