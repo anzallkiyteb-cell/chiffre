@@ -401,12 +401,17 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message, color = 'bro
 };
 
 const HistoryModal = ({ isOpen, onClose, type, startDate, endDate }: any) => {
-    const { data: historyData, loading } = useQuery(GET_CHIFFRES_RANGE, {
+    const { data: historyData, loading, error } = useQuery(GET_CHIFFRES_RANGE, {
         variables: { startDate, endDate },
-        skip: !isOpen
+        skip: !isOpen,
+        fetchPolicy: 'network-only'
     });
 
     if (!isOpen) return null;
+
+    if (error) {
+        console.error("History Query Error:", error);
+    }
 
     const titleMap: any = {
         avance: 'Liste des Accomptes',
@@ -439,14 +444,27 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate }: any) => {
             const amount = parseFloat(item.montant);
             groupedData[item.username].total += amount;
             globalTotal += amount;
-            // Format date to DD/MM/YYYY
-            const d = new Date(chiffre.date);
-            const formattedDate = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
-            groupedData[item.username].dates.push(formattedDate);
+
+            // Safe Date Formatting (YYYY-MM-DD -> DD/MM/YYYY)
+            const dateParts = chiffre.date.split('T')[0].split('-');
+            const formattedDate = dateParts.length === 3
+                ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`
+                : chiffre.date;
+
+            if (!groupedData[item.username].dates.includes(formattedDate)) {
+                groupedData[item.username].dates.push(formattedDate);
+            }
         });
     });
 
-    const employeesList = Object.values(groupedData).sort((a: any, b: any) => b.total - a.total);
+    const employeesList = Object.values(groupedData).map((emp: any) => ({
+        ...emp,
+        dates: emp.dates.sort((a: string, b: string) => {
+            const [da, ma, ya] = a.split('/').map(Number);
+            const [db, mb, yb] = b.split('/').map(Number);
+            return new Date(yb, mb - 1, db).getTime() - new Date(ya, ma - 1, da).getTime();
+        })
+    })).sort((a: any, b: any) => b.total - a.total);
 
     return (
         <AnimatePresence>
@@ -1991,12 +2009,13 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             <div className="bg-white rounded-[2rem] p-6 luxury-shadow relative overflow-hidden border border-[#e6dace]/50">
                                 <div className="flex justify-between items-center mb-4">
                                     <div className="flex items-center gap-3">
-                                        <h4
-                                            className="font-bold text-[#8c8279] text-xs uppercase tracking-wider cursor-pointer hover:text-[#4a3426] transition-colors"
+                                        <div
+                                            className="cursor-pointer group/title"
                                             onClick={() => setShowHistoryModal({ type: 'avance' })}
                                         >
-                                            2.2 Accompte
-                                        </h4>
+                                            <h4 className="font-bold text-[#4a3426] text-xs uppercase tracking-wider group-hover/title:text-[#c69f6e] transition-colors">ACCOMPTE</h4>
+                                            <p className="text-[9px] font-bold text-[#8c8279] uppercase tracking-tighter opacity-70">Avances sur salaires</p>
+                                        </div>
                                         <button
                                             disabled={isLocked}
                                             onClick={() => setShowEntryModal({ type: 'avance' })}
@@ -2005,7 +2024,12 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                             <PlusCircle size={22} strokeWidth={1.5} />
                                         </button>
                                     </div>
-                                    <span className="bg-[#f4ece4] text-[#4a3426] px-4 py-2 rounded-2xl font-black text-xl">{acompte.toFixed(3)} DT</span>
+                                    <span
+                                        className="bg-[#f4ece4] text-[#4a3426] px-4 py-2 rounded-2xl font-black text-xl cursor-pointer hover:bg-[#e6dace] transition-colors"
+                                        onClick={() => setShowHistoryModal({ type: 'avance' })}
+                                    >
+                                        {acompte.toFixed(3)} <span className="text-xs">DT</span>
+                                    </span>
                                 </div>
                                 <div className="space-y-2 text-sm text-[#4a3426] max-h-48 overflow-y-auto custom-scrollbar">
                                     {avancesList.length > 0 ? avancesList.map((a, i) => (
@@ -2046,12 +2070,13 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             <div className="bg-white rounded-[2rem] p-6 luxury-shadow relative overflow-hidden border border-[#e6dace]/50">
                                 <div className="flex justify-between items-center mb-4">
                                     <div className="flex items-center gap-3">
-                                        <h4
-                                            className="font-bold text-[#8c8279] text-xs uppercase tracking-wider cursor-pointer hover:text-[#4a3426] transition-colors"
+                                        <div
+                                            className="cursor-pointer group/title"
                                             onClick={() => setShowHistoryModal({ type: 'doublage' })}
                                         >
-                                            2.3 Doublage
-                                        </h4>
+                                            <h4 className="font-bold text-[#4a3426] text-xs uppercase tracking-wider group-hover/title:text-[#c69f6e] transition-colors">DOUBLAGE</h4>
+                                            <p className="text-[9px] font-bold text-[#8c8279] uppercase tracking-tighter opacity-70">Heures supplémentaires</p>
+                                        </div>
                                         <button
                                             disabled={isLocked}
                                             onClick={() => setShowEntryModal({ type: 'doublage' })}
@@ -2060,7 +2085,12 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                             <PlusCircle size={22} strokeWidth={1.5} />
                                         </button>
                                     </div>
-                                    <span className="bg-[#f4ece4] text-[#4a3426] px-4 py-2 rounded-2xl font-black text-xl">{doublage.toFixed(3)} DT</span>
+                                    <span
+                                        className="bg-[#f4ece4] text-[#4a3426] px-4 py-2 rounded-2xl font-black text-xl cursor-pointer hover:bg-[#e6dace] transition-colors"
+                                        onClick={() => setShowHistoryModal({ type: 'doublage' })}
+                                    >
+                                        {doublage.toFixed(3)} <span className="text-xs">DT</span>
+                                    </span>
                                 </div>
                                 <div className="space-y-2 text-sm text-[#4a3426] max-h-48 overflow-y-auto custom-scrollbar">
                                     {doublagesList.length > 0 ? doublagesList.map((d, i) => (
@@ -2102,12 +2132,13 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 <div className="flex justify-between items-center mb-4">
                                     <div className="flex items-center gap-3">
                                         <Zap size={16} className="text-[#c69f6e]" />
-                                        <h4
-                                            className="font-bold text-[#8c8279] text-xs uppercase tracking-wider cursor-pointer hover:text-[#4a3426] transition-colors"
+                                        <div
+                                            className="cursor-pointer group/title"
                                             onClick={() => setShowHistoryModal({ type: 'extra' })}
                                         >
-                                            2.4 Extra
-                                        </h4>
+                                            <h4 className="font-bold text-[#4a3426] text-xs uppercase tracking-wider group-hover/title:text-[#c69f6e] transition-colors">EXTRA</h4>
+                                            <p className="text-[9px] font-bold text-[#8c8279] uppercase tracking-tighter opacity-70">Main d'œuvre occasionnelle</p>
+                                        </div>
                                         <button
                                             disabled={isLocked}
                                             onClick={() => setShowEntryModal({ type: 'extra' })}
@@ -2116,7 +2147,12 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                             <PlusCircle size={22} strokeWidth={1.5} />
                                         </button>
                                     </div>
-                                    <span className="bg-[#f4ece4] text-[#4a3426] px-4 py-2 rounded-2xl font-black text-xl">{extraTotal.toFixed(3)} DT</span>
+                                    <span
+                                        className="bg-[#f4ece4] text-[#4a3426] px-4 py-2 rounded-2xl font-black text-xl cursor-pointer hover:bg-[#e6dace] transition-colors"
+                                        onClick={() => setShowHistoryModal({ type: 'extra' })}
+                                    >
+                                        {extraTotal.toFixed(3)} <span className="text-xs">DT</span>
+                                    </span>
                                 </div>
                                 <div className="space-y-2 text-sm text-[#4a3426] max-h-48 overflow-y-auto custom-scrollbar">
                                     {extrasList.length > 0 ? extrasList.map((e, i) => (
@@ -2158,12 +2194,13 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 <div className="flex justify-between items-center mb-4">
                                     <div className="flex items-center gap-3">
                                         <Sparkles size={16} className="text-[#2d6a4f]" />
-                                        <h4
-                                            className="font-bold text-[#8c8279] text-xs uppercase tracking-wider cursor-pointer hover:text-[#4a3426] transition-colors"
+                                        <div
+                                            className="cursor-pointer group/title"
                                             onClick={() => setShowHistoryModal({ type: 'prime' })}
                                         >
-                                            2.5 Primes
-                                        </h4>
+                                            <h4 className="font-bold text-[#4a3426] text-xs uppercase tracking-wider group-hover/title:text-[#c69f6e] transition-colors">PRIMES</h4>
+                                            <p className="text-[9px] font-bold text-[#8c8279] uppercase tracking-tighter opacity-70">Récompenses & bonus</p>
+                                        </div>
                                         <button
                                             disabled={isLocked}
                                             onClick={() => setShowEntryModal({ type: 'prime' })}
@@ -2172,7 +2209,12 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                             <PlusCircle size={22} strokeWidth={1.5} />
                                         </button>
                                     </div>
-                                    <span className="bg-[#f4ece4] text-[#4a3426] px-4 py-2 rounded-2xl font-black text-xl">{primesTotal.toFixed(3)} DT</span>
+                                    <span
+                                        className="bg-[#f1f8f4] text-[#2d6a4f] px-4 py-2 rounded-2xl font-black text-xl cursor-pointer hover:bg-[#d8e9df] transition-colors"
+                                        onClick={() => setShowHistoryModal({ type: 'prime' })}
+                                    >
+                                        {primesTotal.toFixed(3)} <span className="text-xs">DT</span>
+                                    </span>
                                 </div>
                                 <div className="space-y-2 text-sm text-[#4a3426] max-h-48 overflow-y-auto custom-scrollbar">
                                     {primesList.length > 0 ? primesList.map((p, i) => (
@@ -2764,8 +2806,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                 isOpen={!!showHistoryModal}
                 onClose={() => setShowHistoryModal(null)}
                 type={showHistoryModal?.type}
-                startDate={new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]}
-                endDate={new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0]}
+                startDate={`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`}
+                endDate={`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()).padStart(2, '0')}`}
             />
 
             <AnimatePresence>
