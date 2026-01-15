@@ -530,24 +530,25 @@ export default function PaiementsPage() {
                     {/* Secondary Stats Grid */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         {[
-                            { label: 'Factures Payées', val: stats.totalFacturesPayees, icon: Receipt, color: 'bg-red-500' },
-                            { label: 'Bancaire (TPE + Vers.)', val: stats.totalTPE + stats.totalBankDeposits, icon: TrendingUp, color: 'bg-blue-600' },
-                            { label: 'Total Chèques', val: stats.totalCheque, icon: Banknote, color: 'bg-[#4a3426]' },
-                            { label: 'Total Cash', val: stats.totalCash, icon: Coins, color: 'bg-[#c69f6e]' }
+                            { label: 'Factures Payées', val: stats.totalFacturesPayees, icon: Receipt, color: 'bg-gradient-to-br from-[#ef4444] to-[#dc2626]' },
+                            { label: 'Total Cash', val: stats.totalCash, icon: Coins, color: 'bg-gradient-to-br from-[#f59e0b] to-[#d97706]' },
+                            { label: 'Bancaire (TPE + Vers.)', val: stats.totalTPE + stats.totalBankDeposits, icon: TrendingUp, color: 'bg-gradient-to-br from-[#3b82f6] to-[#2563eb]' },
+                            { label: 'Total Chèques', val: stats.totalCheque, icon: Banknote, color: 'bg-gradient-to-br from-[#6b7280] to-[#4b5563]' }
                         ].map((s, i) => (
                             <motion.div
                                 key={i}
                                 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-                                className={`${s.color} p-6 rounded-[2.5rem] shadow-lg relative overflow-hidden group hover:scale-[1.02] transition-all text-white`}
+                                className={`${s.color} p-6 rounded-[2rem] shadow-lg relative overflow-hidden group hover:scale-[1.02] transition-all text-white`}
                             >
+                                <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -mr-12 -mt-12"></div>
                                 <div className="relative z-10">
-                                    <div className="flex items-center gap-2 text-white/70 mb-2 uppercase text-[9px] font-black tracking-widest">
+                                    <div className="flex items-center gap-2 text-white/80 mb-2 uppercase text-[9px] font-black tracking-widest">
                                         <s.icon size={12} /> {s.label}
                                     </div>
-                                    <h3 className="text-2xl font-black truncate">
+                                    <h3 className="text-3xl font-black tracking-tighter">
                                         {s.val.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
-                                        <span className="text-[10px] font-bold opacity-50 ml-1">DT</span>
                                     </h3>
+                                    <span className="text-xs font-bold opacity-70">DT</span>
                                 </div>
                                 <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-125 transition-transform duration-500 text-white">
                                     <s.icon size={80} />

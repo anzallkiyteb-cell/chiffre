@@ -54,7 +54,7 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
         supplier: 'diponce'
     };
 
-    // Grouping logic
+    // Grouping logic - now tracking date-amount pairs
     const groupedData: any = {};
     let globalTotal = 0;
 
@@ -83,7 +83,7 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
                 groupedData[item.username] = {
                     username: item.username,
                     total: 0,
-                    dates: []
+                    dateEntries: [] // Changed from 'dates' to 'dateEntries' to store {date, amount} objects
                 };
             }
             const amount = parseFloat(item.montant);
@@ -96,17 +96,19 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
                 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`
                 : chiffre.date;
 
-            if (!groupedData[item.username].dates.includes(formattedDate)) {
-                groupedData[item.username].dates.push(formattedDate);
-            }
+            // Store date with its corresponding amount
+            groupedData[item.username].dateEntries.push({
+                date: formattedDate,
+                amount: amount
+            });
         });
     });
 
     let employeesList = Object.values(groupedData).map((emp: any) => ({
         ...emp,
-        dates: emp.dates.sort((a: string, b: string) => {
-            const [da, ma, ya] = a.split('/').map(Number);
-            const [db, mb, yb] = b.split('/').map(Number);
+        dateEntries: emp.dateEntries.sort((a: any, b: any) => {
+            const [da, ma, ya] = a.date.split('/').map(Number);
+            const [db, mb, yb] = b.date.split('/').map(Number);
             return new Date(yb, mb - 1, db).getTime() - new Date(ya, ma - 1, da).getTime();
         })
     })).sort((a: any, b: any) => b.total - a.total);
@@ -169,15 +171,20 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
                                             </div>
                                         </div>
                                         <div className="text-3xl font-black text-[#009ca6] tracking-tighter">
-                                            {emp.total.toFixed(0)} <span className="text-lg">DT</span>
+                                            {emp.total.toFixed(3)} <span className="text-lg">DT</span>
                                         </div>
                                     </div>
 
                                     {/* Dates Grid Breakdown */}
-                                    <div className="flex flex-wrap gap-2 mt-4 ml-20">
-                                        {emp.dates.map((date: string, dIndex: number) => (
-                                            <div key={dIndex} className="bg-white px-4 py-2 rounded-xl border border-[#e6dace] shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] text-[#4a3426] font-bold text-sm tracking-wide">
-                                                {date}
+                                    <div className="flex flex-wrap gap-2 mt-4">
+                                        {emp.dateEntries.map((entry: any, dIndex: number) => (
+                                            <div key={dIndex} className="bg-white px-3 py-2 rounded-lg border border-[#e6dace] shadow-sm hover:shadow-md transition-all w-[110px]">
+                                                <div className="text-[#4a3426] font-bold text-xs tracking-wide text-center">
+                                                    {entry.date}
+                                                </div>
+                                                <div className="text-[#009ca6] font-black text-sm text-center">
+                                                    {entry.amount.toFixed(3)}
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
