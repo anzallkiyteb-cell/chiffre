@@ -8,7 +8,7 @@ import {
     Download, Filter, DownloadCloud, Loader2, Users, Receipt, CreditCard,
     Banknote, Coins, Plus, Search, Trash2, FileText, UploadCloud, ChevronDown, Check,
     LogOut, ZoomIn, ZoomOut, Maximize2, RotateCcw, LockIcon, UnlockIcon, X, PlusCircle, AlertCircle,
-    Wallet, Eye, EyeOff, Save, Calculator, Zap, Sparkles, User, MessageSquare, Share2, ExternalLink
+    Wallet, Eye, EyeOff, Save, Calculator, Zap, Sparkles, User, MessageSquare, Share2, ExternalLink, List, Pencil
 } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
