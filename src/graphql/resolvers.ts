@@ -90,7 +90,7 @@ export const resolvers = {
                 params.push(payer);
                 sql += ` AND payer = $${params.length}`;
             }
-            sql += ' ORDER BY COALESCE(paid_date, date) DESC, id DESC';
+            sql += ' ORDER BY updated_at DESC, id DESC';
             const res = await query(sql, params);
             return res.rows.map(r => ({
                 ...r,
@@ -510,7 +510,7 @@ export const resolvers = {
         },
         payInvoice: async (_: any, { id, payment_method, paid_date, photo_cheque_url, photo_verso_url, payer }: any) => {
             const res = await query(
-                "UPDATE invoices SET status = 'paid', payment_method = $1, paid_date = $2, photo_cheque_url = $3, photo_verso_url = $4, payer = $5 WHERE id = $6 RETURNING *",
+                "UPDATE invoices SET status = 'paid', payment_method = $1, paid_date = $2, photo_cheque_url = $3, photo_verso_url = $4, payer = $5, updated_at = CURRENT_TIMESTAMP WHERE id = $6 RETURNING *",
                 [payment_method, paid_date, photo_cheque_url, photo_verso_url, payer, id]
             );
             const row = res.rows[0];
@@ -525,7 +525,7 @@ export const resolvers = {
         },
         unpayInvoice: async (_: any, { id }: { id: number }) => {
             const res = await query(
-                "UPDATE invoices SET status = 'unpaid', payment_method = NULL, paid_date = NULL, photo_cheque_url = NULL, photo_verso_url = NULL, payer = NULL WHERE id = $1 RETURNING *",
+                "UPDATE invoices SET status = 'unpaid', payment_method = NULL, paid_date = NULL, photo_cheque_url = NULL, photo_verso_url = NULL, payer = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *",
                 [id]
             );
             const row = res.rows[0];
@@ -554,7 +554,7 @@ export const resolvers = {
 
             params.push(id);
             const res = await query(
-                `UPDATE invoices SET ${fields.join(', ')} WHERE id = $${params.length} RETURNING *`,
+                `UPDATE invoices SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = $${params.length} RETURNING *`,
                 params
             );
             const row = res.rows[0];
@@ -631,7 +631,7 @@ export const resolvers = {
         addPaidInvoice: async (_: any, args: any) => {
             const { supplier_name, amount, date, photo_url, photos, photo_cheque_url, photo_verso_url, payment_method, paid_date, doc_type, doc_number, payer } = args;
             const res = await query(
-                "INSERT INTO invoices (supplier_name, amount, date, photo_url, photos, photo_cheque_url, photo_verso_url, status, payment_method, paid_date, doc_type, doc_number, payer, origin) VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, 'paid', $8, $9, $10, $11, $12, 'direct_expense') RETURNING *",
+                "INSERT INTO invoices (supplier_name, amount, date, photo_url, photos, photo_cheque_url, photo_verso_url, status, payment_method, paid_date, doc_type, doc_number, payer, origin, updated_at) VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, 'paid', $8, $9, $10, $11, $12, 'direct_expense', CURRENT_TIMESTAMP) RETURNING *",
                 [supplier_name, amount, date, photo_url, photos || '[]', photo_cheque_url, photo_verso_url, payment_method, paid_date, doc_type || 'Facture', doc_number, payer]
             );
             const row = res.rows[0];

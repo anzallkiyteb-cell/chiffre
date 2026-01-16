@@ -262,6 +262,7 @@ const GET_INVOICES = gql`
       doc_number
       payer
       origin
+      updated_at
     }
   }
 `;
@@ -1782,52 +1783,18 @@ export default function PaiementsPage() {
                                         if (filteredHistory.length > 0) {
                                             return filteredHistory
                                                 .sort((a: any, b: any) => {
-                                                    const dateA = new Date(a.paid_date || a.date).getTime();
-                                                    const dateB = new Date(b.paid_date || b.date).getTime();
-                                                    const dateDiff = dateB - dateA;
-                                                    if (dateDiff !== 0) return dateDiff;
+                                                    const timeA = new Date(a.updated_at || a.date).getTime();
+                                                    const timeB = new Date(b.updated_at || b.date).getTime();
+                                                    const timeDiff = timeB - timeA;
+                                                    if (timeDiff !== 0) return timeDiff;
                                                     return parseInt(b.id) - parseInt(a.id);
                                                 })
                                                 .map((inv: any) => (
-                                                    <div key={inv.id} className="group relative bg-white p-5 rounded-3xl border border-[#e6dace]/60 hover:border-[#c69f6e]/60 hover:shadow-lg hover:shadow-[#c69f6e]/5 transition-all duration-300">
+                                                    <div key={inv.id} className="group relative bg-white p-5 rounded-[2rem] border border-[#e6dace]/60 hover:border-[#c69f6e]/60 hover:shadow-xl hover:shadow-[#c69f6e]/5 transition-all duration-300">
                                                         <div className="flex justify-between items-center">
+                                                            {/* Actions & Amount (Left side now) */}
                                                             <div className="flex items-center gap-4">
-                                                                <div className="w-12 h-12 rounded-2xl bg-[#f9f6f2] flex items-center justify-center text-[#c69f6e] group-hover:bg-[#c69f6e] group-hover:text-white transition-colors duration-300">
-                                                                    <Receipt size={20} />
-                                                                </div>
-                                                                <div>
-                                                                    <h3 className="font-black text-[#4a3426] text-lg leading-tight group-hover:text-[#c69f6e] transition-colors">{inv.supplier_name}</h3>
-                                                                    <div className="flex items-center gap-2 mt-1">
-                                                                        <span className="text-[10px] font-bold text-[#8c8279] uppercase tracking-wider bg-[#f4ece4] px-2 py-0.5 rounded-full">
-                                                                            {inv.payment_method}
-                                                                        </span>
-                                                                        <span className="w-1 h-1 rounded-full bg-[#e6dace]"></span>
-                                                                        {inv.origin === 'direct_expense' ? (
-                                                                            <span className="text-[9px] font-black text-red-500/70 border border-red-200 px-1.5 py-0.5 rounded uppercase tracking-tighter">Directe</span>
-                                                                        ) : (
-                                                                            <span className="text-[9px] font-black text-blue-500/70 border border-blue-200 px-1.5 py-0.5 rounded uppercase tracking-tighter">Facture</span>
-                                                                        )}
-                                                                        <span className="w-1 h-1 rounded-full bg-[#e6dace]"></span>
-                                                                        <span className="text-[10px] font-bold text-[#8c8279] opacity-70">
-                                                                            {new Date(inv.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
-                                                                        </span>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                            <div className="flex items-center gap-6">
-                                                                <div className="text-right">
-                                                                    <div className="font-black text-[#4a3426] text-xl">
-                                                                        {parseFloat(inv.amount).toFixed(3)} <span className="text-sm opacity-50">DT</span>
-                                                                    </div>
-                                                                </div>
                                                                 <div className="flex items-center gap-2">
-                                                                    <button
-                                                                        onClick={() => handleEditHistoryItemClick(inv)}
-                                                                        className="w-10 h-10 rounded-full border-2 border-blue-50 hover:border-blue-500 hover:bg-blue-500 hover:text-white flex items-center justify-center transition-all text-blue-400"
-                                                                        title="Modifier"
-                                                                    >
-                                                                        <Edit2 size={18} />
-                                                                    </button>
                                                                     <button
                                                                         onClick={() => handleDelete(inv)}
                                                                         className="w-10 h-10 rounded-full border-2 border-red-50 hover:border-red-500 hover:bg-red-500 hover:text-white flex items-center justify-center transition-all text-red-400"
@@ -1835,18 +1802,63 @@ export default function PaiementsPage() {
                                                                     >
                                                                         <Trash2 size={18} />
                                                                     </button>
-                                                                    {(inv.photo_url || inv.photo_cheque_url) && (
-                                                                        <button
-                                                                            onClick={() => {
-                                                                                setSelectedInvoice(inv);
-                                                                                setShowHistoryModal(false);
-                                                                            }}
-                                                                            className="w-10 h-10 rounded-full border-2 border-[#f4ece4] hover:border-[#c69f6e] hover:bg-[#c69f6e] hover:text-white flex items-center justify-center transition-all text-[#c69f6e]"
-                                                                            title="Voir détails"
-                                                                        >
-                                                                            <Eye size={18} />
-                                                                        </button>
-                                                                    )}
+                                                                    <button
+                                                                        onClick={() => handleEditHistoryItemClick(inv)}
+                                                                        className="w-10 h-10 rounded-full border-2 border-blue-50 hover:border-blue-500 hover:bg-blue-500 hover:text-white flex items-center justify-center transition-all text-blue-400"
+                                                                        title="Modifier"
+                                                                    >
+                                                                        <Edit2 size={18} />
+                                                                    </button>
+                                                                </div>
+                                                                <div className="text-left bg-[#fdfbf7] px-4 py-2 rounded-2xl border border-[#e6dace]/30">
+                                                                    <div className="font-black text-[#4a3426] text-xl">
+                                                                        {parseFloat(inv.amount).toFixed(3)} <span className="text-xs opacity-50">DT</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* PHOTO button (Center) */}
+                                                            <div className="flex-1 flex justify-center mx-4">
+                                                                {(inv.photo_url || inv.photo_cheque_url) ? (
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setSelectedInvoice(inv);
+                                                                            setShowHistoryModal(false);
+                                                                        }}
+                                                                        className="flex items-center gap-2 px-6 py-2.5 bg-white hover:bg-[#c69f6e] text-[#c69f6e] hover:text-white rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border border-[#c69f6e]/20 shadow-sm hover:shadow-lg hover:shadow-[#c69f6e]/20 group/btn"
+                                                                    >
+                                                                        <ImageIcon size={14} className="group-hover/btn:scale-110 transition-transform" />
+                                                                        <span>Photo</span>
+                                                                    </button>
+                                                                ) : (
+                                                                    <span className="text-[9px] font-black text-[#8c8279]/30 uppercase tracking-widest italic border border-dashed border-[#e6dace] px-3 py-1 rounded-full select-none">Pas de photo</span>
+                                                                )}
+                                                            </div>
+
+                                                            {/* Info & Icon (Right side now) */}
+                                                            <div className="flex items-center gap-4 text-right">
+                                                                <div>
+                                                                    <div className="flex items-center gap-2 mb-1 justify-end">
+                                                                        <h3 className="font-black text-[#4a3426] text-lg leading-tight group-hover:text-[#c69f6e] transition-colors">{inv.supplier_name}</h3>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2 justify-end">
+                                                                        <span className="text-[9px] font-bold text-[#8c8279] uppercase tracking-wider bg-[#f4ece4] px-2 py-0.5 rounded-full">
+                                                                            {inv.payment_method}
+                                                                        </span>
+                                                                        <span className="w-1 h-1 rounded-full bg-[#e6dace]"></span>
+                                                                        {inv.origin === 'direct_expense' ? (
+                                                                            <span className="text-[9px] font-black text-red-500/70 border border-red-200 px-1.5 py-0.5 rounded uppercase tracking-tighter bg-red-50/50">Directe</span>
+                                                                        ) : (
+                                                                            <span className="text-[9px] font-black text-blue-500/70 border border-blue-200 px-1.5 py-0.5 rounded uppercase tracking-tighter bg-blue-50/50">Facture</span>
+                                                                        )}
+                                                                        <span className="w-1 h-1 rounded-full bg-[#e6dace]"></span>
+                                                                        <span className="text-[10px] font-bold text-[#8c8279] opacity-70">
+                                                                            {new Date(inv.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="w-12 h-12 rounded-2xl bg-[#f9f6f2] flex items-center justify-center text-[#c69f6e] group-hover:bg-[#c69f6e] group-hover:text-white transition-colors duration-300 shadow-sm">
+                                                                    <Receipt size={20} />
                                                                 </div>
                                                             </div>
                                                         </div>
