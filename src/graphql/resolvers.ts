@@ -161,7 +161,10 @@ export const resolvers = {
                         isFromFacturation: true,
                         invoiceId: inv.id,
                         doc_type: inv.doc_type,
-                        doc_number: inv.doc_number
+                        doc_number: inv.doc_number,
+                        category: inv.category,
+                        origin: inv.origin,
+                        status: inv.status
                     });
                 }
             });

@@ -528,9 +528,9 @@ export default function PaiementsPage() {
     }, [router]);
 
     const effectiveDateRange = useMemo(() => {
-        if (activeFilter === 'month') {
+        if (activeFilter === 'month' && month) {
             const firstday = `${month}-01`;
-            const [y, m] = month!.split('-');
+            const [y, m] = month.split('-');
             const lastD = new Date(parseInt(y), parseInt(m), 0).getDate();
             const lastday = `${y}-${m}-${String(lastD).padStart(2, '0')}`;
             return { start: firstday, end: lastday };
@@ -664,16 +664,25 @@ export default function PaiementsPage() {
 
         // Aggregation from Daily Sheets (using sourceData which can be getChiffresByRange)
         const agg = sourceData.reduce((acc: any, curr: any) => {
-            let d = [], dv = [], da = [];
-            try { d = JSON.parse(curr.diponce || '[]'); } catch (e) { }
-            try { dv = JSON.parse(curr.diponce_divers || '[]'); } catch (e) { }
-            try { da = JSON.parse(curr.diponce_admin || '[]'); } catch (e) { }
+            const d_raw: any[] = [];
+            try { d_raw.push(...JSON.parse(curr.diponce || '[]')); } catch (e) { }
+
+            const v_raw: any[] = [];
+            try { v_raw.push(...JSON.parse(curr.diponce_divers || '[]')); } catch (e) { }
+
+            const a_raw: any[] = [];
+            try { a_raw.push(...JSON.parse(curr.diponce_admin || '[]')); } catch (e) { }
+
+            // Distribute merged items from d_raw if they have a specific category
+            const f_final = [...d_raw.filter(i => !i.isFromFacturation || (i.category !== 'Divers' && i.category !== 'Administratif'))];
+            const v_final = [...v_raw, ...d_raw.filter(i => i.isFromFacturation && i.category === 'Divers')];
+            const a_final = [...a_raw, ...d_raw.filter(i => i.isFromFacturation && i.category === 'Administratif')];
 
             return {
                 ...acc,
-                fournisseurs: [...acc.fournisseurs, ...d.map((i: any) => ({ ...i, date: curr.date }))],
-                divers: [...acc.divers, ...dv.map((i: any) => ({ ...i, date: curr.date }))],
-                administratif: [...acc.administratif, ...da.map((i: any) => ({ ...i, date: curr.date }))],
+                fournisseurs: [...acc.fournisseurs, ...f_final.map((i: any) => ({ ...i, date: curr.date }))],
+                divers: [...acc.divers, ...v_final.map((i: any) => ({ ...i, date: curr.date }))],
+                administratif: [...acc.administratif, ...a_final.map((i: any) => ({ ...i, date: curr.date }))],
                 avances: [...acc.avances, ...curr.avances_details.map((i: any) => ({ ...i, date: curr.date }))],
                 doublages: [...acc.doublages, ...curr.doublages_details.map((i: any) => ({ ...i, date: curr.date }))],
                 extras: [...acc.extras, ...curr.extras_details.map((i: any) => ({ ...i, date: curr.date }))],
