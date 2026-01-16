@@ -90,7 +90,7 @@ export const resolvers = {
                 params.push(payer);
                 sql += ` AND payer = $${params.length}`;
             }
-            sql += ' ORDER BY date DESC, id DESC';
+            sql += ' ORDER BY COALESCE(paid_date, date) DESC, id DESC';
             const res = await query(sql, params);
             return res.rows.map(r => ({
                 ...r,

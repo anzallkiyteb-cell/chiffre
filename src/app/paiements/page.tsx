@@ -1742,7 +1742,9 @@ export default function PaiementsPage() {
                                         if (filteredHistory.length > 0) {
                                             return filteredHistory
                                                 .sort((a: any, b: any) => {
-                                                    const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
+                                                    const dateA = new Date(a.paid_date || a.date).getTime();
+                                                    const dateB = new Date(b.paid_date || b.date).getTime();
+                                                    const dateDiff = dateB - dateA;
                                                     if (dateDiff !== 0) return dateDiff;
                                                     return parseInt(b.id) - parseInt(a.id);
                                                 })
