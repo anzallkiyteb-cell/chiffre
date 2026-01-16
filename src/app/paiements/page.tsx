@@ -2146,15 +2146,28 @@ export default function PaiementsPage() {
                                                                 <div className="flex items-center gap-2">
                                                                     <p className="text-[10px] font-black text-[#8c8279] uppercase tracking-widest leading-none mb-1.5">{cat.title}</p>
                                                                     {cat.title === 'Restes Salaires' && (
-                                                                        <button
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                setShowSalaryRemaindersModal(true);
-                                                                            }}
-                                                                            className="px-2 py-0.5 bg-red-50 text-red-500 rounded-md text-[8px] font-black uppercase tracking-tighter hover:bg-red-100 transition-colors border border-red-100 mb-1"
-                                                                        >
-                                                                            Modifier
-                                                                        </button>
+                                                                        <div className="flex gap-1 mb-1">
+                                                                            <button
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    setSalaryRemainderMode('global');
+                                                                                    setShowSalaryRemaindersModal(true);
+                                                                                }}
+                                                                                className="px-2 py-0.5 bg-red-50 text-red-500 rounded-md text-[8px] font-black uppercase tracking-tighter hover:bg-red-100 transition-colors border border-red-100"
+                                                                            >
+                                                                                Global
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    setSalaryRemainderMode('employee');
+                                                                                    setShowSalaryRemaindersModal(true);
+                                                                                }}
+                                                                                className="px-2 py-0.5 bg-red-50 text-red-500 rounded-md text-[8px] font-black uppercase tracking-tighter hover:bg-red-100 transition-colors border border-red-100"
+                                                                            >
+                                                                                Employés
+                                                                            </button>
+                                                                        </div>
                                                                     )}
                                                                 </div>
                                                                 <p className="text-[9px] font-bold text-[#4a3426]/30 uppercase tracking-tighter leading-none">{cat.subtitle}</p>
@@ -2328,7 +2341,7 @@ export default function PaiementsPage() {
                                                             <tr className="bg-[#fcfaf8] border-b border-[#e6dace]/30">
                                                                 <th className="px-8 py-4 text-[10px] font-black text-[#8c8279] uppercase tracking-[0.2em]">Employé</th>
                                                                 <th className="px-8 py-4 text-[10px] font-black text-[#8c8279] uppercase tracking-[0.2em] text-center">Montant</th>
-                                                                <th className="px-8 py-4 text-[10px] font-black text-[#8c8279] uppercase tracking-[0.2em] text-right">Statut</th>
+                                                                <th className="px-8 py-4 text-[10px] font-black text-[#8c8279] uppercase tracking-[0.2em] text-right">Action</th>
                                                             </tr>
                                                         </thead>
                                                         <tbody className="divide-y divide-[#e6dace]/10">
@@ -2355,30 +2368,47 @@ export default function PaiementsPage() {
                                                                                 <td className="px-8 py-4">
                                                                                     <div className="flex items-center justify-center gap-2">
                                                                                         <input
+                                                                                            id={`salary-input-${emp.id}`}
                                                                                             type="number"
                                                                                             step="0.001"
                                                                                             defaultValue={rem?.amount || 0}
-                                                                                            onBlur={async (e) => {
-                                                                                                const val = parseFloat(e.target.value);
-                                                                                                await upsertSalaryRemainder({
-                                                                                                    variables: {
-                                                                                                        employee_name: emp.name,
-                                                                                                        amount: val || 0,
-                                                                                                        month: salaryRemainderMonth,
-                                                                                                        status: 'CONFIRMÉ'
-                                                                                                    }
-                                                                                                });
-                                                                                                refetch();
-                                                                                            }}
                                                                                             className="w-32 bg-transparent text-center font-black text-[#4a3426] focus:text-[#c69f6e] outline-none border-b border-transparent focus:border-[#c69f6e] transition-colors"
                                                                                         />
                                                                                         <span className="text-[10px] font-black text-[#4a3426]/40">DT</span>
                                                                                     </div>
                                                                                 </td>
                                                                                 <td className="px-8 py-4 text-right">
-                                                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-50 text-green-600 rounded-full text-[9px] font-black uppercase tracking-widest border border-green-100">
-                                                                                        CONFIRMÉ <CheckCircle2 size={10} />
-                                                                                    </span>
+                                                                                    <button
+                                                                                        onClick={async () => {
+                                                                                            const input = document.getElementById(`salary-input-${emp.id}`) as HTMLInputElement;
+                                                                                            const val = parseFloat(input?.value || '0');
+                                                                                            await upsertSalaryRemainder({
+                                                                                                variables: {
+                                                                                                    employee_name: emp.name,
+                                                                                                    amount: val || 0,
+                                                                                                    month: salaryRemainderMonth,
+                                                                                                    status: 'CONFIRMÉ'
+                                                                                                }
+                                                                                            });
+                                                                                            await refetch();
+                                                                                            const btn = document.getElementById(`save-btn-${emp.id}`);
+                                                                                            if (btn) {
+                                                                                                const originalText = btn.innerHTML;
+                                                                                                btn.innerHTML = '<span class="flex items-center gap-1">OK <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>';
+                                                                                                btn.classList.add('bg-green-500', 'text-white', 'border-green-500');
+                                                                                                btn.classList.remove('bg-white', 'text-[#4a3426]', 'border-[#e6dace]');
+                                                                                                setTimeout(() => {
+                                                                                                    btn.innerHTML = originalText;
+                                                                                                    btn.classList.remove('bg-green-500', 'text-white', 'border-green-500');
+                                                                                                    btn.classList.add('bg-white', 'text-[#4a3426]', 'border-[#e6dace]');
+                                                                                                }, 2000);
+                                                                                            }
+                                                                                        }}
+                                                                                        id={`save-btn-${emp.id}`}
+                                                                                        className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-white text-[#4a3426] rounded-xl text-[10px] font-black uppercase tracking-widest border border-[#e6dace] hover:bg-[#c69f6e] hover:text-white hover:border-[#c69f6e] transition-all shadow-sm"
+                                                                                    >
+                                                                                        Sauvegarder
+                                                                                    </button>
                                                                                 </td>
                                                                             </tr>
                                                                         );
