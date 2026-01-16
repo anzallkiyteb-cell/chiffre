@@ -7,7 +7,7 @@ import Sidebar from '@/components/Sidebar';
 import {
     LayoutDashboard, Loader2, Calendar,
     Wallet, TrendingUp, TrendingDown, CreditCard, Banknote, Coins, Receipt, Calculator,
-    Plus, Zap, Sparkles, Search, ChevronLeft, ChevronRight, ChevronDown, X, Eye, Truck, Download, Clock, Filter, RotateCcw, FileText
+    Plus, Zap, Sparkles, Search, ChevronLeft, ChevronRight, ChevronDown, X, Eye, EyeOff, Truck, Download, Clock, Filter, RotateCcw, FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
@@ -177,6 +177,7 @@ export default function DashboardPage() {
     const [selectedSupplier, setSelectedSupplier] = useState<string | null>(null);
     const [viewingData, setViewingData] = useState<any | null>(null);
     const [showHistoryModal, setShowHistoryModal] = useState<{ isOpen: boolean, type: string, targetName?: string } | null>(null);
+    const [hideRecetteCaisse, setHideRecetteCaisse] = useState(false);
 
     // Filter dates
     const startOfMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
@@ -400,11 +401,23 @@ export default function DashboardPage() {
                                             <div className="flex items-center justify-center md:justify-end gap-2 mb-2 text-[#8c8279]">
                                                 <Wallet size={16} className="text-[#2d6a4f]" strokeWidth={2.5} />
                                                 <span className="text-[10px] md:text-xs font-black uppercase tracking-widest text-[#4a3426]">Recette Caisse Cumulée</span>
+                                                <button
+                                                    onClick={() => setHideRecetteCaisse(!hideRecetteCaisse)}
+                                                    className="ml-2 p-1 hover:bg-black/5 rounded-full transition-colors text-[#bba282]"
+                                                >
+                                                    {hideRecetteCaisse ? <EyeOff size={14} /> : <Eye size={14} />}
+                                                </button>
                                             </div>
                                             <div className="flex items-baseline justify-center md:justify-end gap-2 flex-wrap">
-                                                <div className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-black text-[#4a3426] tracking-tighter">
-                                                    {aggregates.recette_de_caisse.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
-                                                </div>
+                                                {hideRecetteCaisse ? (
+                                                    <span className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-black text-[#4a3426] tracking-tighter">
+                                                        ********
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-black text-[#4a3426] tracking-tighter">
+                                                        {aggregates.recette_de_caisse.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                                    </span>
+                                                )}
                                                 <span className="text-base sm:text-lg md:text-2xl font-black text-[#c69f6e] opacity-60">DT</span>
                                             </div>
                                         </div>
@@ -818,212 +831,235 @@ export default function DashboardPage() {
                     startDate={dateRange.start}
                     endDate={dateRange.end}
                 />
-            </div>
+            </div >
 
             {/* Invoices Modal */}
             <AnimatePresence>
-                {selectedSupplier && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[110] bg-[#1a110a]/80 backdrop-blur-xl flex items-center justify-center p-4 md:p-10"
-                        onClick={() => setSelectedSupplier(null)}
-                    >
-                        {/* High-End Fixed Close Button (Top Right of Screen) */}
-                        <motion.button
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            whileHover={{ scale: 1.1, rotate: 90 }}
-                            whileTap={{ scale: 0.9 }}
-                            onClick={() => setSelectedSupplier(null)}
-                            className="fixed top-6 right-6 md:top-10 md:right-10 z-[120] w-14 h-14 flex items-center justify-center group active:scale-95"
-                        >
-                            <div className="absolute inset-0 bg-white/5 hover:bg-white/10 backdrop-blur-md rounded-full border border-white/10 transition-colors shadow-2xl"></div>
-                            <X size={32} className="text-white/40 group-hover:text-white transition-colors relative z-10" />
-                        </motion.button>
-
+                {
+                    selectedSupplier && (
                         <motion.div
-                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
-                            animate={{ scale: 1, opacity: 1, y: 0 }}
-                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                            onClick={e => e.stopPropagation()}
-                            className="bg-white rounded-[3rem] w-full max-w-5xl max-h-[90vh] overflow-hidden shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)] border border-white/20 flex flex-col relative"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 z-[110] bg-[#1a110a]/80 backdrop-blur-xl flex items-center justify-center p-4 md:p-10"
+                            onClick={() => setSelectedSupplier(null)}
                         >
-                            <div className="p-10 md:p-14 bg-[#4a3426] text-white relative flex justify-between items-center shrink-0 overflow-hidden">
-                                {/* Decorative Background Elements */}
-                                <div className="absolute top-0 right-0 w-80 h-80 bg-[#c69f6e]/10 rounded-full blur-[100px] -mr-40 -mt-40 pointer-events-none"></div>
-                                <div className="absolute bottom-0 left-0 w-60 h-60 bg-black/20 rounded-full blur-[80px] -ml-30 -mb-30 pointer-events-none"></div>
+                            {/* High-End Fixed Close Button (Top Right of Screen) */}
+                            <motion.button
+                                initial={{ opacity: 0, scale: 0.8 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                whileHover={{ scale: 1.1, rotate: 90 }}
+                                whileTap={{ scale: 0.9 }}
+                                onClick={() => setSelectedSupplier(null)}
+                                className="fixed top-6 right-6 md:top-10 md:right-10 z-[120] w-14 h-14 flex items-center justify-center group active:scale-95"
+                            >
+                                <div className="absolute inset-0 bg-white/5 hover:bg-white/10 backdrop-blur-md rounded-full border border-white/10 transition-colors shadow-2xl"></div>
+                                <X size={32} className="text-white/40 group-hover:text-white transition-colors relative z-10" />
+                            </motion.button>
 
-                                <div className="relative z-10 flex-1">
-                                    <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-8 mb-4">
-                                        <div className="flex items-center gap-4">
-                                            <div className="bg-white/10 p-4 rounded-[2rem] backdrop-blur-md border border-white/10 shadow-inner">
-                                                <Receipt size={36} className="text-[#c69f6e]" />
+                            <motion.div
+                                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                                animate={{ scale: 1, opacity: 1, y: 0 }}
+                                exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                                onClick={e => e.stopPropagation()}
+                                className="bg-white rounded-[3rem] w-full max-w-5xl max-h-[90vh] overflow-hidden shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)] border border-white/20 flex flex-col relative"
+                            >
+                                <div className="p-10 md:p-14 bg-[#4a3426] text-white relative flex justify-between items-center shrink-0 overflow-hidden">
+                                    {/* Decorative Background Elements */}
+                                    <div className="absolute top-0 right-0 w-80 h-80 bg-[#c69f6e]/10 rounded-full blur-[100px] -mr-40 -mt-40 pointer-events-none"></div>
+                                    <div className="absolute bottom-0 left-0 w-60 h-60 bg-black/20 rounded-full blur-[80px] -ml-30 -mb-30 pointer-events-none"></div>
+
+                                    <div className="relative z-10 flex-1">
+                                        <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-8 mb-4">
+                                            <div className="flex items-center gap-4">
+                                                <div className="bg-white/10 p-4 rounded-[2rem] backdrop-blur-md border border-white/10 shadow-inner">
+                                                    <Receipt size={36} className="text-[#c69f6e]" />
+                                                </div>
+                                                <h2 className="text-2xl md:text-4xl font-black uppercase tracking-tighter leading-none max-w-[15ch] md:max-w-none">
+                                                    {selectedSupplier}
+                                                </h2>
                                             </div>
-                                            <h2 className="text-2xl md:text-4xl font-black uppercase tracking-tighter leading-none max-w-[15ch] md:max-w-none">
-                                                {selectedSupplier}
-                                            </h2>
-                                        </div>
 
-                                        <div className="hidden md:block h-10 w-px bg-white/10"></div>
+                                            <div className="hidden md:block h-10 w-px bg-white/10"></div>
 
-                                        <div className="flex flex-col">
-                                            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#c69f6e]/80 mb-1">Total Mensuel</span>
-                                            <div className="flex items-baseline gap-2">
-                                                <span className="text-3xl font-black tracking-tighter text-white">
-                                                    {aggregates?.groupedExpenses?.find((e: any) => e.name === selectedSupplier)?.amount.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
-                                                </span>
-                                                <span className="text-sm font-bold text-[#c69f6e]">DT</span>
+                                            <div className="flex flex-col">
+                                                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#c69f6e]/80 mb-1">Total Mensuel</span>
+                                                <div className="flex items-baseline gap-2">
+                                                    <span className="text-3xl font-black tracking-tighter text-white">
+                                                        {aggregates?.groupedExpenses?.find((e: any) => e.name === selectedSupplier)?.amount.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                                    </span>
+                                                    <span className="text-sm font-bold text-[#c69f6e]">DT</span>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-2 h-2 rounded-full bg-[#c69f6e] animate-pulse"></div>
-                                        <p className="text-[11px] text-white/50 font-bold uppercase tracking-[0.2em]">{monthDisplay}</p>
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-2 h-2 rounded-full bg-[#c69f6e] animate-pulse"></div>
+                                            <p className="text-[11px] text-white/50 font-bold uppercase tracking-[0.2em]">{monthDisplay}</p>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <div className="flex-1 overflow-y-auto p-8 md:p-12 custom-scrollbar bg-[#fdfbf7]">
-                                {loadingInvoices ? (
-                                    <div className="py-20 flex flex-col items-center gap-4">
-                                        <Loader2 className="animate-spin text-[#c69f6e]" size={40} />
-                                        <p className="font-bold text-[#8c8279] animate-pulse">Chargement des factures...</p>
-                                    </div>
-                                ) : (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                        {(aggregates?.allExpenses || [])
-                                            .filter((e: any) => e.supplier === selectedSupplier && e.paymentMethod !== 'Prélèvement')
-                                            .map((inv: any, idx: number) => (
-                                                <motion.div
-                                                    key={`${inv.invoiceId || 'manual'}-${idx}`}
-                                                    whileHover={{ y: -5 }}
-                                                    className="bg-white rounded-[2rem] border border-[#e6dace]/50 p-6 relative group overflow-hidden shadow-sm hover:shadow-xl transition-all"
-                                                >
-                                                    <div className="absolute top-0 right-0 w-24 h-24 bg-[#c69f6e]/5 rounded-full blur-2xl -mr-12 -mt-12 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                <div className="flex-1 overflow-y-auto p-8 md:p-12 custom-scrollbar bg-[#fdfbf7]">
+                                    {loadingInvoices ? (
+                                        <div className="py-20 flex flex-col items-center gap-4">
+                                            <Loader2 className="animate-spin text-[#c69f6e]" size={40} />
+                                            <p className="font-bold text-[#8c8279] animate-pulse">Chargement des factures...</p>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                            {(aggregates?.allExpenses || [])
+                                                .filter((e: any) => e.supplier === selectedSupplier && e.paymentMethod !== 'Prélèvement')
+                                                .map((inv: any, idx: number) => (
+                                                    <motion.div
+                                                        key={`${inv.invoiceId || 'manual'}-${idx}`}
+                                                        whileHover={{ y: -5 }}
+                                                        className="bg-white rounded-[2rem] border border-[#e6dace]/50 p-6 relative group overflow-hidden shadow-sm hover:shadow-xl transition-all"
+                                                    >
+                                                        <div className="absolute top-0 right-0 w-24 h-24 bg-[#c69f6e]/5 rounded-full blur-2xl -mr-12 -mt-12 opacity-0 group-hover:opacity-100 transition-opacity"></div>
 
-                                                    <div className="relative z-10">
-                                                        <div className="flex justify-between items-start mb-6">
-                                                            <div className="space-y-1">
-                                                                <div className="text-[10px] font-black uppercase text-[#8c8279] tracking-widest flex items-center gap-2">
-                                                                    <Calendar size={12} className="text-[#c69f6e]" />
-                                                                    {inv.date ? new Date(inv.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) : 'Sans Date'}
+                                                        <div className="relative z-10">
+                                                            <div className="flex justify-between items-start mb-6">
+                                                                <div className="space-y-1">
+                                                                    <div className="text-[10px] font-black uppercase text-[#8c8279] tracking-widest flex items-center gap-2">
+                                                                        <Calendar size={12} className="text-[#c69f6e]" />
+                                                                        {inv.date ? new Date(inv.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) : 'Sans Date'}
+                                                                    </div>
+                                                                    <div className="px-2 py-1 rounded-lg text-[8px] font-black uppercase inline-flex items-center gap-1 bg-green-50 text-green-600 border border-green-100">
+                                                                        <div className="w-1 h-1 rounded-full bg-green-600"></div>
+                                                                        Règlement effectué
+                                                                    </div>
+                                                                    <div className="mt-1 text-[8px] font-black text-[#8c8279] uppercase tracking-widest bg-[#f9f7f5] px-2 py-0.5 rounded border border-[#e6dace]/30 w-fit">
+                                                                        {inv.paymentMethod}
+                                                                    </div>
                                                                 </div>
-                                                                <div className="px-2 py-1 rounded-lg text-[8px] font-black uppercase inline-flex items-center gap-1 bg-green-50 text-green-600 border border-green-100">
-                                                                    <div className="w-1 h-1 rounded-full bg-green-600"></div>
-                                                                    Règlement effectué
-                                                                </div>
-                                                                <div className="mt-1 text-[8px] font-black text-[#8c8279] uppercase tracking-widest bg-[#f9f7f5] px-2 py-0.5 rounded border border-[#e6dace]/30 w-fit">
-                                                                    {inv.paymentMethod}
+                                                                <div className="text-right">
+                                                                    <div className="text-2xl font-black text-[#4a3426] tracking-tighter leading-none">
+                                                                        {parseFloat(inv.amount).toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                                                    </div>
+                                                                    <div className="text-[9px] font-black text-[#c69f6e] uppercase tracking-widest mt-1">DT</div>
                                                                 </div>
                                                             </div>
-                                                            <div className="text-right">
-                                                                <div className="text-2xl font-black text-[#4a3426] tracking-tighter leading-none">
-                                                                    {parseFloat(inv.amount).toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
-                                                                </div>
-                                                                <div className="text-[9px] font-black text-[#c69f6e] uppercase tracking-widest mt-1">DT</div>
-                                                            </div>
-                                                        </div>
 
-                                                        {(() => {
-                                                            const hasLegacy = !!(inv.photo_url && inv.photo_url.length > 5);
-                                                            const hasCheque = !!((inv.photo_cheque || inv.photo_cheque_url || '').length > 5 || (inv.photo_verso || inv.photo_verso_url || '').length > 5);
-                                                            const hasGallery = Array.isArray(inv.invoices) && inv.invoices.length > 0;
-                                                            const hasNewPhotos = !!(inv.photos && inv.photos !== '[]' && inv.photos.length > 5);
+                                                            {(() => {
+                                                                const hasLegacy = !!(inv.photo_url && inv.photo_url.length > 5);
+                                                                const hasCheque = !!((inv.photo_cheque || inv.photo_cheque_url || '').length > 5 || (inv.photo_verso || inv.photo_verso_url || '').length > 5);
+                                                                const hasGallery = Array.isArray(inv.invoices) && inv.invoices.length > 0;
+                                                                const hasNewPhotos = !!(inv.photos && inv.photos !== '[]' && inv.photos.length > 5);
 
-                                                            if (hasLegacy || hasCheque || hasGallery || hasNewPhotos) {
+                                                                if (hasLegacy || hasCheque || hasGallery || hasNewPhotos) {
+                                                                    return (
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                // Normalize for viewer
+                                                                                const normalized = {
+                                                                                    ...inv,
+                                                                                    photos: Array.isArray(inv.invoices) ? JSON.stringify(inv.invoices) : (inv.photos || '[]'),
+                                                                                    photo_cheque_url: inv.photo_cheque || inv.photo_cheque_url,
+                                                                                    photo_verso_url: inv.photo_verso || inv.photo_verso_url
+                                                                                };
+                                                                                setViewingData(normalized);
+                                                                            }}
+                                                                            className="w-full h-12 bg-[#4a3426] hover:bg-[#c69f6e] text-white rounded-xl flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-[#4a3426]/10 hover:shadow-[#c69f6e]/20"
+                                                                        >
+                                                                            <Eye size={16} />
+                                                                            <span>Justificatifs</span>
+                                                                        </button>
+                                                                    );
+                                                                }
+
                                                                 return (
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            // Normalize for viewer
-                                                                            const normalized = {
-                                                                                ...inv,
-                                                                                photos: Array.isArray(inv.invoices) ? JSON.stringify(inv.invoices) : (inv.photos || '[]'),
-                                                                                photo_cheque_url: inv.photo_cheque || inv.photo_cheque_url,
-                                                                                photo_verso_url: inv.photo_verso || inv.photo_verso_url
-                                                                            };
-                                                                            setViewingData(normalized);
-                                                                        }}
-                                                                        className="w-full h-12 bg-[#4a3426] hover:bg-[#c69f6e] text-white rounded-xl flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-[#4a3426]/10 hover:shadow-[#c69f6e]/20"
-                                                                    >
-                                                                        <Eye size={16} />
-                                                                        <span>Justificatifs</span>
-                                                                    </button>
+                                                                    <div className="w-full h-12 bg-[#f9f7f5] rounded-xl flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest text-[#8c8279] border border-dashed border-[#e6dace]">
+                                                                        <span>Aucun visuel</span>
+                                                                    </div>
                                                                 );
-                                                            }
-
-                                                            return (
-                                                                <div className="w-full h-12 bg-[#f9f7f5] rounded-xl flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest text-[#8c8279] border border-dashed border-[#e6dace]">
-                                                                    <span>Aucun visuel</span>
-                                                                </div>
-                                                            );
-                                                        })()}
-                                                    </div>
-                                                </motion.div>
-                                            ))}
-                                    </div>
-                                )}
-                            </div>
+                                                            })()}
+                                                        </div>
+                                                    </motion.div>
+                                                ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </motion.div>
                         </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+                    )
+                }
+            </AnimatePresence >
 
             {/* Viewing Data Modal (Photos) */}
             <AnimatePresence>
-                {viewingData && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[130] bg-black/95 backdrop-blur-2xl flex items-center justify-center p-4"
-                        onClick={() => setViewingData(null)}
-                    >
+                {
+                    viewingData && (
                         <motion.div
-                            initial={{ scale: 0.9, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.9, opacity: 0 }}
-                            className="bg-white rounded-[3rem] p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto relative shadow-2xl"
-                            onClick={e => e.stopPropagation()}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 z-[130] bg-black/95 backdrop-blur-2xl flex items-center justify-center p-4"
+                            onClick={() => setViewingData(null)}
                         >
-                            <button onClick={() => setViewingData(null)} className="absolute top-8 right-8 p-3 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors z-10"><X size={24} /></button>
-                            <h3 className="text-2xl font-black mb-8 text-[#4a3426] flex items-center gap-3 uppercase tracking-tighter"><Receipt size={28} className="text-[#c69f6e]" /> Justificatifs de Paiement</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                {(() => {
-                                    let gallery: string[] = [];
-                                    try {
-                                        const rawPhotos = viewingData.photos;
-                                        // Handle various falsy or stringified null cases
-                                        if (rawPhotos && rawPhotos !== 'null' && rawPhotos !== '[]') {
-                                            const parsed = typeof rawPhotos === 'string' ? JSON.parse(rawPhotos) : rawPhotos;
-                                            gallery = Array.isArray(parsed) ? parsed : [];
+                            <motion.div
+                                initial={{ scale: 0.9, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                exit={{ scale: 0.9, opacity: 0 }}
+                                className="bg-white rounded-[3rem] p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto relative shadow-2xl"
+                                onClick={e => e.stopPropagation()}
+                            >
+                                <button onClick={() => setViewingData(null)} className="absolute top-8 right-8 p-3 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors z-10"><X size={24} /></button>
+                                <h3 className="text-2xl font-black mb-8 text-[#4a3426] flex items-center gap-3 uppercase tracking-tighter"><Receipt size={28} className="text-[#c69f6e]" /> Justificatifs de Paiement</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    {(() => {
+                                        let gallery: string[] = [];
+                                        try {
+                                            const rawPhotos = viewingData.photos;
+                                            // Handle various falsy or stringified null cases
+                                            if (rawPhotos && rawPhotos !== 'null' && rawPhotos !== '[]') {
+                                                const parsed = typeof rawPhotos === 'string' ? JSON.parse(rawPhotos) : rawPhotos;
+                                                gallery = Array.isArray(parsed) ? parsed : [];
+                                            }
+                                        } catch (e) {
+                                            gallery = [];
                                         }
-                                    } catch (e) {
-                                        gallery = [];
-                                    }
 
-                                    // Collect all unique photos
-                                    const allPhotos = [...gallery];
-                                    if (viewingData.photo_url && viewingData.photo_url.length > 5 && !allPhotos.includes(viewingData.photo_url)) {
-                                        allPhotos.unshift(viewingData.photo_url);
-                                    }
+                                        // Collect all unique photos
+                                        const allPhotos = [...gallery];
+                                        if (viewingData.photo_url && viewingData.photo_url.length > 5 && !allPhotos.includes(viewingData.photo_url)) {
+                                            allPhotos.unshift(viewingData.photo_url);
+                                        }
 
-                                    if (allPhotos.length === 0 && !viewingData.photo_cheque_url && !viewingData.photo_verso_url) {
-                                        return (
-                                            <div className="col-span-full py-20 text-center text-[#8c8279] opacity-50 italic font-medium">
-                                                Aucun document attaché à cette facture.
+                                        if (allPhotos.length === 0 && !viewingData.photo_cheque_url && !viewingData.photo_verso_url) {
+                                            return (
+                                                <div className="col-span-full py-20 text-center text-[#8c8279] opacity-50 italic font-medium">
+                                                    Aucun document attaché à cette facture.
+                                                </div>
+                                            );
+                                        }
+
+                                        return allPhotos.map((photo, pIdx) => (
+                                            <div key={pIdx} className="space-y-4">
+                                                <div className="flex justify-between items-center px-2">
+                                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#c69f6e]">Document {allPhotos.length > 1 ? pIdx + 1 : ''}</p>
+                                                    <a
+                                                        href={photo}
+                                                        download={`document-${pIdx + 1}.png`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="flex items-center gap-2 text-[9px] font-black text-[#c69f6e] uppercase tracking-widest hover:text-[#4a3426] transition-colors bg-[#f9f7f5] px-3 py-1.5 rounded-lg border border-[#e6dace]/30 shadow-sm"
+                                                    >
+                                                        <Download size={12} /> Télécharger
+                                                    </a>
+                                                </div>
+                                                <div className="rounded-[2rem] overflow-hidden border border-gray-100 shadow-xl bg-gray-50 aspect-[3/4] md:aspect-auto md:min-h-[400px]">
+                                                    <img src={photo} className="w-full h-full object-contain" alt={`Document ${pIdx + 1}`} />
+                                                </div>
                                             </div>
-                                        );
-                                    }
-
-                                    return allPhotos.map((photo, pIdx) => (
-                                        <div key={pIdx} className="space-y-4">
+                                        ));
+                                    })()}
+                                    {viewingData.photo_cheque_url && (
+                                        <div className="space-y-4">
                                             <div className="flex justify-between items-center px-2">
-                                                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#c69f6e]">Document {allPhotos.length > 1 ? pIdx + 1 : ''}</p>
+                                                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#c69f6e]">Chèque (Recto)</p>
                                                 <a
-                                                    href={photo}
-                                                    download={`document-${pIdx + 1}.png`}
+                                                    href={viewingData.photo_cheque_url}
+                                                    download="cheque-recto.png"
                                                     target="_blank"
                                                     rel="noopener noreferrer"
                                                     className="flex items-center gap-2 text-[9px] font-black text-[#c69f6e] uppercase tracking-widest hover:text-[#4a3426] transition-colors bg-[#f9f7f5] px-3 py-1.5 rounded-lg border border-[#e6dace]/30 shadow-sm"
@@ -1031,55 +1067,36 @@ export default function DashboardPage() {
                                                     <Download size={12} /> Télécharger
                                                 </a>
                                             </div>
-                                            <div className="rounded-[2rem] overflow-hidden border border-gray-100 shadow-xl bg-gray-50 aspect-[3/4] md:aspect-auto md:min-h-[400px]">
-                                                <img src={photo} className="w-full h-full object-contain" alt={`Document ${pIdx + 1}`} />
+                                            <div className="rounded-[2rem] overflow-hidden border border-gray-100 shadow-xl bg-gray-50 aspect-video">
+                                                <img src={viewingData.photo_cheque_url} className="w-full h-full object-contain" alt="Chèque Recto" />
                                             </div>
                                         </div>
-                                    ));
-                                })()}
-                                {viewingData.photo_cheque_url && (
-                                    <div className="space-y-4">
-                                        <div className="flex justify-between items-center px-2">
-                                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#c69f6e]">Chèque (Recto)</p>
-                                            <a
-                                                href={viewingData.photo_cheque_url}
-                                                download="cheque-recto.png"
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="flex items-center gap-2 text-[9px] font-black text-[#c69f6e] uppercase tracking-widest hover:text-[#4a3426] transition-colors bg-[#f9f7f5] px-3 py-1.5 rounded-lg border border-[#e6dace]/30 shadow-sm"
-                                            >
-                                                <Download size={12} /> Télécharger
-                                            </a>
+                                    )}
+                                    {viewingData.photo_verso_url && (
+                                        <div className="space-y-4">
+                                            <div className="flex justify-between items-center px-2">
+                                                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#c69f6e]">Chèque (Verso)</p>
+                                                <a
+                                                    href={viewingData.photo_verso_url}
+                                                    download="cheque-verso.png"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="flex items-center gap-2 text-[9px] font-black text-[#c69f6e] uppercase tracking-widest hover:text-[#4a3426] transition-colors bg-[#f9f7f5] px-3 py-1.5 rounded-lg border border-[#e6dace]/30 shadow-sm"
+                                                >
+                                                    <Download size={12} /> Télécharger
+                                                </a>
+                                            </div>
+                                            <div className="rounded-[2rem] overflow-hidden border border-gray-100 shadow-xl bg-gray-50 aspect-video">
+                                                <img src={viewingData.photo_verso_url} className="w-full h-full object-contain" alt="Chèque Verso" />
+                                            </div>
                                         </div>
-                                        <div className="rounded-[2rem] overflow-hidden border border-gray-100 shadow-xl bg-gray-50 aspect-video">
-                                            <img src={viewingData.photo_cheque_url} className="w-full h-full object-contain" alt="Chèque Recto" />
-                                        </div>
-                                    </div>
-                                )}
-                                {viewingData.photo_verso_url && (
-                                    <div className="space-y-4">
-                                        <div className="flex justify-between items-center px-2">
-                                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#c69f6e]">Chèque (Verso)</p>
-                                            <a
-                                                href={viewingData.photo_verso_url}
-                                                download="cheque-verso.png"
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="flex items-center gap-2 text-[9px] font-black text-[#c69f6e] uppercase tracking-widest hover:text-[#4a3426] transition-colors bg-[#f9f7f5] px-3 py-1.5 rounded-lg border border-[#e6dace]/30 shadow-sm"
-                                            >
-                                                <Download size={12} /> Télécharger
-                                            </a>
-                                        </div>
-                                        <div className="rounded-[2rem] overflow-hidden border border-gray-100 shadow-xl bg-gray-50 aspect-video">
-                                            <img src={viewingData.photo_verso_url} className="w-full h-full object-contain" alt="Chèque Verso" />
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
+                                    )}
+                                </div>
+                            </motion.div>
                         </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-        </div>
+                    )
+                }
+            </AnimatePresence >
+        </div >
     );
 }
