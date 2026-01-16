@@ -703,7 +703,7 @@ export default function StatistiquesPage() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {statsData.map((d: any, i: number) => {
+                                    {[...statsData].reverse().map((d: any, i: number) => {
                                         const margin = (d.net / (d.recette || 1)) * 100;
                                         return (
                                             <tr key={i} className="border-b border-[#f4ece4] hover:bg-[#fcfaf8] transition-colors">
