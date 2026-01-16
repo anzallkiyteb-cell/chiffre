@@ -185,10 +185,10 @@ const GET_PAYMENT_DATA = gql`
       diponce
       diponce_divers
       diponce_admin
-      avances_details { username montant }
-      doublages_details { username montant }
-      extras_details { username montant }
-      primes_details { username montant }
+      avances_details { username montant created_at }
+      doublages_details { username montant created_at }
+      extras_details { username montant created_at }
+      primes_details { username montant created_at }
       restes_salaires_details { username montant created_at }
     }
     getSalaryRemainders(month: $month) {
@@ -649,12 +649,16 @@ export default function PaiementsPage() {
             fournisseurs: group(agg.fournisseurs, 'supplier', 'amount'),
             divers: group(agg.divers, 'designation', 'amount'),
             administratif: group(agg.administratif, 'designation', 'amount'),
-            avances: group(agg.avances, 'username', 'montant'),
-            doublages: group(agg.doublages, 'username', 'montant'),
-            extras: group(agg.extras, 'username', 'montant'),
-            primes: group(agg.primes, 'username', 'montant'),
+            avances: (agg.avances || []).map((a: any) => ({ name: a.username, amount: parseFloat(a.montant), updated_at: a.created_at })).sort((a: any, b: any) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()),
+            doublages: (agg.doublages || []).map((d: any) => ({ name: d.username, amount: parseFloat(d.montant), updated_at: d.created_at })).sort((a: any, b: any) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()),
+            extras: (agg.extras || []).map((e: any) => ({ name: e.username, amount: parseFloat(e.montant), updated_at: e.created_at })).sort((a: any, b: any) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()),
+            primes: (agg.primes || []).map((p: any) => ({ name: p.username, amount: parseFloat(p.montant), updated_at: p.created_at })).sort((a: any, b: any) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()),
             restesSalaires: group(agg.restesSalaires, 'username', 'montant'),
-            remainders: agg.remainders
+            remainders: (agg.remainders || []).sort((a: any, b: any) => {
+                const da = new Date(Number(a.updated_at) || a.updated_at).getTime();
+                const db = new Date(Number(b.updated_at) || b.updated_at).getTime();
+                return db - da;
+            })
         };
     }, [data]);
 
@@ -2375,9 +2379,12 @@ export default function PaiementsPage() {
                                                                             <div className="flex flex-col">
                                                                                 <span className="text-[11px] font-bold text-[#4a3426]/70 uppercase tracking-tight">{item.name}</span>
                                                                                 {item.updated_at && (
-                                                                                    <span className="text-[9px] font-bold text-green-600/60 flex items-center gap-1 mt-0.5">
-                                                                                        <CheckCircle2 size={9} />
-                                                                                        {new Date(Number(item.updated_at) || item.updated_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                                                                    <span className="text-[9px] font-bold text-green-500/80 flex items-center gap-1 mt-0.5">
+                                                                                        <Clock size={10} className="opacity-70" />
+                                                                                        {(() => {
+                                                                                            const d = new Date(Number(item.updated_at) || item.updated_at);
+                                                                                            return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+                                                                                        })()}
                                                                                     </span>
                                                                                 )}
                                                                             </div>
