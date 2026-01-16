@@ -385,7 +385,7 @@ export default function CoutAchatPage() {
                                 <div className="bg-[#4a3426] p-5 rounded-[2rem] text-white shadow-xl flex flex-col justify-between min-h-[140px]">
                                     <div className="flex justify-between items-start opacity-60">
                                         <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center"><CheckCircle2 size={20} /></div>
-                                        <div className="text-[9px] font-black uppercase tracking-widest">Global Payé</div>
+                                        <div className="text-[9px] font-black uppercase tracking-widest">achat Payé</div>
                                     </div>
                                     <div>
                                         <div className="text-2xl font-black tracking-tighter">{aggregates.totalPaid.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</div>
@@ -405,7 +405,7 @@ export default function CoutAchatPage() {
                                 <div className="bg-white p-5 rounded-[2rem] border border-red-100 shadow-sm flex flex-col justify-between min-h-[140px]">
                                     <div className="flex justify-between items-start">
                                         <div className="w-10 h-10 rounded-xl bg-red-50 text-red-500 flex items-center justify-center"><AlertCircle size={20} /></div>
-                                        <div className="text-[9px] font-black uppercase tracking-widest text-red-300">Global Impayé</div>
+                                        <div className="text-[9px] font-black uppercase tracking-widest text-red-300">achat non payé</div>
                                     </div>
                                     <div>
                                         <div className="text-2xl font-black tracking-tighter text-red-500">{aggregates.totalUnpaid.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</div>

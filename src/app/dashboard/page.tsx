@@ -174,7 +174,7 @@ export default function DashboardPage() {
     // Default to current month
     const today = new Date();
     const [pickerYear, setPickerYear] = useState(today.getFullYear());
-    const [selectedSupplier, setSelectedSupplier] = useState<string | null>(null);
+    const [selectedDetail, setSelectedDetail] = useState<{ name: string, type: 'fournisseur' | 'divers' | 'administratif' } | null>(null);
     const [viewingData, setViewingData] = useState<any | null>(null);
     const [showHistoryModal, setShowHistoryModal] = useState<{ isOpen: boolean, type: string, targetName?: string } | null>(null);
     const [hideRecetteCaisse, setHideRecetteCaisse] = useState(false);
@@ -255,14 +255,14 @@ export default function DashboardPage() {
 
                 // Accumulate details
                 // Accumulate details with date injection
-                allExpenses: [...acc.allExpenses, ...JSON.parse(curr.diponce || '[]').map((i: any) => ({ ...i, date: curr.date }))],
+                allExpenses: [...acc.allExpenses, ...JSON.parse(curr.diponce || '[]').map((i: any) => ({ ...i, date: curr.date, drillName: i.supplier }))],
                 allAvances: [...acc.allAvances, ...curr.avances_details.map((i: any) => ({ ...i, date: curr.date }))],
                 allDoublages: [...acc.allDoublages, ...curr.doublages_details.map((i: any) => ({ ...i, date: curr.date }))],
                 allExtras: [...acc.allExtras, ...curr.extras_details.map((i: any) => ({ ...i, date: curr.date }))],
                 allPrimes: [...acc.allPrimes, ...curr.primes_details.map((i: any) => ({ ...i, date: curr.date }))],
                 allRestesSalaires: [...acc.allRestesSalaires, ...curr.restes_salaires_details.map((i: any) => ({ ...i, date: curr.date }))],
-                allDivers: [...acc.allDivers, ...JSON.parse(curr.diponce_divers || '[]').map((i: any) => ({ ...i, date: curr.date }))],
-                allAdmin: [...acc.allAdmin, ...JSON.parse(curr.diponce_admin || '[]').map((i: any) => ({ ...i, date: curr.date }))],
+                allDivers: [...acc.allDivers, ...JSON.parse(curr.diponce_divers || '[]').map((i: any) => ({ ...i, date: curr.date, drillName: i.designation }))],
+                allAdmin: [...acc.allAdmin, ...JSON.parse(curr.diponce_admin || '[]').map((i: any) => ({ ...i, date: curr.date, drillName: i.designation }))],
             };
         }, {
             recette_de_caisse: 0, total_diponce: 0, recette_net: 0,
@@ -325,11 +325,11 @@ export default function DashboardPage() {
     // Query for selected supplier invoices
     const { data: invoiceData, loading: loadingInvoices } = useQuery(GET_INVOICES, {
         variables: {
-            supplierName: selectedSupplier || undefined,
+            supplierName: (selectedDetail?.type === 'fournisseur' ? selectedDetail.name : undefined),
             startDate: dateRange.start,
             endDate: dateRange.end
         },
-        skip: !selectedSupplier
+        skip: !selectedDetail || selectedDetail.type !== 'fournisseur'
     });
 
     if (initializing || !user) return (
@@ -469,7 +469,7 @@ export default function DashboardPage() {
                                                 <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                                                     <div className="pt-6 space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-2 mt-2 border-t border-dashed border-[#e6dace]/50">
                                                         {aggregates.groupedExpenses.length > 0 ? aggregates.groupedExpenses.map((a: any, i: number) => (
-                                                            <button key={i} onClick={() => setSelectedSupplier(a.name)} className="w-full flex justify-between items-center p-3 bg-[#fcfaf8] rounded-xl border border-[#e6dace]/30 group hover:bg-[#4a3426] transition-all">
+                                                            <button key={i} onClick={() => setSelectedDetail({ name: a.name, type: 'fournisseur' })} className="w-full flex justify-between items-center p-3 bg-[#fcfaf8] rounded-xl border border-[#e6dace]/30 group hover:bg-[#4a3426] transition-all">
                                                                 <span className="font-bold text-[#4a3426] text-sm group-hover:text-white transition-colors truncate max-w-[60%]">{a.name}</span>
                                                                 <div className="flex items-center gap-2">
                                                                     <span className="font-black text-[#4a3426] group-hover:text-white transition-colors">{a.amount.toFixed(3)}</span>
@@ -508,10 +508,13 @@ export default function DashboardPage() {
                                                 <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                                                     <div className="pt-6 space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-2 mt-2 border-t border-dashed border-[#e6dace]/50">
                                                         {aggregates.groupedDivers.length > 0 ? aggregates.groupedDivers.map((a: any, i: number) => (
-                                                            <div key={i} className="flex justify-between items-center p-3 bg-[#fcfaf8] rounded-xl border border-[#e6dace]/30 group hover:bg-white hover:border-[#c69f6e]/30 transition-all">
-                                                                <span className="font-bold text-[#4a3426] text-sm opacity-70 group-hover:opacity-100 transition-opacity truncate max-w-[60%]">{a.name}</span>
-                                                                <span className="font-black text-[#4a3426]">{a.amount.toFixed(3)}</span>
-                                                            </div>
+                                                            <button key={i} onClick={() => setSelectedDetail({ name: a.name, type: 'divers' })} className="w-full flex justify-between items-center p-3 bg-[#fcfaf8] rounded-xl border border-[#e6dace]/30 group hover:bg-[#4a3426] hover:border-[#4a3426] transition-all">
+                                                                <span className="font-bold text-[#4a3426] text-sm group-hover:text-white transition-colors truncate max-w-[60%]">{a.name}</span>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="font-black text-[#4a3426] group-hover:text-white transition-colors">{a.amount.toFixed(3)}</span>
+                                                                    <Eye size={12} className="text-[#c69f6e] opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                                </div>
+                                                            </button>
                                                         )) : <div className="py-10 text-center italic text-[#8c8279] opacity-40 text-xs">Aucune donnée</div>}
                                                     </div>
                                                 </motion.div>
@@ -544,10 +547,13 @@ export default function DashboardPage() {
                                                 <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                                                     <div className="pt-6 space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-2 mt-2 border-t border-dashed border-[#e6dace]/50">
                                                         {aggregates.groupedAdmin.length > 0 ? aggregates.groupedAdmin.map((a: any, i: number) => (
-                                                            <div key={i} className="flex justify-between items-center p-3 bg-[#fcfaf8] rounded-xl border border-[#e6dace]/30 group hover:bg-white hover:border-[#c69f6e]/30 transition-all">
-                                                                <span className="font-bold text-[#4a3426] text-sm opacity-70 group-hover:opacity-100 transition-opacity truncate max-w-[60%]">{a.name}</span>
-                                                                <span className="font-black text-[#4a3426]">{a.amount.toFixed(3)}</span>
-                                                            </div>
+                                                            <button key={i} onClick={() => setSelectedDetail({ name: a.name, type: 'administratif' })} className="w-full flex justify-between items-center p-3 bg-[#fcfaf8] rounded-xl border border-[#e6dace]/30 group hover:bg-[#4a3426] hover:border-[#4a3426] transition-all">
+                                                                <span className="font-bold text-[#4a3426] text-sm group-hover:text-white transition-colors truncate max-w-[60%]">{a.name}</span>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="font-black text-[#4a3426] group-hover:text-white transition-colors">{a.amount.toFixed(3)}</span>
+                                                                    <Eye size={12} className="text-[#c69f6e] opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                                </div>
+                                                            </button>
                                                         )) : <div className="py-10 text-center italic text-[#8c8279] opacity-40 text-xs">Aucune donnée</div>}
                                                     </div>
                                                 </motion.div>
@@ -890,16 +896,15 @@ export default function DashboardPage() {
                 />
             </div >
 
-            {/* Invoices Modal */}
             <AnimatePresence>
                 {
-                    selectedSupplier && (
+                    selectedDetail && (
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             className="fixed inset-0 z-[110] bg-[#1a110a]/80 backdrop-blur-xl flex items-center justify-center p-4 md:p-10"
-                            onClick={() => setSelectedSupplier(null)}
+                            onClick={() => setSelectedDetail(null)}
                         >
                             {/* High-End Fixed Close Button (Top Right of Screen) */}
                             <motion.button
@@ -907,7 +912,7 @@ export default function DashboardPage() {
                                 animate={{ opacity: 1, scale: 1 }}
                                 whileHover={{ scale: 1.1, rotate: 90 }}
                                 whileTap={{ scale: 0.9 }}
-                                onClick={() => setSelectedSupplier(null)}
+                                onClick={() => setSelectedDetail(null)}
                                 className="fixed top-6 right-6 md:top-10 md:right-10 z-[120] w-14 h-14 flex items-center justify-center group active:scale-95"
                             >
                                 <div className="absolute inset-0 bg-white/5 hover:bg-white/10 backdrop-blur-md rounded-full border border-white/10 transition-colors shadow-2xl"></div>
@@ -922,7 +927,6 @@ export default function DashboardPage() {
                                 className="bg-white rounded-[3rem] w-full max-w-5xl max-h-[90vh] overflow-hidden shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)] border border-white/20 flex flex-col relative"
                             >
                                 <div className="p-10 md:p-14 bg-[#4a3426] text-white relative flex justify-between items-center shrink-0 overflow-hidden">
-                                    {/* Decorative Background Elements */}
                                     <div className="absolute top-0 right-0 w-80 h-80 bg-[#c69f6e]/10 rounded-full blur-[100px] -mr-40 -mt-40 pointer-events-none"></div>
                                     <div className="absolute bottom-0 left-0 w-60 h-60 bg-black/20 rounded-full blur-[80px] -ml-30 -mb-30 pointer-events-none"></div>
 
@@ -930,10 +934,10 @@ export default function DashboardPage() {
                                         <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-8 mb-4">
                                             <div className="flex items-center gap-4">
                                                 <div className="bg-white/10 p-4 rounded-[2rem] backdrop-blur-md border border-white/10 shadow-inner">
-                                                    <Receipt size={36} className="text-[#c69f6e]" />
+                                                    {selectedDetail.type === 'fournisseur' ? <Truck size={36} className="text-[#c69f6e]" /> : <Receipt size={36} className="text-[#c69f6e]" />}
                                                 </div>
-                                                <h2 className="text-2xl md:text-4xl font-black uppercase tracking-tighter leading-none max-w-[15ch] md:max-w-none">
-                                                    {selectedSupplier}
+                                                <h2 className="text-2xl md:text-3xl lg:text-4xl font-black uppercase tracking-tighter leading-none max-w-[15ch] md:max-w-none">
+                                                    {selectedDetail.name}
                                                 </h2>
                                             </div>
 
@@ -943,7 +947,13 @@ export default function DashboardPage() {
                                                 <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#c69f6e]/80 mb-1">Total Mensuel</span>
                                                 <div className="flex items-baseline gap-2">
                                                     <span className="text-3xl font-black tracking-tighter text-white">
-                                                        {aggregates?.groupedExpenses?.find((e: any) => e.name === selectedSupplier)?.amount.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                                        {(() => {
+                                                            let group = [];
+                                                            if (selectedDetail.type === 'fournisseur') group = aggregates?.groupedExpenses;
+                                                            else if (selectedDetail.type === 'divers') group = aggregates?.groupedDivers;
+                                                            else group = aggregates?.groupedAdmin;
+                                                            return group?.find((e: any) => e.name === selectedDetail.name)?.amount.toLocaleString('fr-FR', { minimumFractionDigits: 3 });
+                                                        })()}
                                                     </span>
                                                     <span className="text-sm font-bold text-[#c69f6e]">DT</span>
                                                 </div>
@@ -957,82 +967,88 @@ export default function DashboardPage() {
                                 </div>
 
                                 <div className="flex-1 overflow-y-auto p-8 md:p-12 custom-scrollbar bg-[#fdfbf7]">
-                                    {loadingInvoices ? (
+                                    {loadingInvoices && selectedDetail.type === 'fournisseur' ? (
                                         <div className="py-20 flex flex-col items-center gap-4">
                                             <Loader2 className="animate-spin text-[#c69f6e]" size={40} />
                                             <p className="font-bold text-[#8c8279] animate-pulse">Chargement des factures...</p>
                                         </div>
                                     ) : (
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                            {(aggregates?.allExpenses || [])
-                                                .filter((e: any) => e.supplier === selectedSupplier && e.paymentMethod !== 'Prélèvement')
-                                                .map((inv: any, idx: number) => (
-                                                    <motion.div
-                                                        key={`${inv.invoiceId || 'manual'}-${idx}`}
-                                                        whileHover={{ y: -5 }}
-                                                        className="bg-white rounded-[2rem] border border-[#e6dace]/50 p-6 relative group overflow-hidden shadow-sm hover:shadow-xl transition-all"
-                                                    >
-                                                        <div className="absolute top-0 right-0 w-24 h-24 bg-[#c69f6e]/5 rounded-full blur-2xl -mr-12 -mt-12 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                            {(() => {
+                                                let list = [];
+                                                if (selectedDetail.type === 'fournisseur') list = aggregates?.allExpenses;
+                                                else if (selectedDetail.type === 'divers') list = aggregates?.allDivers;
+                                                else list = aggregates?.allAdmin;
 
-                                                        <div className="relative z-10">
-                                                            <div className="flex justify-between items-start mb-6">
-                                                                <div className="space-y-1">
-                                                                    <div className="text-[10px] font-black uppercase text-[#8c8279] tracking-widest flex items-center gap-2">
-                                                                        <Calendar size={12} className="text-[#c69f6e]" />
-                                                                        {inv.date ? new Date(inv.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) : 'Sans Date'}
+                                                return (list || [])
+                                                    .filter((e: any) => e.drillName === selectedDetail.name && e.paymentMethod !== 'Prélèvement')
+                                                    .map((inv: any, idx: number) => (
+                                                        <motion.div
+                                                            key={`${inv.invoiceId || 'manual'}-${idx}`}
+                                                            whileHover={{ y: -5 }}
+                                                            className="bg-white rounded-[2rem] border border-[#e6dace]/50 p-6 relative group overflow-hidden shadow-sm hover:shadow-xl transition-all"
+                                                        >
+                                                            <div className="absolute top-0 right-0 w-24 h-24 bg-[#c69f6e]/5 rounded-full blur-2xl -mr-12 -mt-12 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+
+                                                            <div className="relative z-10">
+                                                                <div className="flex justify-between items-start mb-6">
+                                                                    <div className="space-y-1">
+                                                                        <div className="text-[10px] font-black uppercase text-[#8c8279] tracking-widest flex items-center gap-2">
+                                                                            <Calendar size={12} className="text-[#c69f6e]" />
+                                                                            {inv.date ? new Date(inv.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) : 'Sans Date'}
+                                                                        </div>
+                                                                        <div className="px-2 py-1 rounded-lg text-[8px] font-black uppercase inline-flex items-center gap-1 bg-green-50 text-green-600 border border-green-100">
+                                                                            <div className="w-1 h-1 rounded-full bg-green-600"></div>
+                                                                            Règlement effectué
+                                                                        </div>
+                                                                        <div className="mt-1 text-[8px] font-black text-[#8c8279] uppercase tracking-widest bg-[#f9f7f5] px-2 py-0.5 rounded border border-[#e6dace]/30 w-fit">
+                                                                            {inv.paymentMethod || 'Espèces'}
+                                                                        </div>
                                                                     </div>
-                                                                    <div className="px-2 py-1 rounded-lg text-[8px] font-black uppercase inline-flex items-center gap-1 bg-green-50 text-green-600 border border-green-100">
-                                                                        <div className="w-1 h-1 rounded-full bg-green-600"></div>
-                                                                        Règlement effectué
-                                                                    </div>
-                                                                    <div className="mt-1 text-[8px] font-black text-[#8c8279] uppercase tracking-widest bg-[#f9f7f5] px-2 py-0.5 rounded border border-[#e6dace]/30 w-fit">
-                                                                        {inv.paymentMethod}
+                                                                    <div className="text-right">
+                                                                        <div className="text-2xl font-black text-[#4a3426] tracking-tighter leading-none">
+                                                                            {parseFloat(inv.amount).toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                                                        </div>
+                                                                        <div className="text-[9px] font-black text-[#c69f6e] uppercase tracking-widest mt-1">DT</div>
                                                                     </div>
                                                                 </div>
-                                                                <div className="text-right">
-                                                                    <div className="text-2xl font-black text-[#4a3426] tracking-tighter leading-none">
-                                                                        {parseFloat(inv.amount).toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
-                                                                    </div>
-                                                                    <div className="text-[9px] font-black text-[#c69f6e] uppercase tracking-widest mt-1">DT</div>
-                                                                </div>
-                                                            </div>
 
-                                                            {(() => {
-                                                                const hasLegacy = !!(inv.photo_url && inv.photo_url.length > 5);
-                                                                const hasCheque = !!((inv.photo_cheque || inv.photo_cheque_url || '').length > 5 || (inv.photo_verso || inv.photo_verso_url || '').length > 5);
-                                                                const hasGallery = Array.isArray(inv.invoices) && inv.invoices.length > 0;
-                                                                const hasNewPhotos = !!(inv.photos && inv.photos !== '[]' && inv.photos.length > 5);
+                                                                {(() => {
+                                                                    const hasLegacy = !!(inv.photo_url && inv.photo_url.length > 5);
+                                                                    const hasCheque = !!((inv.photo_cheque || inv.photo_cheque_url || '').length > 5 || (inv.photo_verso || inv.photo_verso_url || '').length > 5);
+                                                                    const hasGallery = Array.isArray(inv.invoices) && inv.invoices.length > 0;
+                                                                    const hasNewPhotos = !!(inv.photos && inv.photos !== '[]' && inv.photos.length > 5);
 
-                                                                if (hasLegacy || hasCheque || hasGallery || hasNewPhotos) {
+                                                                    if (hasLegacy || hasCheque || hasGallery || hasNewPhotos) {
+                                                                        return (
+                                                                            <button
+                                                                                onClick={() => {
+                                                                                    const normalized = {
+                                                                                        ...inv,
+                                                                                        photos: Array.isArray(inv.invoices) ? JSON.stringify(inv.invoices) : (inv.photos || '[]'),
+                                                                                        photo_cheque_url: inv.photo_cheque || inv.photo_cheque_url,
+                                                                                        photo_verso_url: inv.photo_verso || inv.photo_verso_url
+                                                                                    };
+                                                                                    setViewingData(normalized);
+                                                                                }}
+                                                                                className="w-full h-12 bg-[#4a3426] hover:bg-[#c69f6e] text-white rounded-xl flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-[#4a3426]/10 hover:shadow-[#c69f6e]/20"
+                                                                            >
+                                                                                <Eye size={16} />
+                                                                                <span>Justificatifs</span>
+                                                                            </button>
+                                                                        );
+                                                                    }
+
                                                                     return (
-                                                                        <button
-                                                                            onClick={() => {
-                                                                                // Normalize for viewer
-                                                                                const normalized = {
-                                                                                    ...inv,
-                                                                                    photos: Array.isArray(inv.invoices) ? JSON.stringify(inv.invoices) : (inv.photos || '[]'),
-                                                                                    photo_cheque_url: inv.photo_cheque || inv.photo_cheque_url,
-                                                                                    photo_verso_url: inv.photo_verso || inv.photo_verso_url
-                                                                                };
-                                                                                setViewingData(normalized);
-                                                                            }}
-                                                                            className="w-full h-12 bg-[#4a3426] hover:bg-[#c69f6e] text-white rounded-xl flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-[#4a3426]/10 hover:shadow-[#c69f6e]/20"
-                                                                        >
-                                                                            <Eye size={16} />
-                                                                            <span>Justificatifs</span>
-                                                                        </button>
+                                                                        <div className="w-full h-12 bg-[#f9f7f5] rounded-xl flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest text-[#8c8279] border border-dashed border-[#e6dace]">
+                                                                            <span>Aucun visuel</span>
+                                                                        </div>
                                                                     );
-                                                                }
-
-                                                                return (
-                                                                    <div className="w-full h-12 bg-[#f9f7f5] rounded-xl flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest text-[#8c8279] border border-dashed border-[#e6dace]">
-                                                                        <span>Aucun visuel</span>
-                                                                    </div>
-                                                                );
-                                                            })()}
-                                                        </div>
-                                                    </motion.div>
-                                                ))}
+                                                                })()}
+                                                            </div>
+                                                        </motion.div>
+                                                    ));
+                                            })()}
                                         </div>
                                     )}
                                 </div>
@@ -1056,7 +1072,7 @@ export default function DashboardPage() {
                             <div className="w-full max-w-6xl space-y-8 py-10" onClick={e => e.stopPropagation()}>
                                 <div className="flex justify-between items-center text-white mb-4">
                                     <div>
-                                        <h2 className="text-3xl font-black uppercase tracking-tight">{selectedSupplier}</h2>
+                                        <h2 className="text-3xl font-black uppercase tracking-tight">{selectedDetail?.name}</h2>
                                         <p className="text-sm font-bold opacity-60 uppercase tracking-[0.3em]">
                                             {viewingData.amount?.toLocaleString('fr-FR', { minimumFractionDigits: 3 })} DT • {viewingData.paymentMethod}
                                         </p>
