@@ -180,6 +180,7 @@ export default function DashboardPage() {
     const [hideRecetteCaisse, setHideRecetteCaisse] = useState(false);
     const [hideTotalExpenses, setHideTotalExpenses] = useState(false);
     const [hideTotalSalaries, setHideTotalSalaries] = useState(false);
+    const [hideMonthlySummary, setHideMonthlySummary] = useState(false);
 
     // Filter dates
     const startOfMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
@@ -787,12 +788,20 @@ export default function DashboardPage() {
 
                                 <div className="p-10 md:p-12 border-b border-white/10 relative z-10 flex flex-col gap-12 items-start">
                                     <div className="space-y-1 w-full text-white">
-                                        <div className="flex items-center gap-2 opacity-70 mb-2">
-                                            <Calculator size={18} />
-                                            <span className="text-sm font-black uppercase tracking-[0.2em]">Total Dépenses Mensuel</span>
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <div className="flex items-center gap-2 opacity-70">
+                                                <Calculator size={18} />
+                                                <span className="text-sm font-black uppercase tracking-[0.2em]">Total Dépenses Mensuel</span>
+                                            </div>
+                                            <button
+                                                onClick={() => setHideMonthlySummary(!hideMonthlySummary)}
+                                                className="p-1 hover:bg-white/10 rounded-full transition-colors text-white/70"
+                                            >
+                                                {hideMonthlySummary ? <EyeOff size={14} /> : <Eye size={14} />}
+                                            </button>
                                         </div>
                                         <div className="flex items-baseline gap-3">
-                                            {hideRecetteCaisse ? (
+                                            {hideMonthlySummary ? (
                                                 <span className="text-4xl sm:text-6xl md:text-8xl lg:text-9xl font-black tracking-tighter">********</span>
                                             ) : (
                                                 <span className="text-4xl sm:text-6xl md:text-8xl lg:text-9xl font-black tracking-tighter">{aggregates.total_diponce.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</span>
@@ -809,7 +818,7 @@ export default function DashboardPage() {
                                             <span className="text-sm font-black uppercase tracking-[0.2em]">Recette Nette Estimée</span>
                                         </div>
                                         <div className="flex items-baseline gap-4 mt-2">
-                                            {hideRecetteCaisse ? (
+                                            {hideMonthlySummary ? (
                                                 <span className={`text-4xl sm:text-6xl md:text-9xl lg:text-[10rem] font-black tracking-tighter leading-none transition-all duration-500 text-[#c69f6e]`}>
                                                     ********
                                                 </span>
@@ -841,7 +850,7 @@ export default function DashboardPage() {
                                                 </div>
                                                 <div className="flex items-baseline gap-2 text-white mt-1">
                                                     <div className="text-2xl md:text-3xl font-black tracking-tighter truncate">
-                                                        {hideRecetteCaisse ? '********' : m.val.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                                        {hideMonthlySummary ? '********' : m.val.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
                                                     </div>
                                                     <div className="text-[10px] font-black opacity-20 uppercase shrink-0">DT</div>
                                                 </div>
