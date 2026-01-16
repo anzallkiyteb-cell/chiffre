@@ -1459,6 +1459,11 @@ export default function PaiementsPage() {
 
                                                 return true;
                                             })
+                                            .sort((a: any, b: any) => {
+                                                const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
+                                                if (dateDiff !== 0) return dateDiff;
+                                                return parseInt(b.id) - parseInt(a.id);
+                                            })
                                             .map((inv: any) => (
                                                 <motion.div
                                                     key={inv.id}
