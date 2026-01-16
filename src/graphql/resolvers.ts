@@ -6,8 +6,8 @@ export const resolvers = {
         getChiffreByDate: async (_: any, { date }: { date: string }) => {
             const res = await query('SELECT * FROM chiffres WHERE date = $1', [date]);
 
-            // Fetch paid invoices for this date
-            const paidInvoicesRes = await query("SELECT * FROM invoices WHERE status = 'paid' AND paid_date = $1", [date]);
+            // Fetch paid invoices for this date, excluding those paid via the paiements page (payer = 'riadh')
+            const paidInvoicesRes = await query("SELECT * FROM invoices WHERE status = 'paid' AND paid_date = $1 AND (payer IS NULL OR payer != 'riadh')", [date]);
             const paidInvoices = paidInvoicesRes.rows.map(inv => {
                 let photos = [];
                 try {
@@ -55,17 +55,44 @@ export const resolvers = {
 
             const combinedDiponce = [...existingDiponce, ...paidInvoices];
 
+            // Re-calculate totals to ensure riadh's expenses are excluded even if previously saved in the DB columns
+            let diversList = [], adminList = [];
+            try { diversList = typeof data.diponce_divers === 'string' ? JSON.parse(data.diponce_divers) : (data.diponce_divers || []); } catch (e) { }
+            try { adminList = typeof data.diponce_admin === 'string' ? JSON.parse(data.diponce_admin) : (data.diponce_admin || []); } catch (e) { }
+
+            const sumDiponce = combinedDiponce.reduce((s: number, i: any) => s + (parseFloat(i.amount) || 0), 0);
+            const sumDivers = diversList.reduce((s: number, i: any) => s + (parseFloat(i.amount) || 0), 0);
+            const sumAdmin = adminList.reduce((s: number, i: any) => s + (parseFloat(i.amount) || 0), 0);
+
+            const dayAvances = avances.rows.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant), created_at: r.created_at }));
+            const dayDoublages = doublages.rows.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant), created_at: r.created_at }));
+            const dayExtras = extraDetails.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant), created_at: r.created_at }));
+            const dayPrimes = primesDetails.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant), created_at: r.created_at }));
+            const dayRestesSalaires = restesSalairesDetails.rows.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant), nb_jours: parseFloat(r.nb_jours || '0'), date, created_at: r.created_at }));
+
+            const totalDiponce = sumDiponce + sumDivers + sumAdmin +
+                dayAvances.reduce((s, r) => s + r.montant, 0) +
+                dayDoublages.reduce((s, r) => s + r.montant, 0) +
+                dayExtras.reduce((s, r) => s + r.montant, 0) +
+                dayPrimes.reduce((s, r) => s + r.montant, 0) +
+                dayRestesSalaires.reduce((s, r) => s + r.montant, 0);
+
+            const recetteCaisse = parseFloat(data.recette_de_caisse) || 0;
+            const recetteNet = recetteCaisse - totalDiponce;
+
             return {
                 ...data,
                 is_locked: data.is_locked,
+                total_diponce: totalDiponce.toString(),
+                recette_net: recetteNet.toString(),
                 diponce: JSON.stringify(combinedDiponce),
                 diponce_divers: typeof data.diponce_divers === 'string' ? data.diponce_divers : JSON.stringify(data.diponce_divers || []),
                 diponce_admin: typeof data.diponce_admin === 'string' ? data.diponce_admin : JSON.stringify(data.diponce_admin || []),
-                avances_details: avances.rows.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant), created_at: r.created_at })),
-                doublages_details: doublages.rows.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant), created_at: r.created_at })),
-                extras_details: extraDetails.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant), created_at: r.created_at })),
-                primes_details: primesDetails.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant), created_at: r.created_at })),
-                restes_salaires_details: restesSalairesDetails.rows.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant), nb_jours: parseFloat(r.nb_jours || '0'), date, created_at: r.created_at }))
+                avances_details: dayAvances,
+                doublages_details: dayDoublages,
+                extras_details: dayExtras,
+                primes_details: dayPrimes,
+                restes_salaires_details: dayRestesSalaires
             };
         },
         getInvoices: async (_: any, { supplierName, startDate, endDate, month, payer }: any) => {
@@ -75,11 +102,17 @@ export const resolvers = {
                 params.push(`%${supplierName}%`);
                 sql += ` AND (supplier_name ILIKE $${params.length} OR doc_number ILIKE $${params.length} OR amount::text ILIKE $${params.length})`;
             }
-            if (startDate) {
+            if (startDate && endDate) {
+                params.push(startDate, endDate);
+                sql += ` AND (
+                    (date >= $${params.length - 1} AND date <= $${params.length}) 
+                    OR 
+                    (paid_date >= $${params.length - 1} AND paid_date <= $${params.length})
+                )`;
+            } else if (startDate) {
                 params.push(startDate);
                 sql += ` AND date >= $${params.length}`;
-            }
-            if (endDate) {
+            } else if (endDate) {
                 params.push(endDate);
                 sql += ` AND date <= $${params.length}`;
             }
@@ -105,7 +138,7 @@ export const resolvers = {
                 query('SELECT id, date, employee_name as username, montant FROM doublages WHERE date >= $1 AND date <= $2 ORDER BY id DESC', [startDate, endDate]),
                 query('SELECT id, date, employee_name as username, montant FROM extras WHERE date >= $1 AND date <= $2 ORDER BY id DESC', [startDate, endDate]),
                 query('SELECT id, date, employee_name as username, montant FROM primes WHERE date >= $1 AND date <= $2 ORDER BY id DESC', [startDate, endDate]),
-                query("SELECT * FROM invoices WHERE status = 'paid' AND paid_date >= $1 AND paid_date <= $2", [startDate, endDate]),
+                query(`SELECT * FROM invoices WHERE status = 'paid' AND paid_date >= $1 AND paid_date <= $2 AND (payer IS NULL OR payer != 'riadh')`, [startDate, endDate]),
                 query('SELECT id, date, employee_name as username, montant, nb_jours, created_at FROM restes_salaires_daily WHERE date >= $1 AND date <= $2 ORDER BY id DESC', [startDate, endDate])
             ]);
 
@@ -343,7 +376,7 @@ export const resolvers = {
 
             const [netRes, invoicesRes, unpaidInvoicesRes, tpeRes, chequeRes, cashRes, bankRes, caisseRes, expRes, ticketRes, riadhRes, restesSalairesRes] = await Promise.all([
                 query(`SELECT SUM(CAST(NULLIF(REPLACE(recette_net, ',', '.'), '') AS NUMERIC)) as total FROM chiffres WHERE date ${dateFilter}`, params),
-                query(`SELECT SUM(CAST(NULLIF(REPLACE(amount, ',', '.'), '') AS NUMERIC)) as total FROM invoices WHERE status = 'paid' AND paid_date ${dateFilter.replace('date', 'paid_date')}`, params),
+                query(`SELECT SUM(CAST(NULLIF(REPLACE(amount, ',', '.'), '') AS NUMERIC)) as total FROM invoices WHERE status = 'paid' AND (payer IS NULL OR payer != 'riadh') AND paid_date ${dateFilter.replace('date', 'paid_date')}`, params),
                 query(`SELECT SUM(CAST(NULLIF(REPLACE(amount, ',', '.'), '') AS NUMERIC)) as total FROM invoices WHERE status = 'unpaid' AND date ${dateFilter}`, params),
                 query(`SELECT SUM(CAST(NULLIF(REPLACE(tpe, ',', '.'), '') AS NUMERIC) + COALESCE(CAST(NULLIF(REPLACE(tpe2, ',', '.'), '') AS NUMERIC), 0)) as total FROM chiffres WHERE date ${dateFilter}`, params),
                 query(`SELECT SUM(CAST(NULLIF(REPLACE(cheque_bancaire, ',', '.'), '') AS NUMERIC)) as total FROM chiffres WHERE date ${dateFilter}`, params),
@@ -593,7 +626,7 @@ export const resolvers = {
             const row = res.rows[0];
 
             // After saving, return it with the paid invoices again for the UI
-            const paidInvoicesRes = await query("SELECT * FROM invoices WHERE status = 'paid' AND paid_date = $1", [date]);
+            const paidInvoicesRes = await query("SELECT * FROM invoices WHERE status = 'paid' AND paid_date = $1 AND (payer IS NULL OR payer != 'riadh')", [date]);
             const paidInvoices = paidInvoicesRes.rows.map(inv => ({
                 supplier: inv.supplier_name,
                 amount: inv.amount,

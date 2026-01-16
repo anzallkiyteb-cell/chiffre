@@ -177,9 +177,15 @@ const GET_PAYMENT_DATA = gql`
       photo_url
       photo_cheque_url
       photo_verso_url
+      photos
       payment_method
       paid_date
       category
+      origin
+      payer
+      status
+      doc_type
+      doc_number
     }
     getChiffresByRange(startDate: $startDate, endDate: $endDate) {
       date
@@ -272,8 +278,8 @@ const UNPAY_INVOICE = gql`
 `;
 
 const UPDATE_INVOICE = gql`
-  mutation UpdateInvoice($id: Int!, $supplier_name: String, $amount: String, $date: String, $payment_method: String, $paid_date: String, $category: String) {
-    updateInvoice(id: $id, supplier_name: $supplier_name, amount: $amount, date: $date, payment_method: $payment_method, paid_date: $paid_date, category: $category) {
+  mutation UpdateInvoice($id: Int!, $supplier_name: String, $amount: String, $date: String, $payment_method: String, $paid_date: String, $category: String, $doc_type: String) {
+    updateInvoice(id: $id, supplier_name: $supplier_name, amount: $amount, date: $date, payment_method: $payment_method, paid_date: $paid_date, category: $category, doc_type: $doc_type) {
       id
     }
   }
@@ -561,6 +567,9 @@ export default function PaiementsPage() {
 
     const computedStats = useMemo(() => {
         const source = data?.getChiffresByRange || [];
+        const riadhExpenses = (data?.getInvoices || []).filter((inv: any) => inv.status === 'paid' && inv.payer === 'riadh');
+        const riadhTotal = riadhExpenses.reduce((acc: number, inv: any) => acc + safeParse(inv.amount), 0);
+
         const aggregated = source.reduce((acc: any, curr: any) => ({
             chiffreAffaire: acc.chiffreAffaire + safeParse(curr.recette_de_caisse),
             reste: acc.reste + safeParse(curr.recette_net),
@@ -571,15 +580,18 @@ export default function PaiementsPage() {
             expenses: acc.expenses + safeParse(curr.total_diponce)
         }), { chiffreAffaire: 0, reste: 0, cash: 0, tpe: 0, cheque: 0, tickets: 0, expenses: 0 });
 
-        // Fallback to stats if aggregation is zero (edge case where daily sheets are missing but stats calculated it)
+        // Add Riadh's expenses (excluded from backend daily totals) to aggregated totals for this page only
+        const finalExpenses = (aggregated.expenses || safeParse(data?.getPaymentStats?.totalExpenses)) + riadhTotal;
+        const finalReste = (aggregated.reste || safeParse(data?.getPaymentStats?.totalRecetteNette)) - riadhTotal;
+
         return {
             chiffreAffaire: aggregated.chiffreAffaire || safeParse(data?.getPaymentStats?.totalRecetteCaisse),
-            reste: aggregated.reste || safeParse(data?.getPaymentStats?.totalRecetteNette),
+            reste: finalReste,
             cash: aggregated.cash || safeParse(data?.getPaymentStats?.totalCash),
             tpe: aggregated.tpe || safeParse(data?.getPaymentStats?.totalTPE),
             cheque: aggregated.cheque || safeParse(data?.getPaymentStats?.totalCheque),
             tickets: aggregated.tickets || safeParse(data?.getPaymentStats?.totalTicketsRestaurant),
-            expenses: aggregated.expenses || safeParse(data?.getPaymentStats?.totalExpenses)
+            expenses: finalExpenses
         };
     }, [data]);
 
@@ -690,6 +702,39 @@ export default function PaiementsPage() {
                 restesSalaires: [...acc.restesSalaires, ...(curr.restes_salaires_details || []).map((i: any) => ({ ...i, date: curr.date }))]
             };
         }, { ...base });
+
+        // Add Riadh's paid invoices (excluded from backend daily merge)
+        const riadhInvoices = (data?.getInvoices || []).filter((inv: any) => inv.status === 'paid' && inv.payer === 'riadh');
+        riadhInvoices.forEach((inv: any) => {
+            let invPhotos = [];
+            try {
+                invPhotos = typeof inv.photos === 'string' ? JSON.parse(inv.photos) : (Array.isArray(inv.photos) ? inv.photos : []);
+            } catch (e) {
+                invPhotos = inv.photo_url ? [inv.photo_url] : [];
+            }
+            if (invPhotos.length === 0 && inv.photo_url) invPhotos = [inv.photo_url];
+
+            const item = {
+                supplier: inv.supplier_name,
+                designation: inv.supplier_name,
+                amount: inv.amount,
+                paymentMethod: inv.payment_method,
+                invoices: invPhotos,
+                photo_cheque: inv.photo_cheque_url,
+                photo_verso: inv.photo_verso_url,
+                isFromFacturation: true,
+                invoiceId: inv.id,
+                doc_type: inv.doc_type,
+                doc_number: inv.doc_number,
+                category: inv.category,
+                date: inv.paid_date || inv.date,
+                doc_date: inv.date,
+                paid_date: inv.paid_date
+            };
+            if (inv.category === 'Divers') agg.divers.push(item);
+            else if (inv.category === 'Administratif') agg.administratif.push(item);
+            else agg.fournisseurs.push(item);
+        });
 
         // Invoices are already merged in the backend via getChiffresByRange.
         // Manual merging is removed to prevent double counting.
@@ -1297,8 +1342,8 @@ export default function PaiementsPage() {
                                                                 type="button"
                                                                 onClick={() => setExpDocType('Facture')}
                                                                 className={`flex-1 h-11 rounded-xl font-bold text-xs transition-all ${expDocType === 'Facture'
-                                                                    ? 'bg-red-500 text-white shadow-lg shadow-red-500/30'
-                                                                    : 'bg-white border border-red-100 text-red-400 hover:bg-red-50'
+                                                                    ? (editingHistoryItem ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : 'bg-red-500 text-white shadow-lg shadow-red-500/30')
+                                                                    : (editingHistoryItem ? 'bg-white border border-blue-100 text-blue-500 hover:bg-blue-50' : 'bg-white border border-red-100 text-red-400 hover:bg-red-50')
                                                                     }`}
                                                             >
                                                                 📄 Facture
@@ -1307,8 +1352,8 @@ export default function PaiementsPage() {
                                                                 type="button"
                                                                 onClick={() => setExpDocType('BL')}
                                                                 className={`flex-1 h-11 rounded-xl font-bold text-xs transition-all ${expDocType === 'BL'
-                                                                    ? 'bg-red-500 text-white shadow-lg shadow-red-500/30'
-                                                                    : 'bg-white border border-red-100 text-red-400 hover:bg-red-50'
+                                                                    ? (editingHistoryItem ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : 'bg-red-500 text-white shadow-lg shadow-red-500/30')
+                                                                    : (editingHistoryItem ? 'bg-white border border-blue-100 text-blue-500 hover:bg-blue-50' : 'bg-white border border-red-100 text-red-400 hover:bg-red-50')
                                                                     }`}
                                                             >
                                                                 📋 BL
@@ -2279,12 +2324,26 @@ export default function PaiementsPage() {
                                                                 </div>
 
                                                                 {/* PHOTO button (Center) */}
-                                                                <div className="flex-1 flex justify-center mx-4">
-                                                                    {(inv.photo_url || inv.photo_cheque_url) ? (
+                                                                <div className="flex-1 flex justify-center items-center gap-3 mx-4">
+                                                                    {inv.doc_type && (
+                                                                        <div className={`px-2 py-1 rounded-lg border text-[8px] font-black uppercase tracking-widest ${inv.doc_type === 'Facture' ? 'bg-blue-50 text-blue-500 border-blue-100' : 'bg-orange-50 text-orange-500 border-orange-100'}`}>
+                                                                            {inv.doc_type}
+                                                                        </div>
+                                                                    )}
+                                                                    {(inv.photo_url || inv.photo_cheque_url || (inv.photos && inv.photos !== '[]')) ? (
                                                                         <button
                                                                             onClick={() => {
-                                                                                setSelectedInvoice(inv);
-                                                                                setShowHistoryModal(false);
+                                                                                setSelectedSupplier(inv.supplier_name);
+                                                                                // Normalize for viewer
+                                                                                const normalized = {
+                                                                                    ...inv,
+                                                                                    photos: inv.photos,
+                                                                                    photo_url: inv.photo_url,
+                                                                                    photo_cheque_url: inv.photo_cheque_url,
+                                                                                    photo_verso_url: inv.photo_verso_url,
+                                                                                    paymentMethod: inv.payment_method
+                                                                                };
+                                                                                setViewingData(normalized);
                                                                             }}
                                                                             className="flex items-center gap-2 px-6 py-2.5 bg-white hover:bg-[#c69f6e] text-[#c69f6e] hover:text-white rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border border-[#c69f6e]/20 shadow-sm hover:shadow-lg hover:shadow-[#c69f6e]/20 group/btn"
                                                                         >
@@ -2308,14 +2367,25 @@ export default function PaiementsPage() {
                                                                             </span>
                                                                             <span className="w-1 h-1 rounded-full bg-[#e6dace]"></span>
                                                                             {inv.origin === 'direct_expense' ? (
-                                                                                <span className="text-[9px] font-black text-red-500/70 border border-red-200 px-1.5 py-0.5 rounded uppercase tracking-tighter bg-red-50/50">Directe</span>
+                                                                                <span className="text-[9px] font-black text-red-500/70 border border-red-200 px-1.5 py-0.5 rounded uppercase tracking-tighter bg-red-50/50">Nouveau règlement</span>
                                                                             ) : (
-                                                                                <span className="text-[9px] font-black text-blue-500/70 border border-blue-200 px-1.5 py-0.5 rounded uppercase tracking-tighter bg-blue-50/50">Facture</span>
+                                                                                <span className="text-[9px] font-black text-blue-500/70 border border-blue-200 px-1.5 py-0.5 rounded uppercase tracking-tighter bg-blue-50/50">Ancien règlement</span>
                                                                             )}
                                                                             <span className="w-1 h-1 rounded-full bg-[#e6dace]"></span>
-                                                                            <span className="text-[10px] font-bold text-[#8c8279] opacity-70">
-                                                                                {new Date(inv.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
-                                                                            </span>
+                                                                            <div className="flex flex-col items-end gap-0.5 min-w-[100px]">
+                                                                                <div className="flex items-center gap-1.5 leading-none">
+                                                                                    <span className="text-[7.5px] font-black text-[#c69f6e] uppercase tracking-tighter">Reçue le:</span>
+                                                                                    <span className="text-[10px] font-bold text-[#4a3426] opacity-70 uppercase tracking-tighter">
+                                                                                        {new Date(inv.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                                                    </span>
+                                                                                </div>
+                                                                                <div className="flex items-center gap-1.5 leading-none">
+                                                                                    <span className="text-[7.5px] font-black text-green-600 uppercase tracking-tighter">Réglée le:</span>
+                                                                                    <span className="text-[10px] font-black text-[#4a3426] uppercase tracking-tighter">
+                                                                                        {new Date(inv.paid_date || inv.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                                                    </span>
+                                                                                </div>
+                                                                            </div>
                                                                         </div>
                                                                     </div>
                                                                     <div className="w-12 h-12 rounded-2xl bg-[#f9f6f2] flex items-center justify-center text-[#c69f6e] group-hover:bg-[#c69f6e] group-hover:text-white transition-colors duration-300 shadow-sm">
@@ -2551,11 +2621,19 @@ export default function PaiementsPage() {
                                     {selectedEmployeeDetails.items.map((item: any, i: number) => (
                                         <div key={i} className="bg-white rounded-[2.5rem] p-8 border border-[#e6dace]/30 shadow-[0_10px_40px_rgba(74,52,38,0.03)] flex flex-col h-full hover:shadow-xl transition-all group">
                                             <div className="flex justify-between items-start mb-6">
-                                                <div className="flex items-center gap-2">
-                                                    <Calendar size={14} className="text-[#c69f6e] opacity-50" />
-                                                    <span className="text-[11px] font-black text-[#8c8279] uppercase tracking-widest">
-                                                        {new Date(item.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }).toUpperCase()}
-                                                    </span>
+                                                <div className="flex flex-col items-end gap-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[8px] font-black text-[#c69f6e] uppercase tracking-widest">Reçue le</span>
+                                                        <span className="text-[10px] font-black text-[#8c8279] uppercase tracking-widest">
+                                                            {new Date(item.doc_date || item.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }).toUpperCase()}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[8px] font-black text-green-600 uppercase tracking-widest">Réglée le</span>
+                                                        <span className="text-[10px] font-black text-[#4a3426] uppercase tracking-widest">
+                                                            {new Date(item.paid_date || item.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }).toUpperCase()}
+                                                        </span>
+                                                    </div>
                                                 </div>
                                                 <div className="text-right">
                                                     <p className="text-2xl font-black text-[#4a3426] leading-none mb-1">{item.amount.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</p>
@@ -2563,33 +2641,59 @@ export default function PaiementsPage() {
                                                 </div>
                                             </div>
 
-                                            <div className="space-y-3 mb-8">
-                                                <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-lg w-fit">
+                                            <div className="flex flex-wrap gap-2 mb-8">
+                                                <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-lg">
                                                     <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
                                                     <span className="text-[9px] font-black text-green-600 uppercase tracking-wider leading-none">Règlement Effectué</span>
                                                 </div>
-                                                <div className="px-3 py-1.5 bg-[#fdfaf7] border border-[#e6dace]/40 rounded-lg w-fit">
-                                                    <span className="text-[9px] font-black text-[#8c8279] uppercase tracking-wider leading-none">{item.payment_method || 'ESPÈCES'}</span>
+                                                <div className="px-3 py-1.5 bg-[#fdfaf7] border border-[#e6dace]/40 rounded-lg">
+                                                    <span className="text-[9px] font-black text-[#8c8279] uppercase tracking-wider leading-none">{item.paymentMethod || item.payment_method || 'ESPÈCES'}</span>
                                                 </div>
+                                                {item.doc_type && (
+                                                    <div className={`px-3 py-1.5 rounded-lg border flex items-center gap-2 ${item.doc_type === 'Facture' ? 'bg-blue-50 border-blue-100' : 'bg-orange-50 border-orange-100'}`}>
+                                                        <div className={`w-1.5 h-1.5 rounded-full ${item.doc_type === 'Facture' ? 'bg-blue-500' : 'bg-orange-500'}`}></div>
+                                                        <span className={`text-[9px] font-black uppercase tracking-wider leading-none ${item.doc_type === 'Facture' ? 'text-blue-600' : 'text-orange-600'}`}>
+                                                            {item.doc_type}
+                                                        </span>
+                                                    </div>
+                                                )}
                                             </div>
 
                                             <div className="mt-auto">
-                                                {(item.photo_url || item.photo_cheque_url || (item.photos && item.photos !== '[]')) ? (
-                                                    <button
-                                                        onClick={() => {
-                                                            setSelectedSupplier(selectedEmployeeDetails.name);
-                                                            setViewingData(item);
-                                                        }}
-                                                        className="w-full py-4 bg-[#4a3426] hover:bg-[#c69f6e] text-white rounded-2xl flex items-center justify-center gap-3 transition-all shadow-lg shadow-[#4a3426]/10"
-                                                    >
-                                                        <Eye size={16} />
-                                                        <span className="text-[11px] font-black uppercase tracking-[0.2em] pt-0.5">Justificatifs</span>
-                                                    </button>
-                                                ) : (
-                                                    <div className="w-full py-4 bg-[#fcfaf8] rounded-2xl border border-dashed border-[#e6dace] flex items-center justify-center">
-                                                        <span className="text-[10px] font-black text-[#8c8279]/30 uppercase tracking-[0.2em]">Aucun Visuel</span>
-                                                    </div>
-                                                )}
+                                                {(() => {
+                                                    const hasLegacy = !!(item.photo_url && item.photo_url.length > 5);
+                                                    const hasCheque = !!((item.photo_cheque || item.photo_cheque_url || '').length > 5 || (item.photo_verso || item.photo_verso_url || '').length > 5);
+                                                    const hasGallery = Array.isArray(item.invoices) && item.invoices.length > 0;
+                                                    const hasNewPhotos = !!(item.photos && item.photos !== '[]' && item.photos.length > 5);
+
+                                                    if (hasLegacy || hasCheque || hasGallery || hasNewPhotos) {
+                                                        return (
+                                                            <button
+                                                                onClick={() => {
+                                                                    setSelectedSupplier(selectedEmployeeDetails.name);
+                                                                    // Normalize for viewer
+                                                                    const normalized = {
+                                                                        ...item,
+                                                                        photos: Array.isArray(item.invoices) ? JSON.stringify(item.invoices) : (item.photos || '[]'),
+                                                                        photo_cheque_url: item.photo_cheque || item.photo_cheque_url,
+                                                                        photo_verso_url: item.photo_verso || item.photo_verso_url,
+                                                                        paymentMethod: item.paymentMethod || item.payment_method
+                                                                    };
+                                                                    setViewingData(normalized);
+                                                                }}
+                                                                className="w-full py-4 bg-[#4a3426] hover:bg-[#c69f6e] text-white rounded-2xl flex items-center justify-center gap-3 transition-all shadow-lg shadow-[#4a3426]/10"
+                                                            >
+                                                                <Eye size={16} />
+                                                                <span className="text-[11px] font-black uppercase tracking-[0.2em] pt-0.5">Justificatifs</span>
+                                                            </button>
+                                                        );
+                                                    }
+                                                    return (
+                                                        <div className="w-full py-4 bg-[#fcfaf8] rounded-2xl border border-dashed border-[#e6dace] flex items-center justify-center">
+                                                            <span className="text-[10px] font-black text-[#8c8279]/30 uppercase tracking-[0.2em]">Aucun Visuel</span>
+                                                        </div>
+                                                    );
+                                                })()}
                                             </div>
                                         </div>
                                     ))}
@@ -2632,7 +2736,7 @@ export default function PaiementsPage() {
                                     </div>
                                 </div>
 
-                                <div className={`grid grid-cols-1 ${(viewingData.payment_method || viewingData.paymentMethod) === 'Chèque' ? 'md:grid-cols-3' : 'md:grid-cols-1'} gap-8`}>
+                                <div className={`grid grid-cols-1 ${['Chèque', 'Cheque'].includes(viewingData.paymentMethod || viewingData.payment_method) ? 'md:grid-cols-3' : 'md:grid-cols-1'} gap-8`}>
                                     {/* Photo Facture */}
                                     <div className="space-y-8">
                                         {(() => {
@@ -2699,7 +2803,7 @@ export default function PaiementsPage() {
                                     </div>
 
                                     {/* Photos Chèque */}
-                                    {(viewingData.payment_method || viewingData.paymentMethod) === 'Chèque' && (
+                                    {['Chèque', 'Cheque'].includes(viewingData.paymentMethod || viewingData.payment_method) && (
                                         <>
                                             <div className="space-y-4">
                                                 <div className="flex justify-between items-center">
