@@ -178,6 +178,8 @@ export default function DashboardPage() {
     const [viewingData, setViewingData] = useState<any | null>(null);
     const [showHistoryModal, setShowHistoryModal] = useState<{ isOpen: boolean, type: string, targetName?: string } | null>(null);
     const [hideRecetteCaisse, setHideRecetteCaisse] = useState(false);
+    const [hideTotalExpenses, setHideTotalExpenses] = useState(false);
+    const [hideTotalSalaries, setHideTotalSalaries] = useState(false);
 
     // Filter dates
     const startOfMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
@@ -581,11 +583,23 @@ export default function DashboardPage() {
                                         <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-16 -mt-16 pointer-events-none"></div>
                                         <div className="flex justify-between items-end relative z-10">
                                             <div>
-                                                <h3 className="text-sm font-black uppercase tracking-[0.2em] text-[#c69f6e]">Total Dépenses</h3>
+                                                <div className="flex items-center gap-2">
+                                                    <h3 className="text-sm font-black uppercase tracking-[0.2em] text-[#c69f6e]">Total Dépenses</h3>
+                                                    <button
+                                                        onClick={() => setHideTotalExpenses(!hideTotalExpenses)}
+                                                        className="p-1 hover:bg-white/10 rounded-full transition-colors text-[#c69f6e]"
+                                                    >
+                                                        {hideTotalExpenses ? <EyeOff size={14} /> : <Eye size={14} />}
+                                                    </button>
+                                                </div>
                                                 <p className="text-[10px] opacity-60 mt-1 uppercase tracking-wide">Journalier + Fournisseurs + Divers + Admin</p>
                                             </div>
                                             <div className="flex items-baseline gap-2">
-                                                <span className="text-4xl lg:text-5xl font-black tracking-tighter">{aggregates.totalGeneralExpenses.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</span>
+                                                {hideTotalExpenses ? (
+                                                    <span className="text-4xl lg:text-5xl font-black tracking-tighter">********</span>
+                                                ) : (
+                                                    <span className="text-4xl lg:text-5xl font-black tracking-tighter">{aggregates.totalGeneralExpenses.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</span>
+                                                )}
                                                 <span className="text-lg font-bold text-[#c69f6e]">DT</span>
                                             </div>
                                         </div>
@@ -743,11 +757,23 @@ export default function DashboardPage() {
                                         <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-16 -mt-16 pointer-events-none"></div>
                                         <div className="flex justify-between items-end relative z-10">
                                             <div>
-                                                <h3 className="text-sm font-black uppercase tracking-[0.2em] text-[#c69f6e]">Total Salaires</h3>
+                                                <div className="flex items-center gap-2">
+                                                    <h3 className="text-sm font-black uppercase tracking-[0.2em] text-[#c69f6e]">Total Salaires</h3>
+                                                    <button
+                                                        onClick={() => setHideTotalSalaries(!hideTotalSalaries)}
+                                                        className="p-1 hover:bg-white/10 rounded-full transition-colors text-[#c69f6e]"
+                                                    >
+                                                        {hideTotalSalaries ? <EyeOff size={14} /> : <Eye size={14} />}
+                                                    </button>
+                                                </div>
                                                 <p className="text-[10px] opacity-60 mt-1 uppercase tracking-wide">Accompte + Doublage + Extra + Primes</p>
                                             </div>
                                             <div className="flex items-baseline gap-2">
-                                                <span className="text-4xl lg:text-5xl font-black tracking-tighter">{aggregates.totalEmployeeExpenses.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</span>
+                                                {hideTotalSalaries ? (
+                                                    <span className="text-4xl lg:text-5xl font-black tracking-tighter">********</span>
+                                                ) : (
+                                                    <span className="text-4xl lg:text-5xl font-black tracking-tighter">{aggregates.totalEmployeeExpenses.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</span>
+                                                )}
                                                 <span className="text-lg font-bold text-[#c69f6e]">DT</span>
                                             </div>
                                         </div>
