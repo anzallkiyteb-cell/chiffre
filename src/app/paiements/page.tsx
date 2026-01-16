@@ -1588,79 +1588,90 @@ export default function PaiementsPage() {
                                                             </div>
                                                         </td>
                                                         <td className="px-8 py-4">
-                                                            <div className="flex items-center justify-center gap-2">
+                                                            <div className="flex items-center justify-center gap-2 relative">
                                                                 <input
                                                                     id={`salary-input-${emp.id}`}
                                                                     type="number"
                                                                     step="0.001"
                                                                     defaultValue={rem?.amount || 0}
-                                                                    className="w-32 text-center font-black text-[#4a3426] bg-transparent outline-none border-b border-transparent focus:border-[#c69f6e] transition-colors text-lg"
+                                                                    className={`w-32 text-center font-black bg-transparent outline-none border-b transition-colors text-lg ${rem && rem.amount > 0 ? 'text-green-600 border-green-200 focus:border-green-500' : 'text-[#4a3426] border-transparent focus:border-[#c69f6e]'}`}
                                                                 />
-                                                                <span className="text-[10px] font-black text-[#4a3426]/40 mt-1">DT</span>
+                                                                <span className={`text-[10px] font-black mt-1 ${rem && rem.amount > 0 ? 'text-green-600/60' : 'text-[#4a3426]/40'}`}>DT</span>
+                                                                {rem && rem.amount > 0 && (
+                                                                    <div className="absolute -right-6 top-1/2 -translate-y-1/2 text-green-500">
+                                                                        <CheckCircle2 size={16} />
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         </td>
                                                         <td className="px-8 py-4 text-right">
-                                                            <button
-                                                                id={`save-btn-${emp.id}`}
-                                                                onClick={async () => {
-                                                                    const input = document.getElementById(`salary-input-${emp.id}`) as HTMLInputElement;
-                                                                    const val = parseFloat(input?.value || '0');
-                                                                    await upsertSalaryRemainder({
-                                                                        variables: {
-                                                                            employee_name: emp.name,
-                                                                            amount: val || 0,
-                                                                            month: salaryRemainderMonth,
-                                                                            status: 'CONFIRMÉ'
-                                                                        }
-                                                                    });
-                                                                    await refetch();
-                                                                    const btn = document.getElementById(`save-btn-${emp.id}`);
-                                                                    if (btn) {
-                                                                        const originalText = btn.innerHTML;
-                                                                        btn.innerHTML = '<span class="flex items-center gap-1">OK <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>';
-                                                                        btn.classList.add('bg-green-500', 'text-white', 'border-green-500');
-                                                                        btn.classList.remove('bg-white', 'text-[#4a3426]', 'border-[#e6dace]');
-                                                                        setTimeout(() => {
-                                                                            btn.innerHTML = originalText;
-                                                                            btn.classList.remove('bg-green-500', 'text-white', 'border-green-500');
-                                                                            btn.classList.add('bg-white', 'text-[#4a3426]', 'border-[#e6dace]');
-                                                                        }, 2000);
-                                                                    }
-                                                                }}
-                                                                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-white text-[#4a3426] rounded-xl text-[10px] font-black uppercase tracking-widest border border-[#e6dace] hover:bg-[#2d6a4f] hover:text-white hover:border-[#2d6a4f] transition-all shadow-sm"
-                                                            >
-                                                                Sauvegarder
-                                                            </button>
-                                                            {rem && rem.amount > 0 && (
+                                                            <div className="flex items-center justify-end gap-2">
                                                                 <button
+                                                                    id={`save-btn-${emp.id}`}
                                                                     onClick={async () => {
-                                                                        Swal.fire({
-                                                                            title: 'Supprimer?',
-                                                                            text: 'Voulez-vous supprimer ce montant?',
-                                                                            icon: 'warning',
-                                                                            showCancelButton: true,
-                                                                            confirmButtonColor: '#ef4444',
-                                                                            cancelButtonColor: '#8c8279',
-                                                                            confirmButtonText: 'Oui, supprimer'
-                                                                        }).then(async (result) => {
-                                                                            if (result.isConfirmed) {
-                                                                                await deleteSalaryRemainder({
-                                                                                    variables: {
-                                                                                        id: parseInt(rem.id)
-                                                                                    }
-                                                                                });
-                                                                                await refetch();
-                                                                                const input = document.getElementById(`salary-input-${emp.id}`) as HTMLInputElement;
-                                                                                if (input) input.value = "0";
+                                                                        const input = document.getElementById(`salary-input-${emp.id}`) as HTMLInputElement;
+                                                                        const val = parseFloat(input?.value || '0');
+                                                                        await upsertSalaryRemainder({
+                                                                            variables: {
+                                                                                employee_name: emp.name,
+                                                                                amount: val || 0,
+                                                                                month: salaryRemainderMonth,
+                                                                                status: 'CONFIRMÉ'
                                                                             }
                                                                         });
+                                                                        await refetch();
+                                                                        const btn = document.getElementById(`save-btn-${emp.id}`);
+                                                                        if (btn) {
+                                                                            const originalContent = btn.innerHTML;
+                                                                            const originalClasses = btn.className;
+
+                                                                            btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+                                                                            btn.className = "w-10 h-10 rounded-xl bg-green-500 text-white flex items-center justify-center shadow-lg shadow-green-500/30 transition-all scale-110";
+
+                                                                            setTimeout(() => {
+                                                                                btn.innerHTML = originalContent;
+                                                                                btn.className = originalClasses;
+                                                                            }, 2000);
+                                                                        }
                                                                     }}
-                                                                    className="w-10 h-10 rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white border border-red-100 flex items-center justify-center transition-all ml-2"
-                                                                    title="Supprimer"
+                                                                    className={`inline-flex items-center justify-center h-10 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all shadow-sm ${rem && rem.amount > 0
+                                                                        ? 'bg-white text-green-600 border-green-200 hover:bg-green-50 hover:border-green-300'
+                                                                        : 'bg-white text-[#4a3426] border-[#e6dace] hover:bg-[#2d6a4f] hover:text-white hover:border-[#2d6a4f]'}`}
                                                                 >
-                                                                    <Trash2 size={16} />
+                                                                    {rem && rem.amount > 0 ? 'Mettre à jour' : 'Sauvegarder'}
                                                                 </button>
-                                                            )}
+
+                                                                {rem && rem.amount > 0 && (
+                                                                    <button
+                                                                        onClick={async () => {
+                                                                            Swal.fire({
+                                                                                title: 'Supprimer?',
+                                                                                text: 'Voulez-vous supprimer ce montant?',
+                                                                                icon: 'warning',
+                                                                                showCancelButton: true,
+                                                                                confirmButtonColor: '#ef4444',
+                                                                                cancelButtonColor: '#8c8279',
+                                                                                confirmButtonText: 'Oui'
+                                                                            }).then(async (result) => {
+                                                                                if (result.isConfirmed) {
+                                                                                    await deleteSalaryRemainder({
+                                                                                        variables: {
+                                                                                            id: parseInt(rem.id)
+                                                                                        }
+                                                                                    });
+                                                                                    await refetch();
+                                                                                    const input = document.getElementById(`salary-input-${emp.id}`) as HTMLInputElement;
+                                                                                    if (input) input.value = "0";
+                                                                                }
+                                                                            });
+                                                                        }}
+                                                                        className="w-10 h-10 rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white border border-red-100 flex items-center justify-center transition-all shadow-sm active:scale-95"
+                                                                        title="Supprimer"
+                                                                    >
+                                                                        <Trash2 size={16} />
+                                                                    </button>
+                                                                )}
+                                                            </div>
                                                         </td>
                                                     </tr>
                                                 );
