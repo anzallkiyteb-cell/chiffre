@@ -201,6 +201,7 @@ export const resolvers = {
 
                     paidInvoicesByDate[d].push({
                         supplier: inv.supplier_name,
+                        designation: inv.supplier_name,
                         amount: inv.amount,
                         paymentMethod: inv.payment_method,
                         invoices: photos,

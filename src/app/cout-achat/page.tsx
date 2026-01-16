@@ -238,6 +238,7 @@ export default function CoutAchatPage() {
             return {
                 allExpenses: [...acc.allExpenses, ...manualExpenses],
                 allDivers: [...acc.allDivers, ...diversList],
+                manualDiversOnly: [...acc.manualDiversOnly, ...diversList.filter((e: any) => !e.isFromFacturation)],
                 labor: acc.labor + (categoryFilter === 'tous' ? (
                     (curr.avances_details || []).reduce((s: number, i: any) => s + (parseFloat(i.montant) || 0), 0) +
                     (curr.doublages_details || []).reduce((s: number, i: any) => s + (parseFloat(i.montant) || 0), 0) +
@@ -247,12 +248,19 @@ export default function CoutAchatPage() {
                 ) : 0)
             };
         }, {
-            allExpenses: [], allDivers: [], labor: 0
+            allExpenses: [], allDivers: [], manualDiversOnly: [], labor: 0
         });
 
         const filteredInvoices = invoices.filter(matchesCategory);
         const paidInvoices = filteredInvoices.filter((inv: any) => inv.status === 'paid');
         const unpaidInvoices = filteredInvoices.filter((inv: any) => inv.status !== 'paid');
+
+        // Split into Supplier vs Divers for clearer UI separation
+        const paidSupplierInvoices = paidInvoices.filter((i: any) => (i.category || '').toLowerCase() !== 'divers');
+        const unpaidSupplierInvoices = unpaidInvoices.filter((i: any) => (i.category || '').toLowerCase() !== 'divers');
+
+        // Divers invoices are integrated into topDivers below via base.allDivers which comes from getChiffresByRange combined lists.
+        // For the invoice lists specifically, we'll keep them to Suppliers.
 
         const aggregateGroup = (list: any[], nameKey: string, amountKey: string) => {
             const map = new Map();
@@ -275,19 +283,19 @@ export default function CoutAchatPage() {
 
         const topFournisseurs = aggregateGroup(base.allExpenses, 'supplier', 'amount');
         const topDivers = aggregateGroup(base.allDivers, 'designation', 'amount');
-        const topPaid = aggregateGroup(paidInvoices, 'supplier_name', 'amount');
-        const topUnpaid = aggregateGroup(unpaidInvoices, 'supplier_name', 'amount');
+        const topPaid = aggregateGroup(paidSupplierInvoices, 'supplier_name', 'amount');
+        const topUnpaid = aggregateGroup(unpaidSupplierInvoices, 'supplier_name', 'amount');
 
-        // Detailed Metrics for Summary Cards
+        // Detailed Metrics for Summary Cards - strictly Suppliers for 'Facture/BL' stats
         const stats = {
-            facturePaid: paidInvoices.filter((i: any) => (i.doc_type || '').toLowerCase() === 'facture').reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0),
-            factureUnpaid: unpaidInvoices.filter((i: any) => (i.doc_type || '').toLowerCase() === 'facture').reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0),
-            blPaid: paidInvoices.filter((i: any) => (i.doc_type || '').toLowerCase() === 'bl').reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0),
-            blUnpaid: unpaidInvoices.filter((i: any) => (i.doc_type || '').toLowerCase() === 'bl').reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0),
+            facturePaid: paidSupplierInvoices.filter((i: any) => (i.doc_type || '').toLowerCase() === 'facture').reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0),
+            factureUnpaid: unpaidSupplierInvoices.filter((i: any) => (i.doc_type || '').toLowerCase() === 'facture').reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0),
+            blPaid: paidSupplierInvoices.filter((i: any) => (i.doc_type || '').toLowerCase() === 'bl').reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0),
+            blUnpaid: unpaidSupplierInvoices.filter((i: any) => (i.doc_type || '').toLowerCase() === 'bl').reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0),
         };
 
-        const totalPaid = paidInvoices.reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0);
-        const totalUnpaid = unpaidInvoices.reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0);
+        const totalPaid = paidSupplierInvoices.reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0);
+        const totalUnpaid = unpaidSupplierInvoices.reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0);
         const totalDirectManual = topFournisseurs.reduce((a, b) => a + b.amount, 0);
         const totalDivers = topDivers.reduce((a, b) => a + b.amount, 0);
         const totalLabor = base.labor;
