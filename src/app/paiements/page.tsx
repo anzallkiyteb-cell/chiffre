@@ -145,7 +145,7 @@ const PremiumDatePicker = ({ value, onChange, label, align = 'left' }: { value: 
 // --- End Helper Components ---
 
 const GET_PAYMENT_DATA = gql`
-  query GetPaymentData($month: String, $startDate: String, $endDate: String) {
+  query GetPaymentData($month: String, $startDate: String!, $endDate: String!) {
     getPaidUsers(month: $month, startDate: $startDate, endDate: $endDate) {
       username
       amount

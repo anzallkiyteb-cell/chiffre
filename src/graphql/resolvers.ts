@@ -221,11 +221,11 @@ export const resolvers = {
                     diponce: JSON.stringify(combinedDiponce),
                     diponce_divers: typeof row.diponce_divers === 'string' ? row.diponce_divers : JSON.stringify(row.diponce_divers || []),
                     diponce_admin: typeof row.diponce_admin === 'string' ? row.diponce_admin : JSON.stringify(row.diponce_admin || []),
-                    avances_details: dayAvances.map(r => ({ id: r.id, username: r.username, montant: r.montant.toString(), date: r.date })),
-                    doublages_details: dayDoublages.map(r => ({ id: r.id, username: r.username, montant: r.montant.toString(), date: r.date })),
-                    extras_details: dayExtras.map(r => ({ id: r.id, username: r.username, montant: r.montant.toString(), date: r.date })),
-                    primes_details: dayPrimes.map(r => ({ id: r.id, username: r.username, montant: r.montant.toString(), date: r.date })),
-                    restes_salaires_details: dayRestesSalaires.map(r => ({ id: r.id, username: r.username, montant: r.montant.toString(), nb_jours: r.nb_jours ? parseFloat(r.nb_jours) : 0, date: r.date, created_at: r.created_at }))
+                    avances_details: dayAvances.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant || '0'), date: r.date })),
+                    doublages_details: dayDoublages.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant || '0'), date: r.date })),
+                    extras_details: dayExtras.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant || '0'), date: r.date })),
+                    primes_details: dayPrimes.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant || '0'), date: r.date })),
+                    restes_salaires_details: dayRestesSalaires.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant || '0'), nb_jours: r.nb_jours ? parseFloat(r.nb_jours) : 0, date: r.date, created_at: r.created_at }))
                 };
             });
         },
@@ -405,7 +405,10 @@ export const resolvers = {
             }
             sql += ' ORDER BY id DESC';
             const res = await query(sql, params);
-            return res.rows;
+            return res.rows.map(r => ({
+                ...r,
+                amount: parseFloat(r.amount || '0')
+            }));
         },
         getDailyExpenses: async (_: any, { month, startDate, endDate }: { month?: string, startDate?: string, endDate?: string }) => {
             let start = startDate;
