@@ -198,8 +198,13 @@ export default function CoutAchatPage() {
         if (!data) return null;
 
         const base = data.getChiffresByRange.reduce((acc: any, curr: any) => {
+            const diponceList = JSON.parse(curr.diponce || '[]');
+            // Filter out items that are from facturation to avoid double counting 
+            // because they are already in getInvoices
+            const manualExpenses = diponceList.filter((e: any) => !e.isFromFacturation);
+
             return {
-                allExpenses: [...acc.allExpenses, ...JSON.parse(curr.diponce || '[]')],
+                allExpenses: [...acc.allExpenses, ...manualExpenses],
                 allDivers: [...acc.allDivers, ...JSON.parse(curr.diponce_divers || '[]')],
                 allAdmin: [...acc.allAdmin, ...JSON.parse(curr.diponce_admin || '[]')],
             };
@@ -241,9 +246,10 @@ export default function CoutAchatPage() {
 
         // Totals aligned with data logic from /paiements and /statistiques
         const totalPaidFacturation = paidInvoices.reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0);
-        const totalExpensesDirect = topFournisseurs.reduce((a, b) => a + b.amount, 0) +
-            topDivers.reduce((a, b) => a + b.amount, 0) +
-            topAdmin.reduce((a, b) => a + b.amount, 0);
+        const totalUnpaidFacturation = unpaidInvoices.reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0);
+        const totalDirectManual = topFournisseurs.reduce((a, b) => a + b.amount, 0);
+        const totalDivers = topDivers.reduce((a, b) => a + b.amount, 0);
+        const totalAdmin = topAdmin.reduce((a, b) => a + b.amount, 0);
 
         return {
             fournisseurs: filterByName(topFournisseurs),
@@ -252,8 +258,8 @@ export default function CoutAchatPage() {
             paidInvoices: filterByName(topPaid),
             unpaidInvoices: filterByName(topUnpaid),
             totalPaid: totalPaidFacturation,
-            totalUnpaid: unpaidInvoices.reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0),
-            totalGlobalConsommation: totalPaidFacturation + totalExpensesDirect
+            totalUnpaid: totalUnpaidFacturation,
+            totalGlobalConsommation: totalPaidFacturation + totalUnpaidFacturation + totalDirectManual + totalDivers + totalAdmin
         };
     }, [data, searchQuery]);
 
@@ -339,7 +345,7 @@ export default function CoutAchatPage() {
                                     </div>
                                     <div>
                                         <div className="text-3xl font-black tracking-tighter text-[#4a3426]">{aggregates.totalGlobalConsommation.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</div>
-                                        <p className="text-[10px] font-bold uppercase tracking-widest text-[#8c8279] mt-1 text-right">Payé + Dépenses directes</p>
+                                        <p className="text-[10px] font-bold uppercase tracking-widest text-[#8c8279] mt-1 text-right">Total Facturé + Dépenses directes</p>
                                     </div>
                                 </div>
                             </div>
