@@ -1979,20 +1979,22 @@ export default function PaiementsPage() {
                                             <h2 className="text-3xl font-black text-[#4a3426] tracking-tighter">Détails des Dépenses</h2>
                                             <p className="text-[#c69f6e] font-black text-[10px] uppercase tracking-[0.3em] mt-1">Récapitulatif financier complet</p>
                                         </div>
-                                        <div className="flex items-center gap-4">
-                                            <div className="hidden md:flex flex-col items-end px-6 border-r border-[#e6dace]/50">
-                                                <p className="text-[9px] font-black text-[#8c8279] uppercase tracking-widest leading-none mb-1">Total Global</p>
-                                                <p className="text-2xl font-black text-[#4a3426] tracking-tighter">
-                                                    {totals.global.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
-                                                    <span className="text-xs ml-1 text-[#c69f6e]">DT</span>
-                                                </p>
-                                            </div>
-                                            <button
-                                                onClick={() => setShowExpensesDetails(false)}
-                                                className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-[#8c8279] hover:bg-red-50 hover:text-red-500 transition-all border border-[#e6dace]/50 shadow-sm"
-                                            >
-                                                <X size={24} />
-                                            </button>
+                                        <button
+                                            onClick={() => setShowExpensesDetails(false)}
+                                            className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-[#8c8279] hover:bg-red-50 hover:text-red-500 transition-all border border-[#e6dace]/50 shadow-sm"
+                                        >
+                                            <X size={24} />
+                                        </button>
+                                    </div>
+
+                                    {/* Hero Total Global - Centered and Large */}
+                                    <div className="flex flex-col items-center justify-center mb-12 py-10 bg-white/40 rounded-[3rem] border border-white/60 shadow-inner">
+                                        <p className="text-[14px] font-black text-[#8c8279] uppercase tracking-[0.4em] mb-4">Total Global</p>
+                                        <div className="flex items-baseline gap-4">
+                                            <h1 className="text-7xl md:text-9xl font-black text-[#4a3426] tracking-tighter leading-none">
+                                                {totals.global.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                            </h1>
+                                            <span className="text-3xl md:text-4xl font-black text-[#c69f6e]">DT</span>
                                         </div>
                                     </div>
 
