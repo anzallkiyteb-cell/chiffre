@@ -568,7 +568,7 @@ export default function PaiementsPage() {
 
     const computedStats = useMemo(() => {
         const source = detailsData?.getChiffresByRange || [];
-        return source.reduce((acc, curr: any) => ({
+        return source.reduce((acc: any, curr: any) => ({
             chiffreAffaire: acc.chiffreAffaire + parseFloat(curr.recette_de_caisse || '0'),
             reste: acc.reste + parseFloat(curr.recette_net || '0'),
             cash: acc.cash + parseFloat(curr.espaces || '0'),
