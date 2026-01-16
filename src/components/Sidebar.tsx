@@ -19,7 +19,7 @@ export default function Sidebar({ role }: SidebarProps) {
     ];
 
     if (role === 'admin') {
-        navItems.unshift({ name: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' });
+        navItems.unshift({ name: 'Dépenses Caisse Mensuelle', icon: LayoutDashboard, href: '/dashboard' });
         navItems.push({ name: "Coût d'achat", icon: ShoppingBag, href: '/cout-achat' });
         navItems.push({ name: 'Statistiques', icon: PieChartIcon, href: '/statistiques' });
         navItems.push({ name: 'Paiements', icon: CreditCard, href: '/paiements' });
@@ -51,8 +51,10 @@ export default function Sidebar({ role }: SidebarProps) {
                                     href={item.href}
                                     className={`w-full flex items-center gap-4 px-4 py-3 rounded-2xl transition-all ${isActive ? 'bg-[#4a3426] text-white shadow-lg' : 'text-[#8c8279] hover:bg-[#fcf8f4]'}`}
                                 >
-                                    <item.icon size={20} />
-                                    <span className="font-bold text-sm">{item.name}</span>
+                                    <div className="shrink-0">
+                                        <item.icon size={20} />
+                                    </div>
+                                    <span className="font-bold text-sm leading-tight">{item.name}</span>
                                 </Link>
                             );
                         })}
@@ -82,10 +84,10 @@ export default function Sidebar({ role }: SidebarProps) {
                             <Link
                                 key={item.name}
                                 href={item.href}
-                                className={`flex flex-col items-center gap-1 p-3 min-w-[70px] rounded-2xl transition-all ${isActive ? 'text-[#4a3426] bg-[#fcf8f4]' : 'text-[#a89284]'}`}
+                                className={`flex flex-col items-center gap-1 p-3 px-4 min-w-max rounded-2xl transition-all ${isActive ? 'text-[#4a3426] bg-[#fcf8f4]' : 'text-[#a89284]'}`}
                             >
                                 <item.icon size={20} className={isActive ? 'scale-110' : ''} />
-                                <span className="text-[10px] font-black uppercase tracking-tighter">{item.name}</span>
+                                <span className="text-[9px] font-black uppercase tracking-tighter text-center max-w-[80px] leading-[1.1]">{item.name}</span>
                             </Link>
                         );
                     })}

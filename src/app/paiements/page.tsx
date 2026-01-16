@@ -10,7 +10,7 @@ import {
     TrendingUp, Receipt, Wallet, UploadCloud, Coins, Banknote,
     ChevronLeft, ChevronRight, ChevronDown, Image as ImageIcon, Ticket,
     Clock, CheckCircle2, Eye, Edit2, Trash2, X, Layout, Plus,
-    Truck, Sparkles, Calculator, Zap, Award
+    Truck, Sparkles, Calculator, Zap, Award, ZoomIn, ZoomOut, RotateCw, Maximize2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Swal from 'sweetalert2';
@@ -180,7 +180,7 @@ const GET_PAYMENT_DATA = gql`
       paid_date
       category
     }
-    getDailyExpenses(month: $month, startDate: $startDate, endDate: $endDate) {
+    getChiffresByRange(startDate: $startDate, endDate: $endDate) {
       date
       diponce
       diponce_divers
@@ -378,6 +378,8 @@ export default function PaiementsPage() {
     const [salaryRemainderSearch, setSalaryRemainderSearch] = useState('');
     const [editingHistoryItem, setEditingHistoryItem] = useState<any>(null);
     const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
+    const [viewingData, setViewingData] = useState<any>(null);
+    const [selectedSupplier, setSelectedSupplier] = useState<string>('');
 
     // Unpaid Invoices Modal State & Logic
     const [showUnpaidModal, setShowUnpaidModal] = useState(false);
@@ -393,6 +395,15 @@ export default function PaiementsPage() {
     const [imgRotation, setImgRotation] = useState(0);
     const [unpaidSearchFilter, setUnpaidSearchFilter] = useState('');
     const [unpaidDateRange, setUnpaidDateRange] = useState({ start: '', end: '' });
+
+    const resetView = () => {
+        setImgZoom(1);
+        setImgRotation(0);
+    };
+
+    useEffect(() => {
+        if (viewingData) resetView();
+    }, [viewingData]);
 
     const { data: unpaidData, refetch: refetchUnpaid } = useQuery(GET_INVOICES, {
         variables: { supplierName: '', startDate: '', endDate: '' },
@@ -508,6 +519,17 @@ export default function PaiementsPage() {
         setInitializing(false);
     }, [router]);
 
+    const effectiveDateRange = useMemo(() => {
+        if (activeFilter === 'month') {
+            const firstday = `${month}-01`;
+            const [y, m] = month!.split('-');
+            const lastD = new Date(parseInt(y), parseInt(m), 0).getDate();
+            const lastday = `${y}-${m}-${String(lastD).padStart(2, '0')}`;
+            return { start: firstday, end: lastday };
+        }
+        return dateRange;
+    }, [activeFilter, month, dateRange]);
+
     const { data, loading, refetch } = useQuery(GET_PAYMENT_DATA, {
         variables: {
             month: activeFilter === 'month' ? month : null,
@@ -515,6 +537,46 @@ export default function PaiementsPage() {
             endDate: activeFilter !== 'month' ? dateRange.end : null
         }
     });
+
+    // Separate query for details to ensure it uses the dashboard's data source accurately
+    const { data: detailsData } = useQuery(gql`
+        query GetChiffresDetails($startDate: String!, $endDate: String!) {
+            getChiffresByRange(startDate: $startDate, endDate: $endDate) {
+                date
+                recette_de_caisse
+                recette_net
+                tpe
+                espaces
+                cheque_bancaire
+                tickets_restaurant
+                diponce
+                diponce_divers
+                diponce_admin
+                avances_details { id username montant created_at }
+                doublages_details { id username montant created_at }
+                extras_details { id username montant created_at }
+                primes_details { id username montant created_at }
+                restes_salaires_details { id username montant created_at }
+            }
+        }
+    `, {
+        variables: {
+            startDate: effectiveDateRange.start,
+            endDate: effectiveDateRange.end
+        }
+    });
+
+    const computedStats = useMemo(() => {
+        const source = detailsData?.getChiffresByRange || [];
+        return source.reduce((acc, curr: any) => ({
+            chiffreAffaire: acc.chiffreAffaire + parseFloat(curr.recette_de_caisse || '0'),
+            reste: acc.reste + parseFloat(curr.recette_net || '0'),
+            cash: acc.cash + parseFloat(curr.espaces || '0'),
+            tpe: acc.tpe + parseFloat(curr.tpe || '0'),
+            cheque: acc.cheque + parseFloat(curr.cheque_bancaire || '0'),
+            tickets: acc.tickets + parseFloat(curr.tickets_restaurant || '0'),
+        }), { chiffreAffaire: 0, reste: 0, cash: 0, tpe: 0, cheque: 0, tickets: 0 });
+    }, [detailsData]);
 
     const setThisWeek = () => {
         const now = new Date();
@@ -584,7 +646,8 @@ export default function PaiementsPage() {
     };
 
     const expenseDetails = useMemo(() => {
-        if (!data || !data.getDailyExpenses) return {
+        const sourceData = detailsData?.getChiffresByRange || data?.getDailyExpenses || [];
+        if (!sourceData || sourceData.length === 0) return {
             fournisseurs: [], divers: [], administratif: [],
             avances: [], doublages: [], extras: [], primes: [], restesSalaires: [], remainders: []
         };
@@ -593,10 +656,8 @@ export default function PaiementsPage() {
             avances: [], doublages: [], extras: [], primes: [], restesSalaires: [], remainders: []
         };
 
-        // Add direct expenses from invoices categorized
-        const directExpenses = (data.getInvoices || []).filter((inv: any) => inv.payer === 'riadh' && inv.category);
-
-        const agg = data.getDailyExpenses.reduce((acc: any, curr: any) => {
+        // Aggregation from Daily Sheets (using sourceData which can be getChiffresByRange)
+        const agg = sourceData.reduce((acc: any, curr: any) => {
             let d = [], dv = [], da = [];
             try { d = JSON.parse(curr.diponce || '[]'); } catch (e) { }
             try { dv = JSON.parse(curr.diponce_divers || '[]'); } catch (e) { }
@@ -604,49 +665,39 @@ export default function PaiementsPage() {
 
             return {
                 ...acc,
-                fournisseurs: [...acc.fournisseurs, ...d],
-                divers: [...acc.divers, ...dv],
-                administratif: [...acc.administratif, ...da],
-                avances: [...acc.avances, ...curr.avances_details],
-                doublages: [...acc.doublages, ...curr.doublages_details],
-                extras: [...acc.extras, ...curr.extras_details],
-                primes: [...acc.primes, ...curr.primes_details],
-                restesSalaires: [...acc.restesSalaires, ...(curr.restes_salaires_details || [])]
+                fournisseurs: [...acc.fournisseurs, ...d.map((i: any) => ({ ...i, date: curr.date }))],
+                divers: [...acc.divers, ...dv.map((i: any) => ({ ...i, date: curr.date }))],
+                administratif: [...acc.administratif, ...da.map((i: any) => ({ ...i, date: curr.date }))],
+                avances: [...acc.avances, ...curr.avances_details.map((i: any) => ({ ...i, date: curr.date }))],
+                doublages: [...acc.doublages, ...curr.doublages_details.map((i: any) => ({ ...i, date: curr.date }))],
+                extras: [...acc.extras, ...curr.extras_details.map((i: any) => ({ ...i, date: curr.date }))],
+                primes: [...acc.primes, ...curr.primes_details.map((i: any) => ({ ...i, date: curr.date }))],
+                restesSalaires: [...acc.restesSalaires, ...(curr.restes_salaires_details || []).map((i: any) => ({ ...i, date: curr.date }))]
             };
         }, { ...base });
 
-        // Merge direct expenses from invoices into the aggregation
-        directExpenses.forEach((inv: any) => {
-            if (inv.category === 'Journalier' || inv.category === 'Divers') agg.divers.push({ designation: inv.supplier_name, amount: inv.amount });
-            else if (inv.category === 'Fournisseur') agg.fournisseurs.push({ supplier: inv.supplier_name, amount: inv.amount });
+        // Merge invoices - dashboard list includes these if they are "Riadh" invoices or in the monthly totals
+        const invoices = (data?.getInvoices || []);
+        invoices.forEach((inv: any) => {
+            const item = {
+                ...inv,
+                supplier: inv.supplier_name,
+                designation: inv.supplier_name,
+                amount: inv.amount,
+                date: inv.date,
+                is_invoice: true
+            };
+
+            // To avoid duplication with daily sheets, we only add if it's NOT a caisse expense or it's specific to Riadh
+            // Based on user feedback, the dashboard shows MORE, so we likely need to include all paid invoices correctly
+            if (inv.status === 'Paid' || inv.payer === 'riadh') {
+                if (inv.category === 'Journalier' || inv.category === 'Divers') agg.divers.push(item);
+                else if (inv.category === 'Fournisseur') agg.fournisseurs.push(item);
+                else if (inv.category === 'Administratif') agg.administratif.push(item);
+            }
         });
 
-        // Add daily restes salaires to remainders list
-        data.getDailyExpenses.forEach((curr: any) => {
-            (curr.restes_salaires_details || []).forEach((rs: any) => {
-                const displayName = rs.username === 'Restes Salaires' ? 'Tous Employés' : rs.username;
-                agg.remainders.push({ name: displayName, amount: parseFloat(rs.montant), updated_at: rs.created_at });
-            });
-        });
-
-        // Add salary remainders
-        (data.getSalaryRemainders || []).forEach((rem: any) => {
-            const displayName = rem.employee_name === 'Restes Salaires' ? 'Tous Employés' : rem.employee_name;
-            agg.remainders.push({ name: displayName, amount: rem.amount, updated_at: rem.updated_at });
-        });
-
-        const group = (list: any[], nameKey: string, amountKey: string) => {
-            const map = new Map();
-            list.forEach(item => {
-                const name = item[nameKey];
-                if (!name) return;
-                const amt = parseFloat(item[amountKey] || '0');
-                map.set(name, (map.get(name) || 0) + amt);
-            });
-            return Array.from(map.entries()).map(([name, amount]) => ({ name, amount })).filter(x => x.amount > 0).sort((a, b) => b.amount - a.amount);
-        };
-
-        const groupWithItems = (list: any[], nameKey: string, amountKey: string, tsKey: string = 'created_at') => {
+        const groupingFunction = (list: any[], nameKey: string, amountKey: string) => {
             const map = new Map<string, { total: number, items: any[] }>();
             list.forEach(item => {
                 const name = item[nameKey];
@@ -656,32 +707,32 @@ export default function PaiementsPage() {
                 const current = map.get(name)!;
                 current.total += amt;
                 current.items.push({
+                    ...item,
                     amount: amt,
-                    date: item[tsKey] || item.updated_at || item.date
+                    date: item.date || item.created_at || item.updated_at
                 });
             });
             return Array.from(map.entries())
-                .map(([name, data]) => ({
+                .map(([name, d]) => ({
                     name,
-                    amount: data.total,
-                    items: data.items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                    amount: d.total,
+                    items: d.items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                 }))
                 .filter(x => x.amount > 0)
                 .sort((a, b) => b.amount - a.amount);
         };
 
         return {
-            fournisseurs: group(agg.fournisseurs, 'supplier', 'amount'),
-            divers: group(agg.divers, 'designation', 'amount'),
-            administratif: group(agg.administratif, 'designation', 'amount'),
-            avances: groupWithItems(agg.avances, 'username', 'montant'),
-            doublages: groupWithItems(agg.doublages, 'username', 'montant'),
-            extras: groupWithItems(agg.extras, 'username', 'montant'),
-            primes: groupWithItems(agg.primes, 'username', 'montant'),
-            restesSalaires: group(agg.restesSalaires, 'username', 'montant'),
-            remainders: groupWithItems((agg.remainders || []).map((r: any) => ({ ...r, username: r.name, montant: r.amount })), 'username', 'montant', 'updated_at')
+            fournisseurs: groupingFunction(agg.fournisseurs, 'supplier', 'amount'),
+            divers: groupingFunction(agg.divers, 'designation', 'amount'),
+            administratif: groupingFunction(agg.administratif, 'designation', 'amount'),
+            avances: groupingFunction(agg.avances, 'username', 'montant'),
+            doublages: groupingFunction(agg.doublages, 'username', 'montant'),
+            extras: groupingFunction(agg.extras, 'username', 'montant'),
+            primes: groupingFunction(agg.primes, 'username', 'montant'),
+            remainders: groupingFunction(agg.restesSalaires, 'username', 'montant')
         };
-    }, [data]);
+    }, [data, detailsData]);
 
     const totals = useMemo(() => {
         const dep = expenseDetails.fournisseurs.reduce((a: number, b: any) => a + b.amount, 0) +
@@ -692,16 +743,14 @@ export default function PaiementsPage() {
             expenseDetails.doublages.reduce((a: number, b: any) => a + b.amount, 0) +
             expenseDetails.extras.reduce((a: number, b: any) => a + b.amount, 0) +
             expenseDetails.primes.reduce((a: number, b: any) => a + b.amount, 0) +
-            expenseDetails.restesSalaires.reduce((a: number, b: any) => a + b.amount, 0) +
             expenseDetails.remainders.reduce((a: number, b: any) => a + b.amount, 0);
 
         return {
             expenses: dep,
             salaries: sal,
-            riadh: stats.totalRiadhExpenses,
-            global: dep + sal + stats.totalRiadhExpenses
+            global: dep + sal
         };
-    }, [expenseDetails, stats.totalRiadhExpenses]);
+    }, [expenseDetails]);
 
     const handleBankSubmit = async () => {
         if (!bankAmount || !bankDate) return;
@@ -984,7 +1033,7 @@ export default function PaiementsPage() {
                                     <FileText size={18} /> Chiffre d'Affaire
                                 </div>
                                 <h3 className="text-6xl font-black tracking-tighter mb-2">
-                                    {stats.totalRecetteCaisse.toLocaleString('fr-FR', { minimumFractionDigits: 3 }).replace(/\s/g, ',')}
+                                    {computedStats.chiffreAffaire.toLocaleString('fr-FR', { minimumFractionDigits: 3 }).replace(/\s/g, ',')}
                                 </h3>
                                 <span className="text-xl font-bold opacity-80 block">DT</span>
                             </div>
@@ -1023,7 +1072,7 @@ export default function PaiementsPage() {
                                     <TrendingUp size={18} /> Reste
                                 </div>
                                 <h3 className="text-6xl font-black tracking-tighter mb-2">
-                                    {stats.totalRecetteNette.toLocaleString('fr-FR', { minimumFractionDigits: 3 }).replace(/\s/g, ',')}
+                                    {computedStats.reste.toLocaleString('fr-FR', { minimumFractionDigits: 3 }).replace(/\s/g, ',')}
                                 </h3>
                                 <span className="text-xl font-bold opacity-80 block">DT</span>
                             </div>
@@ -1044,7 +1093,7 @@ export default function PaiementsPage() {
                                 <div className="flex items-center gap-2 text-white/90 mb-2 uppercase text-[10px] font-bold tracking-widest">
                                     <Coins size={14} /> Total Cash
                                 </div>
-                                <h3 className="text-4xl font-black tracking-tighter">{stats.totalCash.toLocaleString('fr-FR', { minimumFractionDigits: 3 }).replace(/\s/g, ',')}</h3>
+                                <h3 className="text-4xl font-black tracking-tighter">{computedStats.cash.toLocaleString('fr-FR', { minimumFractionDigits: 3 }).replace(/\s/g, ',')}</h3>
                                 <span className="text-sm font-bold opacity-70">DT</span>
                             </div>
                             <div className="absolute right-4 bottom-2 opacity-10 group-hover:scale-110 transition-transform duration-500 text-white">
@@ -1062,7 +1111,7 @@ export default function PaiementsPage() {
                                     <CreditCard size={14} /> Bancaire (TPE + Vers. + Chèques)
                                 </div>
                                 <h3 className="text-4xl font-black tracking-tighter">
-                                    {(stats.totalTPE + stats.totalBankDeposits + stats.totalCheque).toLocaleString('fr-FR', { minimumFractionDigits: 3 }).replace(/\s/g, ',')}
+                                    {(computedStats.tpe + (data?.getPaymentStats?.totalBankDeposits || 0) + computedStats.cheque).toLocaleString('fr-FR', { minimumFractionDigits: 3 }).replace(/\s/g, ',')}
                                 </h3>
                                 <span className="text-sm font-bold opacity-70">DT</span>
                             </div>
@@ -1081,7 +1130,7 @@ export default function PaiementsPage() {
                                     <Ticket size={14} /> Ticket Restaurant
                                 </div>
                                 <h3 className="text-4xl font-black tracking-tighter">
-                                    {(stats.totalTicketsRestaurant || 0).toLocaleString('fr-FR', { minimumFractionDigits: 3 }).replace(/\s/g, ',')}
+                                    {(computedStats.tickets).toLocaleString('fr-FR', { minimumFractionDigits: 3 }).replace(/\s/g, ',')}
                                 </h3>
                                 <span className="text-sm font-bold opacity-70">DT</span>
                             </div>
@@ -2284,156 +2333,144 @@ export default function PaiementsPage() {
                 }
             </AnimatePresence >
 
-            {/* Expenses Details Modal */}
+            {/* Expenses Details Modal - IMAGE 0 STYLE */}
+            {/* Expenses Details Modal - IMAGE 0 STYLE */}
             <AnimatePresence>
                 {
                     showExpensesDetails && (
                         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
                             <motion.div
                                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                                className="absolute inset-0 bg-[#4a3426]/60 backdrop-blur-sm"
+                                className="absolute inset-0 bg-white/60 backdrop-blur-xl"
                                 onClick={() => setShowExpensesDetails(false)}
                             />
                             <motion.div
                                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                                 animate={{ opacity: 1, scale: 1, y: 0 }}
                                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                                className="relative bg-[#fcfaf8] w-full max-w-7xl h-auto max-h-[90vh] rounded-[3rem] shadow-2xl overflow-hidden border border-white/20 flex flex-col"
+                                className="relative bg-[#fcfaf8] w-full max-w-[85vw] h-auto max-h-[95vh] rounded-[4rem] shadow-[0_30px_100px_rgba(74,52,38,0.15)] overflow-hidden border border-white flex flex-col"
                             >
-                                <div className="p-8 md:p-10 flex-1 overflow-y-auto custom-scrollbar">
-                                    <div className="grid grid-cols-3 items-center mb-8 bg-white/50 p-6 rounded-[2rem] border border-[#e6dace]/30">
-                                        <div className="text-left">
-                                            <h2 className="text-3xl font-black text-[#4a3426] tracking-tighter">Détails des Dépenses</h2>
-                                            <p className="text-[#c69f6e] font-black text-[10px] uppercase tracking-[0.3em] mt-1">Récapitulatif financier complet</p>
-                                        </div>
+                                {/* Modal Header */}
+                                <div className="p-12 pb-10 flex items-center justify-between">
+                                    <div className="flex-1">
+                                        <h2 className="text-5xl font-black text-[#4a3426] tracking-tighter leading-none mb-2">Détails des Dépenses</h2>
+                                        <p className="text-[#c69f6e] font-black text-xs uppercase tracking-[0.4em]">Récapitulatif financier complet</p>
+                                    </div>
 
-                                        <div className="flex flex-col items-center">
-                                            <p className="text-[9px] font-black text-[#8c8279] uppercase tracking-widest leading-none mb-1 opacity-60">Total Global</p>
-                                            <div className="flex items-baseline gap-2">
-                                                <p className="text-3xl font-black text-[#4a3426] tracking-tighter">
-                                                    {totals.global.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
-                                                </p>
-                                                <span className="text-xs font-black text-[#c69f6e]">DT</span>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex justify-end">
-                                            <button
-                                                onClick={() => setShowExpensesDetails(false)}
-                                                className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-[#8c8279] hover:bg-red-50 hover:text-red-500 transition-all border border-[#e6dace]/50 shadow-sm"
-                                            >
-                                                <X size={24} />
-                                            </button>
+                                    <div className="flex flex-col items-center flex-1">
+                                        <p className="text-[10px] font-black text-[#8c8279] uppercase tracking-widest leading-none mb-3 opacity-60">Total Global</p>
+                                        <div className="flex items-baseline gap-2">
+                                            <p className="text-6xl font-black text-[#4a3426] tracking-tighter">
+                                                {totals.global.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                            </p>
+                                            <span className="text-xl font-black text-[#c69f6e]">DT</span>
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-start pb-8">
+                                    <div className="flex-1 flex justify-end">
+                                        <button
+                                            onClick={() => setShowExpensesDetails(false)}
+                                            className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-[#8c8279] hover:bg-red-50 hover:text-red-500 transition-all border border-[#e6dace]/30 shadow-sm"
+                                        >
+                                            <X size={28} />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Modal Content - Grid Layout */}
+                                <div className="flex-1 overflow-y-auto px-12 pb-12 custom-scrollbar no-scrollbar">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
                                         {[
-                                            { title: 'Dépenses Fournisseurs', subtitle: 'Marchandises & Services', icon: Truck, color: 'text-[#4a3426]', iconBg: 'bg-[#4a3426]/10', items: expenseDetails.fournisseurs },
-                                            { title: 'Dépenses Divers', subtitle: 'Frais Exceptionnels', icon: Sparkles, color: 'text-[#c69f6e]', iconBg: 'bg-[#c69f6e]/10', items: expenseDetails.divers },
-                                            { title: 'Dépenses Administratif', subtitle: 'Loyers, Factures & Bureaux', icon: Layout, color: 'text-[#4a3426]', iconBg: 'bg-[#4a3426]/10', items: expenseDetails.administratif },
-                                            { title: 'Historique Dépenses (Riadh)', subtitle: 'Paiements directs', icon: User, color: 'text-[#c69f6e]', iconBg: 'bg-[#c69f6e]/10', amount: stats.totalRiadhExpenses, items: [] },
-                                            { title: 'Accompte', subtitle: 'Avances sur salaires', icon: Calculator, color: 'text-[#a89284]', iconBg: 'bg-[#a89284]/10', items: expenseDetails.avances },
-                                            { title: 'Doublage', subtitle: 'Heures supplémentaires', icon: TrendingUp, color: 'text-[#4a3426]', iconBg: 'bg-[#4a3426]/10', items: expenseDetails.doublages },
-                                            { title: 'Extra', subtitle: 'Main d\'œuvre occasionnelle', icon: Zap, color: 'text-[#c69f6e]', iconBg: 'bg-[#c69f6e]/10', items: expenseDetails.extras },
-                                            { title: 'Primes', subtitle: 'Récompenses & Bonus', icon: Sparkles, color: 'text-[#2d6a4f]', iconBg: 'bg-[#2d6a4f]/10', items: expenseDetails.primes },
-                                            { title: 'TOUS EMPLOYÉS', subtitle: 'Salaires en attente', icon: Banknote, color: 'text-red-500', iconBg: 'bg-red-50', items: expenseDetails.remainders }
+                                            { title: 'DÉPENSES FOURNISSEURS', subtitle: 'MARCHANDISES & SERVICES', icon: Truck, color: 'text-[#4a3426]', iconBg: 'bg-[#4a3426]/5', items: expenseDetails.fournisseurs },
+                                            { title: 'DÉPENSES DIVERS', subtitle: 'FRAIS EXCEPTIONNELS', icon: Sparkles, color: 'text-[#c69f6e]', iconBg: 'bg-[#c69f6e]/5', items: expenseDetails.divers },
+                                            { title: 'DÉPENSES ADMINISTRATIF', subtitle: 'LOYERS, FACTURES & BUREAUX', icon: Layout, color: 'text-[#4a3426]', iconBg: 'bg-[#4a3426]/5', items: expenseDetails.administratif },
+                                            { title: 'ACCOMPTE', subtitle: 'AVANCES SUR SALAIRES', icon: Calculator, color: 'text-[#a89284]', iconBg: 'bg-[#a89284]/5', items: expenseDetails.avances },
+                                            { title: 'DOUBLAGE', subtitle: 'HEURES SUPPLÉMENTAIRES', icon: TrendingUp, color: 'text-[#4a3426]', iconBg: 'bg-[#4a3426]/5', items: expenseDetails.doublages },
+                                            { title: 'EXTRA', subtitle: "MAIN D'ŒUVRE OCCASIONNELLE", icon: Zap, color: 'text-[#c69f6e]', iconBg: 'bg-[#c69f6e]/5', items: expenseDetails.extras },
+                                            { title: 'PRIMES', subtitle: 'RÉCOMPENSES & BONUS', icon: Sparkles, color: 'text-[#2d6a4f]', iconBg: 'bg-[#2d6a4f]/5', items: expenseDetails.primes },
+                                            { title: 'TOUS EMPLOYÉS', subtitle: 'SALAIRES EN ATTENTE', icon: Banknote, color: 'text-red-500', iconBg: 'bg-red-50', items: expenseDetails.remainders, badge: 'EN ATTENTE' }
                                         ].map((cat, idx) => {
-                                            const total = cat.amount !== undefined ? cat.amount : (cat.items || []).reduce((sum: number, item: any) => sum + (item.amount || 0), 0);
-                                            // Show Restes Salaires even if 0, but hide others if 0
+                                            const total = (cat.items || []).reduce((sum: number, item: any) => sum + (item.amount || 0), 0);
+                                            // Handle cases where total might be zero but category should be shown (like TOUS EMPLOYÉS)
                                             if (total === 0 && cat.title !== 'TOUS EMPLOYÉS') return null;
+
                                             const isExpanded = expandedCategories.includes(idx);
-                                            const hasItems = cat.items && cat.items.length > 0;
+                                            const hasItems = (cat.items || []).length > 0;
 
                                             return (
                                                 <div
                                                     key={idx}
-                                                    className={`group bg-white rounded-[2rem] border transition-all duration-300 ${isExpanded ? 'border-[#c69f6e] ring-4 ring-[#c69f6e]/5 shadow-xl' : 'border-[#e6dace]/50 hover:border-[#c69f6e]/30 shadow-sm shadow-[#4a3426]/5'}`}
+                                                    className={`group bg-white rounded-[2.5rem] border transition-all duration-300 ${isExpanded ? 'border-[#c69f6e] ring-4 ring-[#c69f6e]/5 shadow-xl' : 'border-[#e6dace]/20 hover:border-[#c69f6e]/30 shadow-sm shadow-[#4a3426]/5'}`}
                                                 >
+                                                    {/* Category Header Card */}
                                                     <div
                                                         onClick={() => {
                                                             if (!hasItems) return;
                                                             setExpandedCategories(prev =>
-                                                                prev.includes(idx) ? prev.filter((i: number) => i !== idx) : [...prev, idx]
+                                                                (prev || []).includes(idx) ? (prev || []).filter((i: number) => i !== idx) : [...(prev || []), idx]
                                                             );
                                                         }}
-                                                        className={`p-6 flex items-center justify-between cursor-pointer select-none ${hasItems ? 'hover:bg-[#fcfaf8]' : 'cursor-default'} rounded-[2rem] transition-colors`}
+                                                        className={`p-6 flex items-center justify-between cursor-pointer select-none rounded-[2.5rem] transition-colors ${!hasItems ? 'cursor-default' : 'hover:bg-[#fcfaf8]'}`}
                                                     >
-                                                        <div className="flex items-center gap-4">
-                                                            <div className={`w-12 h-12 rounded-2xl ${cat.iconBg} flex items-center justify-center ${cat.color} group-hover:scale-110 transition-transform`}>
-                                                                <cat.icon size={20} />
+                                                        <div className="flex items-center gap-5">
+                                                            <div className={`w-14 h-14 rounded-2xl ${cat.iconBg} flex items-center justify-center ${cat.color} group-hover:scale-110 transition-transform`}>
+                                                                <cat.icon size={26} />
                                                             </div>
                                                             <div>
                                                                 <div className="flex items-center gap-2">
-                                                                    <p className="text-[10px] font-black text-[#8c8279] uppercase tracking-widest leading-none mb-1.5">{cat.title}</p>
-                                                                    {cat.title === 'TOUS EMPLOYÉS' && (
-                                                                        <span className="text-[9px] font-bold text-red-400 uppercase tracking-tight bg-red-50 border border-red-100 px-1.5 py-0.5 rounded ml-2">En attente</span>
+                                                                    <p className="text-[11px] font-black text-[#4a3426] uppercase tracking-tight leading-none mb-1.5">{cat.title}</p>
+                                                                    {cat.badge && (
+                                                                        <span className="text-[8px] font-black text-red-500 uppercase tracking-tighter bg-red-50 border border-red-100 px-1.5 py-0.5 rounded ml-1">{cat.badge}</span>
                                                                     )}
                                                                 </div>
-                                                                <p className="text-[9px] font-bold text-[#4a3426]/30 uppercase tracking-tighter leading-none">{cat.subtitle}</p>
+                                                                <p className="text-[9px] font-bold text-[#8c8279]/50 uppercase tracking-tighter leading-none">{cat.subtitle}</p>
                                                             </div>
                                                         </div>
                                                         <div className="flex items-center gap-4">
                                                             <div className="text-right">
-                                                                <p className="text-lg font-black text-[#4a3426] leading-none mb-1">{total.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</p>
-                                                                <p className="text-[8px] font-black text-[#c69f6e] uppercase tracking-widest opacity-60">DT</p>
+                                                                <p className="text-2xl font-black text-[#4a3426] leading-none mb-1">{total.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</p>
+                                                                <p className="text-[10px] font-black text-[#c69f6e] uppercase tracking-widest opacity-60">DT</p>
                                                             </div>
                                                             {hasItems && (
                                                                 <div className={`text-[#c69f6e] transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
-                                                                    <ChevronDown size={18} />
+                                                                    <ChevronDown size={20} />
                                                                 </div>
                                                             )}
                                                         </div>
                                                     </div>
 
+                                                    {/* Expanded Items List */}
                                                     <AnimatePresence>
                                                         {isExpanded && hasItems && (
                                                             <motion.div
                                                                 initial={{ height: 0, opacity: 0 }}
                                                                 animate={{ height: 'auto', opacity: 1 }}
                                                                 exit={{ height: 0, opacity: 0 }}
-                                                                className="overflow-hidden bg-[#fcfaf8]/50 border-t border-[#e6dace]/30"
+                                                                className="overflow-hidden border-t border-[#e6dace]/30 bg-[#fcfaf8]/50 rounded-b-[2.5rem]"
                                                             >
                                                                 <div className="p-4 space-y-2">
-                                                                    {(cat.items || []).map((item: any, i: number) => {
-                                                                        const hasSubItems = item.items && item.items.length > 0;
-                                                                        return (
-                                                                            <div
-                                                                                key={i}
-                                                                                onClick={() => {
-                                                                                    if (hasSubItems) {
-                                                                                        setSelectedEmployeeDetails({
-                                                                                            name: item.name,
-                                                                                            category: cat.title,
-                                                                                            subtitle: cat.subtitle,
-                                                                                            total: item.amount,
-                                                                                            items: item.items
-                                                                                        });
-                                                                                    }
-                                                                                }}
-                                                                                className={`flex justify-between items-center px-5 py-3 bg-white rounded-xl border border-[#e6dace]/10 shadow-sm transition-all ${hasSubItems ? 'cursor-pointer hover:border-[#c69f6e]/30 hover:bg-[#fcfaf8] active:scale-[0.98]' : ''}`}
-                                                                            >
-                                                                                <div className="flex flex-col">
-                                                                                    <span className="text-[11px] font-bold text-[#4a3426]/70 uppercase tracking-tight">{item.name}</span>
-                                                                                    {item.updated_at && !hasSubItems && (
-                                                                                        <span className="text-[9px] font-bold text-green-500/80 flex items-center gap-1 mt-0.5">
-                                                                                            <Clock size={10} className="opacity-70" />
-                                                                                            {(() => {
-                                                                                                const d = new Date(Number(item.updated_at) || item.updated_at);
-                                                                                                return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-                                                                                            })()}
-                                                                                        </span>
-                                                                                    )}
-                                                                                    {hasSubItems && (
-                                                                                        <span className="text-[9px] font-bold text-[#c69f6e] flex items-center gap-1 mt-0.5 opacity-60">
-                                                                                            <Eye size={10} /> Voir détails
-                                                                                        </span>
-                                                                                    )}
-                                                                                </div>
-                                                                                <span className="text-[11px] font-black text-[#4a3426]">{item.amount.toLocaleString('fr-FR', { minimumFractionDigits: 3 })} <span className="text-[9px] opacity-40 ml-0.5">DT</span></span>
+                                                                    {(cat.items || []).map((item: any, i: number) => (
+                                                                        <button
+                                                                            key={i}
+                                                                            onClick={() => {
+                                                                                setSelectedSupplier(item.name);
+                                                                                setSelectedEmployeeDetails({
+                                                                                    name: item.name,
+                                                                                    category: cat.title,
+                                                                                    subtitle: cat.subtitle,
+                                                                                    total: item.amount,
+                                                                                    items: item.items
+                                                                                });
+                                                                            }}
+                                                                            className="w-full flex justify-between items-center px-6 py-4 bg-white rounded-2xl border border-transparent hover:border-[#c69f6e]/30 shadow-[0_2px_10px_rgba(0,0,0,0.01)] hover:shadow-md transition-all active:scale-[0.98]"
+                                                                        >
+                                                                            <span className="text-[11px] font-black text-[#4a3426] uppercase tracking-tight">{item.name}</span>
+                                                                            <div className="flex items-center gap-1.5">
+                                                                                <span className="text-sm font-black text-[#4a3426]">{item.amount.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</span>
+                                                                                <span className="text-[9px] font-black text-[#c69f6e]/30 uppercase tracking-widest">DT</span>
                                                                             </div>
-                                                                        );
-                                                                    })}
+                                                                        </button>
+                                                                    ))}
                                                                 </div>
                                                             </motion.div>
                                                         )}
@@ -2443,107 +2480,303 @@ export default function PaiementsPage() {
                                         })}
                                     </div>
                                 </div>
-
-                                <AnimatePresence>
-                                    {selectedEmployeeDetails && (
-                                        <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">
-                                            <motion.div
-                                                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                                                className="absolute inset-0 bg-[#4a3426]/60 backdrop-blur-md"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setSelectedEmployeeDetails(null);
-                                                }}
-                                            />
-                                            <motion.div
-                                                initial={{ scale: 0.9, opacity: 0, y: 20 }}
-                                                animate={{ scale: 1, opacity: 1, y: 0 }}
-                                                exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                                                className="relative w-full max-w-xl bg-[#fdfaf7] rounded-[2.5rem] shadow-2xl overflow-hidden border border-white/50"
-                                                onClick={(e) => e.stopPropagation()}
-                                            >
-                                                <div className="p-8">
-                                                    <div className="flex justify-between items-start mb-10">
-                                                        <div className="flex items-center gap-4">
-                                                            <div className="w-12 h-12 rounded-2xl bg-[#c69f6e]/10 flex items-center justify-center text-[#c69f6e]">
-                                                                <Layout size={24} />
-                                                            </div>
-                                                            <div>
-                                                                <h2 className="text-2xl font-black text-[#4a3426] tracking-tight uppercase">
-                                                                    HISTORIQUE: {selectedEmployeeDetails.name}
-                                                                </h2>
-                                                                <p className="text-[10px] font-black text-[#c69f6e] uppercase tracking-widest mt-1 opacity-60">
-                                                                    {selectedEmployeeDetails.category} groupés par employé
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                        <button
-                                                            onClick={() => setSelectedEmployeeDetails(null)}
-                                                            className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-[#8c8279] hover:bg-red-50 hover:text-red-500 transition-all shadow-sm border border-[#e6dace]/30"
-                                                        >
-                                                            <X size={20} />
-                                                        </button>
-                                                    </div>
-
-                                                    <div className="bg-white rounded-[2rem] border border-[#e6dace]/30 p-8 shadow-inner shadow-[#4a3426]/5 mb-6">
-                                                        <div className="flex items-center gap-5 mb-8">
-                                                            <div className="w-14 h-14 rounded-full bg-[#f4ece4] flex items-center justify-center text-lg font-black text-[#c69f6e]">
-                                                                {selectedEmployeeDetails.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
-                                                            </div>
-                                                            <div className="flex-1">
-                                                                <div className="flex justify-between items-center">
-                                                                    <h3 className="text-xl font-black text-[#4a3426] tracking-tight truncate max-w-[200px]">{selectedEmployeeDetails.name}</h3>
-                                                                    <div className="text-right">
-                                                                        <span className="text-2xl font-black text-[#4a3426]">{selectedEmployeeDetails.total.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</span>
-                                                                        <span className="text-[10px] font-black text-[#c69f6e] ml-1 opacity-60">DT</span>
-                                                                    </div>
-                                                                </div>
-                                                                <p className="text-[10px] font-bold text-[#8c8279] italic mt-0.5 opacity-60">Détails des transactions:</p>
-                                                            </div>
-                                                        </div>
-
-                                                        <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                                                            {selectedEmployeeDetails.items.map((item: any, i: number) => {
-                                                                const d = new Date(Number(item.date) || item.date);
-                                                                const dateStr = d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-                                                                const timeStr = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-                                                                return (
-                                                                    <div key={i} className="flex justify-between items-center px-6 py-4 bg-[#fcfaf8] rounded-2xl border border-[#e6dace]/20 shadow-sm hover:border-[#c69f6e]/30 transition-all">
-                                                                        <div className="flex flex-col">
-                                                                            <span className="text-xs font-black text-[#4a3426] tracking-tight">{dateStr}</span>
-                                                                            <span className="text-[9px] font-bold text-green-500/80 flex items-center gap-1 mt-0.5">
-                                                                                <Clock size={10} className="opacity-70" />
-                                                                                {timeStr}
-                                                                            </span>
-                                                                        </div>
-                                                                        <span className="text-sm font-black text-[#4a3426]">{item.amount.toLocaleString('fr-FR', { minimumFractionDigits: 3 })} <span className="text-[10px] opacity-40 ml-0.5 uppercase">DT</span></span>
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="bg-[#4a3426] rounded-[2rem] p-6 flex justify-between items-center shadow-lg shadow-[#4a3426]/20">
-                                                        <span className="text-[10px] font-black text-white/50 uppercase tracking-[0.2em]">TOTAL DE LA LISTE</span>
-                                                        <div className="text-right">
-                                                            <span className="text-2xl font-black text-white leading-none">
-                                                                {selectedEmployeeDetails.total.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
-                                                            </span>
-                                                            <span className="text-[10px] font-black text-[#c69f6e] ml-1">DT</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </motion.div>
-                                        </div>
-                                    )}
-                                </AnimatePresence>
                             </motion.div>
                         </div>
                     )
                 }
-            </AnimatePresence >
+            </AnimatePresence>
 
+            {/* Supplier Details Modal - IMAGE 1 STYLE */}
+            <AnimatePresence>
+                {selectedEmployeeDetails && (
+                    <div className="fixed inset-0 z-[400] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                            className="absolute inset-0 bg-[#4a3426]/40 backdrop-blur-md"
+                            onClick={() => setSelectedEmployeeDetails(null)}
+                        />
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                            className="relative w-full max-w-5xl bg-[#fdfaf7] rounded-[3.5rem] shadow-2xl overflow-hidden border border-white"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {/* Header Section */}
+                            <div className="bg-[#4a3426] p-10 flex items-center justify-between rounded-t-[3.5rem]">
+                                <div className="flex items-center gap-6">
+                                    <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center border border-white/20 shadow-inner">
+                                        <ImageIcon className="text-white/60" size={32} />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-5xl font-black text-white tracking-tighter uppercase leading-none mb-3">
+                                            {selectedEmployeeDetails.name}
+                                        </h2>
+                                        <div className="flex items-center gap-3">
+                                            <span className="w-2 h-2 rounded-full bg-[#c69f6e]"></span>
+                                            <p className="text-sm font-black text-white/50 uppercase tracking-[0.3em] leading-none pt-0.5">
+                                                {new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="text-right flex flex-col items-end gap-2">
+                                    <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] leading-none">Total Mensuel</p>
+                                    <div className="flex items-baseline gap-2">
+                                        <span className="text-5xl font-black text-white tracking-tighter">
+                                            {selectedEmployeeDetails.total.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                        </span>
+                                        <span className="text-lg font-black text-[#c69f6e]">DT</span>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setSelectedEmployeeDetails(null)}
+                                    className="absolute top-8 right-8 w-12 h-12 bg-white/10 hover:bg-white/20 rounded-2xl flex items-center justify-center text-white transition-all backdrop-blur-sm border border-white/20 group"
+                                >
+                                    <X size={24} className="group-hover:rotate-90 transition-transform duration-300" />
+                                </button>
+                            </div>
 
-        </div >
+                            {/* Cards Grid */}
+                            <div className="p-10 max-h-[65vh] overflow-y-auto custom-scrollbar">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {selectedEmployeeDetails.items.map((item: any, i: number) => (
+                                        <div key={i} className="bg-white rounded-[2.5rem] p-8 border border-[#e6dace]/30 shadow-[0_10px_40px_rgba(74,52,38,0.03)] flex flex-col h-full hover:shadow-xl transition-all group">
+                                            <div className="flex justify-between items-start mb-6">
+                                                <div className="flex items-center gap-2">
+                                                    <Calendar size={14} className="text-[#c69f6e] opacity-50" />
+                                                    <span className="text-[11px] font-black text-[#8c8279] uppercase tracking-widest">
+                                                        {new Date(item.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }).toUpperCase()}
+                                                    </span>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-2xl font-black text-[#4a3426] leading-none mb-1">{item.amount.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</p>
+                                                    <p className="text-[8px] font-black text-[#c69f6e] uppercase tracking-widest opacity-60">DT</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-3 mb-8">
+                                                <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-lg w-fit">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                                                    <span className="text-[9px] font-black text-green-600 uppercase tracking-wider leading-none">Règlement Effectué</span>
+                                                </div>
+                                                <div className="px-3 py-1.5 bg-[#fdfaf7] border border-[#e6dace]/40 rounded-lg w-fit">
+                                                    <span className="text-[9px] font-black text-[#8c8279] uppercase tracking-wider leading-none">{item.payment_method || 'ESPÈCES'}</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="mt-auto">
+                                                {(item.photo_url || item.photo_cheque_url || (item.photos && item.photos !== '[]')) ? (
+                                                    <button
+                                                        onClick={() => {
+                                                            setSelectedSupplier(selectedEmployeeDetails.name);
+                                                            setViewingData(item);
+                                                        }}
+                                                        className="w-full py-4 bg-[#4a3426] hover:bg-[#c69f6e] text-white rounded-2xl flex items-center justify-center gap-3 transition-all shadow-lg shadow-[#4a3426]/10"
+                                                    >
+                                                        <Eye size={16} />
+                                                        <span className="text-[11px] font-black uppercase tracking-[0.2em] pt-0.5">Justificatifs</span>
+                                                    </button>
+                                                ) : (
+                                                    <div className="w-full py-4 bg-[#fcfaf8] rounded-2xl border border-dashed border-[#e6dace] flex items-center justify-center">
+                                                        <span className="text-[10px] font-black text-[#8c8279]/30 uppercase tracking-[0.2em]">Aucun Visuel</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Viewing Data Modal (Photos) - EXACT LOGIC FROM DASHBOARD/FACTURATION */}
+            <AnimatePresence>
+                {
+                    viewingData && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 z-[500] bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center p-8 overflow-y-auto no-scrollbar"
+                            onClick={() => setViewingData(null)}
+                        >
+                            <div className="w-full max-w-6xl space-y-8 py-10" onClick={e => e.stopPropagation()}>
+                                <div className="flex justify-between items-center text-white mb-4">
+                                    <div>
+                                        <h2 className="text-3xl font-black uppercase tracking-tight">{selectedSupplier}</h2>
+                                        <p className="text-sm font-bold opacity-60 uppercase tracking-[0.3em]">
+                                            {viewingData.amount?.toLocaleString('fr-FR', { minimumFractionDigits: 3 })} DT • {viewingData.payment_method || viewingData.paymentMethod}
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        <div className="flex bg-white/10 rounded-2xl p-1 gap-1 border border-white/10">
+                                            <button onClick={() => setImgZoom(prev => Math.max(0.5, prev - 0.25))} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all" title="Zoom Arrière"><ZoomOut size={20} /></button>
+                                            <div className="w-16 flex items-center justify-center font-black text-xs tabular-nums text-[#c69f6e]">{Math.round(imgZoom * 100)}%</div>
+                                            <button onClick={() => setImgZoom(prev => Math.min(4, prev + 0.25))} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all" title="Zoom Avant"><ZoomIn size={20} /></button>
+                                            <div className="w-px h-6 bg-white/10 self-center mx-1"></div>
+                                            <button onClick={() => setImgRotation(prev => prev + 90)} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all" title="Tourner"><RotateCw size={20} /></button>
+                                            <button onClick={resetView} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all" title="Réinitialiser"><Maximize2 size={20} /></button>
+                                        </div>
+                                        <button onClick={() => setViewingData(null)} className="w-12 h-12 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-all"><X size={32} /></button>
+                                    </div>
+                                </div>
+
+                                <div className={`grid grid-cols-1 ${(viewingData.payment_method || viewingData.paymentMethod) === 'Chèque' ? 'md:grid-cols-3' : 'md:grid-cols-1'} gap-8`}>
+                                    {/* Photo Facture */}
+                                    <div className="space-y-8">
+                                        {(() => {
+                                            let gallery: string[] = [];
+                                            try {
+                                                const rawPhotos = viewingData.photos;
+                                                if (rawPhotos && rawPhotos !== 'null' && rawPhotos !== '[]') {
+                                                    const parsed = typeof rawPhotos === 'string' ? JSON.parse(rawPhotos) : rawPhotos;
+                                                    gallery = Array.isArray(parsed) ? parsed : [];
+                                                }
+                                            } catch (e) {
+                                                gallery = [];
+                                            }
+
+                                            const allPhotos = [...gallery];
+                                            if (viewingData.photo_url && viewingData.photo_url.length > 5 && !allPhotos.includes(viewingData.photo_url)) {
+                                                allPhotos.unshift(viewingData.photo_url);
+                                            }
+
+                                            if (allPhotos.length === 0) {
+                                                return (
+                                                    <div className="h-[70vh] bg-white/5 rounded-[2rem] border-2 border-dashed border-white/10 flex items-center justify-center text-white/20 italic font-bold uppercase tracking-widest">Sans Facture</div>
+                                                );
+                                            }
+
+                                            return allPhotos.map((photo, pIdx) => (
+                                                <div key={pIdx} className="space-y-4">
+                                                    <div className="flex justify-between items-center">
+                                                        <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] italic">Document {pIdx + 1} / Facture</p>
+                                                        <a href={photo} download target="_blank" className="flex items-center gap-2 text-[9px] font-black text-[#c69f6e] uppercase tracking-widest hover:text-white transition-colors bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">
+                                                            <Download size={12} /> Télécharger
+                                                        </a>
+                                                    </div>
+                                                    <div
+                                                        className="bg-black rounded-[2rem] border border-white/10 shadow-2xl overflow-hidden group h-[70vh] relative"
+                                                        onWheel={(e) => {
+                                                            if (e.deltaY < 0) setImgZoom(prev => Math.min(4, prev + 0.1));
+                                                            else setImgZoom(prev => Math.max(0.5, prev - 0.1));
+                                                        }}
+                                                    >
+                                                        <motion.div
+                                                            className={`w-full h-full flex items-center justify-center p-4 ${imgZoom > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-zoom-in'}`}
+                                                            animate={{ scale: imgZoom, rotate: imgRotation }}
+                                                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                                            drag={imgZoom > 1}
+                                                            dragConstraints={{ left: -1000, right: 1000, top: -1000, bottom: 1000 }}
+                                                            dragElastic={0.1}
+                                                        >
+                                                            <img
+                                                                src={photo}
+                                                                draggable="false"
+                                                                className="max-w-full max-h-full rounded-xl object-contain shadow-2xl"
+                                                                alt={`Facture ${pIdx + 1}`}
+                                                                style={{ pointerEvents: imgZoom > 1 ? 'none' : 'auto', userSelect: 'none' }}
+                                                            />
+                                                        </motion.div>
+                                                        <div className="absolute top-6 left-6 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <span className="bg-black/60 backdrop-blur-md text-[10px] font-black text-[#c69f6e] px-4 py-2 rounded-full border border-[#c69f6e]/20 shadow-lg uppercase tracking-widest">Loupe: {Math.round(imgZoom * 100)}% • Molette pour zoomer</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ));
+                                        })()}
+                                    </div>
+
+                                    {/* Photos Chèque */}
+                                    {(viewingData.payment_method || viewingData.paymentMethod) === 'Chèque' && (
+                                        <>
+                                            <div className="space-y-4">
+                                                <div className="flex justify-between items-center">
+                                                    <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] italic">Chèque Recto</p>
+                                                    {viewingData.photo_cheque_url && (
+                                                        <a href={viewingData.photo_cheque_url} download target="_blank" className="flex items-center gap-2 text-[9px] font-black text-[#c69f6e] uppercase tracking-widest hover:text-white transition-colors bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">
+                                                            <Download size={12} />
+                                                        </a>
+                                                    )}
+                                                </div>
+                                                {viewingData.photo_cheque_url ? (
+                                                    <div
+                                                        className="bg-black rounded-[2rem] border border-white/10 shadow-2xl overflow-hidden h-[70vh] relative"
+                                                        onWheel={(e) => {
+                                                            if (e.deltaY < 0) setImgZoom(prev => Math.min(4, prev + 0.1));
+                                                            else setImgZoom(prev => Math.max(0.5, prev - 0.1));
+                                                        }}
+                                                    >
+                                                        <motion.div
+                                                            className={`w-full h-full flex items-center justify-center p-4 ${imgZoom > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-zoom-in'}`}
+                                                            animate={{ scale: imgZoom, rotate: imgRotation }}
+                                                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                                            drag={imgZoom > 1}
+                                                            dragConstraints={{ left: -1000, right: 1000, top: -1000, bottom: 1000 }}
+                                                            dragElastic={0.1}
+                                                        >
+                                                            <img
+                                                                src={viewingData.photo_cheque_url}
+                                                                draggable="false"
+                                                                className="max-w-full max-h-full rounded-xl object-contain shadow-2xl"
+                                                                alt="Chèque Recto"
+                                                                style={{ pointerEvents: imgZoom > 1 ? 'none' : 'auto', userSelect: 'none' }}
+                                                            />
+                                                        </motion.div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="h-[70vh] bg-white/5 rounded-[2rem] border-2 border-dashed border-white/10 flex items-center justify-center text-white/20 italic font-bold">Sans Recto</div>
+                                                )}
+                                            </div>
+                                            <div className="space-y-4">
+                                                <div className="flex justify-between items-center">
+                                                    <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] italic">Chèque Verso</p>
+                                                    {viewingData.photo_verso_url && (
+                                                        <a href={viewingData.photo_verso_url} download target="_blank" className="flex items-center gap-2 text-[9px] font-black text-[#c69f6e] uppercase tracking-widest hover:text-white transition-colors bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">
+                                                            <Download size={12} />
+                                                        </a>
+                                                    )}
+                                                </div>
+                                                {viewingData.photo_verso_url ? (
+                                                    <div
+                                                        className="bg-black rounded-[2rem] border border-white/10 shadow-2xl overflow-hidden h-[70vh] relative"
+                                                        onWheel={(e) => {
+                                                            if (e.deltaY < 0) setImgZoom(prev => Math.min(4, prev + 0.1));
+                                                            else setImgZoom(prev => Math.max(0.5, prev - 0.1));
+                                                        }}
+                                                    >
+                                                        <motion.div
+                                                            className={`w-full h-full flex items-center justify-center p-4 ${imgZoom > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-zoom-in'}`}
+                                                            animate={{ scale: imgZoom, rotate: imgRotation }}
+                                                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                                            drag={imgZoom > 1}
+                                                            dragConstraints={{ left: -1000, right: 1000, top: -1000, bottom: 1000 }}
+                                                            dragElastic={0.1}
+                                                        >
+                                                            <img
+                                                                src={viewingData.photo_verso_url}
+                                                                draggable="false"
+                                                                className="max-w-full max-h-full rounded-xl object-contain shadow-2xl"
+                                                                alt="Chèque Verso"
+                                                                style={{ pointerEvents: imgZoom > 1 ? 'none' : 'auto', userSelect: 'none' }}
+                                                            />
+                                                        </motion.div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="h-[70vh] bg-white/5 rounded-[2rem] border-2 border-dashed border-white/10 flex items-center justify-center text-white/20 italic font-bold">Sans Verso</div>
+                                                )}
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        </motion.div>
+                    )
+                }
+            </AnimatePresence>
+        </div>
     );
 }
