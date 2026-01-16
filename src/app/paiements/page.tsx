@@ -182,6 +182,12 @@ const GET_PAYMENT_DATA = gql`
     }
     getChiffresByRange(startDate: $startDate, endDate: $endDate) {
       date
+      recette_de_caisse
+      recette_net
+      tpe
+      espaces
+      cheque_bancaire
+      tickets_restaurant
       diponce
       diponce_divers
       diponce_admin
@@ -533,41 +539,41 @@ export default function PaiementsPage() {
     const { data, loading, refetch } = useQuery(GET_PAYMENT_DATA, {
         variables: {
             month: activeFilter === 'month' ? month : null,
-            startDate: activeFilter !== 'month' ? dateRange.start : null,
-            endDate: activeFilter !== 'month' ? dateRange.end : null
-        }
-    });
-
-    // Separate query for details to ensure it uses the dashboard's data source accurately
-    const { data: detailsData } = useQuery(gql`
-        query GetChiffresDetails($startDate: String!, $endDate: String!) {
-            getChiffresByRange(startDate: $startDate, endDate: $endDate) {
-                date
-                recette_de_caisse
-                recette_net
-                tpe
-                espaces
-                cheque_bancaire
-                tickets_restaurant
-                diponce
-                diponce_divers
-                diponce_admin
-                avances_details { id username montant created_at }
-                doublages_details { id username montant created_at }
-                extras_details { id username montant created_at }
-                primes_details { id username montant created_at }
-                restes_salaires_details { id username montant created_at }
-            }
-        }
-    `, {
-        variables: {
             startDate: effectiveDateRange.start,
             endDate: effectiveDateRange.end
         }
     });
 
+    const { data: salaryData, refetch: refetchSalaries } = useQuery(gql`
+        query GetIndependentSalaries($month: String!) {
+            getSalaryRemainders(month: $month) {
+                id
+                employee_name
+                amount
+                month
+                status
+                updated_at
+            }
+            getEmployees {
+                id
+                name
+                department
+            }
+        }
+    `, {
+        variables: { month: salaryRemainderMonth }
+    });
+
+    useEffect(() => {
+        refetchHistory();
+    }, [activeFilter, month, dateRange]);
+
+    useEffect(() => {
+        refetchSalaries();
+    }, [salaryRemainderMonth]);
+
     const computedStats = useMemo(() => {
-        const source = detailsData?.getChiffresByRange || [];
+        const source = data?.getChiffresByRange || [];
         return source.reduce((acc: any, curr: any) => ({
             chiffreAffaire: acc.chiffreAffaire + parseFloat(curr.recette_de_caisse || '0'),
             reste: acc.reste + parseFloat(curr.recette_net || '0'),
@@ -576,7 +582,7 @@ export default function PaiementsPage() {
             cheque: acc.cheque + parseFloat(curr.cheque_bancaire || '0'),
             tickets: acc.tickets + parseFloat(curr.tickets_restaurant || '0'),
         }), { chiffreAffaire: 0, reste: 0, cash: 0, tpe: 0, cheque: 0, tickets: 0 });
-    }, [detailsData]);
+    }, [data]);
 
     const setThisWeek = () => {
         const now = new Date();
@@ -646,7 +652,7 @@ export default function PaiementsPage() {
     };
 
     const expenseDetails = useMemo(() => {
-        const sourceData = detailsData?.getChiffresByRange || data?.getDailyExpenses || [];
+        const sourceData = data?.getChiffresByRange || [];
         if (!sourceData || sourceData.length === 0) return {
             fournisseurs: [], divers: [], administratif: [],
             avances: [], doublages: [], extras: [], primes: [], restesSalaires: [], remainders: []
@@ -676,26 +682,8 @@ export default function PaiementsPage() {
             };
         }, { ...base });
 
-        // Merge invoices - dashboard list includes these if they are "Riadh" invoices or in the monthly totals
-        const invoices = (data?.getInvoices || []);
-        invoices.forEach((inv: any) => {
-            const item = {
-                ...inv,
-                supplier: inv.supplier_name,
-                designation: inv.supplier_name,
-                amount: inv.amount,
-                date: inv.date,
-                is_invoice: true
-            };
-
-            // To avoid duplication with daily sheets, we only add if it's NOT a caisse expense or it's specific to Riadh
-            // Based on user feedback, the dashboard shows MORE, so we likely need to include all paid invoices correctly
-            if (inv.status === 'Paid' || inv.payer === 'riadh') {
-                if (inv.category === 'Journalier' || inv.category === 'Divers') agg.divers.push(item);
-                else if (inv.category === 'Fournisseur') agg.fournisseurs.push(item);
-                else if (inv.category === 'Administratif') agg.administratif.push(item);
-            }
-        });
+        // Invoices are already merged in the backend via getChiffresByRange.
+        // Manual merging is removed to prevent double counting.
 
         const groupingFunction = (list: any[], nameKey: string, amountKey: string) => {
             const map = new Map<string, { total: number, items: any[] }>();
@@ -732,7 +720,7 @@ export default function PaiementsPage() {
             primes: groupingFunction(agg.primes, 'username', 'montant'),
             remainders: groupingFunction(agg.restesSalaires, 'username', 'montant')
         };
-    }, [data, detailsData]);
+    }, [data]);
 
     const totals = useMemo(() => {
         const dep = expenseDetails.fournisseurs.reduce((a: number, b: any) => a + b.amount, 0) +
@@ -1622,8 +1610,8 @@ export default function PaiementsPage() {
                                     </thead>
                                     <tbody className="divide-y divide-[#e6dace]/10">
                                         {(() => {
-                                            const employees = data?.getEmployees || [];
-                                            const remainders = data?.getSalaryRemainders || [];
+                                            const employees = salaryData?.getEmployees || [];
+                                            const remainders = salaryData?.getSalaryRemainders || [];
                                             const filtered = employees.filter((emp: any) => emp.name.toLowerCase().includes(salaryRemainderSearch.toLowerCase()));
 
                                             if (filtered.length === 0) {
