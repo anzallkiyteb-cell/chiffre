@@ -594,6 +594,7 @@ export default function PaiementsPage() {
             try { da = JSON.parse(curr.diponce_admin || '[]'); } catch (e) { }
 
             return {
+                ...acc,
                 fournisseurs: [...acc.fournisseurs, ...d],
                 divers: [...acc.divers, ...dv],
                 journalier: [...acc.journalier, ...dj],
