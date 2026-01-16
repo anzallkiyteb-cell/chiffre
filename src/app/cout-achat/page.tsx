@@ -5,10 +5,8 @@ import { useQuery, gql } from '@apollo/client';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import {
-    LayoutDashboard, Loader2, Calendar,
-    Wallet, TrendingUp, TrendingDown, CreditCard, Banknote, Coins, Receipt, Calculator,
-    Plus, Zap, Sparkles, Search, ChevronDown, X, Eye, Truck, Download, Clock, Filter, RotateCcw,
-    ShoppingBag, AlertCircle, CheckCircle2, FileText
+    LayoutDashboard, CheckCircle2, ShoppingBag, AlertCircle, ShoppingCart, TrendingUp, History, User, CreditCard, Banknote, Coins, Receipt, LayoutGrid,
+    Calculator, Plus, Zap, Sparkles, Search, ChevronDown, X, Eye, Truck, Download, Clock, Filter, RotateCcw, FileText, Calendar, Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
@@ -127,7 +125,6 @@ const GET_CHIFFRES_DATA = gql`
     getChiffresByRange(startDate: $startDate, endDate: $endDate) {
       diponce
       diponce_divers
-      diponce_admin
       avances_details {
         montant
       }
@@ -153,6 +150,8 @@ const GET_CHIFFRES_DATA = gql`
       payment_method
       paid_date
       payer
+      category
+      doc_type
     }
     getPaymentStats(startDate: $startDate, endDate: $endDate) {
       totalRecetteCaisse
@@ -180,6 +179,7 @@ export default function CoutAchatPage() {
     const [startDate, setStartDate] = useState(startOfMonth);
     const [endDate, setEndDate] = useState(endOfMonth);
     const [searchQuery, setSearchQuery] = useState('');
+    const [categoryFilter, setCategoryFilter] = useState<'tous' | 'fournisseur' | 'divers'>('tous');
     const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
         paid: true,
         unpaid: true
@@ -212,33 +212,47 @@ export default function CoutAchatPage() {
     const aggregates = useMemo(() => {
         if (!data) return null;
 
+        const invoices = data.getInvoices || [];
+
+        const matchesCategory = (item: any) => {
+            const cat = (item.category || '').toLowerCase();
+            // Strictly exclude administrative costs from this page
+            if (cat === 'administratif' || cat === 'admin') return false;
+
+            if (categoryFilter === 'tous') return true;
+            if (categoryFilter === 'fournisseur') {
+                return cat === '' || cat === 'fournisseur';
+            }
+            if (categoryFilter === 'divers') {
+                return cat === 'divers';
+            }
+            return true;
+        };
+
         const base = data.getChiffresByRange.reduce((acc: any, curr: any) => {
             const diponceList = JSON.parse(curr.diponce || '[]');
-            // Filter out items that are from facturation to avoid double counting 
-            // because they are already in getInvoices
-            const manualExpenses = diponceList.filter((e: any) => !e.isFromFacturation);
+            const manualExpenses = diponceList.filter((e: any) => !e.isFromFacturation && matchesCategory(e));
+
+            const diversList = JSON.parse(curr.diponce_divers || '[]').filter((e: any) => matchesCategory({ ...e, category: 'Divers' }));
 
             return {
                 allExpenses: [...acc.allExpenses, ...manualExpenses],
-                allDivers: [...acc.allDivers, ...JSON.parse(curr.diponce_divers || '[]')],
-                allAdmin: [...acc.allAdmin, ...JSON.parse(curr.diponce_admin || '[]')],
-                labor: acc.labor +
+                allDivers: [...acc.allDivers, ...diversList],
+                labor: acc.labor + (categoryFilter === 'tous' ? (
                     (curr.avances_details || []).reduce((s: number, i: any) => s + (parseFloat(i.montant) || 0), 0) +
                     (curr.doublages_details || []).reduce((s: number, i: any) => s + (parseFloat(i.montant) || 0), 0) +
                     (curr.extras_details || []).reduce((s: number, i: any) => s + (parseFloat(i.montant) || 0), 0) +
                     (curr.primes_details || []).reduce((s: number, i: any) => s + (parseFloat(i.montant) || 0), 0) +
                     (curr.restes_salaires_details || []).reduce((s: number, i: any) => s + (parseFloat(i.montant) || 0), 0)
+                ) : 0)
             };
         }, {
-            allExpenses: [], allDivers: [], allAdmin: [], labor: 0
+            allExpenses: [], allDivers: [], labor: 0
         });
 
-        // Get paid and unpaid invoices directly from getInvoices
-        const invoices = data.getInvoices || [];
-
-        // Paid invoices should include those where payer is NULL/caissier (standard) OR riadh
-        const paidInvoices = invoices.filter((inv: any) => inv.status === 'paid');
-        const unpaidInvoices = invoices.filter((inv: any) => inv.status !== 'paid');
+        const filteredInvoices = invoices.filter(matchesCategory);
+        const paidInvoices = filteredInvoices.filter((inv: any) => inv.status === 'paid');
+        const unpaidInvoices = filteredInvoices.filter((inv: any) => inv.status !== 'paid');
 
         const aggregateGroup = (list: any[], nameKey: string, amountKey: string) => {
             const map = new Map();
@@ -261,29 +275,36 @@ export default function CoutAchatPage() {
 
         const topFournisseurs = aggregateGroup(base.allExpenses, 'supplier', 'amount');
         const topDivers = aggregateGroup(base.allDivers, 'designation', 'amount');
-        const topAdmin = aggregateGroup(base.allAdmin, 'designation', 'amount');
         const topPaid = aggregateGroup(paidInvoices, 'supplier_name', 'amount');
         const topUnpaid = aggregateGroup(unpaidInvoices, 'supplier_name', 'amount');
 
-        // Totals aligned with data logic from /paiements and /statistiques
-        const totalPaidFacturation = paidInvoices.reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0);
-        const totalUnpaidFacturation = unpaidInvoices.reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0);
+        // Detailed Metrics for Summary Cards
+        const stats = {
+            facturePaid: paidInvoices.filter((i: any) => (i.doc_type || '').toLowerCase() === 'facture').reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0),
+            factureUnpaid: unpaidInvoices.filter((i: any) => (i.doc_type || '').toLowerCase() === 'facture').reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0),
+            blPaid: paidInvoices.filter((i: any) => (i.doc_type || '').toLowerCase() === 'bl').reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0),
+            blUnpaid: unpaidInvoices.filter((i: any) => (i.doc_type || '').toLowerCase() === 'bl').reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0),
+        };
+
+        const totalPaid = paidInvoices.reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0);
+        const totalUnpaid = unpaidInvoices.reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0);
         const totalDirectManual = topFournisseurs.reduce((a, b) => a + b.amount, 0);
         const totalDivers = topDivers.reduce((a, b) => a + b.amount, 0);
-        const totalAdmin = topAdmin.reduce((a, b) => a + b.amount, 0);
         const totalLabor = base.labor;
 
         return {
             fournisseurs: filterByName(topFournisseurs),
             divers: filterByName(topDivers),
-            admin: filterByName(topAdmin),
             paidInvoices: filterByName(topPaid),
             unpaidInvoices: filterByName(topUnpaid),
-            totalPaid: totalPaidFacturation,
-            totalUnpaid: totalUnpaidFacturation,
-            totalGlobalConsommation: totalPaidFacturation + totalUnpaidFacturation + totalDirectManual + totalDivers + totalAdmin + totalLabor
+            totalPaid,
+            totalUnpaid,
+            stats,
+            totalDirectManual,
+            totalDivers,
+            totalGlobalConsommation: totalPaid + totalUnpaid + totalDirectManual + totalDivers + totalLabor
         };
-    }, [data, searchQuery]);
+    }, [data, searchQuery, categoryFilter]);
 
     if (initializing || !user) return (
         <div className="min-h-screen flex items-center justify-center bg-[#fdfbf7]">
@@ -314,6 +335,29 @@ export default function CoutAchatPage() {
                             />
                         </div>
 
+                        <div className="flex items-center gap-1 bg-[#f9f7f5] p-1.5 rounded-2xl border border-[#e6dace]/50 shadow-sm ml-auto xl:ml-0">
+                            {[
+                                { id: 'tous', label: 'Tous', icon: LayoutGrid },
+                                { id: 'fournisseur', label: 'Fournisseur', icon: ShoppingBag },
+                                { id: 'divers', label: 'Divers', icon: Receipt }
+                            ].map((tab) => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setCategoryFilter(tab.id as any)}
+                                    className={`
+                                        flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all
+                                        ${categoryFilter === tab.id
+                                            ? 'bg-[#4a3426] text-white shadow-lg'
+                                            : 'text-[#8c8279] hover:bg-white hover:text-[#4a3426]'
+                                        }
+                                    `}
+                                >
+                                    <tab.icon size={14} />
+                                    <span>{tab.label}</span>
+                                </button>
+                            ))}
+                        </div>
+
                         <div className="flex items-center gap-2 bg-[#f9f7f5]/80 p-2 rounded-3xl border border-[#e6dace]/50 shadow-sm">
                             <PremiumDatePicker label="DÉBUT" value={startDate} onChange={setStartDate} />
                             <div className="text-[#e6dace] font-black text-[10px] opacity-60">À</div>
@@ -337,37 +381,88 @@ export default function CoutAchatPage() {
                     ) : aggregates && (
                         <>
                             {/* Summary Cards */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-                                <div className="bg-[#4a3426] p-6 rounded-[2.5rem] text-white shadow-xl shadow-[#4a3426]/20 flex flex-col justify-between min-h-[160px]">
-                                    <div className="flex justify-between items-start">
-                                        <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center"><CheckCircle2 size={24} /></div>
-                                        <div className="text-[10px] font-black uppercase tracking-widest opacity-60">Total Payé</div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                                <div className="bg-[#4a3426] p-5 rounded-[2rem] text-white shadow-xl flex flex-col justify-between min-h-[140px]">
+                                    <div className="flex justify-between items-start opacity-60">
+                                        <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center"><CheckCircle2 size={20} /></div>
+                                        <div className="text-[9px] font-black uppercase tracking-widest">Global Payé</div>
                                     </div>
                                     <div>
-                                        <div className="text-3xl font-black tracking-tighter">{aggregates.totalPaid.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</div>
-                                        <p className="text-[10px] font-bold uppercase tracking-widest opacity-40 mt-1">Factures de facturation</p>
+                                        <div className="text-2xl font-black tracking-tighter">{aggregates.totalPaid.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</div>
+                                        <div className="flex flex-col gap-0.5 mt-2 opacity-50">
+                                            <div className="flex justify-between text-[8px] font-bold uppercase tracking-widest">
+                                                <span>Facture:</span>
+                                                <span>{aggregates.stats.facturePaid.toFixed(3)}</span>
+                                            </div>
+                                            <div className="flex justify-between text-[8px] font-bold uppercase tracking-widest">
+                                                <span>BL:</span>
+                                                <span>{aggregates.stats.blPaid.toFixed(3)}</span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div className="bg-white p-6 rounded-[2.5rem] border border-red-100 flex flex-col justify-between min-h-[160px] shadow-sm">
+                                <div className="bg-white p-5 rounded-[2rem] border border-red-100 shadow-sm flex flex-col justify-between min-h-[140px]">
                                     <div className="flex justify-between items-start">
-                                        <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center"><AlertCircle size={24} /></div>
-                                        <div className="text-[10px] font-black uppercase tracking-widest text-red-300">Total Impayé</div>
+                                        <div className="w-10 h-10 rounded-xl bg-red-50 text-red-500 flex items-center justify-center"><AlertCircle size={20} /></div>
+                                        <div className="text-[9px] font-black uppercase tracking-widest text-red-300">Global Impayé</div>
                                     </div>
                                     <div>
-                                        <div className="text-3xl font-black tracking-tighter text-red-500">{aggregates.totalUnpaid.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</div>
-                                        <p className="text-[10px] font-bold uppercase tracking-widest text-red-300 mt-1">Factures en attente</p>
+                                        <div className="text-2xl font-black tracking-tighter text-red-500">{aggregates.totalUnpaid.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</div>
+                                        <div className="flex flex-col gap-0.5 mt-2">
+                                            <div className="flex justify-between text-[8px] font-bold uppercase tracking-widest text-red-400/60">
+                                                <span>Facture:</span>
+                                                <span>{aggregates.stats.factureUnpaid.toFixed(3)}</span>
+                                            </div>
+                                            <div className="flex justify-between text-[8px] font-bold uppercase tracking-widest text-red-400/60">
+                                                <span>BL:</span>
+                                                <span>{aggregates.stats.blUnpaid.toFixed(3)}</span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div className="bg-white p-6 rounded-[2.5rem] border border-[#e6dace]/50 flex flex-col justify-between min-h-[160px] shadow-sm lg:col-span-2">
-                                    <div className="flex justify-between items-start">
-                                        <div className="w-12 h-12 rounded-2xl bg-[#c69f6e]/10 text-[#c69f6e] flex items-center justify-center"><ShoppingBag size={24} /></div>
-                                        <div className="text-[10px] font-black uppercase tracking-widest text-[#8c8279]">Consommation Totale</div>
+                                <div className="hidden xl:flex bg-white p-5 rounded-[2rem] border border-[#e6dace]/50 shadow-sm flex-col justify-between min-h-[140px]">
+                                    <div className="flex justify-between items-start opacity-60">
+                                        <div className="w-10 h-10 rounded-xl bg-[#c69f6e]/10 text-[#c69f6e] flex items-center justify-center"><ShoppingBag size={20} /></div>
+                                        <div className="text-[9px] font-black uppercase tracking-widest text-[#8c8279]">Consommation</div>
                                     </div>
                                     <div>
-                                        <div className="text-3xl font-black tracking-tighter text-[#4a3426]">{aggregates.totalGlobalConsommation.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</div>
-                                        <p className="text-[10px] font-bold uppercase tracking-widest text-[#8c8279] mt-1 text-right">Total Facturé + Dépenses directes</p>
+                                        <div className="text-2xl font-black tracking-tighter text-[#4a3426]">{aggregates.totalGlobalConsommation.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</div>
+                                        <p className="text-[8px] font-bold uppercase tracking-widest text-[#8c8279] mt-1 opacity-60">Total {categoryFilter === 'tous' ? 'Général' : categoryFilter}</p>
+                                    </div>
+                                </div>
+
+                                <div className="md:col-span-2 bg-gradient-to-br from-[#fdfbf7] to-[#f9f6f2] p-5 rounded-[2rem] border border-[#e6dace]/50 shadow-sm flex flex-col justify-between min-h-[140px]">
+                                    <div className="flex justify-between items-start">
+                                        <div className="text-[10px] font-black uppercase tracking-wider text-[#4a3426]">Détail {categoryFilter.toUpperCase()}</div>
+                                        <div className="text-[10px] font-black text-[#c69f6e]">{aggregates.totalGlobalConsommation.toFixed(3)} DT</div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-x-6 gap-y-2 mt-2">
+                                        <div className="flex justify-between items-center pb-1 border-b border-[#e6dace]/30">
+                                            <span className="text-[9px] font-black text-[#8c8279] uppercase">Facturé (Payé)</span>
+                                            <span className="text-xs font-black text-[#4a3426]">{aggregates.stats.facturePaid.toFixed(3)}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center pb-1 border-b border-[#e6dace]/30">
+                                            <span className="text-[9px] font-black text-[#8c8279] uppercase">Facturé (Impayé)</span>
+                                            <span className="text-xs font-black text-red-500">{aggregates.stats.factureUnpaid.toFixed(3)}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center pb-1 border-b border-[#e6dace]/30">
+                                            <span className="text-[9px] font-black text-[#8c8279] uppercase">BL (Payé)</span>
+                                            <span className="text-xs font-black text-[#4a3426]">{aggregates.stats.blPaid.toFixed(3)}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center pb-1 border-b border-[#e6dace]/30">
+                                            <span className="text-[9px] font-black text-[#8c8279] uppercase">BL (Impayé)</span>
+                                            <span className="text-xs font-black text-red-500">{aggregates.stats.blUnpaid.toFixed(3)}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center pb-1 border-b border-[#e6dace]/30">
+                                            <span className="text-[9px] font-black text-[#8c8279] uppercase">Dép. Directes</span>
+                                            <span className="text-xs font-black text-[#4a3426]">{aggregates.totalDirectManual.toFixed(3)}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center pb-1 border-b border-[#e6dace]/30">
+                                            <span className="text-[9px] font-black text-[#8c8279] uppercase">Dép. Divers</span>
+                                            <span className="text-xs font-black text-[#4a3426]">{aggregates.totalDivers.toFixed(3)}</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -507,38 +602,6 @@ export default function CoutAchatPage() {
                                     </AnimatePresence>
                                 </div>
 
-                                {/* 6. Dépenses Administratif */}
-                                <div className="bg-white rounded-[2.5rem] p-6 md:p-8 luxury-shadow border border-[#e6dace]/50 flex flex-col">
-                                    <button onClick={() => toggleSection('admin')} className="flex justify-between items-center w-full text-left">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-2xl bg-[#4a3426]/10 flex items-center justify-center text-[#4a3426] text-sm"><FileText /></div>
-                                            <div>
-                                                <h4 className="font-black text-[#4a3426] text-xs uppercase tracking-widest">Administratif</h4>
-                                                <p className="text-[8px] font-bold text-[#8c8279] uppercase tracking-[0.2em] mt-0.5">Loyers & Charges fixes</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-4">
-                                            <div className="bg-[#fdfbf7] border border-[#e6dace]/40 px-3 py-2 rounded-xl text-xs font-black text-[#4a3426]">
-                                                {aggregates.admin.reduce((a: number, b: any) => a + b.amount, 0).toFixed(3)} DT
-                                            </div>
-                                            <motion.div animate={{ rotate: expandedSections['admin'] ? 180 : 0 }} className="text-[#c69f6e]"><ChevronDown size={20} /></motion.div>
-                                        </div>
-                                    </button>
-                                    <AnimatePresence>
-                                        {expandedSections['admin'] && (
-                                            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                                                <div className="pt-6 space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-2 mt-2 border-t border-dashed border-[#e6dace]/50 text-xs">
-                                                    {aggregates.admin.length > 0 ? aggregates.admin.map((a: any, i: number) => (
-                                                        <div key={i} className="flex justify-between items-center p-3 bg-[#fcfaf8] rounded-xl border border-[#e6dace]/30">
-                                                            <span className="font-bold text-[#4a3426] opacity-70">{a.name}</span>
-                                                            <span className="font-black text-[#4a3426]">{a.amount.toFixed(3)}</span>
-                                                        </div>
-                                                    )) : <div className="py-10 text-center italic text-[#8c8279] opacity-40">Aucune donnée</div>}
-                                                </div>
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
-                                </div>
                             </div>
                         </>
                     )}
