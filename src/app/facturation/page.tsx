@@ -178,6 +178,7 @@ const GET_INVOICES = gql`
       doc_type
       doc_number
       payer
+      category
     }
     getSuppliers {
       id
@@ -340,6 +341,7 @@ export default function FacturationPage() {
     const [filterEndDate, setFilterEndDate] = useState('');
     const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'unpaid'>('all');
     const [payerRoleFilter, setPayerRoleFilter] = useState<'all' | 'admin' | 'caissier'>('all');
+    const [categoryFilter, setCategoryFilter] = useState<'all' | 'fournisseur' | 'divers'>('all');
 
     // Modal state
     const [showAddModal, setShowAddModal] = useState(false);
@@ -433,6 +435,21 @@ export default function FacturationPage() {
     const stats = useMemo(() => {
         if (!data?.getInvoices) return { paid: 0, unpaid: 0, countPaid: 0, countUnpaid: 0 };
         return data.getInvoices.reduce((acc: any, inv: any) => {
+            // Category Filter
+            if (categoryFilter !== 'all') {
+                const cat = inv.category || 'fournisseur';
+                if (cat !== categoryFilter) return acc;
+            }
+
+            // Payer Filter (only for paid)
+            if (inv.status === 'paid' && payerRoleFilter !== 'all') {
+                if (payerRoleFilter === 'admin') {
+                    if (inv.payer !== 'admin' && inv.payer !== 'riadh') return acc;
+                } else {
+                    if (inv.payer !== payerRoleFilter) return acc;
+                }
+            }
+
             const amt = parseFloat(inv.amount || '0');
             if (inv.status === 'paid') {
                 acc.paid += amt;
@@ -443,7 +460,7 @@ export default function FacturationPage() {
             }
             return acc;
         }, { paid: 0, unpaid: 0, countPaid: 0, countUnpaid: 0 });
-    }, [data]);
+    }, [data, categoryFilter, payerRoleFilter]);
 
     const filteredInvoices = useMemo(() => {
         if (!data?.getInvoices) return [];
@@ -456,9 +473,13 @@ export default function FacturationPage() {
                     if (inv.payer !== payerRoleFilter) return false;
                 }
             }
+            if (categoryFilter !== 'all') {
+                const cat = inv.category || 'fournisseur';
+                if (cat !== categoryFilter) return false;
+            }
             return true;
         });
-    }, [data, statusFilter, payerRoleFilter]);
+    }, [data, statusFilter, payerRoleFilter, categoryFilter]);
 
     useEffect(() => {
         const savedUser = localStorage.getItem('bb_user');
@@ -708,6 +729,29 @@ export default function FacturationPage() {
                 </header>
 
                 <main className="max-w-7xl mx-auto px-4 md:px-8 mt-6 md:mt-8 pb-20">
+                    {/* Category Filter */}
+                    <div className="flex justify-center mb-8">
+                        <div className="inline-flex bg-white/50 backdrop-blur-sm p-1.5 rounded-3xl border border-[#e6dace] shadow-sm">
+                            {[
+                                { id: 'all', label: 'Tous', icon: <LayoutGrid size={14} /> },
+                                { id: 'fournisseur', label: 'Fournisseur', icon: <Package size={14} /> },
+                                { id: 'divers', label: 'Divers', icon: <Receipt size={14} /> }
+                            ].map(cat => (
+                                <button
+                                    key={cat.id}
+                                    onClick={() => setCategoryFilter(cat.id as any)}
+                                    className={`flex items-center gap-2 px-6 py-2.5 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${categoryFilter === cat.id
+                                        ? 'bg-[#4a3426] text-white shadow-lg'
+                                        : 'text-[#8c8279] hover:text-[#4a3426] hover:bg-white'
+                                        }`}
+                                >
+                                    {cat.icon}
+                                    {cat.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
                     {/* Stat Boxes */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                         <motion.div
@@ -842,8 +886,11 @@ export default function FacturationPage() {
                                                                 <Clock size={12} />
                                                                 Non Payé
                                                             </div>
-                                                            <div className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-white/60 text-red-600 border border-red-200">
+                                                            <div className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-white/60 text-red-700 border border-red-200">
                                                                 {inv.doc_type || 'Facture'} {inv.doc_number ? `#${inv.doc_number}` : ''}
+                                                            </div>
+                                                            <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border shadow-sm ${inv.category === 'divers' ? 'bg-purple-100 text-purple-700 border-purple-200' : 'bg-blue-100 text-blue-700 border-blue-200'}`}>
+                                                                {inv.category === 'divers' ? 'Divers' : 'Fournisseur'}
                                                             </div>
                                                         </div>
                                                         {inv.photo_url && (
@@ -973,6 +1020,9 @@ export default function FacturationPage() {
                                                             </div>
                                                             <div className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-white/60 text-green-700 border border-green-200">
                                                                 {inv.doc_type || 'Facture'} {inv.doc_number ? `#${inv.doc_number}` : ''}
+                                                            </div>
+                                                            <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border shadow-sm ${inv.category === 'divers' ? 'bg-purple-100 text-purple-700 border-purple-200' : 'bg-blue-100 text-blue-700 border-blue-200'}`}>
+                                                                {inv.category === 'divers' ? 'Divers' : 'Fournisseur'}
                                                             </div>
                                                             {inv.payer && (
                                                                 <div className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest border shadow-sm ${(inv.payer === 'admin' || inv.payer === 'riadh') ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-blue-100 text-blue-700 border-blue-200'

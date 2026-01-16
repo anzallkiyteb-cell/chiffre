@@ -8,27 +8,38 @@ export const resolvers = {
 
             // Fetch paid invoices for this date, excluding those paid via the paiements page (payer = 'riadh')
             const paidInvoicesRes = await query("SELECT * FROM invoices WHERE status = 'paid' AND paid_date = $1 AND (payer IS NULL OR payer != 'riadh')", [date]);
-            const paidInvoices = paidInvoicesRes.rows.map(inv => {
+            const paidSuppliers: any[] = [];
+            const paidDivers: any[] = [];
+
+            paidInvoicesRes.rows.forEach(inv => {
                 let photos = [];
                 try {
                     photos = typeof inv.photos === 'string' ? JSON.parse(inv.photos) : (Array.isArray(inv.photos) ? inv.photos : []);
                 } catch (e) { photos = []; }
 
-                // Merge photo_url if it exists and is not in photos
                 if (inv.photo_url && !photos.includes(inv.photo_url)) {
                     photos = [inv.photo_url, ...photos];
                 }
 
-                return {
-                    supplier: inv.supplier_name,
+                const item = {
+                    supplier: inv.supplier_name, // Mapping for Fournisseur
+                    designation: inv.supplier_name, // Mapping for Divers
                     amount: inv.amount,
                     paymentMethod: inv.payment_method,
                     invoices: photos,
+                    photo_cheque: inv.photo_cheque_url,
+                    photo_verso: inv.photo_verso_url,
                     isFromFacturation: true,
                     invoiceId: inv.id,
                     doc_type: inv.doc_type,
                     doc_number: inv.doc_number
                 };
+
+                if (inv.category === 'divers') {
+                    paidDivers.push(item);
+                } else {
+                    paidSuppliers.push(item);
+                }
             });
 
             // Fetch from local database
@@ -53,15 +64,18 @@ export const resolvers = {
                 existingDiponce = [];
             }
 
-            const combinedDiponce = [...existingDiponce, ...paidInvoices];
-
-            // Re-calculate totals to ensure riadh's expenses are excluded even if previously saved in the DB columns
-            let diversList = [], adminList = [];
-            try { diversList = typeof data.diponce_divers === 'string' ? JSON.parse(data.diponce_divers) : (data.diponce_divers || []); } catch (e) { }
+            // Initial lists from DB columns
+            let diversListEntries: any[] = [];
+            let adminList: any[] = [];
+            try { diversListEntries = typeof data.diponce_divers === 'string' ? JSON.parse(data.diponce_divers) : (data.diponce_divers || []); } catch (e) { }
             try { adminList = typeof data.diponce_admin === 'string' ? JSON.parse(data.diponce_admin) : (data.diponce_admin || []); } catch (e) { }
 
-            const sumDiponce = combinedDiponce.reduce((s: number, i: any) => s + (parseFloat(i.amount) || 0), 0);
-            const sumDivers = diversList.reduce((s: number, i: any) => s + (parseFloat(i.amount) || 0), 0);
+            // Re-calculate combined lists with invoices
+            const finalCombinedDiponce = [...existingDiponce, ...paidSuppliers];
+            const finalCombinedDivers = [...diversListEntries, ...paidDivers];
+
+            const sumDiponce = finalCombinedDiponce.reduce((s: number, i: any) => s + (parseFloat(i.amount) || 0), 0);
+            const sumDivers = finalCombinedDivers.reduce((s: number, i: any) => s + (parseFloat(i.amount) || 0), 0);
             const sumAdmin = adminList.reduce((s: number, i: any) => s + (parseFloat(i.amount) || 0), 0);
 
             const dayAvances = avances.rows.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant), created_at: r.created_at }));
@@ -85,8 +99,8 @@ export const resolvers = {
                 is_locked: data.is_locked,
                 total_diponce: totalDiponce.toString(),
                 recette_net: recetteNet.toString(),
-                diponce: JSON.stringify(combinedDiponce),
-                diponce_divers: typeof data.diponce_divers === 'string' ? data.diponce_divers : JSON.stringify(data.diponce_divers || []),
+                diponce: JSON.stringify(finalCombinedDiponce),
+                diponce_divers: JSON.stringify(finalCombinedDivers),
                 diponce_admin: typeof data.diponce_admin === 'string' ? data.diponce_admin : JSON.stringify(data.diponce_admin || []),
                 avances_details: dayAvances,
                 doublages_details: dayDoublages,
@@ -226,25 +240,27 @@ export const resolvers = {
                 const dayPrimes = primes.rows.filter(r => normalizeDate(r.date) === dayStr);
                 const dayRestesSalaires = restesSalaires.rows.filter(r => normalizeDate(r.date) === dayStr);
                 const dayPaidInvoices = paidInvoicesByDate[dayStr] || [];
+                const dayPaidSuppliers = dayPaidInvoices.filter((inv: any) => !inv.category || inv.category === 'fournisseur');
+                const dayPaidDivers = dayPaidInvoices.filter((inv: any) => inv.category === 'divers');
 
-                let diponceList = [];
+                let diponceList: any[] = [];
                 try {
                     diponceList = typeof row.diponce === 'string' ? JSON.parse(row.diponce) : (row.diponce || []);
                 } catch (e) {
                     diponceList = [];
                 }
 
-                // Combine with paid invoices from facturation
-                const combinedDiponce = [...diponceList, ...dayPaidInvoices];
-
-                // Calculate cumulative total diponce including facturation
-                // Compute totals for all categories to get accurate daily stats
-                let diversList = [], adminList = [];
+                let diversList: any[] = [];
+                let adminList: any[] = [];
                 try { diversList = typeof row.diponce_divers === 'string' ? JSON.parse(row.diponce_divers) : (row.diponce_divers || []); } catch (e) { }
                 try { adminList = typeof row.diponce_admin === 'string' ? JSON.parse(row.diponce_admin) : (row.diponce_admin || []); } catch (e) { }
 
+                // Combine with paid invoices from facturation
+                const combinedDiponce = [...diponceList, ...dayPaidSuppliers];
+                const combinedDivers = [...diversList, ...dayPaidDivers];
+
                 const sumDiponce = combinedDiponce.reduce((s: number, i: any) => s + (parseFloat(i.amount) || 0), 0);
-                const sumDivers = diversList.reduce((s: number, i: any) => s + (parseFloat(i.amount) || 0), 0);
+                const sumDivers = combinedDivers.reduce((s: number, i: any) => s + (parseFloat(i.amount) || 0), 0);
                 const sumAdmin = adminList.reduce((s: number, i: any) => s + (parseFloat(i.amount) || 0), 0);
                 const totalDiponce = sumDiponce + sumDivers + sumAdmin + dayAvances.reduce((s, r) => s + (parseFloat(r.montant) || 0), 0) + dayDoublages.reduce((s, r) => s + (parseFloat(r.montant) || 0), 0) + dayExtras.reduce((s, r) => s + (parseFloat(r.montant) || 0), 0) + dayPrimes.reduce((s, r) => s + (parseFloat(r.montant) || 0), 0) + dayRestesSalaires.reduce((s, r) => s + (parseFloat(r.montant) || 0), 0);
                 const recetteCaisse = parseFloat(row.recette_de_caisse) || 0;
@@ -256,7 +272,7 @@ export const resolvers = {
                     total_diponce: totalDiponce.toString(),
                     recette_net: recetteNet.toString(),
                     diponce: JSON.stringify(combinedDiponce),
-                    diponce_divers: typeof row.diponce_divers === 'string' ? row.diponce_divers : JSON.stringify(row.diponce_divers || []),
+                    diponce_divers: JSON.stringify(combinedDivers),
                     diponce_admin: typeof row.diponce_admin === 'string' ? row.diponce_admin : JSON.stringify(row.diponce_admin || []),
                     avances_details: dayAvances.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant || '0'), date: r.date })),
                     doublages_details: dayDoublages.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant || '0'), date: r.date })),
@@ -460,13 +476,14 @@ export const resolvers = {
 
             if (!start || !end) return [];
 
-            const [res, avances, doublages, extras, primes, restesSalaires] = await Promise.all([
+            const [res, avances, doublages, extras, primes, restesSalaires, paidInvoicesRes] = await Promise.all([
                 query('SELECT * FROM chiffres WHERE date >= $1 AND date <= $2 ORDER BY date ASC', [start, end]),
                 query('SELECT id, date, employee_name as username, montant, created_at FROM advances WHERE date >= $1 AND date <= $2 ORDER BY id DESC', [start, end]),
                 query('SELECT id, date, employee_name as username, montant, created_at FROM doublages WHERE date >= $1 AND date <= $2 ORDER BY id DESC', [start, end]),
                 query('SELECT id, date, employee_name as username, montant, created_at FROM extras WHERE date >= $1 AND date <= $2 ORDER BY id DESC', [start, end]),
                 query('SELECT id, date, employee_name as username, montant, created_at FROM primes WHERE date >= $1 AND date <= $2 ORDER BY id DESC', [start, end]),
-                query('SELECT id, date, employee_name as username, montant, nb_jours, created_at FROM restes_salaires_daily WHERE date >= $1 AND date <= $2 ORDER BY id DESC', [start, end])
+                query('SELECT id, date, employee_name as username, montant, nb_jours, created_at FROM restes_salaires_daily WHERE date >= $1 AND date <= $2 ORDER BY id DESC', [start, end]),
+                query(`SELECT * FROM invoices WHERE status = 'paid' AND paid_date >= $1 AND paid_date <= $2 AND (payer IS NULL OR payer != 'riadh')`, [start, end])
             ]);
 
             const normalizeDate = (d: any) => {
@@ -490,6 +507,7 @@ export const resolvers = {
             extras.rows.forEach(r => { const d = normalizeDate(r.date); if (d) allDatesSet.add(d); });
             primes.rows.forEach(r => { const d = normalizeDate(r.date); if (d) allDatesSet.add(d); });
             restesSalaires.rows.forEach(r => { const d = normalizeDate(r.date); if (d) allDatesSet.add(d); });
+            paidInvoicesRes.rows.forEach(inv => { const d = normalizeDate(inv.paid_date); if (d) allDatesSet.add(d); });
 
             const sortedDates = Array.from(allDatesSet).sort();
 
@@ -534,6 +552,45 @@ export const resolvers = {
                 }
             });
 
+            const paidSuppliersByDate: Record<string, any[]> = {};
+            const paidDiversByDate: Record<string, any[]> = {};
+
+            paidInvoicesRes.rows.forEach(inv => {
+                const d = normalizeDate(inv.paid_date);
+                if (d) {
+                    let photos = [];
+                    try {
+                        photos = typeof inv.photos === 'string' ? JSON.parse(inv.photos) : (Array.isArray(inv.photos) ? inv.photos : []);
+                    } catch (e) { photos = []; }
+
+                    if (inv.photo_url && !photos.includes(inv.photo_url)) {
+                        photos = [inv.photo_url, ...photos];
+                    }
+
+                    const item = {
+                        supplier: inv.supplier_name,
+                        designation: inv.supplier_name,
+                        amount: inv.amount,
+                        paymentMethod: inv.payment_method,
+                        invoices: photos,
+                        photo_cheque: inv.photo_cheque_url,
+                        photo_verso: inv.photo_verso_url,
+                        isFromFacturation: true,
+                        invoiceId: inv.id,
+                        doc_type: inv.doc_type,
+                        doc_number: inv.doc_number
+                    };
+
+                    if (inv.category === 'divers') {
+                        if (!paidDiversByDate[d]) paidDiversByDate[d] = [];
+                        paidDiversByDate[d].push(item);
+                    } else {
+                        if (!paidSuppliersByDate[d]) paidSuppliersByDate[d] = [];
+                        paidSuppliersByDate[d].push(item);
+                    }
+                }
+            });
+
             const chiffresByDate: Record<string, any> = {};
             res.rows.forEach(r => {
                 const d = normalizeDate(r.date);
@@ -542,10 +599,24 @@ export const resolvers = {
 
             return sortedDates.map(d => {
                 const c = chiffresByDate[d] || { date: d };
+
+                let diponceList = [];
+                try {
+                    diponceList = typeof c.diponce === 'string' ? JSON.parse(c.diponce) : (Array.isArray(c.diponce) ? c.diponce : []);
+                } catch (e) { diponceList = []; }
+
+                let diversList = [];
+                try {
+                    diversList = typeof c.diponce_divers === 'string' ? JSON.parse(c.diponce_divers) : (Array.isArray(c.diponce_divers) ? c.diponce_divers : []);
+                } catch (e) { diversList = []; }
+
+                const finalDiponce = [...diponceList, ...(paidSuppliersByDate[d] || [])];
+                const finalDivers = [...diversList, ...(paidDiversByDate[d] || [])];
+
                 return {
                     ...c,
-                    diponce: typeof c.diponce === 'object' ? JSON.stringify(c.diponce) : c.diponce,
-                    diponce_divers: typeof c.diponce_divers === 'object' ? JSON.stringify(c.diponce_divers) : c.diponce_divers,
+                    diponce: JSON.stringify(finalDiponce),
+                    diponce_divers: JSON.stringify(finalDivers),
                     diponce_admin: typeof c.diponce_admin === 'object' ? JSON.stringify(c.diponce_admin) : c.diponce_admin,
                     avances_details: avancesByDate[d] || [],
                     doublages_details: doublagesByDate[d] || [],
@@ -575,15 +646,54 @@ export const resolvers = {
                 diponce_admin,
             } = args;
 
-            // Remove invoices that came from facturation before saving to avoid duplication
+            const payerRole = args.payer || 'caissier';
+
+            // Sync Fournisseur expenses to Invoices
             let diponceList = [];
             try {
-                diponceList = JSON.parse(diponce);
-                diponceList = diponceList.filter((d: any) => !d.isFromFacturation);
-            } catch (e) { }
+                const fullDiponceList = JSON.parse(diponce);
+                for (const d of fullDiponceList) {
+                    if (!d.isFromFacturation && d.supplier && parseFloat(d.amount) > 0) {
+                        await query(
+                            `INSERT INTO invoices (supplier_name, amount, date, photo_url, photos, photo_cheque_url, photo_verso_url, status, payment_method, paid_date, payer, category, doc_type, doc_number)
+                             VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, 'paid', $8, $9, $10, 'fournisseur', $11, $12)`,
+                            [d.supplier, d.amount, date, d.photo_url || null, JSON.stringify(d.invoices || []), d.photo_cheque || null, d.photo_verso || null, d.paymentMethod || 'Espèces', date, payerRole, d.doc_type || 'BL', d.doc_number || null]
+                        );
+                    } else if (d.isFromFacturation && d.invoiceId) {
+                        await query(
+                            `UPDATE invoices SET photos = $1::jsonb WHERE id = $2`,
+                            [JSON.stringify(d.invoices || []), d.invoiceId]
+                        );
+                    } else if (!d.isFromFacturation) {
+                        diponceList.push(d);
+                    }
+                }
+            } catch (e) { console.error(e); }
+
+            // Sync Divers expenses to Invoices
+            let diponceDiversList = [];
+            try {
+                const fullDiversList = JSON.parse(diponce_divers);
+                for (const d of fullDiversList) {
+                    if (!d.isFromFacturation && d.designation && parseFloat(d.amount) > 0) {
+                        await query(
+                            `INSERT INTO invoices (supplier_name, amount, date, photos, status, payment_method, paid_date, payer, category, doc_type)
+                             VALUES ($1, $2, $3, $4::jsonb, 'paid', $5, $6, $7, 'divers', $8)`,
+                            [d.designation, d.amount, date, JSON.stringify(d.invoices || []), d.paymentMethod || 'Espèces', date, payerRole, d.doc_type || 'BL']
+                        );
+                    } else if (d.isFromFacturation && d.invoiceId) {
+                        await query(
+                            `UPDATE invoices SET photos = $1::jsonb WHERE id = $2`,
+                            [JSON.stringify(d.invoices || []), d.invoiceId]
+                        );
+                    } else if (!d.isFromFacturation) {
+                        diponceDiversList.push(d);
+                    }
+                }
+            } catch (e) { console.error(e); }
 
             const diponceToSave = JSON.stringify(diponceList);
-            const diponceDiversToSave = diponce_divers;
+            const diponceDiversToSave = JSON.stringify(diponceDiversList);
             const diponceAdminToSave = diponce_admin;
 
             // Check if it exists
@@ -611,9 +721,9 @@ export const resolvers = {
             extra = $10,
             primes = $11,
             diponce_divers = $12::jsonb, 
-            diponce_admin = $14::jsonb,
+            diponce_admin = $13::jsonb,
             is_locked = true
-          WHERE date = $15 RETURNING *`,
+          WHERE date = $14 RETURNING *`,
                     [recette_de_caisse, total_diponce, diponceToSave, recette_net, tpe, tpe2, cheque_bancaire, espaces, tickets_restaurant, extra, primes, diponceDiversToSave, diponceAdminToSave, date]
                 );
             } else {
@@ -628,34 +738,46 @@ export const resolvers = {
 
             // After saving, return it with the paid invoices again for the UI
             const paidInvoicesRes = await query("SELECT * FROM invoices WHERE status = 'paid' AND paid_date = $1 AND (payer IS NULL OR payer != 'riadh')", [date]);
-            const paidInvoices = paidInvoicesRes.rows.map(inv => ({
-                supplier: inv.supplier_name,
-                amount: inv.amount,
-                paymentMethod: inv.payment_method,
-                invoices: (() => {
-                    let photos = [];
-                    try {
-                        photos = typeof inv.photos === 'string' ? JSON.parse(inv.photos) : (Array.isArray(inv.photos) ? inv.photos : []);
-                    } catch (e) { photos = []; }
-                    if (inv.photo_url && !photos.includes(inv.photo_url)) {
-                        photos = [inv.photo_url, ...photos];
-                    }
-                    return photos;
-                })(),
-                photo_cheque: inv.photo_cheque_url,
-                photo_verso: inv.photo_verso_url,
-                isFromFacturation: true,
-                invoiceId: inv.id,
-                doc_type: inv.doc_type,
-                doc_number: inv.doc_number
-            }));
+            const paidSuppliers: any[] = [];
+            const paidDivers: any[] = [];
 
-            const finalDiponce = [...(row.diponce || []), ...paidInvoices];
+            paidInvoicesRes.rows.forEach(inv => {
+                let photos = [];
+                try {
+                    photos = typeof inv.photos === 'string' ? JSON.parse(inv.photos) : (Array.isArray(inv.photos) ? inv.photos : []);
+                } catch (e) { photos = []; }
+                if (inv.photo_url && !photos.includes(inv.photo_url)) {
+                    photos = [inv.photo_url, ...photos];
+                }
+
+                const item = {
+                    supplier: inv.supplier_name,
+                    designation: inv.supplier_name,
+                    amount: inv.amount,
+                    paymentMethod: inv.payment_method,
+                    invoices: photos,
+                    photo_cheque: inv.photo_cheque_url,
+                    photo_verso: inv.photo_verso_url,
+                    isFromFacturation: true,
+                    invoiceId: inv.id,
+                    doc_type: inv.doc_type,
+                    doc_number: inv.doc_number
+                };
+
+                if (inv.category === 'divers') {
+                    paidDivers.push(item);
+                } else {
+                    paidSuppliers.push(item);
+                }
+            });
+
+            const finalDiponce = [...diponceList, ...paidSuppliers];
+            const finalDivers = [...diponceDiversList, ...paidDivers];
 
             return {
                 ...row,
                 diponce: JSON.stringify(finalDiponce),
-                diponce_divers: typeof row.diponce_divers === 'string' ? row.diponce_divers : JSON.stringify(row.diponce_divers || []),
+                diponce_divers: JSON.stringify(finalDivers),
                 diponce_admin: typeof row.diponce_admin === 'string' ? row.diponce_admin : JSON.stringify(row.diponce_admin || [])
             };
         },

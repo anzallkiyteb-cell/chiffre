@@ -107,10 +107,8 @@ const SAVE_CHIFFRE = gql`
     $total_diponce: String!
     $diponce: String!
     $recette_net: String!
-    $recette_net: String!
     $tpe: String!
     $tpe2: String
-    $cheque_bancaire: String! 
     $cheque_bancaire: String!
     $espaces: String!
     $tickets_restaurant: String!
@@ -118,6 +116,7 @@ const SAVE_CHIFFRE = gql`
     $primes: String!
     $diponce_divers: String!
     $diponce_admin: String!
+    $payer: String
 ) {
     saveChiffre(
         date: $date
@@ -125,10 +124,8 @@ const SAVE_CHIFFRE = gql`
       total_diponce: $total_diponce
       diponce: $diponce
       recette_net: $recette_net
-      recette_net: $recette_net
       tpe: $tpe
       tpe2: $tpe2
-      cheque_bancaire: $cheque_bancaire
       cheque_bancaire: $cheque_bancaire
       espaces: $espaces
       tickets_restaurant: $tickets_restaurant
@@ -136,6 +133,7 @@ const SAVE_CHIFFRE = gql`
       primes: $primes
       diponce_divers: $diponce_divers
       diponce_admin: $diponce_admin
+      payer: $payer
     ) {
         id
     }
@@ -861,7 +859,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
 
             // Reset if no data found for date and no draft
             setRecetteCaisse('0');
-            setExpenses([{ supplier: '', amount: '0', details: '', invoices: [], photo_cheque: '', photo_verso: '', paymentMethod: 'Espèces' }]);
+            setExpenses([{ supplier: '', amount: '0', details: '', invoices: [], photo_cheque: '', photo_verso: '', paymentMethod: 'Espèces', doc_type: 'BL' }]);
             setTpe('0');
             setCheque('0');
             setEspeces('0');
@@ -872,7 +870,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             setDoublagesList([]);
             setExtrasList([]);
             setPrimesList([]);
-            setExpensesDivers([{ designation: '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces' }]);
+            setExpensesDivers([{ designation: '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces', doc_type: 'BL' }]);
             setIsLocked(false);
             setHasInteracted(false);
         }
@@ -1203,6 +1201,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                     primes,
                     diponce_divers: JSON.stringify(expensesDivers),
                     diponce_admin: JSON.stringify(expensesAdmin),
+                    payer: role
                 }
             });
             setToast({ msg: 'Session enregistrée avec succès', type: 'success' });
@@ -1452,6 +1451,20 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                     />
                                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#bba282] text-xs font-black">DT</span>
                                                 </div>
+                                                {/* BL/Facture Selector */}
+                                                <div className="flex bg-[#f4ece4] p-1 rounded-xl gap-1 border border-[#e6dace]/50">
+                                                    {['BL', 'Facture'].map((t) => (
+                                                        <button
+                                                            key={t}
+                                                            type="button"
+                                                            disabled={expense.isFromFacturation || isLocked}
+                                                            onClick={() => handleDetailChange(index, 'doc_type', t)}
+                                                            className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${expense.doc_type === t ? (t === 'Facture' ? 'bg-[#3182ce]' : 'bg-[#e53e3e]') + ' text-white shadow-sm' : 'text-[#8c8279] hover:bg-white/50'} ${(expense.isFromFacturation || isLocked) ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                        >
+                                                            {t === 'Facture' ? 'Fact' : 'BL'}
+                                                        </button>
+                                                    ))}
+                                                </div>
 
                                                 <div className="flex-1 w-full relative">
                                                     <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
@@ -1514,26 +1527,37 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
 
 
                                                 <div className="flex items-center gap-2 w-full md:w-auto">
-                                                    <label
-                                                        onClick={(e) => {
-                                                            if (expense.invoices.length > 0) {
-                                                                setViewingInvoices(expense.invoices);
-                                                                setViewingInvoicesTarget({ index, type: 'expense' });
-                                                                e.preventDefault();
-                                                            } else if (expense.isFromFacturation) {
-                                                                e.preventDefault();
-                                                            } else if (isLocked) {
-                                                                e.preventDefault();
-                                                            }
-                                                        }}
-                                                        className={`h-12 w-24 rounded-xl border flex items-center justify-center gap-2 cursor-pointer transition-colors relative whitespace-nowrap text-[10px] ${expense.invoices.length > 0 ? 'bg-[#2d6a4f] text-white border-[#2d6a4f]' : (expense.isFromFacturation ? 'border-dashed border-red-600 text-red-600 bg-red-50' : 'border-dashed border-[#bba282] text-[#bba282] hover:bg-[#f9f6f2]')} ${isLocked && expense.invoices.length === 0 ? 'cursor-not-allowed opacity-50' : ''}`}
-                                                    >
-                                                        <UploadCloud size={14} />
-                                                        <span className="font-black uppercase tracking-widest">
-                                                            PHOTO {expense.invoices.length > 0 ? `(${expense.invoices.length})` : ''}
-                                                        </span>
-                                                        {!expense.isFromFacturation && <input type="file" multiple disabled={isLocked} className="hidden" onChange={(e) => handleFileUpload(index, e, 'invoice')} />}
-                                                    </label>
+                                                    <div className="flex items-center gap-1">
+                                                        {expense.invoices && expense.invoices.length > 0 && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setViewingInvoices(expense.invoices);
+                                                                    setViewingInvoicesTarget({ index, type: 'expense' });
+                                                                }}
+                                                                className="h-12 px-3 flex items-center justify-center gap-2 rounded-xl bg-[#2d6a4f] text-white hover:bg-[#1f4b36] transition-all shadow-sm"
+                                                            >
+                                                                <Eye size={16} />
+                                                                <span className="text-[10px] font-black">{expense.invoices.length}</span>
+                                                            </button>
+                                                        )}
+
+                                                        {!isLocked && (
+                                                            <label
+                                                                className={`h-12 ${expense.invoices && expense.invoices.length > 0 ? 'w-12 text-blue-500 border-blue-200 hover:bg-blue-50' : 'px-4 border-[#c69f6e]/30 text-[#c69f6e] hover:bg-[#c69f6e]/5 hover:border-[#c69f6e]'} rounded-xl border-2 border-dashed flex items-center justify-center gap-2 cursor-pointer transition-all relative text-[10px]`}
+                                                            >
+                                                                <UploadCloud size={expense.invoices && expense.invoices.length > 0 ? 18 : 14} />
+                                                                {(!expense.invoices || expense.invoices.length === 0) && <span className="font-black uppercase tracking-widest">Photo</span>}
+                                                                <input
+                                                                    type="file"
+                                                                    multiple
+                                                                    accept="image/*,.pdf"
+                                                                    className="hidden"
+                                                                    onChange={(e) => handleFileUpload(index, e, 'invoice')}
+                                                                />
+                                                            </label>
+                                                        )}
+                                                    </div>
 
                                                     <div className="flex gap-2">
                                                         {expense.paymentMethod === 'Chèque' && (
@@ -1549,7 +1573,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                                 >
                                                                     <UploadCloud size={14} />
                                                                     <span className="font-black uppercase tracking-widest">{expense.photo_cheque ? 'Recto OK' : 'Recto'}</span>
-                                                                    {!expense.isFromFacturation && <input type="file" disabled={isLocked} className="hidden" onChange={(e) => handleFileUpload(index, e, 'recto')} />}
+                                                                    {!expense.isFromFacturation && <input type="file" accept="image/*,.pdf" disabled={isLocked} className="hidden" onChange={(e) => handleFileUpload(index, e, 'recto')} />}
                                                                 </label>
                                                                 <label
                                                                     onClick={(e) => {
@@ -1563,7 +1587,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                                 >
                                                                     <UploadCloud size={14} />
                                                                     <span className="font-black uppercase tracking-widest">{expense.photo_verso ? 'Verso OK' : 'Verso'}</span>
-                                                                    {!expense.isFromFacturation && <input type="file" disabled={isLocked} className="hidden" onChange={(e) => handleFileUpload(index, e, 'verso')} />}
+                                                                    {!expense.isFromFacturation && <input type="file" accept="image/*,.pdf" disabled={isLocked} className="hidden" onChange={(e) => handleFileUpload(index, e, 'verso')} />}
                                                                 </label>
                                                             </>
                                                         )}
@@ -1663,6 +1687,20 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                     />
                                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#bba282] text-xs font-black">DT</span>
                                                 </div>
+                                                {/* BL/Facture Selector */}
+                                                <div className="flex bg-[#f4ece4] p-1 rounded-xl gap-1 border border-[#e6dace]/50">
+                                                    {['BL', 'Facture'].map((t) => (
+                                                        <button
+                                                            key={t}
+                                                            type="button"
+                                                            disabled={isLocked}
+                                                            onClick={() => handleDiversChange(index, 'doc_type', t)}
+                                                            className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${divers.doc_type === t ? (t === 'Facture' ? 'bg-[#3182ce]' : 'bg-[#e53e3e]') + ' text-white shadow-sm' : 'text-[#8c8279] hover:bg-white/50'} ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                        >
+                                                            {t === 'Facture' ? 'Fact' : 'BL'}
+                                                        </button>
+                                                    ))}
+                                                </div>
 
                                                 <div className="flex-1 w-full relative">
                                                     <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
@@ -1733,23 +1771,37 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
 
 
                                                 <div className="flex items-center gap-2 w-full md:w-auto">
-                                                    <label
-                                                        onClick={(e) => {
-                                                            if (divers.invoices.length > 0) {
-                                                                setViewingInvoices(divers.invoices);
-                                                                setViewingInvoicesTarget({ index, type: 'divers' });
-                                                                e.preventDefault();
-                                                            } else if (isLocked) {
-                                                                e.preventDefault();
-                                                            }
-                                                        }}
-                                                        className={`h-12 w-24 rounded-xl border flex items-center justify-center gap-2 cursor-pointer transition-colors relative whitespace-nowrap text-[10px] ${divers.invoices.length > 0 ? 'bg-[#2d6a4f] text-white border-[#2d6a4f]' : 'border-dashed border-[#bba282] text-[#bba282] hover:bg-[#f9f6f2]'} ${isLocked && divers.invoices.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                                                        <UploadCloud size={14} />
-                                                        <span className="font-black uppercase tracking-widest">
-                                                            PHOTO {divers.invoices.length > 0 ? `(${divers.invoices.length})` : ''}
-                                                        </span>
-                                                        <input type="file" multiple disabled={isLocked} className="hidden" onChange={(e) => handleFileUpload(index, e, 'invoice', true)} />
-                                                    </label>
+                                                    <div className="flex items-center gap-1">
+                                                        {divers.invoices && divers.invoices.length > 0 && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setViewingInvoices(divers.invoices);
+                                                                    setViewingInvoicesTarget({ index, type: 'divers' });
+                                                                }}
+                                                                className="h-12 px-3 flex items-center justify-center gap-2 rounded-xl bg-[#2d6a4f] text-white hover:bg-[#1f4b36] transition-all shadow-sm"
+                                                            >
+                                                                <Eye size={16} />
+                                                                <span className="text-[10px] font-black">{divers.invoices.length}</span>
+                                                            </button>
+                                                        )}
+
+                                                        {!isLocked && (
+                                                            <label
+                                                                className={`h-12 ${divers.invoices && divers.invoices.length > 0 ? 'w-12 text-blue-500 border-blue-200 hover:bg-blue-50' : 'px-4 border-[#c69f6e]/30 text-[#c69f6e] hover:bg-[#c69f6e]/5 hover:border-[#c69f6e]'} rounded-xl border-2 border-dashed flex items-center justify-center gap-2 cursor-pointer transition-all relative text-[10px]`}
+                                                            >
+                                                                <UploadCloud size={divers.invoices && divers.invoices.length > 0 ? 18 : 14} />
+                                                                {(!divers.invoices || divers.invoices.length === 0) && <span className="font-black uppercase tracking-widest">Photo</span>}
+                                                                <input
+                                                                    type="file"
+                                                                    multiple
+                                                                    accept="image/*,.pdf"
+                                                                    className="hidden"
+                                                                    onChange={(e) => handleFileUpload(index, e, 'invoice', true)}
+                                                                />
+                                                            </label>
+                                                        )}
+                                                    </div>
                                                     <div className="w-12 flex justify-center">
                                                         {(!isLocked || role === 'admin') && (index > 0 || expensesDivers.length > 1) && (
                                                             <button onClick={() => handleRemoveDivers(index)} className="h-12 w-12 flex items-center justify-center text-red-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors">
@@ -2418,6 +2470,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                 <input
                                                     type="file"
                                                     multiple
+                                                    accept="image/*,.pdf"
                                                     disabled={isLocked && role !== 'admin'}
                                                     className="hidden"
                                                     onChange={async (e) => {
@@ -2476,12 +2529,20 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                     dragConstraints={{ left: -1000, right: 1000, top: -1000, bottom: 1000 }}
                                                     dragElastic={0.1}
                                                 >
-                                                    <img
-                                                        src={img}
-                                                        draggable="false"
-                                                        className="max-w-full max-h-full rounded-xl object-contain shadow-2xl"
-                                                        style={{ pointerEvents: 'none', userSelect: 'none' }}
-                                                    />
+                                                    {img.startsWith('data:application/pdf') || img.toLowerCase().includes('.pdf') ? (
+                                                        <iframe
+                                                            src={img}
+                                                            className="w-full h-full rounded-xl border-none"
+                                                            title="Document PDF"
+                                                        />
+                                                    ) : (
+                                                        <img
+                                                            src={img}
+                                                            draggable="false"
+                                                            className="max-w-full max-h-full rounded-xl object-contain shadow-2xl"
+                                                            style={{ pointerEvents: 'none', userSelect: 'none' }}
+                                                        />
+                                                    )}
                                                 </motion.div>
                                                 <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
                                                     <a href={img} download target="_blank" className="p-2 bg-white/90 hover:bg-white text-[#4a3426] rounded-lg shadow-lg backdrop-blur-sm transition-all hover:scale-110"><Download size={16} /></a>

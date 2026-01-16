@@ -150,6 +150,7 @@ export const typeDefs = `#graphql
       tickets_restaurant: String!
       extra: String!
       primes: String!
+      payer: String
     ): Chiffre
     
     upsertSupplier(name: String!): Supplier
