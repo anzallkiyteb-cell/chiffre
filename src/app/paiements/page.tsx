@@ -573,6 +573,25 @@ export default function PaiementsPage() {
         };
     }, [data]);
 
+    const totals = useMemo(() => {
+        const dep = expenseDetails.journalier.reduce((a, b) => a + b.amount, 0) +
+            expenseDetails.fournisseurs.reduce((a, b) => a + b.amount, 0) +
+            expenseDetails.divers.reduce((a, b) => a + b.amount, 0) +
+            expenseDetails.administratif.reduce((a, b) => a + b.amount, 0);
+
+        const sal = expenseDetails.avances.reduce((a, b) => a + b.amount, 0) +
+            expenseDetails.doublages.reduce((a, b) => a + b.amount, 0) +
+            expenseDetails.extras.reduce((a, b) => a + b.amount, 0) +
+            expenseDetails.primes.reduce((a, b) => a + b.amount, 0);
+
+        return {
+            expenses: dep,
+            salaries: sal,
+            riadh: stats.totalRiadhExpenses,
+            global: dep + sal + stats.totalRiadhExpenses
+        };
+    }, [expenseDetails, stats.totalRiadhExpenses]);
+
     const handleBankSubmit = async () => {
         if (!bankAmount || !bankDate) return;
         try {
@@ -836,68 +855,109 @@ export default function PaiementsPage() {
 
                 <main className="max-w-7xl mx-auto px-4 md:px-8 mt-8 space-y-8">
                     {/* Financial Summary Grid - 3 Columns */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {/* 1. Chiffre d'Affaire */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {/* 0. Total Global (NEW) */}
                         <motion.div
                             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0 }}
-                            className="col-span-1 sm:col-span-2 lg:col-span-3 bg-gradient-to-br from-[#10b981] to-[#059669] p-10 rounded-[2.5rem] shadow-lg relative overflow-hidden group hover:scale-[1.01] transition-all text-white"
+                            onClick={() => setShowExpensesDetails(true)}
+                            className="col-span-1 sm:col-span-2 lg:col-span-4 bg-gradient-to-br from-[#4a3426] to-[#2d1e16] p-10 rounded-[2.5rem] shadow-xl relative overflow-hidden group hover:scale-[1.005] transition-all text-white cursor-pointer active:scale-[0.99] border-4 border-[#c69f6e]/20"
                         >
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
-                            <div className="relative z-10">
-                                <div className="flex items-center gap-3 text-white/80 mb-4 uppercase text-xs font-black tracking-widest">
-                                    <Wallet size={16} /> Chiffre d'Affaire
+                            <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full blur-3xl -mr-32 -mt-32"></div>
+                            <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-6">
+                                <div className="flex items-center gap-6">
+                                    <div className="w-20 h-20 rounded-3xl bg-[#c69f6e] flex items-center justify-center text-white shadow-lg shadow-[#c69f6e]/20 group-hover:rotate-12 transition-transform">
+                                        <Plus size={40} strokeWidth={3} />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-sm font-black uppercase tracking-[0.4em] text-[#c69f6e] mb-1">Somme Totale</h3>
+                                        <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">Dépenses + Salaires + Historique Riadh</p>
+                                    </div>
                                 </div>
-                                <h3 className="text-5xl lg:text-7xl font-black tracking-tighter">
-                                    {stats.totalRecetteCaisse.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
-                                </h3>
-                                <span className="text-lg font-bold opacity-70 mt-2 block">DT</span>
-                            </div>
-                            <div className="absolute -right-8 -bottom-8 opacity-10 group-hover:scale-125 transition-transform duration-500 text-white">
-                                <Wallet size={180} />
+                                <div className="text-center md:text-right">
+                                    <div className="flex items-baseline justify-center md:justify-end gap-3">
+                                        <span className="text-6xl lg:text-8xl font-black tracking-tighter leading-none">
+                                            {totals.global.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                        </span>
+                                        <span className="text-2xl font-black text-[#c69f6e]">DT</span>
+                                    </div>
+                                    <p className="text-[11px] font-black text-white/20 uppercase tracking-[0.3em] mt-2">Détails disponibles au clic</p>
+                                </div>
                             </div>
                         </motion.div>
 
-                        {/* 2. Total Dépenses (Moved here and made BIG) */}
+                        {/* 1. Chiffre d'Affaire */}
                         <motion.div
                             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-                            onClick={() => setShowExpensesDetails(true)}
-                            className="col-span-1 sm:col-span-2 lg:col-span-3 bg-gradient-to-br from-[#6b7280] to-[#4b5563] p-10 rounded-[2.5rem] shadow-lg relative overflow-hidden group hover:scale-[1.01] transition-all text-white cursor-pointer active:scale-95"
+                            className="bg-gradient-to-br from-[#10b981] to-[#059669] p-8 rounded-[2.5rem] shadow-lg relative overflow-hidden group hover:scale-[1.02] transition-all text-white"
                         >
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
                             <div className="relative z-10">
-                                <div className="flex items-center gap-3 text-white/80 mb-4 uppercase text-xs font-black tracking-widest">
-                                    <Banknote size={16} /> Total Dépenses
+                                <div className="flex items-center gap-3 text-white/80 mb-3 uppercase text-[10px] font-black tracking-widest">
+                                    <Wallet size={14} /> Chiffre d'Affaire
                                 </div>
-                                <h3 className="text-5xl lg:text-7xl font-black tracking-tighter">
-                                    {(stats.totalExpenses + stats.totalRiadhExpenses).toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                <h3 className="text-3xl lg:text-4xl font-black tracking-tighter">
+                                    {stats.totalRecetteCaisse.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
                                 </h3>
-                                <span className="text-lg font-bold opacity-70 mt-2 block">DT</span>
+                                <span className="text-xs font-bold opacity-60 mt-1 block">DT</span>
                             </div>
-                            <div className="absolute -right-8 -bottom-8 opacity-10 group-hover:scale-125 transition-transform duration-500 text-white">
-                                <Banknote size={180} />
+                        </motion.div>
+
+                        {/* 2. Total Dépenses */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+                            onClick={() => setShowExpensesDetails(true)}
+                            className="bg-gradient-to-br from-[#6b7280] to-[#4b5563] p-8 rounded-[2.5rem] shadow-lg relative overflow-hidden group hover:scale-[1.02] transition-all text-white cursor-pointer active:scale-95"
+                        >
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
+                            <div className="relative z-10">
+                                <div className="flex items-center gap-3 text-white/80 mb-3 uppercase text-[10px] font-black tracking-widest">
+                                    <Banknote size={14} /> Dépenses & Riadh
+                                </div>
+                                <h3 className="text-3xl lg:text-4xl font-black tracking-tighter">
+                                    {(totals.expenses + totals.riadh).toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                </h3>
+                                <span className="text-xs font-bold opacity-60 mt-1 block">DT</span>
+                            </div>
+                        </motion.div>
+
+                        {/* 2.5 Total Salaires (NEW) */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+                            onClick={() => setShowExpensesDetails(true)}
+                            className="bg-gradient-to-br from-[#a89284] to-[#8c7a6e] p-8 rounded-[2.5rem] shadow-lg relative overflow-hidden group hover:scale-[1.02] transition-all text-white cursor-pointer active:scale-95"
+                        >
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
+                            <div className="relative z-10">
+                                <div className="flex items-center gap-3 text-white/80 mb-3 uppercase text-[10px] font-black tracking-widest">
+                                    <Calculator size={14} /> Total Salaires
+                                </div>
+                                <h3 className="text-3xl lg:text-4xl font-black tracking-tighter">
+                                    {totals.salaries.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                </h3>
+                                <span className="text-xs font-bold opacity-60 mt-1 block">DT</span>
                             </div>
                         </motion.div>
 
                         {/* 3. Reste */}
                         <motion.div
-                            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-                            className="col-span-1 sm:col-span-2 lg:col-span-3 bg-gradient-to-br from-[#22c55e] to-[#16a34a] p-10 rounded-[2.5rem] shadow-lg relative overflow-hidden group hover:scale-[1.01] transition-all text-white"
+                            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+                            className="bg-gradient-to-br from-[#22c55e] to-[#16a34a] p-8 rounded-[2.5rem] shadow-lg relative overflow-hidden group hover:scale-[1.02] transition-all text-white"
                         >
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
                             <div className="relative z-10">
-                                <div className="flex items-center gap-3 text-white/80 mb-4 uppercase text-xs font-black tracking-widest">
-                                    <TrendingUp size={16} /> Reste
+                                <div className="flex items-center gap-3 text-white/80 mb-3 uppercase text-[10px] font-black tracking-widest">
+                                    <TrendingUp size={14} /> Reste Net
                                 </div>
-                                <h3 className="text-5xl lg:text-7xl font-black tracking-tighter">
+                                <h3 className="text-3xl lg:text-4xl font-black tracking-tighter">
                                     {stats.totalRecetteNette.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
                                 </h3>
-                                <span className="text-lg font-bold opacity-70 mt-2 block">DT</span>
-                            </div>
-                            <div className="absolute -right-8 -bottom-8 opacity-10 group-hover:scale-125 transition-transform duration-500 text-white">
-                                <TrendingUp size={180} />
+                                <span className="text-xs font-bold opacity-60 mt-1 block">DT</span>
                             </div>
                         </motion.div>
+                    </div>
 
+                    {/* Secondary Stats Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {/* 4. Total Cash */}
                         <motion.div
                             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
@@ -1752,334 +1812,338 @@ export default function PaiementsPage() {
                         </div>
                     )}
                 </AnimatePresence>
-            </div>
+            </div >
 
             {/* History Modal for Riadh */}
             <AnimatePresence>
-                {showHistoryModal && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[200] bg-[#4a3426]/60 backdrop-blur-md flex items-center justify-center p-4"
-                        onClick={() => setShowHistoryModal(false)}
-                    >
+                {
+                    showHistoryModal && (
                         <motion.div
-                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
-                            animate={{ scale: 1, opacity: 1, y: 0 }}
-                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                            onClick={e => e.stopPropagation()}
-                            className="bg-[#f9f6f2] rounded-[2.5rem] w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl border border-white/20 flex flex-col"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 z-[200] bg-[#4a3426]/60 backdrop-blur-md flex items-center justify-center p-4"
+                            onClick={() => setShowHistoryModal(false)}
                         >
-                            <div className="p-6 bg-white border-b border-[#e6dace] shrink-0">
-                                <div className="flex justify-between items-center mb-4">
-                                    <h2 className="text-xl font-black text-[#4a3426] uppercase tracking-tight flex items-center gap-3">
-                                        <div className="w-10 h-10 bg-[#f4ece4] rounded-xl flex items-center justify-center text-[#c69f6e]">
-                                            <Clock size={22} />
-                                        </div>
-                                        Historique Dépenses (Riadh)
-                                    </h2>
-                                    <button onClick={() => setShowHistoryModal(false)} className="w-10 h-10 rounded-full hover:bg-[#fcfaf8] flex items-center justify-center text-[#8c8279] transition-colors">
-                                        <ChevronRight size={24} className="rotate-90" />
-                                    </button>
-                                </div>
-
-                                <div className="space-y-3">
-                                    <div className="relative">
-                                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8c8279]" size={18} />
-                                        <input
-                                            type="text"
-                                            placeholder="Rechercher par nom..."
-                                            value={historySearch}
-                                            onChange={(e) => setHistorySearch(e.target.value)}
-                                            className="w-full h-12 pl-12 pr-4 bg-[#fcfaf8] border border-[#e6dace] rounded-xl font-medium text-[#4a3426] placeholder:text-[#8c8279]/50 focus:border-[#c69f6e] focus:ring-2 focus:ring-[#c69f6e]/20 outline-none transition-all"
-                                        />
+                            <motion.div
+                                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                                animate={{ scale: 1, opacity: 1, y: 0 }}
+                                exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                                onClick={e => e.stopPropagation()}
+                                className="bg-[#f9f6f2] rounded-[2.5rem] w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl border border-white/20 flex flex-col"
+                            >
+                                <div className="p-6 bg-white border-b border-[#e6dace] shrink-0">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h2 className="text-xl font-black text-[#4a3426] uppercase tracking-tight flex items-center gap-3">
+                                            <div className="w-10 h-10 bg-[#f4ece4] rounded-xl flex items-center justify-center text-[#c69f6e]">
+                                                <Clock size={22} />
+                                            </div>
+                                            Historique Dépenses (Riadh)
+                                        </h2>
+                                        <button onClick={() => setShowHistoryModal(false)} className="w-10 h-10 rounded-full hover:bg-[#fcfaf8] flex items-center justify-center text-[#8c8279] transition-colors">
+                                            <ChevronRight size={24} className="rotate-90" />
+                                        </button>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <div className="flex-1">
-                                            <PremiumDatePicker
-                                                label="Début"
-                                                value={historyDateRange.start}
-                                                onChange={(val) => setHistoryDateRange(prev => ({ ...prev, start: val }))}
+
+                                    <div className="space-y-3">
+                                        <div className="relative">
+                                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8c8279]" size={18} />
+                                            <input
+                                                type="text"
+                                                placeholder="Rechercher par nom..."
+                                                value={historySearch}
+                                                onChange={(e) => setHistorySearch(e.target.value)}
+                                                className="w-full h-12 pl-12 pr-4 bg-[#fcfaf8] border border-[#e6dace] rounded-xl font-medium text-[#4a3426] placeholder:text-[#8c8279]/50 focus:border-[#c69f6e] focus:ring-2 focus:ring-[#c69f6e]/20 outline-none transition-all"
                                             />
                                         </div>
-                                        <span className="text-[#c69f6e] font-black text-sm opacity-30 mt-5">→</span>
-                                        <div className="flex-1">
-                                            <PremiumDatePicker
-                                                label="Fin"
-                                                value={historyDateRange.end}
-                                                onChange={(val) => setHistoryDateRange(prev => ({ ...prev, end: val }))}
-                                                align="right"
-                                            />
+                                        <div className="flex items-center gap-2">
+                                            <div className="flex-1">
+                                                <PremiumDatePicker
+                                                    label="Début"
+                                                    value={historyDateRange.start}
+                                                    onChange={(val) => setHistoryDateRange(prev => ({ ...prev, start: val }))}
+                                                />
+                                            </div>
+                                            <span className="text-[#c69f6e] font-black text-sm opacity-30 mt-5">→</span>
+                                            <div className="flex-1">
+                                                <PremiumDatePicker
+                                                    label="Fin"
+                                                    value={historyDateRange.end}
+                                                    onChange={(val) => setHistoryDateRange(prev => ({ ...prev, end: val }))}
+                                                    align="right"
+                                                />
+                                            </div>
+                                            {(historyDateRange.start || historyDateRange.end) && (
+                                                <button
+                                                    onClick={() => setHistoryDateRange({ start: '', end: '' })}
+                                                    className="mt-5 px-3 h-10 bg-[#f4ece4] text-[#c69f6e] rounded-xl text-xs font-bold hover:bg-[#ebdccf] transition-all"
+                                                >
+                                                    Réinitialiser
+                                                </button>
+                                            )}
                                         </div>
-                                        {(historyDateRange.start || historyDateRange.end) && (
-                                            <button
-                                                onClick={() => setHistoryDateRange({ start: '', end: '' })}
-                                                className="mt-5 px-3 h-10 bg-[#f4ece4] text-[#c69f6e] rounded-xl text-xs font-bold hover:bg-[#ebdccf] transition-all"
-                                            >
-                                                Réinitialiser
-                                            </button>
-                                        )}
                                     </div>
                                 </div>
-                            </div>
 
-                            <div className="flex-1 overflow-y-auto p-6 md:p-8 custom-scrollbar">
-                                <div className="space-y-4">
-                                    {(() => {
-                                        const riadhInvoices = historyData?.getInvoices?.filter((inv: any) => inv.payer === 'riadh') || [];
-                                        const filteredHistory = riadhInvoices.filter((inv: any) => {
-                                            if (historySearch) {
-                                                if (!inv.supplier_name.toLowerCase().includes(historySearch.toLowerCase())) return false;
-                                            }
-                                            if (historyDateRange.start) {
-                                                if (new Date(inv.date) < new Date(historyDateRange.start)) return false;
-                                            }
-                                            if (historyDateRange.end) {
-                                                if (new Date(inv.date) > new Date(historyDateRange.end)) return false;
-                                            }
-                                            return true;
-                                        });
+                                <div className="flex-1 overflow-y-auto p-6 md:p-8 custom-scrollbar">
+                                    <div className="space-y-4">
+                                        {(() => {
+                                            const riadhInvoices = historyData?.getInvoices?.filter((inv: any) => inv.payer === 'riadh') || [];
+                                            const filteredHistory = riadhInvoices.filter((inv: any) => {
+                                                if (historySearch) {
+                                                    if (!inv.supplier_name.toLowerCase().includes(historySearch.toLowerCase())) return false;
+                                                }
+                                                if (historyDateRange.start) {
+                                                    if (new Date(inv.date) < new Date(historyDateRange.start)) return false;
+                                                }
+                                                if (historyDateRange.end) {
+                                                    if (new Date(inv.date) > new Date(historyDateRange.end)) return false;
+                                                }
+                                                return true;
+                                            });
 
-                                        if (filteredHistory.length > 0) {
-                                            return filteredHistory
-                                                .sort((a: any, b: any) => {
-                                                    const timeA = new Date(a.updated_at || a.date).getTime();
-                                                    const timeB = new Date(b.updated_at || b.date).getTime();
-                                                    const timeDiff = timeB - timeA;
-                                                    if (timeDiff !== 0) return timeDiff;
-                                                    return parseInt(b.id) - parseInt(a.id);
-                                                })
-                                                .map((inv: any) => (
-                                                    <div key={inv.id} className="group relative bg-white p-5 rounded-[2rem] border border-[#e6dace]/60 hover:border-[#c69f6e]/60 hover:shadow-xl hover:shadow-[#c69f6e]/5 transition-all duration-300">
-                                                        <div className="flex justify-between items-center">
-                                                            {/* Actions & Amount (Left side now) */}
-                                                            <div className="flex items-center gap-4">
-                                                                <div className="flex items-center gap-2">
-                                                                    <button
-                                                                        onClick={() => handleDelete(inv)}
-                                                                        className="w-10 h-10 rounded-full border-2 border-red-50 hover:border-red-500 hover:bg-red-500 hover:text-white flex items-center justify-center transition-all text-red-400"
-                                                                        title="Supprimer / Annuler"
-                                                                    >
-                                                                        <Trash2 size={18} />
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={() => handleEditHistoryItemClick(inv)}
-                                                                        className="w-10 h-10 rounded-full border-2 border-blue-50 hover:border-blue-500 hover:bg-blue-500 hover:text-white flex items-center justify-center transition-all text-blue-400"
-                                                                        title="Modifier"
-                                                                    >
-                                                                        <Edit2 size={18} />
-                                                                    </button>
-                                                                </div>
-                                                                <div className="text-left bg-[#fdfbf7] px-4 py-2 rounded-2xl border border-[#e6dace]/30">
-                                                                    <div className="font-black text-[#4a3426] text-xl">
-                                                                        {parseFloat(inv.amount).toFixed(3)} <span className="text-xs opacity-50">DT</span>
+                                            if (filteredHistory.length > 0) {
+                                                return filteredHistory
+                                                    .sort((a: any, b: any) => {
+                                                        const timeA = new Date(a.updated_at || a.date).getTime();
+                                                        const timeB = new Date(b.updated_at || b.date).getTime();
+                                                        const timeDiff = timeB - timeA;
+                                                        if (timeDiff !== 0) return timeDiff;
+                                                        return parseInt(b.id) - parseInt(a.id);
+                                                    })
+                                                    .map((inv: any) => (
+                                                        <div key={inv.id} className="group relative bg-white p-5 rounded-[2rem] border border-[#e6dace]/60 hover:border-[#c69f6e]/60 hover:shadow-xl hover:shadow-[#c69f6e]/5 transition-all duration-300">
+                                                            <div className="flex justify-between items-center">
+                                                                {/* Actions & Amount (Left side now) */}
+                                                                <div className="flex items-center gap-4">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <button
+                                                                            onClick={() => handleDelete(inv)}
+                                                                            className="w-10 h-10 rounded-full border-2 border-red-50 hover:border-red-500 hover:bg-red-500 hover:text-white flex items-center justify-center transition-all text-red-400"
+                                                                            title="Supprimer / Annuler"
+                                                                        >
+                                                                            <Trash2 size={18} />
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => handleEditHistoryItemClick(inv)}
+                                                                            className="w-10 h-10 rounded-full border-2 border-blue-50 hover:border-blue-500 hover:bg-blue-500 hover:text-white flex items-center justify-center transition-all text-blue-400"
+                                                                            title="Modifier"
+                                                                        >
+                                                                            <Edit2 size={18} />
+                                                                        </button>
+                                                                    </div>
+                                                                    <div className="text-left bg-[#fdfbf7] px-4 py-2 rounded-2xl border border-[#e6dace]/30">
+                                                                        <div className="font-black text-[#4a3426] text-xl">
+                                                                            {parseFloat(inv.amount).toFixed(3)} <span className="text-xs opacity-50">DT</span>
+                                                                        </div>
                                                                     </div>
                                                                 </div>
-                                                            </div>
 
-                                                            {/* PHOTO button (Center) */}
-                                                            <div className="flex-1 flex justify-center mx-4">
-                                                                {(inv.photo_url || inv.photo_cheque_url) ? (
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            setSelectedInvoice(inv);
-                                                                            setShowHistoryModal(false);
-                                                                        }}
-                                                                        className="flex items-center gap-2 px-6 py-2.5 bg-white hover:bg-[#c69f6e] text-[#c69f6e] hover:text-white rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border border-[#c69f6e]/20 shadow-sm hover:shadow-lg hover:shadow-[#c69f6e]/20 group/btn"
-                                                                    >
-                                                                        <ImageIcon size={14} className="group-hover/btn:scale-110 transition-transform" />
-                                                                        <span>Photo</span>
-                                                                    </button>
-                                                                ) : (
-                                                                    <span className="text-[9px] font-black text-[#8c8279]/30 uppercase tracking-widest italic border border-dashed border-[#e6dace] px-3 py-1 rounded-full select-none">Pas de photo</span>
-                                                                )}
-                                                            </div>
-
-                                                            {/* Info & Icon (Right side now) */}
-                                                            <div className="flex items-center gap-4 text-right">
-                                                                <div>
-                                                                    <div className="flex items-center gap-2 mb-1 justify-end">
-                                                                        <h3 className="font-black text-[#4a3426] text-lg leading-tight group-hover:text-[#c69f6e] transition-colors">{inv.supplier_name}</h3>
-                                                                    </div>
-                                                                    <div className="flex items-center gap-2 justify-end">
-                                                                        <span className="text-[9px] font-bold text-[#8c8279] uppercase tracking-wider bg-[#f4ece4] px-2 py-0.5 rounded-full">
-                                                                            {inv.payment_method}
-                                                                        </span>
-                                                                        <span className="w-1 h-1 rounded-full bg-[#e6dace]"></span>
-                                                                        {inv.origin === 'direct_expense' ? (
-                                                                            <span className="text-[9px] font-black text-red-500/70 border border-red-200 px-1.5 py-0.5 rounded uppercase tracking-tighter bg-red-50/50">Directe</span>
-                                                                        ) : (
-                                                                            <span className="text-[9px] font-black text-blue-500/70 border border-blue-200 px-1.5 py-0.5 rounded uppercase tracking-tighter bg-blue-50/50">Facture</span>
-                                                                        )}
-                                                                        <span className="w-1 h-1 rounded-full bg-[#e6dace]"></span>
-                                                                        <span className="text-[10px] font-bold text-[#8c8279] opacity-70">
-                                                                            {new Date(inv.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
-                                                                        </span>
-                                                                    </div>
+                                                                {/* PHOTO button (Center) */}
+                                                                <div className="flex-1 flex justify-center mx-4">
+                                                                    {(inv.photo_url || inv.photo_cheque_url) ? (
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                setSelectedInvoice(inv);
+                                                                                setShowHistoryModal(false);
+                                                                            }}
+                                                                            className="flex items-center gap-2 px-6 py-2.5 bg-white hover:bg-[#c69f6e] text-[#c69f6e] hover:text-white rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border border-[#c69f6e]/20 shadow-sm hover:shadow-lg hover:shadow-[#c69f6e]/20 group/btn"
+                                                                        >
+                                                                            <ImageIcon size={14} className="group-hover/btn:scale-110 transition-transform" />
+                                                                            <span>Photo</span>
+                                                                        </button>
+                                                                    ) : (
+                                                                        <span className="text-[9px] font-black text-[#8c8279]/30 uppercase tracking-widest italic border border-dashed border-[#e6dace] px-3 py-1 rounded-full select-none">Pas de photo</span>
+                                                                    )}
                                                                 </div>
-                                                                <div className="w-12 h-12 rounded-2xl bg-[#f9f6f2] flex items-center justify-center text-[#c69f6e] group-hover:bg-[#c69f6e] group-hover:text-white transition-colors duration-300 shadow-sm">
-                                                                    <Receipt size={20} />
+
+                                                                {/* Info & Icon (Right side now) */}
+                                                                <div className="flex items-center gap-4 text-right">
+                                                                    <div>
+                                                                        <div className="flex items-center gap-2 mb-1 justify-end">
+                                                                            <h3 className="font-black text-[#4a3426] text-lg leading-tight group-hover:text-[#c69f6e] transition-colors">{inv.supplier_name}</h3>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-2 justify-end">
+                                                                            <span className="text-[9px] font-bold text-[#8c8279] uppercase tracking-wider bg-[#f4ece4] px-2 py-0.5 rounded-full">
+                                                                                {inv.payment_method}
+                                                                            </span>
+                                                                            <span className="w-1 h-1 rounded-full bg-[#e6dace]"></span>
+                                                                            {inv.origin === 'direct_expense' ? (
+                                                                                <span className="text-[9px] font-black text-red-500/70 border border-red-200 px-1.5 py-0.5 rounded uppercase tracking-tighter bg-red-50/50">Directe</span>
+                                                                            ) : (
+                                                                                <span className="text-[9px] font-black text-blue-500/70 border border-blue-200 px-1.5 py-0.5 rounded uppercase tracking-tighter bg-blue-50/50">Facture</span>
+                                                                            )}
+                                                                            <span className="w-1 h-1 rounded-full bg-[#e6dace]"></span>
+                                                                            <span className="text-[10px] font-bold text-[#8c8279] opacity-70">
+                                                                                {new Date(inv.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                                                                            </span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="w-12 h-12 rounded-2xl bg-[#f9f6f2] flex items-center justify-center text-[#c69f6e] group-hover:bg-[#c69f6e] group-hover:text-white transition-colors duration-300 shadow-sm">
+                                                                        <Receipt size={20} />
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         </div>
+                                                    ));
+                                            } else {
+                                                return (
+                                                    <div className="text-center py-12 text-[#8c8279] font-bold italic opacity-50">
+                                                        Aucun résultat correspondant
                                                     </div>
-                                                ));
-                                        } else {
-                                            return (
-                                                <div className="text-center py-12 text-[#8c8279] font-bold italic opacity-50">
-                                                    Aucun résultat correspondant
-                                                </div>
-                                            );
-                                        }
-                                    })()}
+                                                );
+                                            }
+                                        })()}
+                                    </div>
                                 </div>
-                            </div>
+                            </motion.div>
                         </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+                    )
+                }
+            </AnimatePresence >
 
             {/* Expenses Details Modal */}
             <AnimatePresence>
-                {showExpensesDetails && (
-                    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
-                        <motion.div
-                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                            className="absolute inset-0 bg-[#4a3426]/60 backdrop-blur-md"
-                            onClick={() => setShowExpensesDetails(false)}
-                        />
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                            className="relative bg-white w-full max-w-lg rounded-[3rem] shadow-2xl overflow-hidden border border-[#e6dace]"
-                        >
-                            <div className="p-8 md:p-10">
-                                <div className="flex justify-between items-start mb-8">
-                                    <div>
-                                        <h2 className="text-3xl font-black text-[#4a3426] tracking-tighter">Détails des Dépenses</h2>
-                                        <p className="text-[#8c8279] font-bold text-xs uppercase tracking-[0.2em] mt-2">Récapitulatif financier</p>
+                {
+                    showExpensesDetails && (
+                        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+                            <motion.div
+                                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                                className="absolute inset-0 bg-[#4a3426]/60 backdrop-blur-md"
+                                onClick={() => setShowExpensesDetails(false)}
+                            />
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                                className="relative bg-white w-full max-w-lg rounded-[3rem] shadow-2xl overflow-hidden border border-[#e6dace]"
+                            >
+                                <div className="p-8 md:p-10">
+                                    <div className="flex justify-between items-start mb-8">
+                                        <div>
+                                            <h2 className="text-3xl font-black text-[#4a3426] tracking-tighter">Détails des Dépenses</h2>
+                                            <p className="text-[#8c8279] font-bold text-xs uppercase tracking-[0.2em] mt-2">Récapitulatif financier</p>
+                                        </div>
+                                        <button
+                                            onClick={() => setShowExpensesDetails(false)}
+                                            className="w-12 h-12 bg-[#fcfaf8] rounded-2xl flex items-center justify-center text-[#8c8279] hover:bg-red-50 hover:text-red-500 transition-all border border-[#e6dace]/50"
+                                        >
+                                            <X size={24} />
+                                        </button>
                                     </div>
-                                    <button
-                                        onClick={() => setShowExpensesDetails(false)}
-                                        className="w-12 h-12 bg-[#fcfaf8] rounded-2xl flex items-center justify-center text-[#8c8279] hover:bg-red-50 hover:text-red-500 transition-all border border-[#e6dace]/50"
-                                    >
-                                        <X size={24} />
-                                    </button>
-                                </div>
 
-                                <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
-                                    {/* Category Component */}
-                                    {[
-                                        { title: 'Dépenses Journalier', subtitle: 'Quotidien & Fonctionnement', icon: Clock, color: 'bg-[#c69f6e]/10', iconColor: 'text-[#c69f6e]', items: expenseDetails.journalier },
-                                        { title: 'Dépenses Fournisseurs', subtitle: 'Marchandises & Services', icon: Truck, color: 'bg-[#4a3426]/10', iconColor: 'text-[#4a3426]', items: expenseDetails.fournisseurs },
-                                        { title: 'Dépenses Divers', subtitle: 'Frais Exceptionnels', icon: Sparkles, color: 'bg-[#c69f6e]/10', iconColor: 'text-[#c69f6e]', items: expenseDetails.divers },
-                                        { title: 'Dépenses Administratif', subtitle: 'Loyers, Factures & Bur.', icon: Layout, color: 'bg-[#4a3426]/10', iconColor: 'text-[#4a3426]', items: expenseDetails.administratif },
-                                        { title: 'Historique Dépenses (Riadh)', subtitle: 'Paiements directs', icon: User, color: 'bg-[#c69f6e]/10', iconColor: 'text-[#c69f6e]', amount: stats.totalRiadhExpenses, items: [] }, // Added items: [] for consistency
-                                        { title: 'Accompte', subtitle: 'Avances sur salaires', icon: Calculator, color: 'bg-[#a89284]/10', iconColor: 'text-[#a89284]', items: expenseDetails.avances },
-                                        { title: 'Doublage', subtitle: 'Heures supplémentaires', icon: TrendingUp, color: 'bg-[#4a3426]/10', iconColor: 'text-[#4a3426]', items: expenseDetails.doublages },
-                                        { title: 'Extra', subtitle: 'Main d\'œuvre occasionnelle', icon: Zap, color: 'bg-[#c69f6e]/10', iconColor: 'text-[#c69f6e]', items: expenseDetails.extras },
-                                        { title: 'Primes', subtitle: 'Récompenses & Bonus', icon: Sparkles, color: 'bg-[#2d6a4f]/10', iconColor: 'text-[#2d6a4f]', items: expenseDetails.primes }
-                                    ].map((cat, idx) => {
-                                        const total = cat.amount !== undefined ? cat.amount : cat.items.reduce((sum, item) => sum + item.amount, 0);
-                                        if (total === 0) return null;
-                                        return (
-                                            <div key={idx} className="bg-[#fcfaf8] rounded-3xl border border-[#e6dace]/40 overflow-hidden">
-                                                <div className="p-6 flex justify-between items-center bg-white/50 border-b border-[#e6dace]/20">
-                                                    <div className="flex items-center gap-4">
-                                                        <div className={`w-12 h-12 rounded-2xl ${cat.color} flex items-center justify-center ${cat.iconColor}`}>
-                                                            <cat.icon size={20} />
-                                                        </div>
-                                                        <div>
-                                                            <p className="text-[10px] font-black text-[#8c8279] uppercase tracking-widest leading-none mb-1">{cat.title}</p>
-                                                            <p className="text-[10px] font-bold text-[#4a3426]/40 uppercase tracking-tighter">{cat.subtitle}</p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <p className="text-lg font-black text-[#4a3426]">{total.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</p>
-                                                        <p className="text-[9px] font-bold text-[#8c8279] opacity-40 uppercase">DT</p>
-                                                    </div>
-                                                </div>
-                                                {cat.items && cat.items.length > 0 && (
-                                                    <div className="p-4 bg-white/30 space-y-2">
-                                                        {cat.items.map((item, i) => (
-                                                            <div key={i} className="flex justify-between items-center px-4 py-2 hover:bg-white rounded-xl transition-all border border-transparent hover:border-[#e6dace]/30">
-                                                                <span className="text-xs font-bold text-[#4a3426]/70">{item.name}</span>
-                                                                <span className="text-xs font-black text-[#4a3426]">{item.amount.toFixed(3)} DT</span>
+                                    <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
+                                        {/* Category Component */}
+                                        {[
+                                            { title: 'Dépenses Journalier', subtitle: 'Quotidien & Fonctionnement', icon: Clock, color: 'bg-[#c69f6e]/10', iconColor: 'text-[#c69f6e]', items: expenseDetails.journalier },
+                                            { title: 'Dépenses Fournisseurs', subtitle: 'Marchandises & Services', icon: Truck, color: 'bg-[#4a3426]/10', iconColor: 'text-[#4a3426]', items: expenseDetails.fournisseurs },
+                                            { title: 'Dépenses Divers', subtitle: 'Frais Exceptionnels', icon: Sparkles, color: 'bg-[#c69f6e]/10', iconColor: 'text-[#c69f6e]', items: expenseDetails.divers },
+                                            { title: 'Dépenses Administratif', subtitle: 'Loyers, Factures & Bur.', icon: Layout, color: 'bg-[#4a3426]/10', iconColor: 'text-[#4a3426]', items: expenseDetails.administratif },
+                                            { title: 'Historique Dépenses (Riadh)', subtitle: 'Paiements directs', icon: User, color: 'bg-[#c69f6e]/10', iconColor: 'text-[#c69f6e]', amount: stats.totalRiadhExpenses, items: [] }, // Added items: [] for consistency
+                                            { title: 'Accompte', subtitle: 'Avances sur salaires', icon: Calculator, color: 'bg-[#a89284]/10', iconColor: 'text-[#a89284]', items: expenseDetails.avances },
+                                            { title: 'Doublage', subtitle: 'Heures supplémentaires', icon: TrendingUp, color: 'bg-[#4a3426]/10', iconColor: 'text-[#4a3426]', items: expenseDetails.doublages },
+                                            { title: 'Extra', subtitle: 'Main d\'œuvre occasionnelle', icon: Zap, color: 'bg-[#c69f6e]/10', iconColor: 'text-[#c69f6e]', items: expenseDetails.extras },
+                                            { title: 'Primes', subtitle: 'Récompenses & Bonus', icon: Sparkles, color: 'bg-[#2d6a4f]/10', iconColor: 'text-[#2d6a4f]', items: expenseDetails.primes }
+                                        ].map((cat, idx) => {
+                                            const total = cat.amount !== undefined ? cat.amount : cat.items.reduce((sum, item) => sum + item.amount, 0);
+                                            if (total === 0) return null;
+                                            return (
+                                                <div key={idx} className="bg-[#fcfaf8] rounded-3xl border border-[#e6dace]/40 overflow-hidden">
+                                                    <div className="p-6 flex justify-between items-center bg-white/50 border-b border-[#e6dace]/20">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className={`w-12 h-12 rounded-2xl ${cat.color} flex items-center justify-center ${cat.iconColor}`}>
+                                                                <cat.icon size={20} />
                                                             </div>
-                                                        ))}
+                                                            <div>
+                                                                <p className="text-[10px] font-black text-[#8c8279] uppercase tracking-widest leading-none mb-1">{cat.title}</p>
+                                                                <p className="text-[10px] font-bold text-[#4a3426]/40 uppercase tracking-tighter">{cat.subtitle}</p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <p className="text-lg font-black text-[#4a3426]">{total.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</p>
+                                                            <p className="text-[9px] font-bold text-[#8c8279] opacity-40 uppercase">DT</p>
+                                                        </div>
                                                     </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
+                                                    {cat.items && cat.items.length > 0 && (
+                                                        <div className="p-4 bg-white/30 space-y-2">
+                                                            {cat.items.map((item, i) => (
+                                                                <div key={i} className="flex justify-between items-center px-4 py-2 hover:bg-white rounded-xl transition-all border border-transparent hover:border-[#e6dace]/30">
+                                                                    <span className="text-xs font-bold text-[#4a3426]/70">{item.name}</span>
+                                                                    <span className="text-xs font-black text-[#4a3426]">{item.amount.toFixed(3)} DT</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
 
-                                    <div className="my-6 border-t-2 border-dashed border-[#e6dace]/60" />
+                                        <div className="my-6 border-t-2 border-dashed border-[#e6dace]/60" />
 
-                                    {/* Summaries */}
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="p-5 bg-[#4a3426]/5 rounded-3xl border border-[#4a3426]/10">
-                                            <p className="text-[9px] font-black text-[#8c8279] uppercase tracking-widest mb-1">Total Dépenses</p>
-                                            <p className="text-xl font-black text-[#4a3426] uppercase">
-                                                {(expenseDetails.journalier.reduce((a, b) => a + b.amount, 0) +
-                                                    expenseDetails.fournisseurs.reduce((a, b) => a + b.amount, 0) +
-                                                    expenseDetails.divers.reduce((a, b) => a + b.amount, 0) +
-                                                    expenseDetails.administratif.reduce((a, b) => a + b.amount, 0)).toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
-                                                <span className="text-xs ml-1 opacity-40">DT</span>
-                                            </p>
-                                        </div>
-                                        <div className="p-5 bg-[#2d6a4f]/5 rounded-3xl border border-[#2d6a4f]/10">
-                                            <p className="text-[9px] font-black text-[#8c8279] uppercase tracking-widest mb-1">Total Salaires</p>
-                                            <p className="text-xl font-black text-[#2d6a4f] uppercase">
-                                                {(expenseDetails.avances.reduce((a, b) => a + b.amount, 0) +
-                                                    expenseDetails.doublages.reduce((a, b) => a + b.amount, 0) +
-                                                    expenseDetails.extras.reduce((a, b) => a + b.amount, 0) +
-                                                    expenseDetails.primes.reduce((a, b) => a + b.amount, 0)).toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
-                                                <span className="text-xs ml-1 opacity-40">DT</span>
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    {/* Grand Total */}
-                                    <div className="p-8 bg-gradient-to-br from-[#4a3426] to-[#2d1e16] rounded-[2rem] shadow-xl relative overflow-hidden ring-4 ring-[#c69f6e]/20 mt-4">
-                                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl -mr-16 -mt-16"></div>
-                                        <div className="relative z-10 flex justify-between items-center">
-                                            <div>
-                                                <p className="text-[11px] font-black text-[#c69f6e] uppercase tracking-[0.25em] mb-1">Somme Totale</p>
-                                                <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest leading-none">Global Net Dépenses</p>
-                                            </div>
-                                            <div className="text-right">
-                                                <p className="text-4xl font-black text-white tracking-tighter">
-                                                    {(
-                                                        expenseDetails.journalier.reduce((a, b) => a + b.amount, 0) +
+                                        {/* Summaries */}
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="p-5 bg-[#4a3426]/5 rounded-3xl border border-[#4a3426]/10">
+                                                <p className="text-[9px] font-black text-[#8c8279] uppercase tracking-widest mb-1">Total Dépenses</p>
+                                                <p className="text-xl font-black text-[#4a3426] uppercase">
+                                                    {(expenseDetails.journalier.reduce((a, b) => a + b.amount, 0) +
                                                         expenseDetails.fournisseurs.reduce((a, b) => a + b.amount, 0) +
                                                         expenseDetails.divers.reduce((a, b) => a + b.amount, 0) +
-                                                        expenseDetails.administratif.reduce((a, b) => a + b.amount, 0) +
-                                                        expenseDetails.avances.reduce((a, b) => a + b.amount, 0) +
+                                                        expenseDetails.administratif.reduce((a, b) => a + b.amount, 0)).toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                                    <span className="text-xs ml-1 opacity-40">DT</span>
+                                                </p>
+                                            </div>
+                                            <div className="p-5 bg-[#2d6a4f]/5 rounded-3xl border border-[#2d6a4f]/10">
+                                                <p className="text-[9px] font-black text-[#8c8279] uppercase tracking-widest mb-1">Total Salaires</p>
+                                                <p className="text-xl font-black text-[#2d6a4f] uppercase">
+                                                    {(expenseDetails.avances.reduce((a, b) => a + b.amount, 0) +
                                                         expenseDetails.doublages.reduce((a, b) => a + b.amount, 0) +
                                                         expenseDetails.extras.reduce((a, b) => a + b.amount, 0) +
-                                                        expenseDetails.primes.reduce((a, b) => a + b.amount, 0) +
-                                                        stats.totalRiadhExpenses
-                                                    ).toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                                        expenseDetails.primes.reduce((a, b) => a + b.amount, 0)).toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                                    <span className="text-xs ml-1 opacity-40">DT</span>
                                                 </p>
-                                                <p className="text-[10px] font-black text-[#c69f6e]/50 uppercase tracking-[0.2em] mt-1">Dinar Tunisien</p>
                                             </div>
                                         </div>
-                                    </div>
 
-                                    <button
-                                        onClick={() => setShowExpensesDetails(false)}
-                                        className="w-full h-14 bg-white hover:bg-[#c69f6e] text-[#8c8279] hover:text-white rounded-2xl font-black uppercase tracking-widest text-xs transition-all border border-[#e6dace] mt-4 shadow-sm"
-                                    >
-                                        Fermer
-                                    </button>
+                                        {/* Grand Total */}
+                                        <div className="p-8 bg-gradient-to-br from-[#4a3426] to-[#2d1e16] rounded-[2rem] shadow-xl relative overflow-hidden ring-4 ring-[#c69f6e]/20 mt-4">
+                                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl -mr-16 -mt-16"></div>
+                                            <div className="relative z-10 flex justify-between items-center">
+                                                <div>
+                                                    <p className="text-[11px] font-black text-[#c69f6e] uppercase tracking-[0.25em] mb-1">Somme Totale</p>
+                                                    <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest leading-none">Global Net Dépenses</p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-4xl font-black text-white tracking-tighter">
+                                                        {(
+                                                            expenseDetails.journalier.reduce((a, b) => a + b.amount, 0) +
+                                                            expenseDetails.fournisseurs.reduce((a, b) => a + b.amount, 0) +
+                                                            expenseDetails.divers.reduce((a, b) => a + b.amount, 0) +
+                                                            expenseDetails.administratif.reduce((a, b) => a + b.amount, 0) +
+                                                            expenseDetails.avances.reduce((a, b) => a + b.amount, 0) +
+                                                            expenseDetails.doublages.reduce((a, b) => a + b.amount, 0) +
+                                                            expenseDetails.extras.reduce((a, b) => a + b.amount, 0) +
+                                                            expenseDetails.primes.reduce((a, b) => a + b.amount, 0) +
+                                                            stats.totalRiadhExpenses
+                                                        ).toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                                    </p>
+                                                    <p className="text-[10px] font-black text-[#c69f6e]/50 uppercase tracking-[0.2em] mt-1">Dinar Tunisien</p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            onClick={() => setShowExpensesDetails(false)}
+                                            className="w-full h-14 bg-white hover:bg-[#c69f6e] text-[#8c8279] hover:text-white rounded-2xl font-black uppercase tracking-widest text-xs transition-all border border-[#e6dace] mt-4 shadow-sm"
+                                        >
+                                            Fermer
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
-        </div>
+                            </motion.div>
+                        </div>
+                    )
+                }
+            </AnimatePresence >
+        </div >
     );
 }
