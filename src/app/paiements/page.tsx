@@ -162,6 +162,7 @@ const GET_PAYMENT_DATA = gql`
       totalRiadhExpenses
       totalUnpaidInvoices
       totalTicketsRestaurant
+      totalRestesSalaires
     }
     getBankDeposits(month: $month, startDate: $startDate, endDate: $endDate) {
       id
@@ -184,6 +185,7 @@ const GET_PAYMENT_DATA = gql`
       date
       recette_de_caisse
       recette_net
+      total_diponce
       tpe
       espaces
       cheque_bancaire
@@ -536,52 +538,49 @@ export default function PaiementsPage() {
         return dateRange;
     }, [activeFilter, month, dateRange]);
 
+    const safeParse = (val: any) => {
+        if (!val) return 0;
+        if (typeof val === 'number') return val;
+        const clean = val.toString().replace(/\s/g, '').replace(',', '.');
+        return parseFloat(clean) || 0;
+    };
+
     const { data, loading, refetch } = useQuery(GET_PAYMENT_DATA, {
         variables: {
             month: activeFilter === 'month' ? month : null,
             startDate: effectiveDateRange.start,
             endDate: effectiveDateRange.end
-        }
-    });
-
-    const { data: salaryData, refetch: refetchSalaries } = useQuery(gql`
-        query GetIndependentSalaries($month: String!) {
-            getSalaryRemainders(month: $month) {
-                id
-                employee_name
-                amount
-                month
-                status
-                updated_at
-            }
-            getEmployees {
-                id
-                name
-                department
-            }
-        }
-    `, {
-        variables: { month: salaryRemainderMonth }
+        },
+        fetchPolicy: 'cache-and-network',
+        pollInterval: 10000
     });
 
     useEffect(() => {
         refetchHistory();
     }, [activeFilter, month, dateRange]);
 
-    useEffect(() => {
-        refetchSalaries();
-    }, [salaryRemainderMonth]);
-
     const computedStats = useMemo(() => {
         const source = data?.getChiffresByRange || [];
-        return source.reduce((acc: any, curr: any) => ({
-            chiffreAffaire: acc.chiffreAffaire + parseFloat(curr.recette_de_caisse || '0'),
-            reste: acc.reste + parseFloat(curr.recette_net || '0'),
-            cash: acc.cash + parseFloat(curr.espaces || '0'),
-            tpe: acc.tpe + parseFloat(curr.tpe || '0'),
-            cheque: acc.cheque + parseFloat(curr.cheque_bancaire || '0'),
-            tickets: acc.tickets + parseFloat(curr.tickets_restaurant || '0'),
-        }), { chiffreAffaire: 0, reste: 0, cash: 0, tpe: 0, cheque: 0, tickets: 0 });
+        const aggregated = source.reduce((acc: any, curr: any) => ({
+            chiffreAffaire: acc.chiffreAffaire + safeParse(curr.recette_de_caisse),
+            reste: acc.reste + safeParse(curr.recette_net),
+            cash: acc.cash + safeParse(curr.espaces),
+            tpe: acc.tpe + safeParse(curr.tpe),
+            cheque: acc.cheque + safeParse(curr.cheque_bancaire),
+            tickets: acc.tickets + safeParse(curr.tickets_restaurant),
+            expenses: acc.expenses + safeParse(curr.total_diponce)
+        }), { chiffreAffaire: 0, reste: 0, cash: 0, tpe: 0, cheque: 0, tickets: 0, expenses: 0 });
+
+        // Fallback to stats if aggregation is zero (edge case where daily sheets are missing but stats calculated it)
+        return {
+            chiffreAffaire: aggregated.chiffreAffaire || safeParse(data?.getPaymentStats?.totalRecetteCaisse),
+            reste: aggregated.reste || safeParse(data?.getPaymentStats?.totalRecetteNette),
+            cash: aggregated.cash || safeParse(data?.getPaymentStats?.totalCash),
+            tpe: aggregated.tpe || safeParse(data?.getPaymentStats?.totalTPE),
+            cheque: aggregated.cheque || safeParse(data?.getPaymentStats?.totalCheque),
+            tickets: aggregated.tickets || safeParse(data?.getPaymentStats?.totalTicketsRestaurant),
+            expenses: aggregated.expenses || safeParse(data?.getPaymentStats?.totalExpenses)
+        };
     }, [data]);
 
     const setThisWeek = () => {
@@ -648,7 +647,8 @@ export default function PaiementsPage() {
         totalRecetteCaisse: 0,
         totalExpenses: 0,
         totalRiadhExpenses: 0,
-        totalTicketsRestaurant: 0
+        totalTicketsRestaurant: 0,
+        totalRestesSalaires: 0
     };
 
     const expenseDetails = useMemo(() => {
@@ -704,21 +704,32 @@ export default function PaiementsPage() {
                 .map(([name, d]) => ({
                     name,
                     amount: d.total,
-                    items: d.items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                    items: d.items.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
                 }))
                 .filter(x => x.amount > 0)
                 .sort((a, b) => b.amount - a.amount);
         };
 
+        const aggParsed = {
+            fournisseurs: agg.fournisseurs.map((i: any) => ({ ...i, amount: safeParse(i.amount) })),
+            divers: agg.divers.map((i: any) => ({ ...i, amount: safeParse(i.amount) })),
+            administratif: agg.administratif.map((i: any) => ({ ...i, amount: safeParse(i.amount) })),
+            avances: agg.avances.map((i: any) => ({ ...i, montant: safeParse(i.montant) })),
+            doublages: agg.doublages.map((i: any) => ({ ...i, montant: safeParse(i.montant) })),
+            extras: agg.extras.map((i: any) => ({ ...i, montant: safeParse(i.montant) })),
+            primes: agg.primes.map((i: any) => ({ ...i, montant: safeParse(i.montant) })),
+            restesSalaires: agg.restesSalaires.map((i: any) => ({ ...i, montant: safeParse(i.montant) }))
+        };
+
         return {
-            fournisseurs: groupingFunction(agg.fournisseurs, 'supplier', 'amount'),
-            divers: groupingFunction(agg.divers, 'designation', 'amount'),
-            administratif: groupingFunction(agg.administratif, 'designation', 'amount'),
-            avances: groupingFunction(agg.avances, 'username', 'montant'),
-            doublages: groupingFunction(agg.doublages, 'username', 'montant'),
-            extras: groupingFunction(agg.extras, 'username', 'montant'),
-            primes: groupingFunction(agg.primes, 'username', 'montant'),
-            remainders: groupingFunction(agg.restesSalaires, 'username', 'montant')
+            fournisseurs: groupingFunction(aggParsed.fournisseurs, 'supplier', 'amount'),
+            divers: groupingFunction(aggParsed.divers, 'designation', 'amount'),
+            administratif: groupingFunction(aggParsed.administratif, 'designation', 'amount'),
+            avances: groupingFunction(aggParsed.avances, 'username', 'montant'),
+            doublages: groupingFunction(aggParsed.doublages, 'username', 'montant'),
+            extras: groupingFunction(aggParsed.extras, 'username', 'montant'),
+            primes: groupingFunction(aggParsed.primes, 'username', 'montant'),
+            remainders: groupingFunction(aggParsed.restesSalaires, 'username', 'montant')
         };
     }, [data]);
 
@@ -1041,7 +1052,7 @@ export default function PaiementsPage() {
                                     <Banknote size={18} /> Total Dépenses
                                 </div>
                                 <h3 className="text-6xl font-black tracking-tighter mb-2">
-                                    {totals.global.toLocaleString('fr-FR', { minimumFractionDigits: 3 }).replace(/\s/g, ',')}
+                                    {computedStats.expenses.toLocaleString('fr-FR', { minimumFractionDigits: 3 }).replace(/\s/g, ',')}
                                 </h3>
                                 <span className="text-xl font-bold opacity-80 block">DT</span>
                             </div>
@@ -1610,8 +1621,8 @@ export default function PaiementsPage() {
                                     </thead>
                                     <tbody className="divide-y divide-[#e6dace]/10">
                                         {(() => {
-                                            const employees = salaryData?.getEmployees || [];
-                                            const remainders = salaryData?.getSalaryRemainders || [];
+                                            const employees = data?.getEmployees || [];
+                                            const remainders = data?.getSalaryRemainders || [];
                                             const filtered = employees.filter((emp: any) => emp.name.toLowerCase().includes(salaryRemainderSearch.toLowerCase()));
 
                                             if (filtered.length === 0) {
