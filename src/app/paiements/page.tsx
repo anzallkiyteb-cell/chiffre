@@ -9,7 +9,7 @@ import {
     ArrowUpRight, Download, Filter, User,
     TrendingUp, Receipt, Wallet, UploadCloud, Coins, Banknote,
     ChevronLeft, ChevronRight, Image as ImageIcon, Ticket,
-    Clock, CheckCircle2, Eye, Edit2, Trash2
+    Clock, CheckCircle2, Eye, Edit2, Trash2, X, Layout, Plus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Swal from 'sweetalert2';
@@ -158,6 +158,7 @@ const GET_PAYMENT_DATA = gql`
       totalBankDeposits
       totalRecetteCaisse
       totalExpenses
+      totalRiadhExpenses
       totalUnpaidInvoices
       totalTicketsRestaurant
     }
@@ -337,6 +338,7 @@ export default function PaiementsPage() {
 
     // History Modal State
     const [showHistoryModal, setShowHistoryModal] = useState(false);
+    const [showExpensesDetails, setShowExpensesDetails] = useState(false);
     const [historySearch, setHistorySearch] = useState('');
     const [historyDateRange, setHistoryDateRange] = useState({ start: '', end: '' });
 
@@ -510,6 +512,7 @@ export default function PaiementsPage() {
         totalBankDeposits: 0,
         totalRecetteCaisse: 0,
         totalExpenses: 0,
+        totalRiadhExpenses: 0,
         totalTicketsRestaurant: 0
     };
 
@@ -800,7 +803,8 @@ export default function PaiementsPage() {
                         {/* 2. Total Dépenses (Moved here and made BIG) */}
                         <motion.div
                             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-                            className="col-span-1 sm:col-span-2 lg:col-span-3 bg-gradient-to-br from-[#6b7280] to-[#4b5563] p-10 rounded-[2.5rem] shadow-lg relative overflow-hidden group hover:scale-[1.01] transition-all text-white"
+                            onClick={() => setShowExpensesDetails(true)}
+                            className="col-span-1 sm:col-span-2 lg:col-span-3 bg-gradient-to-br from-[#6b7280] to-[#4b5563] p-10 rounded-[2.5rem] shadow-lg relative overflow-hidden group hover:scale-[1.01] transition-all text-white cursor-pointer active:scale-95"
                         >
                             <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
                             <div className="relative z-10">
@@ -1876,6 +1880,108 @@ export default function PaiementsPage() {
                             </div>
                         </motion.div>
                     </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Expenses Details Modal */}
+            <AnimatePresence>
+                {showExpensesDetails && (
+                    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                            className="absolute inset-0 bg-[#4a3426]/60 backdrop-blur-md"
+                            onClick={() => setShowExpensesDetails(false)}
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                            className="relative bg-white w-full max-w-lg rounded-[3rem] shadow-2xl overflow-hidden border border-[#e6dace]"
+                        >
+                            <div className="p-8 md:p-10">
+                                <div className="flex justify-between items-start mb-8">
+                                    <div>
+                                        <h2 className="text-3xl font-black text-[#4a3426] tracking-tighter">Détails des Dépenses</h2>
+                                        <p className="text-[#8c8279] font-bold text-xs uppercase tracking-[0.2em] mt-2">Récapitulatif financier</p>
+                                    </div>
+                                    <button
+                                        onClick={() => setShowExpensesDetails(false)}
+                                        className="w-12 h-12 bg-[#fcfaf8] rounded-2xl flex items-center justify-center text-[#8c8279] hover:bg-red-50 hover:text-red-500 transition-all border border-[#e6dace]/50"
+                                    >
+                                        <X size={24} />
+                                    </button>
+                                </div>
+
+                                <div className="space-y-4">
+                                    {/* Direct Expenses */}
+                                    <div className="p-6 bg-[#fcfaf8] rounded-3xl border border-[#e6dace]/40 flex justify-between items-center group hover:bg-white transition-all">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 rounded-2xl bg-[#6b7280]/10 flex items-center justify-center text-[#6b7280]">
+                                                <Layout size={20} />
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] font-black text-[#8c8279] uppercase tracking-widest leading-none mb-1">Dépenses Directes</p>
+                                                <p className="text-sm font-bold text-[#4a3426]/60 italic">(Feuille journalière)</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-xl font-black text-[#4a3426]">{stats.totalExpenses.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</p>
+                                            <p className="text-[10px] font-bold text-[#8c8279] opacity-50 uppercase">DT</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex justify-center">
+                                        <div className="w-6 h-6 rounded-full bg-[#f4ece4] flex items-center justify-center text-[#c69f6e]">
+                                            <Plus size={14} strokeWidth={3} />
+                                        </div>
+                                    </div>
+
+                                    {/* Riadh Expenses */}
+                                    <div className="p-6 bg-[#fcfaf8] rounded-3xl border border-[#e6dace]/40 flex justify-between items-center group hover:bg-white transition-all">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 rounded-2xl bg-[#c69f6e]/10 flex items-center justify-center text-[#c69f6e]">
+                                                <User size={20} />
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] font-black text-[#8c8279] uppercase tracking-widest leading-none mb-1">Historique Dépenses</p>
+                                                <p className="text-sm font-bold text-[#c69f6e] uppercase tracking-tighter">(Riadh)</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-xl font-black text-[#4a3426]">{stats.totalRiadhExpenses.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</p>
+                                            <p className="text-[10px] font-bold text-[#8c8279] opacity-50 uppercase">DT</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="my-6 border-t-2 border-dashed border-[#e6dace]" />
+
+                                    {/* Grand Total */}
+                                    <div className="p-8 bg-gradient-to-br from-[#4a3426] to-[#2d1e16] rounded-[2rem] shadow-xl relative overflow-hidden">
+                                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl -mr-16 -mt-16"></div>
+                                        <div className="relative z-10 flex justify-between items-center">
+                                            <div>
+                                                <p className="text-[11px] font-black text-white/50 uppercase tracking-[0.25em] mb-1">Somme Totale</p>
+                                                <p className="text-white/80 text-xs font-bold uppercase tracking-widest">Dépenses Globales</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-4xl font-black text-white tracking-tighter">
+                                                    {(stats.totalExpenses + stats.totalRiadhExpenses).toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                                </p>
+                                                <p className="text-[10px] font-black text-[#c69f6e] uppercase tracking-[0.2em] mt-1">Dinar Tunisien</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        onClick={() => setShowExpensesDetails(false)}
+                                        className="w-full h-14 bg-[#fcfaf8] hover:bg-[#c69f6e] text-[#8c8279] hover:text-white rounded-2xl font-black uppercase tracking-widest text-xs transition-all border border-[#e6dace]/50 mt-4 active:scale-95"
+                                    >
+                                        Fermer
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
                 )}
             </AnimatePresence>
         </div>

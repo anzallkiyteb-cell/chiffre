@@ -100,6 +100,7 @@ export const typeDefs = `#graphql
     totalBankDeposits: Float
     totalRecetteCaisse: Float
     totalExpenses: Float
+    totalRiadhExpenses: Float
   }
 
   type Query {
