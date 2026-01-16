@@ -30,6 +30,7 @@ export const typeDefs = `#graphql
     diponce_admin: String # Stringified JSON
     recette_net: String
     tpe: String
+    tpe2: String
     cheque_bancaire: String
     espaces: String
     tickets_restaurant: String
@@ -140,6 +141,7 @@ export const typeDefs = `#graphql
       diponce_admin: String!
       recette_net: String!
       tpe: String!
+      tpe2: String
       cheque_bancaire: String!
       espaces: String!
       tickets_restaurant: String!

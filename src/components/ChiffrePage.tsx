@@ -45,7 +45,10 @@ const GET_CHIFFRE = gql`
         total_diponce
         diponce
         recette_net
+        recette_net
         tpe
+        tpe2
+        cheque_bancaire
         cheque_bancaire
         espaces
         tickets_restaurant
@@ -106,7 +109,10 @@ const SAVE_CHIFFRE = gql`
     $total_diponce: String!
     $diponce: String!
     $recette_net: String!
-    $tpe: String! 
+    $recette_net: String!
+    $tpe: String!
+    $tpe2: String
+    $cheque_bancaire: String! 
     $cheque_bancaire: String!
     $espaces: String!
     $tickets_restaurant: String!
@@ -122,7 +128,10 @@ const SAVE_CHIFFRE = gql`
       total_diponce: $total_diponce
       diponce: $diponce
       recette_net: $recette_net
+      recette_net: $recette_net
       tpe: $tpe
+      tpe2: $tpe2
+      cheque_bancaire: $cheque_bancaire
       cheque_bancaire: $cheque_bancaire
       espaces: $espaces
       tickets_restaurant: $tickets_restaurant
@@ -668,6 +677,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         { designation: 'Salaires', amount: '0', paymentMethod: 'Espèces' }
     ]);
     const [tpe, setTpe] = useState('0');
+    const [tpe2, setTpe2] = useState('0');
     const [cheque, setCheque] = useState('0');
     const [especes, setEspeces] = useState('0');
     const [ticketsRestaurant, setTicketsRestaurant] = useState('0');
@@ -728,7 +738,10 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     const getCurrentState = () => ({
         recetteCaisse,
         expenses,
+        expenses,
         tpe,
+        tpe2,
+        cheque,
         cheque,
         especes,
         ticketsRestaurant,
@@ -755,6 +768,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             setIsLocked(c.is_locked || false);
             setExpenses(JSON.parse(c.diponce || '[]').map((e: any) => ({ ...e, details: e.details || '' })));
             setTpe(c.tpe);
+            setTpe2(c.tpe2 || '0');
             setCheque(c.cheque_bancaire);
             setEspeces(c.espaces);
             setTicketsRestaurant(c.tickets_restaurant || '0');
@@ -786,6 +800,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                         const d = draft.data;
                         setRecetteCaisse(d.recetteCaisse);
                         setTpe(d.tpe);
+                        setTpe2(d.tpe2 || '0');
                         setCheque(d.cheque);
                         setEspeces(d.especes);
                         setTicketsRestaurant(d.ticketsRestaurant);
@@ -842,13 +857,14 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     useEffect(() => {
         const net = (parseFloat(recetteCaisse) || 0) - totalExpenses;
         const t = parseFloat(tpe) || 0;
+        const t2 = parseFloat(tpe2) || 0;
         const c = parseFloat(cheque) || 0;
         const tr = parseFloat(ticketsRestaurant) || 0;
-        const remainder = net - t - c - tr;
+        const remainder = net - t - t2 - c - tr;
         let espVal = remainder.toFixed(3);
         if (espVal.endsWith('.000')) espVal = espVal.replace('.000', '');
         setEspeces(espVal);
-    }, [recetteCaisse, totalExpenses, tpe, cheque, ticketsRestaurant]);
+    }, [recetteCaisse, totalExpenses, tpe, tpe2, cheque, ticketsRestaurant]);
 
     // Handlers
     const handleDetailChange = (index: number, field: string, value: any) => {
@@ -1180,7 +1196,10 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                     total_diponce: totalExpenses.toString(),
                     diponce: JSON.stringify(expenses),
                     recette_net: recetteNett.toString(),
+                    recette_net: recetteNett.toString(),
                     tpe,
+                    tpe2,
+                    cheque_bancaire: cheque,
                     cheque_bancaire: cheque,
                     espaces: especes,
                     tickets_restaurant: ticketsRestaurant,
@@ -2403,7 +2422,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                     {[
-                                        { label: 'TPE (Carte)', icon: CreditCard, val: tpe, set: setTpe },
+                                        { label: 'TPE 1', icon: CreditCard, val: tpe, set: setTpe },
+                                        { label: 'TPE 2', icon: CreditCard, val: tpe2, set: setTpe2 },
                                         { label: 'Espèces', icon: Coins, val: especes, set: setEspeces },
                                         { label: 'Chèque', icon: Wallet, val: cheque, set: setCheque },
                                         { label: 'Ticket Restaurant', icon: Receipt, val: ticketsRestaurant, set: setTicketsRestaurant }

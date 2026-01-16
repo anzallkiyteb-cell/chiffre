@@ -341,7 +341,7 @@ export const resolvers = {
                 query(`SELECT SUM(CAST(NULLIF(REPLACE(recette_net, ',', '.'), '') AS NUMERIC)) as total FROM chiffres WHERE date ${dateFilter}`, params),
                 query(`SELECT SUM(CAST(NULLIF(REPLACE(amount, ',', '.'), '') AS NUMERIC)) as total FROM invoices WHERE status = 'paid' AND paid_date ${dateFilter.replace('date', 'paid_date')}`, params),
                 query(`SELECT SUM(CAST(NULLIF(REPLACE(amount, ',', '.'), '') AS NUMERIC)) as total FROM invoices WHERE status = 'unpaid' AND date ${dateFilter}`, params),
-                query(`SELECT SUM(CAST(NULLIF(REPLACE(tpe, ',', '.'), '') AS NUMERIC)) as total FROM chiffres WHERE date ${dateFilter}`, params),
+                query(`SELECT SUM(CAST(NULLIF(REPLACE(tpe, ',', '.'), '') AS NUMERIC) + COALESCE(CAST(NULLIF(REPLACE(tpe2, ',', '.'), '') AS NUMERIC), 0)) as total FROM chiffres WHERE date ${dateFilter}`, params),
                 query(`SELECT SUM(CAST(NULLIF(REPLACE(cheque_bancaire, ',', '.'), '') AS NUMERIC)) as total FROM chiffres WHERE date ${dateFilter}`, params),
                 query(`SELECT SUM(CAST(NULLIF(REPLACE(espaces, ',', '.'), '') AS NUMERIC)) as total FROM chiffres WHERE date ${dateFilter}`, params),
                 query(`SELECT SUM(CAST(NULLIF(REPLACE(amount, ',', '.'), '') AS NUMERIC)) as total FROM bank_deposits WHERE date ${dateFilter}`, params),
@@ -512,6 +512,7 @@ export const resolvers = {
                 diponce,
                 recette_net,
                 tpe,
+                tpe2,
                 cheque_bancaire,
                 espaces,
                 tickets_restaurant,
@@ -552,24 +553,25 @@ export const resolvers = {
             diponce = $3::jsonb, 
             recette_net = $4, 
             tpe = $5, 
-            cheque_bancaire = $6, 
-            espaces = $7,
-            tickets_restaurant = $8,
-            extra = $9,
-            primes = $10,
-            diponce_divers = $11::jsonb, 
-            diponce_journalier = $12::jsonb, 
-            diponce_admin = $13::jsonb,
+            tpe2 = $6,
+            cheque_bancaire = $7, 
+            espaces = $8,
+            tickets_restaurant = $9,
+            extra = $10,
+            primes = $11,
+            diponce_divers = $12::jsonb, 
+            diponce_journalier = $13::jsonb, 
+            diponce_admin = $14::jsonb,
             is_locked = true
-          WHERE date = $14 RETURNING *`,
-                    [recette_de_caisse, total_diponce, diponceToSave, recette_net, tpe, cheque_bancaire, espaces, tickets_restaurant, extra, primes, diponceDiversToSave, diponceJournalierToSave, diponceAdminToSave, date]
+          WHERE date = $15 RETURNING *`,
+                    [recette_de_caisse, total_diponce, diponceToSave, recette_net, tpe, tpe2, cheque_bancaire, espaces, tickets_restaurant, extra, primes, diponceDiversToSave, diponceJournalierToSave, diponceAdminToSave, date]
                 );
             } else {
                 // Insert
                 res = await query(
-                    `INSERT INTO chiffres (date, recette_de_caisse, total_diponce, diponce, recette_net, tpe, cheque_bancaire, espaces, tickets_restaurant, extra, primes, diponce_divers, diponce_journalier, diponce_admin, is_locked)
-           VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13::jsonb, $14::jsonb, true) RETURNING *`,
-                    [date, recette_de_caisse, total_diponce, diponceToSave, recette_net, tpe, cheque_bancaire, espaces, tickets_restaurant, extra, primes, diponceDiversToSave, diponceJournalierToSave, diponceAdminToSave]
+                    `INSERT INTO chiffres (date, recette_de_caisse, total_diponce, diponce, recette_net, tpe, tpe2, cheque_bancaire, espaces, tickets_restaurant, extra, primes, diponce_divers, diponce_journalier, diponce_admin, is_locked)
+           VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb, $14::jsonb, $15::jsonb, true) RETURNING *`,
+                    [date, recette_de_caisse, total_diponce, diponceToSave, recette_net, tpe, tpe2, cheque_bancaire, espaces, tickets_restaurant, extra, primes, diponceDiversToSave, diponceJournalierToSave, diponceAdminToSave]
                 );
             }
             const row = res.rows[0];
