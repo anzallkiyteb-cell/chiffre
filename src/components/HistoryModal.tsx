@@ -114,7 +114,9 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
             const timeB = new Date(yb, mb - 1, db).getTime();
             if (timeA !== timeB) return timeB - timeA;
             if (a.created_at && b.created_at) {
-                return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                const tA = new Date(typeof a.created_at === 'string' ? a.created_at.replace(' ', 'T') : a.created_at).getTime();
+                const tB = new Date(typeof b.created_at === 'string' ? b.created_at.replace(' ', 'T') : b.created_at).getTime();
+                if (!isNaN(tA) && !isNaN(tB)) return tB - tA;
             }
             return 0;
         })
@@ -152,7 +154,7 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
                             </div>
                             <button onClick={onClose} className="p-2 hover:bg-[#f9f6f2] rounded-xl transition-colors text-[#bba282]"><X size={24} /></button>
                         </div>
-                        <p className="text-[#8c8279] font-medium pl-1">{type?.charAt(0).toUpperCase() + type?.slice(1)}s groupés par employé</p>
+                        <p className="text-[#8c8279] font-medium pl-1">{type === 'restes_salaires' ? 'Restes Salaires' : (type?.charAt(0).toUpperCase() + type?.slice(1) + 's')} groupés par employé</p>
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-4 bg-[#fcfaf8]/50">
@@ -193,7 +195,13 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
                                                         <div className="flex items-center gap-1.5 opacity-60">
                                                             <Clock size={10} className="text-[#c69f6e]" />
                                                             <span className="text-[10px] font-medium text-[#8c8279]">
-                                                                {new Date(entry.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                                                {(() => {
+                                                                    try {
+                                                                        const d = new Date(typeof entry.created_at === 'string' ? entry.created_at.replace(' ', 'T') : entry.created_at);
+                                                                        if (isNaN(d.getTime())) return "";
+                                                                        return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+                                                                    } catch (e) { return ""; }
+                                                                })()}
                                                             </span>
                                                         </div>
                                                     )}

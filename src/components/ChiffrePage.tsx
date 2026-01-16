@@ -537,7 +537,9 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
             const timeB = new Date(yb, mb - 1, db).getTime();
             if (timeA !== timeB) return timeB - timeA;
             if (a.created_at && b.created_at) {
-                return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                const tA = new Date(typeof a.created_at === 'string' ? a.created_at.replace(' ', 'T') : a.created_at).getTime();
+                const tB = new Date(typeof b.created_at === 'string' ? b.created_at.replace(' ', 'T') : b.created_at).getTime();
+                if (!isNaN(tA) && !isNaN(tB)) return tB - tA;
             }
             return 0;
         })
@@ -575,7 +577,7 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
                             </div>
                             <button onClick={onClose} className="p-2 hover:bg-[#f9f6f2] rounded-xl transition-colors text-[#bba282]"><X size={24} /></button>
                         </div>
-                        <p className="text-[#8c8279] font-medium pl-1">{type?.charAt(0).toUpperCase() + type?.slice(1)}s groupés par employé</p>
+                        <p className="text-[#8c8279] font-medium pl-1">{type === 'restes_salaires' ? 'Restes Salaires' : (type?.charAt(0).toUpperCase() + type?.slice(1) + 's')} groupés par employé</p>
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-4 bg-[#fcfaf8]/50">
@@ -609,7 +611,13 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
                                                         <div className="flex items-center gap-1">
                                                             <Clock size={10} className="text-[#c69f6e]" />
                                                             <span className="text-[9px] font-medium text-[#8c8279]">
-                                                                {new Date(entry.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                                                {(() => {
+                                                                    try {
+                                                                        const d = new Date(typeof entry.created_at === 'string' ? entry.created_at.replace(' ', 'T') : entry.created_at);
+                                                                        if (isNaN(d.getTime())) return "";
+                                                                        return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+                                                                    } catch (e) { return ""; }
+                                                                })()}
                                                             </span>
                                                         </div>
                                                     )}
@@ -1655,12 +1663,9 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                         {/* 3. Dépenses Divers */}
                         <div>
                             <div className="flex justify-between items-center mb-4">
-                                <h3
-                                    className="text-lg font-bold text-[#4a3426] flex items-center gap-2 cursor-pointer group/title"
-                                    onClick={() => setShowHistoryModal({ type: 'divers' })}
-                                >
-                                    <div className="bg-[#4a3426] text-white w-6 h-6 rounded-full flex items-center justify-center text-xs group-hover/title:bg-[#c69f6e] transition-colors">3</div>
-                                    <span className="group-hover/title:text-[#c69f6e] transition-colors">Dépenses divers</span>
+                                <h3 className="text-lg font-bold text-[#4a3426] flex items-center gap-2">
+                                    <div className="bg-[#4a3426] text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">3</div>
+                                    <span>Dépenses divers</span>
                                 </h3>
                                 <button
                                     onClick={() => {
@@ -1694,7 +1699,6 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                 </div>
                                                 <div className="flex-1 w-full relative">
                                                     <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                                                        <Search className="text-[#bba282] cursor-pointer hover:text-[#c69f6e] transition-colors" size={16} onClick={() => divers.designation && setShowHistoryModal({ type: "divers", targetName: divers.designation })} />
                                                     </div>
                                                     <input
                                                         type="text"

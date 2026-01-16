@@ -275,10 +275,10 @@ export const resolvers = {
                     diponce: JSON.stringify(combinedDiponce),
                     diponce_divers: JSON.stringify(combinedDivers),
                     diponce_admin: typeof row.diponce_admin === 'string' ? row.diponce_admin : JSON.stringify(row.diponce_admin || []),
-                    avances_details: dayAvances.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant || '0'), date: r.date })),
-                    doublages_details: dayDoublages.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant || '0'), date: r.date })),
-                    extras_details: dayExtras.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant || '0'), date: r.date })),
-                    primes_details: dayPrimes.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant || '0'), date: r.date })),
+                    avances_details: dayAvances.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant || '0'), date: r.date, created_at: r.created_at })),
+                    doublages_details: dayDoublages.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant || '0'), date: r.date, created_at: r.created_at })),
+                    extras_details: dayExtras.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant || '0'), date: r.date, created_at: r.created_at })),
+                    primes_details: dayPrimes.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant || '0'), date: r.date, created_at: r.created_at })),
                     restes_salaires_details: dayRestesSalaires.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant || '0'), nb_jours: r.nb_jours ? parseFloat(r.nb_jours) : 0, date: r.date, created_at: r.created_at }))
                 };
             });

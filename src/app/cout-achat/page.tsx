@@ -331,8 +331,8 @@ export default function CoutAchatPage() {
                         <p className="text-[10px] md:text-xs text-[#8c8279] font-bold uppercase tracking-widest mt-1">Analyse détaillée du {new Date(startDate).toLocaleDateString('fr-FR')} au {new Date(endDate).toLocaleDateString('fr-FR')}</p>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full xl:w-auto">
-                        <div className="relative flex-1 sm:w-64">
+                    <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-4 w-full xl:w-auto flex-wrap">
+                        <div className="relative w-full lg:w-64">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#c69f6e]/50" size={16} />
                             <input
                                 type="text"
@@ -343,7 +343,7 @@ export default function CoutAchatPage() {
                             />
                         </div>
 
-                        <div className="flex items-center gap-1 bg-[#f9f7f5] p-1.5 rounded-2xl border border-[#e6dace]/50 shadow-sm ml-auto xl:ml-0">
+                        <div className="flex items-center gap-1 bg-[#f9f7f5] p-1.5 rounded-2xl border border-[#e6dace]/50 shadow-sm overflow-x-auto no-scrollbar">
                             {[
                                 { id: 'tous', label: 'Tous', icon: LayoutGrid },
                                 { id: 'fournisseur', label: 'Fournisseur', icon: ShoppingBag },
@@ -353,7 +353,7 @@ export default function CoutAchatPage() {
                                     key={tab.id}
                                     onClick={() => setCategoryFilter(tab.id as any)}
                                     className={`
-                                        flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all
+                                        flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap
                                         ${categoryFilter === tab.id
                                             ? 'bg-[#4a3426] text-white shadow-lg'
                                             : 'text-[#8c8279] hover:bg-white hover:text-[#4a3426]'
@@ -366,16 +366,18 @@ export default function CoutAchatPage() {
                             ))}
                         </div>
 
-                        <div className="flex items-center gap-2 bg-[#f9f7f5]/80 p-2 rounded-3xl border border-[#e6dace]/50 shadow-sm">
-                            <PremiumDatePicker label="DÉBUT" value={startDate} onChange={setStartDate} />
-                            <div className="text-[#e6dace] font-black text-[10px] opacity-60">À</div>
-                            <PremiumDatePicker label="FIN" value={endDate} onChange={setEndDate} align="right" />
-                            <button
-                                onClick={() => { setStartDate(startOfMonth); setEndDate(endOfMonth); }}
-                                className="w-10 h-10 rounded-2xl bg-white border border-[#e6dace] flex items-center justify-center text-[#c69f6e] hover:bg-[#c69f6e] hover:text-white transition-all shadow-sm"
-                            >
-                                <RotateCcw size={16} />
-                            </button>
+                        <div className="flex items-center gap-2 bg-[#f9f7f5]/80 p-2 rounded-3xl border border-[#e6dace]/50 shadow-sm w-full sm:w-auto overflow-x-auto sm:overflow-visible no-scrollbar">
+                            <div className="flex items-center gap-2 min-w-max">
+                                <PremiumDatePicker label="DÉBUT" value={startDate} onChange={setStartDate} />
+                                <div className="text-[#e6dace] font-black text-[10px] opacity-60">À</div>
+                                <PremiumDatePicker label="FIN" value={endDate} onChange={setEndDate} align="right" />
+                                <button
+                                    onClick={() => { setStartDate(startOfMonth); setEndDate(endOfMonth); }}
+                                    className="w-10 h-10 rounded-2xl bg-white border border-[#e6dace] flex items-center justify-center text-[#c69f6e] hover:bg-[#c69f6e] hover:text-white transition-all shadow-sm flex-shrink-0"
+                                >
+                                    <RotateCcw size={16} />
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </header>
@@ -433,7 +435,7 @@ export default function CoutAchatPage() {
                                 <div className="hidden xl:flex bg-white p-5 rounded-[2rem] border border-[#e6dace]/50 shadow-sm flex-col justify-between min-h-[140px]">
                                     <div className="flex justify-between items-start opacity-60">
                                         <div className="w-10 h-10 rounded-xl bg-[#c69f6e]/10 text-[#c69f6e] flex items-center justify-center"><ShoppingBag size={20} /></div>
-                                        <div className="text-[9px] font-black uppercase tracking-widest text-[#8c8279]">Consommation</div>
+                                        <div className="text-[9px] font-black uppercase tracking-widest text-[#8c8279]">Achats Total</div>
                                     </div>
                                     <div>
                                         <div className="text-2xl font-black tracking-tighter text-[#4a3426]">{aggregates.totalGlobalConsommation.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</div>
