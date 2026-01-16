@@ -2444,101 +2444,103 @@ export default function PaiementsPage() {
                                     </div>
                                 </div>
 
+                                <AnimatePresence>
+                                    {selectedEmployeeDetails && (
+                                        <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">
+                                            <motion.div
+                                                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                                                className="absolute inset-0 bg-[#4a3426]/60 backdrop-blur-md"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSelectedEmployeeDetails(null);
+                                                }}
+                                            />
+                                            <motion.div
+                                                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                                                animate={{ scale: 1, opacity: 1, y: 0 }}
+                                                exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                                                className="relative w-full max-w-xl bg-[#fdfaf7] rounded-[2.5rem] shadow-2xl overflow-hidden border border-white/50"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                <div className="p-8">
+                                                    <div className="flex justify-between items-start mb-10">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="w-12 h-12 rounded-2xl bg-[#c69f6e]/10 flex items-center justify-center text-[#c69f6e]">
+                                                                <Layout size={24} />
+                                                            </div>
+                                                            <div>
+                                                                <h2 className="text-2xl font-black text-[#4a3426] tracking-tight uppercase">
+                                                                    HISTORIQUE: {selectedEmployeeDetails.name}
+                                                                </h2>
+                                                                <p className="text-[10px] font-black text-[#c69f6e] uppercase tracking-widest mt-1 opacity-60">
+                                                                    {selectedEmployeeDetails.category} groupés par employé
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => setSelectedEmployeeDetails(null)}
+                                                            className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-[#8c8279] hover:bg-red-50 hover:text-red-500 transition-all shadow-sm border border-[#e6dace]/30"
+                                                        >
+                                                            <X size={20} />
+                                                        </button>
+                                                    </div>
 
+                                                    <div className="bg-white rounded-[2rem] border border-[#e6dace]/30 p-8 shadow-inner shadow-[#4a3426]/5 mb-6">
+                                                        <div className="flex items-center gap-5 mb-8">
+                                                            <div className="w-14 h-14 rounded-full bg-[#f4ece4] flex items-center justify-center text-lg font-black text-[#c69f6e]">
+                                                                {selectedEmployeeDetails.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+                                                            </div>
+                                                            <div className="flex-1">
+                                                                <div className="flex justify-between items-center">
+                                                                    <h3 className="text-xl font-black text-[#4a3426] tracking-tight truncate max-w-[200px]">{selectedEmployeeDetails.name}</h3>
+                                                                    <div className="text-right">
+                                                                        <span className="text-2xl font-black text-[#4a3426]">{selectedEmployeeDetails.total.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</span>
+                                                                        <span className="text-[10px] font-black text-[#c69f6e] ml-1 opacity-60">DT</span>
+                                                                    </div>
+                                                                </div>
+                                                                <p className="text-[10px] font-bold text-[#8c8279] italic mt-0.5 opacity-60">Détails des transactions:</p>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                                                            {(() => {
+                                                                const groupedByDate = new Map<string, number>();
+                                                                selectedEmployeeDetails.items.forEach(item => {
+                                                                    const d = new Date(Number(item.date) || item.date);
+                                                                    const dateStr = d.toLocaleDateString('fr-FR');
+                                                                    groupedByDate.set(dateStr, (groupedByDate.get(dateStr) || 0) + item.amount);
+                                                                });
+
+                                                                return Array.from(groupedByDate.entries()).map(([dateStr, totalAmount], i) => (
+                                                                    <div key={i} className="flex justify-between items-center px-6 py-4 bg-[#fcfaf8] rounded-2xl border border-[#e6dace]/20 shadow-sm">
+                                                                        <span className="text-xs font-black text-[#4a3426] tracking-tight">{dateStr}</span>
+                                                                        <span className="text-sm font-black text-[#4a3426]">{totalAmount.toLocaleString('fr-FR', { minimumFractionDigits: 3 })} <span className="text-[10px] opacity-40 ml-0.5 uppercase">DT</span></span>
+                                                                    </div>
+                                                                ));
+                                                            })()}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="bg-[#4a3426] rounded-[2rem] p-6 flex justify-between items-center shadow-lg shadow-[#4a3426]/20">
+                                                        <span className="text-[10px] font-black text-white/50 uppercase tracking-[0.2em]">TOTAL DE LA LISTE</span>
+                                                        <div className="text-right">
+                                                            <span className="text-2xl font-black text-white leading-none">
+                                                                {selectedEmployeeDetails.total.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                                            </span>
+                                                            <span className="text-[10px] font-black text-[#c69f6e] ml-1">DT</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </motion.div>
+                                        </div>
+                                    )}
+                                </AnimatePresence>
                             </motion.div>
                         </div>
                     )
                 }
             </AnimatePresence >
 
-            <AnimatePresence>
-                {selectedEmployeeDetails && (
-                    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-                        <motion.div
-                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                            className="absolute inset-0 bg-[#4a3426]/60 backdrop-blur-md"
-                            onClick={() => setSelectedEmployeeDetails(null)}
-                        />
-                        <motion.div
-                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
-                            animate={{ scale: 1, opacity: 1, y: 0 }}
-                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                            className="relative w-full max-w-xl bg-[#fdfaf7] rounded-[2.5rem] shadow-2xl overflow-hidden border border-white/50"
-                        >
-                            <div className="p-8">
-                                <div className="flex justify-between items-start mb-10">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-2xl bg-[#c69f6e]/10 flex items-center justify-center text-[#c69f6e]">
-                                            <Layout size={24} />
-                                        </div>
-                                        <div>
-                                            <h2 className="text-2xl font-black text-[#4a3426] tracking-tight uppercase">
-                                                HISTORIQUE: {selectedEmployeeDetails.name}
-                                            </h2>
-                                            <p className="text-[10px] font-black text-[#c69f6e] uppercase tracking-widest mt-1 opacity-60">
-                                                {selectedEmployeeDetails.category} groupés par employé
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <button
-                                        onClick={() => setSelectedEmployeeDetails(null)}
-                                        className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-[#8c8279] hover:bg-red-50 hover:text-red-500 transition-all shadow-sm border border-[#e6dace]/30"
-                                    >
-                                        <X size={20} />
-                                    </button>
-                                </div>
-
-                                <div className="bg-white rounded-[2rem] border border-[#e6dace]/30 p-8 shadow-inner shadow-[#4a3426]/5 mb-6">
-                                    <div className="flex items-center gap-5 mb-8">
-                                        <div className="w-14 h-14 rounded-full bg-[#f4ece4] flex items-center justify-center text-lg font-black text-[#c69f6e]">
-                                            {selectedEmployeeDetails.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
-                                        </div>
-                                        <div className="flex-1">
-                                            <div className="flex justify-between items-center">
-                                                <h3 className="text-xl font-black text-[#4a3426] tracking-tight truncate max-w-[200px]">{selectedEmployeeDetails.name}</h3>
-                                                <div className="text-right">
-                                                    <span className="text-2xl font-black text-[#4a3426]">{selectedEmployeeDetails.total.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</span>
-                                                    <span className="text-[10px] font-black text-[#c69f6e] ml-1 opacity-60">DT</span>
-                                                </div>
-                                            </div>
-                                            <p className="text-[10px] font-bold text-[#8c8279] italic mt-0.5 opacity-60">Détails des transactions:</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                                        {(() => {
-                                            // Group items by date string (YYYY-MM-DD)
-                                            const groupedByDate = new Map<string, number>();
-                                            selectedEmployeeDetails.items.forEach(item => {
-                                                const d = new Date(Number(item.date) || item.date);
-                                                const dateStr = d.toLocaleDateString('fr-FR');
-                                                groupedByDate.set(dateStr, (groupedByDate.get(dateStr) || 0) + item.amount);
-                                            });
-
-                                            return Array.from(groupedByDate.entries()).map(([dateStr, totalAmount], i) => (
-                                                <div key={i} className="flex justify-between items-center px-6 py-4 bg-[#fcfaf8] rounded-2xl border border-[#e6dace]/20 shadow-sm">
-                                                    <span className="text-xs font-black text-[#4a3426] tracking-tight">{dateStr}</span>
-                                                    <span className="text-sm font-black text-[#4a3426]">{totalAmount.toLocaleString('fr-FR', { minimumFractionDigits: 3 })} <span className="text-[10px] opacity-40 ml-0.5 uppercase">DT</span></span>
-                                                </div>
-                                            ));
-                                        })()}
-                                    </div>
-                                </div>
-
-                                <div className="bg-[#4a3426] rounded-[2rem] p-6 flex justify-between items-center shadow-lg shadow-[#4a3426]/20">
-                                    <span className="text-[10px] font-black text-white/50 uppercase tracking-[0.2em]">TOTAL DE LA LISTE</span>
-                                    <div className="text-right">
-                                        <span className="text-2xl font-black text-white leading-none">
-                                            {selectedEmployeeDetails.total.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
-                                        </span>
-                                        <span className="text-[10px] font-black text-[#c69f6e] ml-1">DT</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
 
         </div >
     );
