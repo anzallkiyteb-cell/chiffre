@@ -189,7 +189,7 @@ const GET_PAYMENT_DATA = gql`
       doublages_details { username montant }
       extras_details { username montant }
       primes_details { username montant }
-      restes_salaires_details { username montant }
+      restes_salaires_details { username montant created_at }
     }
     getSalaryRemainders(month: $month) {
       id
@@ -618,6 +618,14 @@ export default function PaiementsPage() {
         directExpenses.forEach((inv: any) => {
             if (inv.category === 'Journalier' || inv.category === 'Divers') agg.divers.push({ designation: inv.supplier_name, amount: inv.amount });
             else if (inv.category === 'Fournisseur') agg.fournisseurs.push({ supplier: inv.supplier_name, amount: inv.amount });
+        });
+
+        // Add daily restes salaires to remainders list
+        data.getDailyExpenses.forEach((curr: any) => {
+            (curr.restes_salaires_details || []).forEach((rs: any) => {
+                const displayName = rs.username === 'Restes Salaires' ? 'Tous Employés' : rs.username;
+                agg.remainders.push({ name: displayName, amount: parseFloat(rs.montant), updated_at: rs.created_at });
+            });
         });
 
         // Add salary remainders

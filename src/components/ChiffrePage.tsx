@@ -473,7 +473,8 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
         prime: 'primes_details',
         divers: 'diponce_divers',
         admin: 'diponce_admin',
-        supplier: 'diponce'
+        supplier: 'diponce',
+        restes_salaires: 'restes_salaires_details'
     };
 
     // Grouping logic
@@ -505,7 +506,7 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
                 groupedData[item.username] = {
                     username: item.username,
                     total: 0,
-                    dates: []
+                    entries: []
                 };
             }
             const amount = parseFloat(item.montant);
@@ -513,23 +514,32 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
             globalTotal += amount;
 
             // Safe Date Formatting (YYYY-MM-DD -> DD/MM/YYYY)
-            const dateParts = chiffre.date.split('T')[0].split('-');
+            const dateParts = (item.date || chiffre.date).split('T')[0].split('-');
             const formattedDate = dateParts.length === 3
                 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`
-                : chiffre.date;
+                : (item.date || chiffre.date);
 
-            if (!groupedData[item.username].dates.includes(formattedDate)) {
-                groupedData[item.username].dates.push(formattedDate);
-            }
+            groupedData[item.username].entries.push({
+                date: formattedDate,
+                amount,
+                nb_jours: item.nb_jours,
+                created_at: item.created_at
+            });
         });
     });
 
     let employeesList = Object.values(groupedData).map((emp: any) => ({
         ...emp,
-        dates: emp.dates.sort((a: string, b: string) => {
-            const [da, ma, ya] = a.split('/').map(Number);
-            const [db, mb, yb] = b.split('/').map(Number);
-            return new Date(yb, mb - 1, db).getTime() - new Date(ya, ma - 1, da).getTime();
+        entries: emp.entries.sort((a: any, b: any) => {
+            const [da, ma, ya] = a.date.split('/').map(Number);
+            const [db, mb, yb] = b.date.split('/').map(Number);
+            const timeA = new Date(ya, ma - 1, da).getTime();
+            const timeB = new Date(yb, mb - 1, db).getTime();
+            if (timeA !== timeB) return timeB - timeA;
+            if (a.created_at && b.created_at) {
+                return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+            }
+            return 0;
         })
     })).sort((a: any, b: any) => b.total - a.total);
 
@@ -584,18 +594,31 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
                                             </div>
                                             <div>
                                                 <h4 className="text-xl font-black text-[#4a3426] capitalize">{emp.username}</h4>
-                                                <p className="text-[10px] font-black text-[#bba282] uppercase tracking-[0.1em] mt-1">Dates travaillées:</p>
                                             </div>
                                         </div>
                                         <div className="text-right">
                                             <span className="text-2xl font-black text-[#c69f6e]">{emp.total.toFixed(3)} <span className="text-xs">DT</span></span>
                                         </div>
                                     </div>
-                                    <div className="flex flex-wrap gap-2">
-                                        {emp.dates.map((dateStr: string, di: number) => (
-                                            <span key={di} className="px-4 py-2 bg-[#fcfaf8] border border-[#e6dace] rounded-xl text-xs font-bold text-[#4a3426] shadow-sm">
-                                                {dateStr}
-                                            </span>
+                                    <div className="space-y-3">
+                                        {emp.entries.map((entry: any, di: number) => (
+                                            <div key={di} className="flex justify-between items-center bg-[#fcfaf8] border border-[#e6dace] rounded-xl px-4 py-3 shadow-sm">
+                                                <div className="flex flex-col gap-1">
+                                                    <span className="text-xs font-bold text-[#4a3426]">{entry.date}</span>
+                                                    {entry.created_at && (
+                                                        <div className="flex items-center gap-1">
+                                                            <Clock size={10} className="text-[#c69f6e]" />
+                                                            <span className="text-[9px] font-medium text-[#8c8279]">
+                                                                {new Date(entry.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="flex flex-col items-end gap-1">
+                                                    <span className="text-sm font-black text-[#c69f6e]">{entry.amount.toFixed(3)} DT</span>
+                                                    {entry.nb_jours > 0 && <span className="text-[9px] font-bold text-[#8c8279] uppercase tracking-wider">{entry.nb_jours} Jours</span>}
+                                                </div>
+                                            </div>
                                         ))}
                                     </div>
                                 </div>
@@ -1268,11 +1291,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                 {/* Header */}
                 <header className={`sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-[#e6dace] py-4 px-4 md:px-12 flex justify-between items-center transition-all duration-300`}>
 
-                    <h2 className="text-lg md:text-xl font-black text-[#4a3426] block sm:hidden lg:block uppercase tracking-widest">
-                        Chiffre d'Affaire
-                    </h2>
-                    <h2 className="text-xl font-black text-[#4a3426] hidden sm:block lg:hidden uppercase tracking-widest">
-                        Chiffre d'Affaire
+                    <h2 className="text-xl font-black text-[#4a3426] uppercase tracking-widest">
+                        Journalier
                     </h2>
 
                     <div className="flex items-center gap-4 ml-auto">
@@ -2151,17 +2171,29 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     {restesSalairesList.length > 0 ? restesSalairesList.map((p, i) => (
                                         <div key={i} className="flex justify-between p-3 bg-[#f9f6f2] rounded-2xl items-center group">
                                             <div className="flex items-center gap-2">
-                                                <span
-                                                    className="font-bold text-[#4a3426] cursor-pointer hover:text-[#c69f6e] transition-colors"
-                                                    onClick={() => setShowHistoryModal({ type: 'restes_salaires', targetName: p.username })}
-                                                >
-                                                    {p.username}
-                                                </span>
-                                                {getDepartment(p.username) && (
-                                                    <span className="text-[10px] font-black text-[#8c8279] uppercase tracking-wider bg-[#f4ece4] px-2 py-0.5 rounded-lg border border-[#e6dace]/50">
-                                                        {getDepartment(p.username)}
+                                                <div className="flex flex-col">
+                                                    <span
+                                                        className="font-bold text-[#4a3426] cursor-pointer hover:text-[#c69f6e] transition-colors"
+                                                        onClick={() => setShowHistoryModal({ type: 'restes_salaires', targetName: p.username })}
+                                                    >
+                                                        {p.username}
                                                     </span>
-                                                )}
+                                                    <div className="flex items-center gap-2 mt-0.5">
+                                                        {p.created_at && (
+                                                            <div className="flex items-center gap-1">
+                                                                <Clock size={10} className="text-[#a67c52]" />
+                                                                <span className="text-[9px] font-bold text-[#8c8279]">
+                                                                    {new Date(p.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                        {getDepartment(p.username) && (
+                                                            <span className="text-[9px] font-black text-[#8c8279] uppercase tracking-wider bg-[#f4ece4] px-1.5 py-0.5 rounded-md border border-[#e6dace]/50">
+                                                                {getDepartment(p.username)}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
                                             </div>
                                             <div className="flex items-center gap-3">
                                                 {p.nb_jours && p.nb_jours > 0 && <span className="text-[10px] font-bold text-[#8c8279] bg-white px-2 py-1 rounded-lg border border-[#e6dace]/50">{p.nb_jours}j</span>}

@@ -137,11 +137,11 @@ const GET_CHIFFRES_MONTHLY = gql`
       tickets_restaurant
       extra
       primes
-      avances_details { username montant }
-      doublages_details { username montant }
-      extras_details { username montant }
-      primes_details { username montant }
-      restes_salaires_details { username montant nb_jours }
+      avances_details { id username montant created_at }
+      doublages_details { id username montant created_at }
+      extras_details { id username montant created_at }
+      primes_details { id username montant created_at }
+      restes_salaires_details { id username montant nb_jours created_at }
       diponce_divers
       diponce_admin
     }

@@ -41,7 +41,7 @@ export const resolvers = {
 
             const extraDetails = extras.rows;
             const primesDetails = primes.rows;
-            const restesSalairesDetails = await query('SELECT id, employee_name as username, montant, nb_jours FROM restes_salaires_daily WHERE date = $1 ORDER BY id DESC', [date]);
+            const restesSalairesDetails = await query('SELECT id, employee_name as username, montant, nb_jours, created_at FROM restes_salaires_daily WHERE date = $1 ORDER BY id DESC', [date]);
 
             let data = res.rows.length > 0 ? { ...res.rows[0] } : { date };
 
@@ -65,7 +65,7 @@ export const resolvers = {
                 doublages_details: doublages.rows.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant) })),
                 extras_details: extraDetails.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant) })),
                 primes_details: primesDetails.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant) })),
-                restes_salaires_details: restesSalairesDetails.rows.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant), nb_jours: parseFloat(r.nb_jours || '0') }))
+                restes_salaires_details: restesSalairesDetails.rows.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant), nb_jours: parseFloat(r.nb_jours || '0'), date, created_at: r.created_at }))
             };
         },
         getInvoices: async (_: any, { supplierName, startDate, endDate, month, payer }: any) => {
@@ -106,7 +106,7 @@ export const resolvers = {
                 query('SELECT id, date, employee_name as username, montant FROM extras WHERE date >= $1 AND date <= $2 ORDER BY id DESC', [startDate, endDate]),
                 query('SELECT id, date, employee_name as username, montant FROM primes WHERE date >= $1 AND date <= $2 ORDER BY id DESC', [startDate, endDate]),
                 query("SELECT * FROM invoices WHERE status = 'paid' AND paid_date >= $1 AND paid_date <= $2", [startDate, endDate]),
-                query('SELECT id, date, employee_name as username, montant, nb_jours FROM restes_salaires_daily WHERE date >= $1 AND date <= $2 ORDER BY id DESC', [startDate, endDate])
+                query('SELECT id, date, employee_name as username, montant, nb_jours, created_at FROM restes_salaires_daily WHERE date >= $1 AND date <= $2 ORDER BY id DESC', [startDate, endDate])
             ]);
 
             const normalizeDate = (d: any) => {
@@ -225,7 +225,7 @@ export const resolvers = {
                     doublages_details: dayDoublages.map(r => ({ id: r.id, username: r.username, montant: r.montant.toString(), date: r.date })),
                     extras_details: dayExtras.map(r => ({ id: r.id, username: r.username, montant: r.montant.toString(), date: r.date })),
                     primes_details: dayPrimes.map(r => ({ id: r.id, username: r.username, montant: r.montant.toString(), date: r.date })),
-                    restes_salaires_details: dayRestesSalaires.map(r => ({ id: r.id, username: r.username, montant: r.montant.toString(), nb_jours: r.nb_jours ? parseFloat(r.nb_jours) : 0, date: r.date }))
+                    restes_salaires_details: dayRestesSalaires.map(r => ({ id: r.id, username: r.username, montant: r.montant.toString(), nb_jours: r.nb_jours ? parseFloat(r.nb_jours) : 0, date: r.date, created_at: r.created_at }))
                 };
             });
         },
@@ -426,7 +426,7 @@ export const resolvers = {
                 query('SELECT id, date, employee_name as username, montant FROM doublages WHERE date >= $1 AND date <= $2 ORDER BY id DESC', [start, end]),
                 query('SELECT id, date, employee_name as username, montant FROM extras WHERE date >= $1 AND date <= $2 ORDER BY id DESC', [start, end]),
                 query('SELECT id, date, employee_name as username, montant FROM primes WHERE date >= $1 AND date <= $2 ORDER BY id DESC', [start, end]),
-                query('SELECT id, date, employee_name as username, montant, nb_jours FROM restes_salaires_daily WHERE date >= $1 AND date <= $2 ORDER BY id DESC', [start, end])
+                query('SELECT id, date, employee_name as username, montant, nb_jours, created_at FROM restes_salaires_daily WHERE date >= $1 AND date <= $2 ORDER BY id DESC', [start, end])
             ]);
 
             const normalizeDate = (d: any) => {
@@ -835,8 +835,8 @@ export const resolvers = {
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             `);
-            const res = await query('INSERT INTO restes_salaires_daily (employee_name, montant, nb_jours, date) VALUES ($1, $2, $3, $4) RETURNING id, employee_name as username, montant, nb_jours, date', [username, amount, nb_jours || 0, date]);
-            return { ...res.rows[0], montant: parseFloat(res.rows[0].montant), nb_jours: parseFloat(res.rows[0].nb_jours) };
+            const res = await query('INSERT INTO restes_salaires_daily (employee_name, montant, nb_jours, date) VALUES ($1, $2, $3, $4) RETURNING id, employee_name as username, montant, nb_jours, date, created_at', [username, amount, nb_jours || 0, date]);
+            return { ...res.rows[0], montant: parseFloat(res.rows[0].montant), nb_jours: parseFloat(res.rows[0].nb_jours), created_at: res.rows[0].created_at };
         },
         deleteRestesSalaires: async (_: any, { id }: { id: number }) => {
             await query('DELETE FROM restes_salaires_daily WHERE id = $1', [id]);

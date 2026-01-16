@@ -12,6 +12,7 @@ export const typeDefs = `#graphql
     montant: Float
     nb_jours: Float
     date: String
+    created_at: String
   }
 
   type Employee {

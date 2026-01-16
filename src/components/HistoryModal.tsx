@@ -1,20 +1,19 @@
 import React from 'react';
 import { useQuery, gql } from '@apollo/client';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LayoutDashboard, X, Loader2 } from 'lucide-react';
+import { LayoutDashboard, X, Loader2, Clock } from 'lucide-react';
 
 const GET_CHIFFRES_RANGE = gql`
   query GetChiffresRange($startDate: String!, $endDate: String!) {
     getChiffresByRange(startDate: $startDate, endDate: $endDate) {
       date
-      avances_details { username montant }
-      doublages_details { username montant }
-      extras_details { username montant }
-      primes_details { username montant }
-      restes_salaires_details { username montant nb_jours }
+      avances_details { id username montant created_at }
+      doublages_details { id username montant created_at }
+      extras_details { id username montant created_at }
+      primes_details { id username montant created_at }
+      restes_salaires_details { id username montant nb_jours created_at }
       diponce_divers
       diponce_admin
-      diponce_journalier
       diponce
     }
   }
@@ -41,7 +40,6 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
         restes_salaires: 'Restes Salaires',
         divers: 'Dépenses Divers',
         admin: 'Dépenses Administratif',
-        journalier: 'Dépenses Journalier',
         supplier: 'Dépenses Fournisseur'
     };
 
@@ -53,7 +51,6 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
         restes_salaires: 'restes_salaires_details',
         divers: 'diponce_divers',
         admin: 'diponce_admin',
-        journalier: 'diponce_journalier',
         supplier: 'diponce'
     };
 
@@ -63,7 +60,7 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
 
     historyData?.getChiffresByRange?.forEach((chiffre: any) => {
         let details = [];
-        const isJsonType = ['divers', 'admin', 'journalier', 'supplier'].includes(type);
+        const isJsonType = ['divers', 'admin', 'supplier'].includes(type);
 
         if (isJsonType) {
             try {
@@ -86,7 +83,7 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
                 groupedData[item.username] = {
                     username: item.username,
                     total: 0,
-                    dateEntries: [] // Changed from 'dates' to 'dateEntries' to store {date, amount} objects
+                    entries: []
                 };
             }
             const amount = parseFloat(item.montant);
@@ -94,25 +91,32 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
             globalTotal += amount;
 
             // Safe Date Formatting (YYYY-MM-DD -> DD/MM/YYYY)
-            const dateParts = chiffre.date.split('T')[0].split('-');
+            const dateParts = (item.date || chiffre.date).split('T')[0].split('-');
             const formattedDate = dateParts.length === 3
                 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`
-                : chiffre.date;
+                : (item.date || chiffre.date);
 
-            // Store date with its corresponding amount
-            groupedData[item.username].dateEntries.push({
+            groupedData[item.username].entries.push({
                 date: formattedDate,
-                amount: amount
+                amount: amount,
+                nb_jours: item.nb_jours,
+                created_at: item.created_at
             });
         });
     });
 
     let employeesList = Object.values(groupedData).map((emp: any) => ({
         ...emp,
-        dateEntries: emp.dateEntries.sort((a: any, b: any) => {
+        entries: emp.entries.sort((a: any, b: any) => {
             const [da, ma, ya] = a.date.split('/').map(Number);
             const [db, mb, yb] = b.date.split('/').map(Number);
-            return new Date(yb, mb - 1, db).getTime() - new Date(ya, ma - 1, da).getTime();
+            const timeA = new Date(ya, ma - 1, da).getTime();
+            const timeB = new Date(yb, mb - 1, db).getTime();
+            if (timeA !== timeB) return timeB - timeA;
+            if (a.created_at && b.created_at) {
+                return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+            }
+            return 0;
         })
     })).sort((a: any, b: any) => b.total - a.total);
 
@@ -173,20 +177,36 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
                                                 <p className="text-xs font-serif text-[#8c8279] italic">Dates travaillées:</p>
                                             </div>
                                         </div>
-                                        <div className="text-3xl font-black text-[#009ca6] tracking-tighter">
-                                            {emp.total.toFixed(3)} <span className="text-lg">DT</span>
+                                        <div className="text-2xl font-black text-[#c69f6e] tracking-tighter">
+                                            {emp.total.toFixed(3)} <span className="text-sm">DT</span>
                                         </div>
                                     </div>
 
-                                    {/* Dates Grid Breakdown */}
-                                    <div className="flex flex-wrap gap-2 mt-4">
-                                        {emp.dateEntries.map((entry: any, dIndex: number) => (
-                                            <div key={dIndex} className="bg-white px-3 py-2 rounded-lg border border-[#e6dace] shadow-sm hover:shadow-md transition-all w-[110px]">
-                                                <div className="text-[#4a3426] font-bold text-xs tracking-wide text-center">
-                                                    {entry.date}
+                                    <div className="space-y-3 mt-4">
+                                        {emp.entries.map((entry: any, dIndex: number) => (
+                                            <div key={dIndex} className="bg-[#fcfaf8] p-4 rounded-2xl border border-[#e6dace] shadow-sm flex justify-between items-center group/item hover:bg-white hover:shadow-md transition-all">
+                                                <div className="flex flex-col gap-1">
+                                                    <div className="text-[#4a3426] font-bold text-xs">
+                                                        {entry.date}
+                                                    </div>
+                                                    {entry.created_at && (
+                                                        <div className="flex items-center gap-1.5 opacity-60">
+                                                            <Clock size={10} className="text-[#c69f6e]" />
+                                                            <span className="text-[10px] font-medium text-[#8c8279]">
+                                                                {new Date(entry.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                                            </span>
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                <div className="text-[#009ca6] font-black text-sm text-center">
-                                                    {entry.amount.toFixed(3)}
+                                                <div className="text-right flex flex-col items-end gap-1">
+                                                    <div className="text-[#c69f6e] font-black text-sm">
+                                                        {entry.amount.toFixed(3)} DT
+                                                    </div>
+                                                    {entry.nb_jours > 0 && (
+                                                        <span className="text-[9px] font-bold text-[#8c8279] uppercase tracking-wider bg-[#f4ece4] px-1.5 py-0.5 rounded">
+                                                            {entry.nb_jours} Jours
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}
