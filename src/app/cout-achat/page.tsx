@@ -238,7 +238,7 @@ export default function CoutAchatPage() {
 
         // Paid invoices should include those where payer is NULL/caissier (standard) OR riadh
         const paidInvoices = invoices.filter((inv: any) => inv.status === 'paid');
-        const unpaidInvoices = invoices.filter((inv: any) => inv.status === 'pending');
+        const unpaidInvoices = invoices.filter((inv: any) => inv.status !== 'paid');
 
         const aggregateGroup = (list: any[], nameKey: string, amountKey: string) => {
             const map = new Map();
