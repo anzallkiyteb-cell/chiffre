@@ -382,30 +382,44 @@ export default function PaiementsPage() {
     const handleDelete = async (inv: any) => {
         const isDirect = inv.origin === 'direct_expense';
         Swal.fire({
-            title: 'Êtes-vous sûr?',
-            text: isDirect ? "Cette dépense sera définitivement supprimée." : "Cette facture retournera dans la liste des impayés.",
+            title: isDirect ? 'Supprimer la dépense?' : 'Annuler le paiement?',
+            text: isDirect
+                ? "Cette dépense (Directe) sera définitivement supprimée de la base de données."
+                : "Cette facture retournera dans la liste des impayés (Facturation).",
             icon: 'warning',
             showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#3085d6',
-            confirmButtonText: 'Oui, confirmer',
+            confirmButtonColor: isDirect ? '#ef4444' : '#f59e0b',
+            cancelButtonColor: '#8c8279',
+            confirmButtonText: isDirect ? 'Oui, supprimer' : 'Oui, remettre en impayé',
             cancelButtonText: 'Annuler'
         }).then(async (result) => {
             if (result.isConfirmed) {
                 try {
                     if (isDirect) {
                         await execDeleteInvoice({ variables: { id: parseInt(inv.id) } });
-                        Swal.fire('Supprimé!', 'Dépense supprimée avec succès.', 'success');
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Supprimé!',
+                            text: 'La dépense a été retirée définitivement.',
+                            timer: 1500,
+                            showConfirmButton: false
+                        });
                     } else {
                         await execUnpayInvoice({ variables: { id: parseInt(inv.id) } });
-                        Swal.fire('Annulé!', 'Paiement annulé, facture remise en impayé.', 'success');
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Annulé!',
+                            text: 'Le paiement est annulé, la facture est de nouveau impayée.',
+                            timer: 1500,
+                            showConfirmButton: false
+                        });
                         await refetchUnpaid();
                     }
                     await refetch();
                     await refetchHistory();
                 } catch (e) {
                     console.error(e);
-                    Swal.fire('Erreur', 'Une erreur est survenue', 'error');
+                    Swal.fire('Erreur', 'Une erreur est survenue lors de l\'opération', 'error');
                 }
             }
         });
@@ -1745,6 +1759,12 @@ export default function PaiementsPage() {
                                                                         <span className="text-[10px] font-bold text-[#8c8279] uppercase tracking-wider bg-[#f4ece4] px-2 py-0.5 rounded-full">
                                                                             {inv.payment_method}
                                                                         </span>
+                                                                        <span className="w-1 h-1 rounded-full bg-[#e6dace]"></span>
+                                                                        {inv.origin === 'direct_expense' ? (
+                                                                            <span className="text-[9px] font-black text-red-500/70 border border-red-200 px-1.5 py-0.5 rounded uppercase tracking-tighter">Directe</span>
+                                                                        ) : (
+                                                                            <span className="text-[9px] font-black text-blue-500/70 border border-blue-200 px-1.5 py-0.5 rounded uppercase tracking-tighter">Facture</span>
+                                                                        )}
                                                                         <span className="w-1 h-1 rounded-full bg-[#e6dace]"></span>
                                                                         <span className="text-[10px] font-bold text-[#8c8279] opacity-70">
                                                                             {new Date(inv.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
