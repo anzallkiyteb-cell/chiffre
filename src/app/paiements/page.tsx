@@ -197,6 +197,7 @@ const GET_PAYMENT_DATA = gql`
       amount
       month
       status
+      updated_at
     }
     getEmployees {
       id
@@ -314,13 +315,14 @@ const UPSERT_SALARY_REMAINDER = gql`
       amount
       month
       status
+      updated_at
     }
   }
 `;
 
 const DELETE_SALARY_REMAINDER = gql`
-  mutation DeleteSalaryRemainder($id: Int!) {
-    deleteSalaryRemainder(id: $id)
+  mutation DeleteSalaryRemainder($employee_name: String!, $month: String!) {
+    deleteSalaryRemainder(employee_name: $employee_name, month: $month)
   }
 `;
 
@@ -616,7 +618,7 @@ export default function PaiementsPage() {
 
         // Add salary remainders
         (data.getSalaryRemainders || []).forEach((rem: any) => {
-            const displayName = rem.employee_name === 'Restes Salaires' ? 'Montant Total' : rem.employee_name;
+            const displayName = rem.employee_name === 'Restes Salaires' ? 'Tous Employés' : rem.employee_name;
             agg.remainders.push({ name: displayName, amount: rem.amount });
         });
 
@@ -1539,6 +1541,20 @@ export default function PaiementsPage() {
                                                 return null;
                                             })()}
                                         </div>
+                                        {(() => {
+                                            const currentGlobal = (data?.getSalaryRemainders || []).find((r: any) => r.employee_name === 'Restes Salaires');
+                                            if (currentGlobal?.updated_at) {
+                                                return (
+                                                    <div className="flex items-center justify-center gap-1.5 mt-4 bg-green-50 px-3 py-1.5 rounded-full border border-green-100 w-fit mx-auto">
+                                                        <CheckCircle2 size={12} className="text-green-500" />
+                                                        <p className="text-[9px] font-bold text-green-600 uppercase tracking-wide">
+                                                            Dernière mise à jour: {new Date(Number(currentGlobal.updated_at) || currentGlobal.updated_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                        </p>
+                                                    </div>
+                                                );
+                                            }
+                                            return null;
+                                        })()}
                                     </div>
                                 </div>
                             </div>
@@ -2309,11 +2325,11 @@ export default function PaiementsPage() {
                                             { title: 'Doublage', subtitle: 'Heures supplémentaires', icon: TrendingUp, color: 'text-[#4a3426]', iconBg: 'bg-[#4a3426]/10', items: expenseDetails.doublages },
                                             { title: 'Extra', subtitle: 'Main d\'œuvre occasionnelle', icon: Zap, color: 'text-[#c69f6e]', iconBg: 'bg-[#c69f6e]/10', items: expenseDetails.extras },
                                             { title: 'Primes', subtitle: 'Récompenses & Bonus', icon: Sparkles, color: 'text-[#2d6a4f]', iconBg: 'bg-[#2d6a4f]/10', items: expenseDetails.primes },
-                                            { title: 'Restes Salaires', subtitle: 'Salaires en attente', icon: Banknote, color: 'text-red-500', iconBg: 'bg-red-50', items: expenseDetails.remainders }
+                                            { title: 'TOUS EMPLOYÉS', subtitle: 'Salaires en attente', icon: Banknote, color: 'text-red-500', iconBg: 'bg-red-50', items: expenseDetails.remainders }
                                         ].map((cat, idx) => {
                                             const total = cat.amount !== undefined ? cat.amount : (cat.items || []).reduce((sum: number, item: any) => sum + (item.amount || 0), 0);
                                             // Show Restes Salaires even if 0, but hide others if 0
-                                            if (total === 0 && cat.title !== 'Restes Salaires') return null;
+                                            if (total === 0 && cat.title !== 'TOUS EMPLOYÉS') return null;
                                             const isExpanded = expandedCategories.includes(idx);
                                             const hasItems = cat.items && cat.items.length > 0;
 
@@ -2338,7 +2354,7 @@ export default function PaiementsPage() {
                                                             <div>
                                                                 <div className="flex items-center gap-2">
                                                                     <p className="text-[10px] font-black text-[#8c8279] uppercase tracking-widest leading-none mb-1.5">{cat.title}</p>
-                                                                    {cat.title === 'Restes Salaires' && (
+                                                                    {cat.title === 'TOUS EMPLOYÉS' && (
                                                                         <span className="text-[9px] font-bold text-red-400 uppercase tracking-tight bg-red-50 border border-red-100 px-1.5 py-0.5 rounded ml-2">En attente</span>
                                                                     )}
                                                                 </div>

@@ -817,20 +817,22 @@ export const resolvers = {
             const existing = await query('SELECT id FROM salary_remainders WHERE employee_name = $1 AND month = $2', [employee_name, month]);
             if (existing.rows.length > 0) {
                 const res = await query(
-                    'UPDATE salary_remainders SET amount = $1, status = $2 WHERE employee_name = $3 AND month = $4 RETURNING *',
+                    'UPDATE salary_remainders SET amount = $1, status = $2, updated_at = CURRENT_TIMESTAMP WHERE employee_name = $3 AND month = $4 RETURNING *',
                     [amount, status || 'confirmed', employee_name, month]
                 );
-                return res.rows[0];
+                const row = res.rows[0];
+                return { ...row, updated_at: row.updated_at ? new Date(row.updated_at).toISOString() : null };
             } else {
                 const res = await query(
-                    'INSERT INTO salary_remainders (employee_name, amount, month, status) VALUES ($1, $2, $3, $4) RETURNING *',
+                    'INSERT INTO salary_remainders (employee_name, amount, month, status, updated_at) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP) RETURNING *',
                     [employee_name, amount, month, status || 'confirmed']
                 );
-                return res.rows[0];
+                const row = res.rows[0];
+                return { ...row, updated_at: row.updated_at ? new Date(row.updated_at).toISOString() : null };
             }
         },
-        deleteSalaryRemainder: async (_: any, { id }: any) => {
-            await query('DELETE FROM salary_remainders WHERE id = $1', [id]);
+        deleteSalaryRemainder: async (_: any, { employee_name, month }: any) => {
+            await query('DELETE FROM salary_remainders WHERE employee_name = $1 AND month = $2', [employee_name, month]);
             return true;
         },
     },
