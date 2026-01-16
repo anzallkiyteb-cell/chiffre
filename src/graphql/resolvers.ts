@@ -392,6 +392,100 @@ export const resolvers = {
         getLockedDates: async () => {
             const res = await query('SELECT date FROM chiffres WHERE is_locked = true');
             return res.rows.map(r => r.date);
+        },
+        getDailyExpenses: async (_: any, { month, startDate, endDate }: { month?: string, startDate?: string, endDate?: string }) => {
+            let start = startDate;
+            let end = endDate;
+
+            if (month) {
+                start = `${month}-01`;
+                const [y, m] = month.split('-');
+                const lastDay = new Date(parseInt(y), parseInt(m), 0).getDate();
+                end = `${month}-${String(lastDay).padStart(2, '0')}`;
+            }
+
+            if (!start || !end) return [];
+
+            const [res, avances, doublages, extras, primes] = await Promise.all([
+                query('SELECT * FROM chiffres WHERE date >= $1 AND date <= $2 ORDER BY date ASC', [start, end]),
+                query('SELECT id, date, employee_name as username, montant FROM advances WHERE date >= $1 AND date <= $2 ORDER BY id DESC', [start, end]),
+                query('SELECT id, date, employee_name as username, montant FROM doublages WHERE date >= $1 AND date <= $2 ORDER BY id DESC', [start, end]),
+                query('SELECT id, date, employee_name as username, montant FROM extras WHERE date >= $1 AND date <= $2 ORDER BY id DESC', [start, end]),
+                query('SELECT id, date, employee_name as username, montant FROM primes WHERE date >= $1 AND date <= $2 ORDER BY id DESC', [start, end])
+            ]);
+
+            const normalizeDate = (d: any) => {
+                if (!d) return null;
+                try {
+                    const dateObj = new Date(d);
+                    if (isNaN(dateObj.getTime())) return null;
+                    const y = dateObj.getFullYear();
+                    const mn = String(dateObj.getMonth() + 1).padStart(2, '0');
+                    const dy = String(dateObj.getDate()).padStart(2, '0');
+                    return `${y}-${mn}-${dy}`;
+                } catch (e) {
+                    return null;
+                }
+            };
+
+            const allDatesSet = new Set<string>();
+            res.rows.forEach(r => { const d = normalizeDate(r.date); if (d) allDatesSet.add(d); });
+            avances.rows.forEach(r => { const d = normalizeDate(r.date); if (d) allDatesSet.add(d); });
+            doublages.rows.forEach(r => { const d = normalizeDate(r.date); if (d) allDatesSet.add(d); });
+            extras.rows.forEach(r => { const d = normalizeDate(r.date); if (d) allDatesSet.add(d); });
+            primes.rows.forEach(r => { const d = normalizeDate(r.date); if (d) allDatesSet.add(d); });
+
+            const sortedDates = Array.from(allDatesSet).sort();
+
+            const avancesByDate: Record<string, any[]> = {};
+            avances.rows.forEach(r => {
+                const d = normalizeDate(r.date);
+                if (d) {
+                    if (!avancesByDate[d]) avancesByDate[d] = [];
+                    avancesByDate[d].push(r);
+                }
+            });
+            const doublagesByDate: Record<string, any[]> = {};
+            doublages.rows.forEach(r => {
+                const d = normalizeDate(r.date);
+                if (d) {
+                    if (!doublagesByDate[d]) doublagesByDate[d] = [];
+                    doublagesByDate[d].push(r);
+                }
+            });
+            const extrasByDate: Record<string, any[]> = {};
+            extras.rows.forEach(r => {
+                const d = normalizeDate(r.date);
+                if (d) {
+                    if (!extrasByDate[d]) extrasByDate[d] = [];
+                    extrasByDate[d].push(r);
+                }
+            });
+            const primesByDate: Record<string, any[]> = {};
+            primes.rows.forEach(r => {
+                const d = normalizeDate(r.date);
+                if (d) {
+                    if (!primesByDate[d]) primesByDate[d] = [];
+                    primesByDate[d].push(r);
+                }
+            });
+
+            const chiffresByDate: Record<string, any> = {};
+            res.rows.forEach(r => {
+                const d = normalizeDate(r.date);
+                if (d) chiffresByDate[d] = r;
+            });
+
+            return sortedDates.map(d => {
+                const c = chiffresByDate[d] || { date: d };
+                return {
+                    ...c,
+                    avances_details: avancesByDate[d] || [],
+                    doublages_details: doublagesByDate[d] || [],
+                    extras_details: extrasByDate[d] || [],
+                    primes_details: primesByDate[d] || []
+                };
+            });
         }
     },
     Mutation: {

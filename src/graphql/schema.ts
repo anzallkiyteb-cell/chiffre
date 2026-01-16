@@ -114,6 +114,7 @@ export const typeDefs = `#graphql
     getPaymentStats(month: String, startDate: String, endDate: String): PaymentStats
     getBankDeposits(month: String, startDate: String, endDate: String): [BankDeposit]
     getLockedDates: [String]
+    getDailyExpenses(month: String, startDate: String, endDate: String): [Chiffre]
     getEmployees: [Employee]
   }
 

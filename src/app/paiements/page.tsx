@@ -9,7 +9,8 @@ import {
     ArrowUpRight, Download, Filter, User,
     TrendingUp, Receipt, Wallet, UploadCloud, Coins, Banknote,
     ChevronLeft, ChevronRight, Image as ImageIcon, Ticket,
-    Clock, CheckCircle2, Eye, Edit2, Trash2, X, Layout, Plus
+    Clock, CheckCircle2, Eye, Edit2, Trash2, X, Layout, Plus,
+    Truck, Sparkles, Calculator, Zap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Swal from 'sweetalert2';
@@ -177,6 +178,17 @@ const GET_PAYMENT_DATA = gql`
       photo_verso_url
       payment_method
       paid_date
+    }
+    getDailyExpenses(month: $month, startDate: $startDate, endDate: $endDate) {
+      date
+      diponce
+      diponce_divers
+      diponce_journalier
+      diponce_admin
+      avances_details { username montant }
+      doublages_details { username montant }
+      extras_details { username montant }
+      primes_details { username montant }
     }
   }
 `;
@@ -515,6 +527,51 @@ export default function PaiementsPage() {
         totalRiadhExpenses: 0,
         totalTicketsRestaurant: 0
     };
+
+    const expenseDetails = useMemo(() => {
+        if (!data?.getDailyExpenses) return { journalier: [], fournisseurs: [], divers: [], administratif: [], avances: [], doublages: [], extras: [], primes: [] };
+
+        const agg = data.getDailyExpenses.reduce((acc: any, curr: any) => {
+            let d = [], dv = [], dj = [], da = [];
+            try { d = JSON.parse(curr.diponce || '[]'); } catch (e) { }
+            try { dv = JSON.parse(curr.diponce_divers || '[]'); } catch (e) { }
+            try { dj = JSON.parse(curr.diponce_journalier || '[]'); } catch (e) { }
+            try { da = JSON.parse(curr.diponce_admin || '[]'); } catch (e) { }
+
+            return {
+                fournisseurs: [...acc.fournisseurs, ...d],
+                divers: [...acc.divers, ...dv],
+                journalier: [...acc.journalier, ...dj],
+                administratif: [...acc.administratif, ...da],
+                avances: [...acc.avances, ...curr.avances_details],
+                doublages: [...acc.doublages, ...curr.doublages_details],
+                extras: [...acc.extras, ...curr.extras_details],
+                primes: [...acc.primes, ...curr.primes_details]
+            };
+        }, { journalier: [], fournisseurs: [], divers: [], administratif: [], avances: [], doublages: [], extras: [], primes: [] });
+
+        const group = (list: any[], nameKey: string, amountKey: string) => {
+            const map = new Map();
+            list.forEach(item => {
+                const name = item[nameKey];
+                if (!name) return;
+                const amt = parseFloat(item[amountKey] || '0');
+                map.set(name, (map.get(name) || 0) + amt);
+            });
+            return Array.from(map.entries()).map(([name, amount]) => ({ name, amount })).filter(x => x.amount > 0).sort((a, b) => b.amount - a.amount);
+        };
+
+        return {
+            journalier: group(agg.journalier, 'designation', 'amount'),
+            fournisseurs: group(agg.fournisseurs, 'supplier', 'amount'),
+            divers: group(agg.divers, 'designation', 'amount'),
+            administratif: group(agg.administratif, 'designation', 'amount'),
+            avances: group(agg.avances, 'username', 'montant'),
+            doublages: group(agg.doublages, 'username', 'montant'),
+            extras: group(agg.extras, 'username', 'montant'),
+            primes: group(agg.primes, 'username', 'montant')
+        };
+    }, [data]);
 
     const handleBankSubmit = async () => {
         if (!bankAmount || !bankDate) return;
@@ -1912,69 +1969,108 @@ export default function PaiementsPage() {
                                     </button>
                                 </div>
 
-                                <div className="space-y-4">
-                                    {/* Direct Expenses */}
-                                    <div className="p-6 bg-[#fcfaf8] rounded-3xl border border-[#e6dace]/40 flex justify-between items-center group hover:bg-white transition-all">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 rounded-2xl bg-[#6b7280]/10 flex items-center justify-center text-[#6b7280]">
-                                                <Layout size={20} />
+                                <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
+                                    {/* Category Component */}
+                                    {[
+                                        { title: 'Dépenses Journalier', subtitle: 'Quotidien & Fonctionnement', icon: Clock, color: 'bg-[#c69f6e]/10', iconColor: 'text-[#c69f6e]', items: expenseDetails.journalier },
+                                        { title: 'Dépenses Fournisseurs', subtitle: 'Marchandises & Services', icon: Truck, color: 'bg-[#4a3426]/10', iconColor: 'text-[#4a3426]', items: expenseDetails.fournisseurs },
+                                        { title: 'Dépenses Divers', subtitle: 'Frais Exceptionnels', icon: Sparkles, color: 'bg-[#c69f6e]/10', iconColor: 'text-[#c69f6e]', items: expenseDetails.divers },
+                                        { title: 'Dépenses Administratif', subtitle: 'Loyers, Factures & Bur.', icon: Layout, color: 'bg-[#4a3426]/10', iconColor: 'text-[#4a3426]', items: expenseDetails.administratif },
+                                        { title: 'Historique Dépenses (Riadh)', subtitle: 'Paiements directs', icon: User, color: 'bg-[#c69f6e]/10', iconColor: 'text-[#c69f6e]', amount: stats.totalRiadhExpenses, items: [] }, // Added items: [] for consistency
+                                        { title: 'Accompte', subtitle: 'Avances sur salaires', icon: Calculator, color: 'bg-[#a89284]/10', iconColor: 'text-[#a89284]', items: expenseDetails.avances },
+                                        { title: 'Doublage', subtitle: 'Heures supplémentaires', icon: TrendingUp, color: 'bg-[#4a3426]/10', iconColor: 'text-[#4a3426]', items: expenseDetails.doublages },
+                                        { title: 'Extra', subtitle: 'Main d\'œuvre occasionnelle', icon: Zap, color: 'bg-[#c69f6e]/10', iconColor: 'text-[#c69f6e]', items: expenseDetails.extras },
+                                        { title: 'Primes', subtitle: 'Récompenses & Bonus', icon: Sparkles, color: 'bg-[#2d6a4f]/10', iconColor: 'text-[#2d6a4f]', items: expenseDetails.primes }
+                                    ].map((cat, idx) => {
+                                        const total = cat.amount !== undefined ? cat.amount : cat.items.reduce((sum, item) => sum + item.amount, 0);
+                                        if (total === 0) return null;
+                                        return (
+                                            <div key={idx} className="bg-[#fcfaf8] rounded-3xl border border-[#e6dace]/40 overflow-hidden">
+                                                <div className="p-6 flex justify-between items-center bg-white/50 border-b border-[#e6dace]/20">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className={`w-12 h-12 rounded-2xl ${cat.color} flex items-center justify-center ${cat.iconColor}`}>
+                                                            <cat.icon size={20} />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[10px] font-black text-[#8c8279] uppercase tracking-widest leading-none mb-1">{cat.title}</p>
+                                                            <p className="text-[10px] font-bold text-[#4a3426]/40 uppercase tracking-tighter">{cat.subtitle}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="text-lg font-black text-[#4a3426]">{total.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</p>
+                                                        <p className="text-[9px] font-bold text-[#8c8279] opacity-40 uppercase">DT</p>
+                                                    </div>
+                                                </div>
+                                                {cat.items && cat.items.length > 0 && (
+                                                    <div className="p-4 bg-white/30 space-y-2">
+                                                        {cat.items.map((item, i) => (
+                                                            <div key={i} className="flex justify-between items-center px-4 py-2 hover:bg-white rounded-xl transition-all border border-transparent hover:border-[#e6dace]/30">
+                                                                <span className="text-xs font-bold text-[#4a3426]/70">{item.name}</span>
+                                                                <span className="text-xs font-black text-[#4a3426]">{item.amount.toFixed(3)} DT</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </div>
-                                            <div>
-                                                <p className="text-[10px] font-black text-[#8c8279] uppercase tracking-widest leading-none mb-1">Dépenses Directes</p>
-                                                <p className="text-sm font-bold text-[#4a3426]/60 italic">(Feuille journalière)</p>
-                                            </div>
+                                        );
+                                    })}
+
+                                    <div className="my-6 border-t-2 border-dashed border-[#e6dace]/60" />
+
+                                    {/* Summaries */}
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="p-5 bg-[#4a3426]/5 rounded-3xl border border-[#4a3426]/10">
+                                            <p className="text-[9px] font-black text-[#8c8279] uppercase tracking-widest mb-1">Total Dépenses</p>
+                                            <p className="text-xl font-black text-[#4a3426] uppercase">
+                                                {(expenseDetails.journalier.reduce((a, b) => a + b.amount, 0) +
+                                                    expenseDetails.fournisseurs.reduce((a, b) => a + b.amount, 0) +
+                                                    expenseDetails.divers.reduce((a, b) => a + b.amount, 0) +
+                                                    expenseDetails.administratif.reduce((a, b) => a + b.amount, 0)).toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                                <span className="text-xs ml-1 opacity-40">DT</span>
+                                            </p>
                                         </div>
-                                        <div className="text-right">
-                                            <p className="text-xl font-black text-[#4a3426]">{stats.totalExpenses.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</p>
-                                            <p className="text-[10px] font-bold text-[#8c8279] opacity-50 uppercase">DT</p>
+                                        <div className="p-5 bg-[#2d6a4f]/5 rounded-3xl border border-[#2d6a4f]/10">
+                                            <p className="text-[9px] font-black text-[#8c8279] uppercase tracking-widest mb-1">Total Salaires</p>
+                                            <p className="text-xl font-black text-[#2d6a4f] uppercase">
+                                                {(expenseDetails.avances.reduce((a, b) => a + b.amount, 0) +
+                                                    expenseDetails.doublages.reduce((a, b) => a + b.amount, 0) +
+                                                    expenseDetails.extras.reduce((a, b) => a + b.amount, 0) +
+                                                    expenseDetails.primes.reduce((a, b) => a + b.amount, 0)).toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                                <span className="text-xs ml-1 opacity-40">DT</span>
+                                            </p>
                                         </div>
                                     </div>
-
-                                    <div className="flex justify-center">
-                                        <div className="w-6 h-6 rounded-full bg-[#f4ece4] flex items-center justify-center text-[#c69f6e]">
-                                            <Plus size={14} strokeWidth={3} />
-                                        </div>
-                                    </div>
-
-                                    {/* Riadh Expenses */}
-                                    <div className="p-6 bg-[#fcfaf8] rounded-3xl border border-[#e6dace]/40 flex justify-between items-center group hover:bg-white transition-all">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 rounded-2xl bg-[#c69f6e]/10 flex items-center justify-center text-[#c69f6e]">
-                                                <User size={20} />
-                                            </div>
-                                            <div>
-                                                <p className="text-[10px] font-black text-[#8c8279] uppercase tracking-widest leading-none mb-1">Historique Dépenses</p>
-                                                <p className="text-sm font-bold text-[#c69f6e] uppercase tracking-tighter">(Riadh)</p>
-                                            </div>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="text-xl font-black text-[#4a3426]">{stats.totalRiadhExpenses.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</p>
-                                            <p className="text-[10px] font-bold text-[#8c8279] opacity-50 uppercase">DT</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="my-6 border-t-2 border-dashed border-[#e6dace]" />
 
                                     {/* Grand Total */}
-                                    <div className="p-8 bg-gradient-to-br from-[#4a3426] to-[#2d1e16] rounded-[2rem] shadow-xl relative overflow-hidden">
+                                    <div className="p-8 bg-gradient-to-br from-[#4a3426] to-[#2d1e16] rounded-[2rem] shadow-xl relative overflow-hidden ring-4 ring-[#c69f6e]/20 mt-4">
                                         <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl -mr-16 -mt-16"></div>
                                         <div className="relative z-10 flex justify-between items-center">
                                             <div>
-                                                <p className="text-[11px] font-black text-white/50 uppercase tracking-[0.25em] mb-1">Somme Totale</p>
-                                                <p className="text-white/80 text-xs font-bold uppercase tracking-widest">Dépenses Globales</p>
+                                                <p className="text-[11px] font-black text-[#c69f6e] uppercase tracking-[0.25em] mb-1">Somme Totale</p>
+                                                <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest leading-none">Global Net Dépenses</p>
                                             </div>
                                             <div className="text-right">
                                                 <p className="text-4xl font-black text-white tracking-tighter">
-                                                    {(stats.totalExpenses + stats.totalRiadhExpenses).toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                                    {(
+                                                        expenseDetails.journalier.reduce((a, b) => a + b.amount, 0) +
+                                                        expenseDetails.fournisseurs.reduce((a, b) => a + b.amount, 0) +
+                                                        expenseDetails.divers.reduce((a, b) => a + b.amount, 0) +
+                                                        expenseDetails.administratif.reduce((a, b) => a + b.amount, 0) +
+                                                        expenseDetails.avances.reduce((a, b) => a + b.amount, 0) +
+                                                        expenseDetails.doublages.reduce((a, b) => a + b.amount, 0) +
+                                                        expenseDetails.extras.reduce((a, b) => a + b.amount, 0) +
+                                                        expenseDetails.primes.reduce((a, b) => a + b.amount, 0) +
+                                                        stats.totalRiadhExpenses
+                                                    ).toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
                                                 </p>
-                                                <p className="text-[10px] font-black text-[#c69f6e] uppercase tracking-[0.2em] mt-1">Dinar Tunisien</p>
+                                                <p className="text-[10px] font-black text-[#c69f6e]/50 uppercase tracking-[0.2em] mt-1">Dinar Tunisien</p>
                                             </div>
                                         </div>
                                     </div>
 
                                     <button
                                         onClick={() => setShowExpensesDetails(false)}
-                                        className="w-full h-14 bg-[#fcfaf8] hover:bg-[#c69f6e] text-[#8c8279] hover:text-white rounded-2xl font-black uppercase tracking-widest text-xs transition-all border border-[#e6dace]/50 mt-4 active:scale-95"
+                                        className="w-full h-14 bg-white hover:bg-[#c69f6e] text-[#8c8279] hover:text-white rounded-2xl font-black uppercase tracking-widest text-xs transition-all border border-[#e6dace] mt-4 shadow-sm"
                                     >
                                         Fermer
                                     </button>
