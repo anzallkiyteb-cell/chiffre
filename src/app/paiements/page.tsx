@@ -538,10 +538,34 @@ export default function PaiementsPage() {
     };
 
     const handleEditDepositClick = (d: any) => {
-        setEditingDeposit(d);
-        setBankAmount(d.amount);
-        setBankDate(d.date);
-        setShowBankForm(true);
+        if (showBankForm) {
+            setShowBankForm(false);
+            setEditingDeposit(null);
+            setBankAmount('');
+        } else {
+            setEditingDeposit(d);
+            setBankAmount(d.amount);
+            setBankDate(d.date);
+            setShowBankForm(true);
+        }
+    };
+
+    const handleEditHistoryItemClick = (inv: any) => {
+        if (showExpForm) {
+            setShowExpForm(false);
+            setEditingHistoryItem(null);
+            setExpName('');
+            setExpAmount('');
+        } else {
+            setEditingHistoryItem(inv);
+            setExpName(inv.supplier_name);
+            setExpAmount(inv.amount);
+            setExpDate(inv.date);
+            setExpMethod(inv.payment_method);
+            setExpDocType(inv.doc_type || 'Facture');
+            setShowExpForm(true);
+            setShowHistoryModal(false);
+        }
     };
 
     const handleDeleteDeposit = (d: any) => {
@@ -1798,16 +1822,7 @@ export default function PaiementsPage() {
                                                                 </div>
                                                                 <div className="flex items-center gap-2">
                                                                     <button
-                                                                        onClick={() => {
-                                                                            setEditingHistoryItem(inv);
-                                                                            setExpName(inv.supplier_name);
-                                                                            setExpAmount(inv.amount);
-                                                                            setExpDate(inv.date);
-                                                                            setExpMethod(inv.payment_method);
-                                                                            setExpDocType(inv.doc_type || 'Facture');
-                                                                            setShowExpForm(true);
-                                                                            setShowHistoryModal(false);
-                                                                        }}
+                                                                        onClick={() => handleEditHistoryItemClick(inv)}
                                                                         className="w-10 h-10 rounded-full border-2 border-blue-50 hover:border-blue-500 hover:bg-blue-500 hover:text-white flex items-center justify-center transition-all text-blue-400"
                                                                         title="Modifier"
                                                                     >
