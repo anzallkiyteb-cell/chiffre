@@ -9,7 +9,7 @@ import {
     Banknote, Coins, Plus, Search, Trash2, FileText, UploadCloud, ChevronDown, Check,
     LogOut, ZoomIn, ZoomOut, Maximize2, RotateCcw, LockIcon, UnlockIcon, X, PlusCircle, AlertCircle,
     Wallet, Eye, EyeOff, ChevronsRight, Upload, SlidersHorizontal, ArrowUpDown, Lock, Unlock, Settings,
-    Briefcase, User, MessageSquare, Share2, ExternalLink, List, Pencil, Save, Calculator, Zap, Sparkles
+    Briefcase, User, MessageSquare, Share2, ExternalLink, List, Pencil, Save, Calculator, Zap, Sparkles, Clock
 } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -24,14 +24,14 @@ const GET_CHIFFRES_RANGE = gql`
     getChiffresByRange(startDate: $startDate, endDate: $endDate) {
         id
         date
-        avances_details { id username montant }
-        doublages_details { id username montant }
-        extras_details { id username montant }
-        primes_details { id username montant }
+        avances_details { id username montant created_at }
+        doublages_details { id username montant created_at }
+        extras_details { id username montant created_at }
+        primes_details { id username montant created_at }
         diponce
         diponce_divers
         diponce_admin
-        restes_salaires_details { id username montant nb_jours }
+        restes_salaires_details { id username montant nb_jours created_at }
     }
   }
 `;
@@ -52,11 +52,11 @@ const GET_CHIFFRE = gql`
         tickets_restaurant
         extra
         primes
-        avances_details { id username montant }
-        doublages_details { id username montant }
-        extras_details { id username montant }
-        primes_details { id username montant }
-        restes_salaires_details { id username montant nb_jours }
+        avances_details { id username montant created_at }
+        doublages_details { id username montant created_at }
+        extras_details { id username montant created_at }
+        primes_details { id username montant created_at }
+        restes_salaires_details { id username montant nb_jours created_at }
         diponce_divers
         diponce_admin
         is_locked
@@ -725,11 +725,11 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     const [primes, setPrimes] = useState('0');
 
     // Bey Details (Now Local)
-    const [avancesList, setAvancesList] = useState<{ id?: number, username: string, montant: string }[]>([]);
-    const [doublagesList, setDoublagesList] = useState<{ id?: number, username: string, montant: string }[]>([]);
-    const [extrasList, setExtrasList] = useState<{ id?: number, username: string, montant: string }[]>([]);
-    const [primesList, setPrimesList] = useState<{ id?: number, username: string, montant: string }[]>([]);
-    const [restesSalairesList, setRestesSalairesList] = useState<{ id?: number, username: string, montant: string, nb_jours?: number }[]>([]);
+    const [avancesList, setAvancesList] = useState<{ id?: number, username: string, montant: string, created_at?: string }[]>([]);
+    const [doublagesList, setDoublagesList] = useState<{ id?: number, username: string, montant: string, created_at?: string }[]>([]);
+    const [extrasList, setExtrasList] = useState<{ id?: number, username: string, montant: string, created_at?: string }[]>([]);
+    const [primesList, setPrimesList] = useState<{ id?: number, username: string, montant: string, created_at?: string }[]>([]);
+    const [restesSalairesList, setRestesSalairesList] = useState<{ id?: number, username: string, montant: string, nb_jours?: number, created_at?: string }[]>([]);
 
     // UI States
     const [toast, setToast] = useState<{ msg: string, type: 'success' | 'error' } | null>(null);
