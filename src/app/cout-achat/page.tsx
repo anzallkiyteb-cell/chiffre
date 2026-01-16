@@ -128,6 +128,21 @@ const GET_CHIFFRES_DATA = gql`
       diponce
       diponce_divers
       diponce_admin
+      avances_details {
+        montant
+      }
+      doublages_details {
+        montant
+      }
+      extras_details {
+        montant
+      }
+      primes_details {
+        montant
+      }
+      restes_salaires_details {
+        montant
+      }
     }
     getInvoices(startDate: $startDate, endDate: $endDate) {
       id
@@ -207,9 +222,15 @@ export default function CoutAchatPage() {
                 allExpenses: [...acc.allExpenses, ...manualExpenses],
                 allDivers: [...acc.allDivers, ...JSON.parse(curr.diponce_divers || '[]')],
                 allAdmin: [...acc.allAdmin, ...JSON.parse(curr.diponce_admin || '[]')],
+                labor: acc.labor +
+                    (curr.avances_details || []).reduce((s: number, i: any) => s + (parseFloat(i.montant) || 0), 0) +
+                    (curr.doublages_details || []).reduce((s: number, i: any) => s + (parseFloat(i.montant) || 0), 0) +
+                    (curr.extras_details || []).reduce((s: number, i: any) => s + (parseFloat(i.montant) || 0), 0) +
+                    (curr.primes_details || []).reduce((s: number, i: any) => s + (parseFloat(i.montant) || 0), 0) +
+                    (curr.restes_salaires_details || []).reduce((s: number, i: any) => s + (parseFloat(i.montant) || 0), 0)
             };
         }, {
-            allExpenses: [], allDivers: [], allAdmin: []
+            allExpenses: [], allDivers: [], allAdmin: [], labor: 0
         });
 
         // Get paid and unpaid invoices directly from getInvoices
@@ -250,6 +271,7 @@ export default function CoutAchatPage() {
         const totalDirectManual = topFournisseurs.reduce((a, b) => a + b.amount, 0);
         const totalDivers = topDivers.reduce((a, b) => a + b.amount, 0);
         const totalAdmin = topAdmin.reduce((a, b) => a + b.amount, 0);
+        const totalLabor = base.labor;
 
         return {
             fournisseurs: filterByName(topFournisseurs),
@@ -259,7 +281,7 @@ export default function CoutAchatPage() {
             unpaidInvoices: filterByName(topUnpaid),
             totalPaid: totalPaidFacturation,
             totalUnpaid: totalUnpaidFacturation,
-            totalGlobalConsommation: totalPaidFacturation + totalUnpaidFacturation + totalDirectManual + totalDivers + totalAdmin
+            totalGlobalConsommation: totalPaidFacturation + totalUnpaidFacturation + totalDirectManual + totalDivers + totalAdmin + totalLabor
         };
     }, [data, searchQuery]);
 
