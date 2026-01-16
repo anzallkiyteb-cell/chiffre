@@ -2296,45 +2296,52 @@ export default function PaiementsPage() {
                                                         return parseInt(b.id) - parseInt(a.id);
                                                     })
                                                     .map((inv: any) => (
-                                                        <div key={inv.id} className="group relative bg-white p-5 rounded-[2rem] border border-[#e6dace]/60 hover:border-[#c69f6e]/60 hover:shadow-xl hover:shadow-[#c69f6e]/5 transition-all duration-300">
-                                                            <div className="flex justify-between items-center">
-                                                                {/* Actions & Amount (Left side now) */}
-                                                                <div className="flex items-center gap-4">
+                                                        <div key={inv.id} className="group relative bg-[#fdfaf8] p-8 rounded-[2.5rem] border border-[#e6dace]/50 hover:bg-white hover:border-[#c69f6e] hover:shadow-2xl hover:shadow-[#c69f6e]/10 transition-all duration-500">
+                                                            {/* Top: Supplier Name */}
+                                                            <div className="flex justify-center mb-8">
+                                                                <h3 className="font-extrabold text-[#4a3426] text-[22px] uppercase tracking-[0.2em] group-hover:text-[#c69f6e] transition-colors">
+                                                                    {inv.supplier_name}
+                                                                </h3>
+                                                            </div>
+
+                                                            <div className="flex items-center gap-12">
+                                                                {/* 1. Actions & Amount */}
+                                                                <div className="flex items-center gap-6 min-w-[200px]">
                                                                     <div className="flex items-center gap-2">
                                                                         <button
                                                                             onClick={() => handleDelete(inv)}
-                                                                            className="w-10 h-10 rounded-full border-2 border-red-50 hover:border-red-500 hover:bg-red-500 hover:text-white flex items-center justify-center transition-all text-red-400"
-                                                                            title="Supprimer / Annuler"
+                                                                            className="w-10 h-10 rounded-2xl bg-white border border-red-100 text-red-400 hover:bg-red-500 hover:text-white hover:border-red-500 flex items-center justify-center transition-all duration-300 shadow-sm"
+                                                                            title="Supprimer"
                                                                         >
                                                                             <Trash2 size={18} />
                                                                         </button>
                                                                         <button
                                                                             onClick={() => handleEditHistoryItemClick(inv)}
-                                                                            className="w-10 h-10 rounded-full border-2 border-blue-50 hover:border-blue-500 hover:bg-blue-500 hover:text-white flex items-center justify-center transition-all text-blue-400"
+                                                                            className="w-10 h-10 rounded-2xl bg-white border border-blue-100 text-blue-400 hover:bg-blue-500 hover:text-white hover:border-blue-500 flex items-center justify-center transition-all duration-300 shadow-sm"
                                                                             title="Modifier"
                                                                         >
                                                                             <Edit2 size={18} />
                                                                         </button>
                                                                     </div>
-                                                                    <div className="text-left bg-[#fdfbf7] px-4 py-2 rounded-2xl border border-[#e6dace]/30">
-                                                                        <div className="font-black text-[#4a3426] text-xl">
-                                                                            {parseFloat(inv.amount).toFixed(3)} <span className="text-xs opacity-50">DT</span>
+                                                                    <div className="flex-1 flex flex-col justify-center">
+                                                                        <div className="font-black text-[#4a3426] text-2xl tabular-nums leading-none tracking-tighter">
+                                                                            {parseFloat(inv.amount).toFixed(3)}
+                                                                            <span className="text-[10px] text-[#c69f6e] ml-1 uppercase">dt</span>
                                                                         </div>
                                                                     </div>
                                                                 </div>
 
-                                                                {/* PHOTO button (Center) */}
-                                                                <div className="flex-1 flex justify-center items-center gap-3 mx-4">
+                                                                {/* 2. Document Details (Center) */}
+                                                                <div className="flex-1 flex flex-col items-center gap-3">
                                                                     {inv.doc_type && (
-                                                                        <div className={`px-2 py-1 rounded-lg border text-[8px] font-black uppercase tracking-widest ${inv.doc_type === 'Facture' ? 'bg-blue-50 text-blue-500 border-blue-100' : 'bg-orange-50 text-orange-500 border-orange-100'}`}>
+                                                                        <span className={`px-4 py-1.5 rounded-full border text-[9px] font-black uppercase tracking-widest ${inv.doc_type === 'Facture' ? 'bg-blue-50 text-blue-500 border-blue-100' : 'bg-orange-50 text-orange-500 border-orange-100'}`}>
                                                                             {inv.doc_type}
-                                                                        </div>
+                                                                        </span>
                                                                     )}
                                                                     {(inv.photo_url || inv.photo_cheque_url || (inv.photos && inv.photos !== '[]')) ? (
                                                                         <button
                                                                             onClick={() => {
                                                                                 setSelectedSupplier(inv.supplier_name);
-                                                                                // Normalize for viewer
                                                                                 const normalized = {
                                                                                     ...inv,
                                                                                     photos: inv.photos,
@@ -2345,51 +2352,45 @@ export default function PaiementsPage() {
                                                                                 };
                                                                                 setViewingData(normalized);
                                                                             }}
-                                                                            className="flex items-center gap-2 px-6 py-2.5 bg-white hover:bg-[#c69f6e] text-[#c69f6e] hover:text-white rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border border-[#c69f6e]/20 shadow-sm hover:shadow-lg hover:shadow-[#c69f6e]/20 group/btn"
+                                                                            className="flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-[#4a3426] text-[#4a3426] hover:text-white rounded-2xl font-black text-[10px] uppercase tracking-wider transition-all border border-[#4a3426]/10 shadow-sm"
                                                                         >
-                                                                            <ImageIcon size={14} className="group-hover/btn:scale-110 transition-transform" />
-                                                                            <span>Photo</span>
+                                                                            <ImageIcon size={14} />
+                                                                            <span>Justificatif</span>
                                                                         </button>
                                                                     ) : (
-                                                                        <span className="text-[9px] font-black text-[#8c8279]/30 uppercase tracking-widest italic border border-dashed border-[#e6dace] px-3 py-1 rounded-full select-none">Pas de photo</span>
+                                                                        <span className="text-[10px] font-bold text-[#8c8279]/30 uppercase italic">Aucune Pièce</span>
                                                                     )}
                                                                 </div>
 
-                                                                {/* Info & Icon (Right side now) */}
-                                                                <div className="flex items-center gap-4 text-right">
-                                                                    <div>
-                                                                        <div className="flex items-center gap-2 mb-1 justify-end">
-                                                                            <h3 className="font-black text-[#4a3426] text-lg leading-tight group-hover:text-[#c69f6e] transition-colors">{inv.supplier_name}</h3>
-                                                                        </div>
-                                                                        <div className="flex items-center gap-2 justify-end">
-                                                                            <span className="text-[9px] font-bold text-[#8c8279] uppercase tracking-wider bg-[#f4ece4] px-2 py-0.5 rounded-full">
-                                                                                {inv.payment_method}
-                                                                            </span>
-                                                                            <span className="w-1 h-1 rounded-full bg-[#e6dace]"></span>
+                                                                {/* 3. Payment Context & Dates */}
+                                                                <div className="flex items-center gap-10 min-w-[320px] justify-end">
+                                                                    <div className="flex flex-col items-end gap-3 text-right">
+                                                                        <div className="flex items-center gap-3">
+                                                                            <span className="text-[9px] font-extrabold text-[#4a3426]/60 uppercase tracking-widest bg-[#f4ece4] px-3 py-1 rounded-full">{inv.payment_method}</span>
                                                                             {inv.origin === 'direct_expense' ? (
-                                                                                <span className="text-[9px] font-black text-red-500/70 border border-red-200 px-1.5 py-0.5 rounded uppercase tracking-tighter bg-red-50/50">Nouveau règlement</span>
+                                                                                <span className="text-[8px] font-black text-red-500 border border-red-100 px-2 py-1 rounded-lg bg-red-50 uppercase tracking-tighter">Nouveau Règlement</span>
                                                                             ) : (
-                                                                                <span className="text-[9px] font-black text-blue-500/70 border border-blue-200 px-1.5 py-0.5 rounded uppercase tracking-tighter bg-blue-50/50">Ancien règlement</span>
+                                                                                <span className="text-[8px] font-black text-blue-500 border border-blue-100 px-2 py-1 rounded-lg bg-blue-50 uppercase tracking-tighter">Ancien Règlement</span>
                                                                             )}
-                                                                            <span className="w-1 h-1 rounded-full bg-[#e6dace]"></span>
-                                                                            <div className="flex flex-col items-end gap-0.5 min-w-[100px]">
-                                                                                <div className="flex items-center gap-1.5 leading-none">
-                                                                                    <span className="text-[7.5px] font-black text-[#c69f6e] uppercase tracking-tighter">Reçue le:</span>
-                                                                                    <span className="text-[10px] font-bold text-[#4a3426] opacity-70 uppercase tracking-tighter">
-                                                                                        {new Date(inv.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                                                                    </span>
-                                                                                </div>
-                                                                                <div className="flex items-center gap-1.5 leading-none">
-                                                                                    <span className="text-[7.5px] font-black text-green-600 uppercase tracking-tighter">Réglée le:</span>
-                                                                                    <span className="text-[10px] font-black text-[#4a3426] uppercase tracking-tighter">
-                                                                                        {new Date(inv.paid_date || inv.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                                                                    </span>
-                                                                                </div>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-6">
+                                                                            <div className="flex flex-col items-end">
+                                                                                <span className="text-[7.5px] font-black text-[#c69f6e] uppercase tracking-widest mb-1">Reçue le</span>
+                                                                                <span className="text-[12px] font-black text-[#4a3426] uppercase">
+                                                                                    {new Date(inv.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                                                </span>
+                                                                            </div>
+                                                                            <div className="w-px h-6 bg-[#e6dace]"></div>
+                                                                            <div className="flex flex-col items-end">
+                                                                                <span className="text-[7.5px] font-black text-green-600 uppercase tracking-widest mb-1">Payée le</span>
+                                                                                <span className="text-[12px] font-black text-[#4a3426] uppercase">
+                                                                                    {new Date(inv.paid_date || inv.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                                                </span>
                                                                             </div>
                                                                         </div>
                                                                     </div>
-                                                                    <div className="w-12 h-12 rounded-2xl bg-[#f9f6f2] flex items-center justify-center text-[#c69f6e] group-hover:bg-[#c69f6e] group-hover:text-white transition-colors duration-300 shadow-sm">
-                                                                        <Receipt size={20} />
+                                                                    <div className="w-16 h-16 rounded-[2rem] bg-white border border-[#e6dace] flex items-center justify-center text-[#c69f6e] group-hover:bg-[#4a3426] group-hover:text-white transition-all duration-500 shadow-sm group-hover:rotate-12">
+                                                                        <Receipt size={30} />
                                                                     </div>
                                                                 </div>
                                                             </div>

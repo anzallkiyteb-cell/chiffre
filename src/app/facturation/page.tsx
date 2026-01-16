@@ -177,6 +177,7 @@ const GET_INVOICES = gql`
       photos
       doc_type
       doc_number
+      payer
     }
     getSuppliers {
       id
@@ -223,12 +224,13 @@ const ADD_INVOICE = gql`
 `;
 
 const PAY_INVOICE = gql`
-  mutation PayInvoice($id: Int!, $payment_method: String!, $paid_date: String!, $photo_cheque_url: String, $photo_verso_url: String) {
-    payInvoice(id: $id, payment_method: $payment_method, paid_date: $paid_date, photo_cheque_url: $photo_cheque_url, photo_verso_url: $photo_verso_url) {
+  mutation PayInvoice($id: Int!, $payment_method: String!, $paid_date: String!, $photo_cheque_url: String, $photo_verso_url: String, $payer: String) {
+    payInvoice(id: $id, payment_method: $payment_method, paid_date: $paid_date, photo_cheque_url: $photo_cheque_url, photo_verso_url: $photo_verso_url, payer: $payer) {
       id
       status
       photos
       paid_date
+      payer
     }
   }
 `;
@@ -337,6 +339,7 @@ export default function FacturationPage() {
     const [filterStartDate, setFilterStartDate] = useState('');
     const [filterEndDate, setFilterEndDate] = useState('');
     const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'unpaid'>('all');
+    const [payerRoleFilter, setPayerRoleFilter] = useState<'all' | 'admin' | 'caissier'>('all');
 
     // Modal state
     const [showAddModal, setShowAddModal] = useState(false);
@@ -445,10 +448,17 @@ export default function FacturationPage() {
     const filteredInvoices = useMemo(() => {
         if (!data?.getInvoices) return [];
         return data.getInvoices.filter((inv: any) => {
-            if (statusFilter === 'all') return true;
-            return inv.status === statusFilter;
+            if (statusFilter !== 'all' && inv.status !== statusFilter) return false;
+            if (payerRoleFilter !== 'all' && inv.status === 'paid') {
+                if (payerRoleFilter === 'admin') {
+                    if (inv.payer !== 'admin' && inv.payer !== 'riadh') return false;
+                } else {
+                    if (inv.payer !== payerRoleFilter) return false;
+                }
+            }
+            return true;
         });
-    }, [data, statusFilter]);
+    }, [data, statusFilter, payerRoleFilter]);
 
     useEffect(() => {
         const savedUser = localStorage.getItem('bb_user');
@@ -527,7 +537,8 @@ export default function FacturationPage() {
                             payment_method: paymentDetails.method,
                             paid_date: paymentDetails.date,
                             photo_cheque_url: paymentDetails.photo_cheque_url || null,
-                            photo_verso_url: paymentDetails.photo_verso_url || null
+                            photo_verso_url: paymentDetails.photo_verso_url || null,
+                            payer: user?.role || 'admin'
                         }
                     });
                     setShowPayModal(null);
@@ -923,6 +934,25 @@ export default function FacturationPage() {
                                         <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full font-black text-sm border border-green-200">
                                             {filteredInvoices.filter((inv: any) => inv.status === 'paid').length}
                                         </span>
+
+                                        <div className="flex bg-white/50 p-1 rounded-xl border border-green-200 ml-auto gap-1">
+                                            {[
+                                                { id: 'all', label: 'Tous' },
+                                                { id: 'admin', label: 'Admin' },
+                                                { id: 'caissier', label: 'Caissier' }
+                                            ].map(r => (
+                                                <button
+                                                    key={r.id}
+                                                    onClick={() => setPayerRoleFilter(r.id as any)}
+                                                    className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${payerRoleFilter === r.id
+                                                        ? 'bg-[#2d6a4f] text-white shadow-sm'
+                                                        : 'text-green-700/60 hover:text-green-700 hover:bg-green-50'
+                                                        }`}
+                                                >
+                                                    {r.label}
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -944,6 +974,12 @@ export default function FacturationPage() {
                                                             <div className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-white/60 text-green-700 border border-green-200">
                                                                 {inv.doc_type || 'Facture'} {inv.doc_number ? `#${inv.doc_number}` : ''}
                                                             </div>
+                                                            {inv.payer && (
+                                                                <div className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest border shadow-sm ${(inv.payer === 'admin' || inv.payer === 'riadh') ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-blue-100 text-blue-700 border-blue-200'
+                                                                    }`}>
+                                                                    {inv.payer === 'riadh' ? 'Admin' : inv.payer}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                         {inv.photo_url && (
                                                             <button

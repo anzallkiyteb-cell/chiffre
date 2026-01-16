@@ -132,14 +132,15 @@ export const resolvers = {
             }));
         },
         getChiffresByRange: async (_: any, { startDate, endDate }: { startDate: string, endDate: string }) => {
-            const [res, avances, doublages, extras, primes, paidInvoicesRes, restesSalaires] = await Promise.all([
+            const [res, avances, doublages, extras, primes, paidInvoicesRes, restesSalaires, allPaidInvoicesRes] = await Promise.all([
                 query('SELECT * FROM chiffres WHERE date >= $1 AND date <= $2 ORDER BY date ASC', [startDate, endDate]),
                 query('SELECT id, date, employee_name as username, montant FROM advances WHERE date >= $1 AND date <= $2 ORDER BY id DESC', [startDate, endDate]),
                 query('SELECT id, date, employee_name as username, montant FROM doublages WHERE date >= $1 AND date <= $2 ORDER BY id DESC', [startDate, endDate]),
                 query('SELECT id, date, employee_name as username, montant FROM extras WHERE date >= $1 AND date <= $2 ORDER BY id DESC', [startDate, endDate]),
                 query('SELECT id, date, employee_name as username, montant FROM primes WHERE date >= $1 AND date <= $2 ORDER BY id DESC', [startDate, endDate]),
                 query(`SELECT * FROM invoices WHERE status = 'paid' AND paid_date >= $1 AND paid_date <= $2 AND (payer IS NULL OR payer != 'riadh')`, [startDate, endDate]),
-                query('SELECT id, date, employee_name as username, montant, nb_jours, created_at FROM restes_salaires_daily WHERE date >= $1 AND date <= $2 ORDER BY id DESC', [startDate, endDate])
+                query('SELECT id, date, employee_name as username, montant, nb_jours, created_at FROM restes_salaires_daily WHERE date >= $1 AND date <= $2 ORDER BY id DESC', [startDate, endDate]),
+                query(`SELECT paid_date FROM invoices WHERE status = 'paid' AND paid_date >= $1 AND paid_date <= $2`, [startDate, endDate])
             ]);
 
             const normalizeDate = (d: any) => {
@@ -165,7 +166,7 @@ export const resolvers = {
             extras.rows.forEach(r => { const d = normalizeDate(r.date); if (d) allDatesSet.add(d); });
             primes.rows.forEach(r => { const d = normalizeDate(r.date); if (d) allDatesSet.add(d); });
             restesSalaires.rows.forEach(r => { const d = normalizeDate(r.date); if (d) allDatesSet.add(d); });
-            paidInvoicesRes.rows.forEach(r => { const d = normalizeDate(r.paid_date); if (d) allDatesSet.add(d); });
+            allPaidInvoicesRes.rows.forEach(r => { const d = normalizeDate(r.paid_date); if (d) allDatesSet.add(d); });
 
             const sortedDates = Array.from(allDatesSet).sort();
 

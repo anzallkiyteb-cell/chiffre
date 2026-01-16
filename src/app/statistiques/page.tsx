@@ -24,11 +24,34 @@ const GET_STATS = gql`
       recette_de_caisse
       total_diponce
       diponce
+      diponce_divers
+      diponce_admin
       recette_net
       tpe
       cheque_bancaire
       espaces
       tickets_restaurant
+      avances_details { id username montant }
+      doublages_details { id username montant }
+      extras_details { id username montant }
+      primes_details { id username montant }
+      restes_salaires_details { id username montant nb_jours }
+    }
+    getInvoices(payer: "riadh", startDate: $startDate, endDate: $endDate) {
+      id
+      supplier_name
+      amount
+      paid_date
+    }
+    getPaymentStats(startDate: $startDate, endDate: $endDate) {
+      totalRecetteCaisse
+      totalExpenses
+      totalRecetteNette
+      totalRiadhExpenses
+      totalTPE
+      totalCheque
+      totalCash
+      totalTicketsRestaurant
     }
   }
 `;
@@ -118,19 +141,30 @@ export default function StatistiquesPage() {
     const statsData = useMemo(() => {
         if (!data?.getChiffresByRange) return [];
 
+        const riadhByDate: Record<string, number> = {};
+        (data.getInvoices || []).forEach((inv: any) => {
+            const dStr = inv.paid_date;
+            if (dStr) {
+                riadhByDate[dStr] = (riadhByDate[dStr] || 0) + (parseFloat(inv.amount) || 0);
+            }
+        });
+
         const raw = data.getChiffresByRange;
         if (aggregation === 'day') {
-            return raw.map((d: any) => ({
-                name: new Date(d.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
-                fullDate: d.date,
-                recette: parseFloat(d.recette_de_caisse) || 0,
-                depenses: parseFloat(d.total_diponce) || 0,
-                net: parseFloat(d.recette_net) || 0,
-                tpe: parseFloat(d.tpe) || 0,
-                cheque: parseFloat(d.cheque_bancaire) || 0,
-                especes: parseFloat(d.espaces) || 0,
-                tickets: parseFloat(d.tickets_restaurant) || 0,
-            }));
+            return raw.map((d: any) => {
+                const riadhAmt = riadhByDate[d.date] || 0;
+                return {
+                    name: new Date(d.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
+                    fullDate: d.date,
+                    recette: parseFloat(d.recette_de_caisse) || 0,
+                    depenses: (parseFloat(d.total_diponce) || 0) + riadhAmt,
+                    net: (parseFloat(d.recette_net) || 0) - riadhAmt,
+                    tpe: parseFloat(d.tpe) || 0,
+                    cheque: parseFloat(d.cheque_bancaire) || 0,
+                    especes: parseFloat(d.espaces) || 0,
+                    tickets: parseFloat(d.tickets_restaurant) || 0,
+                };
+            });
         } else {
             // Aggregate by month
             const months: Record<string, any> = {};
@@ -142,9 +176,10 @@ export default function StatistiquesPage() {
                         recette: 0, depenses: 0, net: 0, tpe: 0, cheque: 0, especes: 0, tickets: 0, count: 0
                     };
                 }
+                const riadhAmt = riadhByDate[d.date] || 0;
                 months[m].recette += parseFloat(d.recette_de_caisse) || 0;
-                months[m].depenses += parseFloat(d.total_diponce) || 0;
-                months[m].net += parseFloat(d.recette_net) || 0;
+                months[m].depenses += (parseFloat(d.total_diponce) || 0) + riadhAmt;
+                months[m].net += (parseFloat(d.recette_net) || 0) - riadhAmt;
                 months[m].tpe += parseFloat(d.tpe) || 0;
                 months[m].cheque += parseFloat(d.cheque_bancaire) || 0;
                 months[m].especes += parseFloat(d.espaces) || 0;
@@ -156,6 +191,18 @@ export default function StatistiquesPage() {
     }, [data, aggregation]);
 
     const totals = useMemo(() => {
+        if (data?.getPaymentStats) {
+            const s = data.getPaymentStats;
+            return {
+                recette: parseFloat(s.totalRecetteCaisse) || 0,
+                depenses: (parseFloat(s.totalExpenses) || 0) + (parseFloat(s.totalRiadhExpenses) || 0),
+                net: (parseFloat(s.totalRecetteNette) || 0) - (parseFloat(s.totalRiadhExpenses) || 0),
+                tpe: parseFloat(s.totalTPE) || 0,
+                cheque: parseFloat(s.totalCheque) || 0,
+                especes: parseFloat(s.totalCash) || 0,
+                tickets: parseFloat(s.totalTicketsRestaurant) || 0,
+            };
+        }
         return statsData.reduce((acc: any, curr: any) => ({
             recette: acc.recette + curr.recette,
             depenses: acc.depenses + curr.depenses,
@@ -165,23 +212,89 @@ export default function StatistiquesPage() {
             especes: acc.especes + curr.especes,
             tickets: acc.tickets + curr.tickets,
         }), { recette: 0, depenses: 0, net: 0, tpe: 0, cheque: 0, especes: 0, tickets: 0 });
-    }, [statsData]);
+    }, [statsData, data]);
 
     const supplierData = useMemo(() => {
         if (!data?.getChiffresByRange) return [];
         const res: Record<string, number> = {};
-        data.getChiffresByRange.forEach((d: any) => {
-            const expenses = JSON.parse(d.diponce || '[]');
-            expenses.forEach((e: any) => {
-                if (e.supplier) {
-                    res[e.supplier] = (res[e.supplier] || 0) + (parseFloat(e.amount) || 0);
-                }
+
+        const processItems = (items: any[]) => {
+            items.forEach(e => {
+                const name = e.supplier || e.designation || e.name || 'Divers';
+                res[name] = (res[name] || 0) + (parseFloat(e.amount) || 0);
             });
+        };
+
+        data.getChiffresByRange.forEach((d: any) => {
+            processItems(JSON.parse(d.diponce || '[]'));
+            processItems(JSON.parse(d.diponce_divers || '[]'));
+            processItems(JSON.parse(d.diponce_admin || '[]'));
         });
+
+        // Add Riadh's invoices
+        (data.getInvoices || []).forEach((inv: any) => {
+            const name = inv.supplier_name || 'Riadh Exp';
+            res[name] = (res[name] || 0) + (parseFloat(inv.amount) || 0);
+        });
+
         return Object.entries(res).map(([name, value]) => ({ name, value }))
             .sort((a, b) => b.value - a.value)
             .slice(0, 8);
     }, [data]);
+
+    const laborData = useMemo(() => {
+        if (!data?.getChiffresByRange) return [];
+        const raw = data.getChiffresByRange;
+
+        if (aggregation === 'day') {
+            return raw.map((d: any) => {
+                const dayLabor = (d.avances_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0) +
+                    (d.doublages_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0) +
+                    (d.extras_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0) +
+                    (d.primes_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0) +
+                    (d.restes_salaires_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
+
+                return {
+                    name: new Date(d.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
+                    total: dayLabor,
+                    type: 'Journalier'
+                };
+            });
+        } else {
+            // Use combined monthly payroll + aggregated daily stuff
+            const months: Record<string, number> = {};
+            raw.forEach((d: any) => {
+                const mKey = d.date.substring(0, 7);
+                const dayLabor = (d.avances_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0) +
+                    (d.doublages_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0) +
+                    (d.extras_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0) +
+                    (d.primes_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0) +
+                    (d.restes_salaires_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
+                months[mKey] = (months[mKey] || 0) + dayLabor;
+            });
+
+            // Add official payroll from salaryData if it exists
+            (salaryData?.getMonthlySalaries || []).forEach((s: any) => {
+                // salaryData.month is long format like "janvier 2026"
+                // Let's try to find a match in the months keys or just add it
+                // To be safe, we match by looking for the month name inside the name
+                const matchedEntry = Object.entries(months).find(([key, _]) => {
+                    const monthName = new Date(key + '-01').toLocaleDateString('fr-FR', { month: 'long' });
+                    return s.month.toLowerCase().includes(monthName.toLowerCase());
+                });
+
+                if (matchedEntry) {
+                    months[matchedEntry[0]] += parseFloat(s.total) || 0;
+                }
+            });
+
+            return Object.entries(months).map(([m, val]) => ({
+                name: new Date(m + '-01').toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
+                total: val,
+                type: 'Aggregated'
+            }));
+        }
+    }, [data, aggregation, salaryData]);
 
     const intelligentInsights = useMemo(() => {
         if (statsData.length === 0) return null;
@@ -195,30 +308,31 @@ export default function StatistiquesPage() {
     const aggregatedExpensesDetailed = useMemo(() => {
         if (!data?.getChiffresByRange) return { data: [], suppliers: [] };
         let raw = data.getChiffresByRange;
+        let riadhRaw = data.getInvoices || [];
 
-        // Apply Supplier Filter
-        if (selectedSupplier !== 'Tous') {
-            raw = raw.map((d: any) => {
-                const exps = JSON.parse(d.diponce || '[]');
-                const filteredExps = exps.filter((e: any) => e.supplier === selectedSupplier);
-                return { ...d, diponce: JSON.stringify(filteredExps) };
+        const categoryTotals: Record<string, number> = {};
+        const processItems = (items: any[]) => {
+            items.forEach(e => {
+                const name = e.supplier || e.designation || e.name || 'Divers';
+                categoryTotals[name] = (categoryTotals[name] || 0) + (parseFloat(e.amount) || 0);
             });
-        }
+        };
 
-        const supplierTotals: Record<string, number> = {};
         raw.forEach((d: any) => {
-            const exps = JSON.parse(d.diponce || '[]');
-            exps.forEach((e: any) => {
-                if (!e.supplier) return;
-                supplierTotals[e.supplier] = (supplierTotals[e.supplier] || 0) + (parseFloat(e.amount) || 0);
-            });
+            processItems(JSON.parse(d.diponce || '[]'));
+            processItems(JSON.parse(d.diponce_divers || '[]'));
+            processItems(JSON.parse(d.diponce_admin || '[]'));
+        });
+        riadhRaw.forEach((inv: any) => {
+            const name = inv.supplier_name || 'Riadh Exp';
+            categoryTotals[name] = (categoryTotals[name] || 0) + (parseFloat(inv.amount) || 0);
         });
 
-        // Top 10 Suppliers
-        const topSuppliers = Object.entries(supplierTotals)
+        // Get top 12 contributors to simplify visuals while keeping data
+        const topCategories = Object.entries(categoryTotals)
             .sort((a, b) => b[1] - a[1])
-            .slice(0, 10)
-            .map(s => s[0]);
+            .slice(0, 12)
+            .map(c => c[0]);
 
         const aggregated: Record<string, any> = {};
         raw.forEach((d: any) => {
@@ -230,19 +344,42 @@ export default function StatistiquesPage() {
                         : new Date(d.date).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
                     Autres: 0,
                 };
-                topSuppliers.forEach(s => aggregated[key][s] = 0);
+                topCategories.forEach(c => aggregated[key][c] = 0);
             }
-            const exps = JSON.parse(d.diponce || '[]');
-            exps.forEach((e: any) => {
+
+            const allDayItems = [
+                ...JSON.parse(d.diponce || '[]'),
+                ...JSON.parse(d.diponce_divers || '[]'),
+                ...JSON.parse(d.diponce_admin || '[]')
+            ];
+
+            allDayItems.forEach(e => {
+                const name = e.supplier || e.designation || e.name || 'Divers';
                 const amt = parseFloat(e.amount) || 0;
-                if (topSuppliers.includes(e.supplier)) {
-                    aggregated[key][e.supplier] += amt;
+                if (topCategories.includes(name)) {
+                    aggregated[key][name] += amt;
                 } else {
                     aggregated[key].Autres += amt;
                 }
             });
         });
-        return { data: Object.values(aggregated), suppliers: topSuppliers };
+
+        riadhRaw.forEach((inv: any) => {
+            const dStr = inv.paid_date;
+            if (!dStr) return;
+            const key = aggregation === 'day' ? dStr : dStr.substring(0, 7);
+            if (!aggregated[key]) return;
+
+            const name = inv.supplier_name || 'Riadh Exp';
+            const amt = parseFloat(inv.amount) || 0;
+            if (topCategories.includes(name)) {
+                aggregated[key][name] += amt;
+            } else {
+                aggregated[key].Autres += amt;
+            }
+        });
+
+        return { data: Object.values(aggregated), suppliers: topCategories };
     }, [data, aggregation, selectedSupplier]);
 
     const supplierColors = [
@@ -256,6 +393,9 @@ export default function StatistiquesPage() {
         data.getChiffresByRange.forEach((d: any) => {
             const exps = JSON.parse(d.diponce || '[]');
             exps.forEach((e: any) => e.supplier && s.add(e.supplier));
+        });
+        (data.getInvoices || []).forEach((inv: any) => {
+            if (inv.supplier_name) s.add(inv.supplier_name);
         });
         return Array.from(s).sort();
     }, [data]);
@@ -520,9 +660,9 @@ export default function StatistiquesPage() {
                         </div>
                         <div className="h-[300px] w-full">
                             <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={salaryData?.getMonthlySalaries || []}>
+                                <LineChart data={laborData}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0e6dd" />
-                                    <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#8c8279', fontSize: 11 }} />
+                                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#8c8279', fontSize: 11 }} />
                                     <YAxis axisLine={false} tickLine={false} tick={{ fill: '#8c8279', fontSize: 11 }} />
                                     <RechartsTooltip
                                         formatter={(val: any) => `${parseFloat(val).toLocaleString('fr-FR', { minimumFractionDigits: 3 })} DT`}
@@ -531,7 +671,7 @@ export default function StatistiquesPage() {
                                     <Line
                                         type="monotone"
                                         dataKey="total"
-                                        name="Total Salaires"
+                                        name="Coût Main d'Oeuvre"
                                         stroke="#2d6a4f"
                                         strokeWidth={4}
                                         dot={{ r: 6, fill: '#2d6a4f', strokeWidth: 3, stroke: '#fff' }}
