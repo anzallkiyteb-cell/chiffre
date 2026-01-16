@@ -869,7 +869,7 @@ export default function PaiementsPage() {
                                     <Banknote size={16} /> Total Dépenses
                                 </div>
                                 <h3 className="text-5xl lg:text-7xl font-black tracking-tighter">
-                                    {stats.totalExpenses.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                    {(stats.totalExpenses + stats.totalRiadhExpenses).toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
                                 </h3>
                                 <span className="text-lg font-bold opacity-70 mt-2 block">DT</span>
                             </div>

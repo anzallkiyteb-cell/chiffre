@@ -442,7 +442,7 @@ export const resolvers = {
                 const d = normalizeDate(r.date);
                 if (d) {
                     if (!avancesByDate[d]) avancesByDate[d] = [];
-                    avancesByDate[d].push(r);
+                    avancesByDate[d].push({ ...r, montant: parseFloat(r.montant || '0') });
                 }
             });
             const doublagesByDate: Record<string, any[]> = {};
@@ -450,7 +450,7 @@ export const resolvers = {
                 const d = normalizeDate(r.date);
                 if (d) {
                     if (!doublagesByDate[d]) doublagesByDate[d] = [];
-                    doublagesByDate[d].push(r);
+                    doublagesByDate[d].push({ ...r, montant: parseFloat(r.montant || '0') });
                 }
             });
             const extrasByDate: Record<string, any[]> = {};
@@ -458,7 +458,7 @@ export const resolvers = {
                 const d = normalizeDate(r.date);
                 if (d) {
                     if (!extrasByDate[d]) extrasByDate[d] = [];
-                    extrasByDate[d].push(r);
+                    extrasByDate[d].push({ ...r, montant: parseFloat(r.montant || '0') });
                 }
             });
             const primesByDate: Record<string, any[]> = {};
@@ -466,7 +466,7 @@ export const resolvers = {
                 const d = normalizeDate(r.date);
                 if (d) {
                     if (!primesByDate[d]) primesByDate[d] = [];
-                    primesByDate[d].push(r);
+                    primesByDate[d].push({ ...r, montant: parseFloat(r.montant || '0') });
                 }
             });
 
@@ -480,6 +480,10 @@ export const resolvers = {
                 const c = chiffresByDate[d] || { date: d };
                 return {
                     ...c,
+                    diponce: typeof c.diponce === 'object' ? JSON.stringify(c.diponce) : c.diponce,
+                    diponce_divers: typeof c.diponce_divers === 'object' ? JSON.stringify(c.diponce_divers) : c.diponce_divers,
+                    diponce_journalier: typeof c.diponce_journalier === 'object' ? JSON.stringify(c.diponce_journalier) : c.diponce_journalier,
+                    diponce_admin: typeof c.diponce_admin === 'object' ? JSON.stringify(c.diponce_admin) : c.diponce_admin,
                     avances_details: avancesByDate[d] || [],
                     doublages_details: doublagesByDate[d] || [],
                     extras_details: extrasByDate[d] || [],
