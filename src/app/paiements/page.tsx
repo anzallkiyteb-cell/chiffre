@@ -1061,26 +1061,29 @@ export default function PaiementsPage() {
                                     <div className="space-y-4">
                                         <h4 className="text-[10px] font-black text-[#8c8279] uppercase tracking-widest px-2">Dernières dépenses réglées</h4>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                            {data?.getInvoices?.slice(0, 4).map((inv: any) => (
-                                                <div
-                                                    key={inv.id}
-                                                    onClick={() => setSelectedInvoice(inv)}
-                                                    className="p-4 bg-[#fcfaf8] rounded-2xl border border-transparent hover:border-red-100 cursor-pointer transition-all flex justify-between items-center group"
-                                                >
-                                                    <div>
-                                                        <p className="font-black text-[#4a3426] text-sm">{inv.supplier_name}</p>
-                                                        <div className="flex items-center gap-2 mt-1">
-                                                            <span className="text-[10px] font-bold text-red-500">{parseFloat(inv.amount).toFixed(3)} DT</span>
-                                                            <span className="text-[9px] font-bold text-[#8c8279] uppercase">{inv.payment_method}</span>
+                                            {(data?.getInvoices || [])
+                                                .filter((inv: any) => editingHistoryItem?.id !== inv.id)
+                                                .slice(0, 4)
+                                                .map((inv: any) => (
+                                                    <div
+                                                        key={inv.id}
+                                                        onClick={() => setSelectedInvoice(inv)}
+                                                        className="p-4 bg-[#fcfaf8] rounded-2xl border border-transparent hover:border-red-100 cursor-pointer transition-all flex justify-between items-center group"
+                                                    >
+                                                        <div>
+                                                            <p className="font-black text-[#4a3426] text-sm">{inv.supplier_name}</p>
+                                                            <div className="flex items-center gap-2 mt-1">
+                                                                <span className="text-[10px] font-bold text-red-500">{parseFloat(inv.amount).toFixed(3)} DT</span>
+                                                                <span className="text-[9px] font-bold text-[#8c8279] uppercase">{inv.payment_method}</span>
+                                                            </div>
                                                         </div>
+                                                        {(inv.photo_url || inv.photo_cheque_url || inv.photo_verso_url) && (
+                                                            <div className="bg-red-50 p-2 rounded-xl text-red-400 group-hover:bg-red-500 group-hover:text-white transition-all">
+                                                                <ImageIcon size={16} />
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                    {(inv.photo_url || inv.photo_cheque_url || inv.photo_verso_url) && (
-                                                        <div className="bg-red-50 p-2 rounded-xl text-red-400 group-hover:bg-red-500 group-hover:text-white transition-all">
-                                                            <ImageIcon size={16} />
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ))}
+                                                ))}
                                         </div>
                                     </div>
 
@@ -1217,33 +1220,36 @@ export default function PaiementsPage() {
                                 <div className="space-y-3">
                                     <h4 className="text-[10px] font-black text-[#8c8279] uppercase tracking-widest px-2">Derniers versements</h4>
                                     {data?.getBankDeposits?.length > 0 ? (
-                                        data.getBankDeposits.slice(0, 5).map((d: any) => (
-                                            <div key={d.id} className="flex justify-between items-center p-4 bg-[#fcfaf8] rounded-2xl border border-transparent hover:border-[#e6dace] transition-all group">
-                                                <div>
-                                                    <p className="text-sm font-black text-[#4a3426] text-[15px]">{parseFloat(d.amount).toFixed(3)} DT</p>
-                                                    <p className="text-[10px] font-bold text-[#8c8279] uppercase tracking-tighter">{new Date(d.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}</p>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <div className="hidden group-hover:flex items-center gap-1">
-                                                        <button
-                                                            onClick={() => handleEditDepositClick(d)}
-                                                            className="w-8 h-8 rounded-lg bg-white border border-[#e6dace] text-[#c69f6e] flex items-center justify-center hover:bg-[#c69f6e] hover:text-white transition-all"
-                                                        >
-                                                            <Edit2 size={14} />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleDeleteDeposit(d)}
-                                                            className="w-8 h-8 rounded-lg bg-white border border-red-100 text-red-400 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all"
-                                                        >
-                                                            <Trash2 size={14} />
-                                                        </button>
+                                        data.getBankDeposits
+                                            .filter((d: any) => editingDeposit?.id !== d.id)
+                                            .slice(0, 5)
+                                            .map((d: any) => (
+                                                <div key={d.id} className="flex justify-between items-center p-4 bg-[#fcfaf8] rounded-2xl border border-transparent hover:border-[#e6dace] transition-all group">
+                                                    <div>
+                                                        <p className="text-sm font-black text-[#4a3426] text-[15px]">{parseFloat(d.amount).toFixed(3)} DT</p>
+                                                        <p className="text-[10px] font-bold text-[#8c8279] uppercase tracking-tighter">{new Date(d.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}</p>
                                                     </div>
-                                                    <div className="bg-green-100 p-2 rounded-xl text-green-600">
-                                                        <TrendingUp size={16} />
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="hidden group-hover:flex items-center gap-1">
+                                                            <button
+                                                                onClick={() => handleEditDepositClick(d)}
+                                                                className="w-8 h-8 rounded-lg bg-white border border-[#e6dace] text-[#c69f6e] flex items-center justify-center hover:bg-[#c69f6e] hover:text-white transition-all"
+                                                            >
+                                                                <Edit2 size={14} />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDeleteDeposit(d)}
+                                                                className="w-8 h-8 rounded-lg bg-white border border-red-100 text-red-400 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all"
+                                                            >
+                                                                <Trash2 size={14} />
+                                                            </button>
+                                                        </div>
+                                                        <div className="bg-green-100 p-2 rounded-xl text-green-600">
+                                                            <TrendingUp size={16} />
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        ))
+                                            ))
                                     ) : (
                                         <p className="text-center py-8 text-xs font-bold text-[#8c8279] italic">Aucun versement enregistré</p>
                                     )}
