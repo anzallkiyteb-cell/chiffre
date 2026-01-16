@@ -137,6 +137,17 @@ const GET_CHIFFRES_DATA = gql`
       status
       payment_method
       paid_date
+      payer
+    }
+    getPaymentStats(startDate: $startDate, endDate: $endDate) {
+      totalRecetteCaisse
+      totalExpenses
+      totalRecetteNette
+      totalRiadhExpenses
+      totalTPE
+      totalCheque
+      totalCash
+      totalTicketsRestaurant
     }
   }
 `;
@@ -198,6 +209,8 @@ export default function CoutAchatPage() {
 
         // Get paid and unpaid invoices directly from getInvoices
         const invoices = data.getInvoices || [];
+
+        // Paid invoices should include those where payer is NULL/caissier (standard) OR riadh
         const paidInvoices = invoices.filter((inv: any) => inv.status === 'paid');
         const unpaidInvoices = invoices.filter((inv: any) => inv.status === 'pending');
 
@@ -220,14 +233,27 @@ export default function CoutAchatPage() {
             return list.filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase()));
         };
 
+        const topFournisseurs = aggregateGroup(base.allExpenses, 'supplier', 'amount');
+        const topDivers = aggregateGroup(base.allDivers, 'designation', 'amount');
+        const topAdmin = aggregateGroup(base.allAdmin, 'designation', 'amount');
+        const topPaid = aggregateGroup(paidInvoices, 'supplier_name', 'amount');
+        const topUnpaid = aggregateGroup(unpaidInvoices, 'supplier_name', 'amount');
+
+        // Totals aligned with data logic from /paiements and /statistiques
+        const totalPaidFacturation = paidInvoices.reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0);
+        const totalExpensesDirect = topFournisseurs.reduce((a, b) => a + b.amount, 0) +
+            topDivers.reduce((a, b) => a + b.amount, 0) +
+            topAdmin.reduce((a, b) => a + b.amount, 0);
+
         return {
-            fournisseurs: filterByName(aggregateGroup(base.allExpenses, 'supplier', 'amount')),
-            divers: filterByName(aggregateGroup(base.allDivers, 'designation', 'amount')),
-            admin: filterByName(aggregateGroup(base.allAdmin, 'designation', 'amount')),
-            paidInvoices: filterByName(aggregateGroup(paidInvoices, 'supplier_name', 'amount')),
-            unpaidInvoices: filterByName(aggregateGroup(unpaidInvoices, 'supplier_name', 'amount')),
-            totalPaid: paidInvoices.reduce((a: number, b: any) => a + parseFloat(b.amount), 0),
-            totalUnpaid: unpaidInvoices.reduce((a: number, b: any) => a + parseFloat(b.amount), 0)
+            fournisseurs: filterByName(topFournisseurs),
+            divers: filterByName(topDivers),
+            admin: filterByName(topAdmin),
+            paidInvoices: filterByName(topPaid),
+            unpaidInvoices: filterByName(topUnpaid),
+            totalPaid: totalPaidFacturation,
+            totalUnpaid: unpaidInvoices.reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0),
+            totalGlobalConsommation: totalPaidFacturation + totalExpensesDirect
         };
     }, [data, searchQuery]);
 
@@ -312,7 +338,7 @@ export default function CoutAchatPage() {
                                         <div className="text-[10px] font-black uppercase tracking-widest text-[#8c8279]">Consommation Totale</div>
                                     </div>
                                     <div>
-                                        <div className="text-3xl font-black tracking-tighter text-[#4a3426]">{(aggregates.totalPaid + aggregates.fournisseurs.reduce((a: number, b: any) => a + b.amount, 0) + aggregates.divers.reduce((a: number, b: any) => a + b.amount, 0) + aggregates.admin.reduce((a: number, b: any) => a + b.amount, 0)).toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</div>
+                                        <div className="text-3xl font-black tracking-tighter text-[#4a3426]">{aggregates.totalGlobalConsommation.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</div>
                                         <p className="text-[10px] font-bold uppercase tracking-widest text-[#8c8279] mt-1 text-right">Payé + Dépenses directes</p>
                                     </div>
                                 </div>
