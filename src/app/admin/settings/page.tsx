@@ -96,6 +96,20 @@ const CLEAR_LOGS = gql`
   }
 `;
 
+const GET_SYSTEM_STATUS = gql`
+  query GetSystemStatus {
+    getSystemStatus {
+      is_blocked
+    }
+  }
+`;
+
+const TOGGLE_SYSTEM_BLOCK = gql`
+  mutation ToggleSystemBlock($isBlocked: Boolean!) {
+    toggleSystemBlock(isBlocked: $isBlocked)
+  }
+`;
+
 export default function SettingsPage() {
     const { data, loading, refetch } = useQuery(GET_SETTINGS_DATA, {
         pollInterval: 20000 // Refresh every 20s to see online status changes
@@ -107,6 +121,10 @@ export default function SettingsPage() {
     const [disconnectUser] = useMutation(DISCONNECT_USER);
     const [toggleUserBlock] = useMutation(TOGGLE_USER_BLOCK);
     const [clearLogs] = useMutation(CLEAR_LOGS);
+    const [toggleSystemBlock] = useMutation(TOGGLE_SYSTEM_BLOCK);
+    const { data: statusData, refetch: refetchStatus } = useQuery(GET_SYSTEM_STATUS, { pollInterval: 30000 });
+
+    const isSystemBlocked = statusData?.getSystemStatus?.is_blocked;
 
     const [isUserModalOpen, setIsUserModalOpen] = useState(false);
     const [isDeviceModalOpen, setIsDeviceModalOpen] = useState(false);
@@ -179,6 +197,17 @@ export default function SettingsPage() {
         } catch (e) { alert('Erreur lors de l\'effacement'); }
     };
 
+    const handleToggleSystemBlock = async () => {
+        const action = isSystemBlocked ? 'DÉVERROUILLER' : 'VERROUILLER';
+        if (!confirm(`${action} tout le système ?\n\n${isSystemBlocked ? "Cela rétablira l'accès pour tous." : "Cela bloquera l'accès pour tous les caissiers."}`)) return;
+        try {
+            await toggleSystemBlock({ variables: { isBlocked: !isSystemBlocked } });
+            refetchStatus();
+        } catch (e) {
+            alert('Erreur lors du changement de statut du système');
+        }
+    };
+
     return (
         <div className="flex bg-[#fcfaf8] min-h-screen">
             <Sidebar role="admin" />
@@ -198,6 +227,29 @@ export default function SettingsPage() {
                             <p className="text-[#8c8279] font-bold text-sm uppercase tracking-widest pl-1">Hardware & Control Center</p>
                         </div>
                     </header>
+
+                    {/* Platform Status Panel */}
+                    <section className="bg-white rounded-[2.5rem] p-8 border border-[#e6dace] shadow-sm flex flex-col md:flex-row items-center justify-between gap-8">
+                        <div className="flex items-center gap-6">
+                            <div className={`p-5 rounded-[1.8rem] ${isSystemBlocked ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'} transition-all duration-500`}>
+                                {isSystemBlocked ? <ShieldAlert size={40} /> : <ShieldCheck size={40} />}
+                            </div>
+                            <div className="space-y-1">
+                                <h2 className="text-2xl font-black text-[#4a3426] uppercase tracking-tighter">Statut de la Plateforme</h2>
+                                <p className="text-[10px] font-bold text-[#bba282] uppercase tracking-[0.2em]">
+                                    {isSystemBlocked ? "Le système est actuellement verrouillé" : "Le système est opérationnel"}
+                                </p>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={handleToggleSystemBlock}
+                            className={`w-full md:w-auto h-16 px-10 rounded-2xl font-black uppercase text-xs tracking-widest transition-all flex items-center justify-center gap-3 shadow-xl ${isSystemBlocked ? 'bg-green-600 hover:bg-green-700 text-white shadow-green-600/20' : 'bg-red-600 hover:bg-red-700 text-white shadow-red-600/20'}`}
+                        >
+                            {isSystemBlocked ? <ShieldCheck size={20} /> : <ShieldAlert size={20} />}
+                            {isSystemBlocked ? "Débloquer la plateforme" : "Bloquer la plateforme"}
+                        </button>
+                    </section>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
 
@@ -553,6 +605,29 @@ function FaceCaptureModal({ onClose, onCapture }: { onClose: () => void, onCaptu
     const [step, setStep] = React.useState<number>(0); // 0: Start, 1: Frontal, 2: Left, 3: Right, 4: Done
     const [progress, setProgress] = React.useState(0);
     const [status, setStatus] = React.useState("Prêt pour l'enrôlement");
+    const [isVerifying, setIsVerifying] = React.useState(false);
+
+    // Helpers for visual verification
+    const getFrameData = () => {
+        if (!videoRef.current || !canvasRef.current) return null;
+        const ctx = canvasRef.current.getContext('2d');
+        if (!ctx) return null;
+        canvasRef.current.width = 100; // Small sample for speed
+        canvasRef.current.height = 100;
+        ctx.drawImage(videoRef.current, 0, 0, 100, 100);
+        return ctx.getImageData(0, 0, 100, 100).data;
+    };
+
+    const compareFrames = (data1: Uint8ClampedArray, data2: Uint8ClampedArray) => {
+        let diff = 0;
+        for (let i = 0; i < data1.length; i += 4) {
+            diff += Math.abs(data1[i] - data2[i]);
+            diff += Math.abs(data1[i + 1] - data2[i + 1]);
+            diff += Math.abs(data1[i + 2] - data2[i + 2]);
+        }
+        const maxDiff = 100 * 100 * 3 * 255;
+        return 1 - (diff / maxDiff);
+    };
 
     const steps = [
         { id: 0, label: 'Initialisation', desc: 'Centrer votre visage' },
@@ -582,21 +657,49 @@ function FaceCaptureModal({ onClose, onCapture }: { onClose: () => void, onCaptu
     const startEnrollment = async () => {
         setStep(1);
         setProgress(0);
+        let baseFrame: Uint8ClampedArray | null = null;
 
-        // Automated sequenced enrollment
+        // Sequence: 1 (Face), 2 (Gauche), 3 (Droite)
         for (let i = 1; i <= 3; i++) {
             setStep(i);
-            setStatus(steps[i].desc);
             setProgress(0);
+            setIsVerifying(false);
 
-            // Step Verification Phase (Automated)
-            // The process won't proceed until this loop completes (simulated verification)
-            for (let p = 0; p <= 100; p += 10) {
-                setProgress(p);
-                await new Promise(r => setTimeout(r, 150));
+            // 1. Wait for User to be in Position
+            let inPosition = false;
+            while (!inPosition) {
+                const currentFrame = getFrameData();
+                if (currentFrame && baseFrame) {
+                    const similarity = compareFrames(baseFrame, currentFrame);
+
+                    if (i === 1) {
+                        // For Frontal, just wait a bit for stability
+                        inPosition = true;
+                    } else {
+                        // For Left/Right, wait for a visible CHANGE in posture (similarity < 0.88)
+                        if (similarity < 0.88) {
+                            inPosition = true;
+                        } else {
+                            setStatus(`Veuillez tourner vers la ${steps[i].label}...`);
+                        }
+                    }
+                } else if (i === 1 && currentFrame) {
+                    baseFrame = currentFrame; // Store first frame as base
+                    inPosition = true;
+                }
+                await new Promise(r => setTimeout(r, 200));
             }
 
-            // Capture logic for the main profile
+            // 2. Verified Analysis Phase
+            setIsVerifying(true);
+            setStatus(`Vérification ${steps[i].label} en cours...`);
+            for (let p = 0; p <= 100; p += 5) {
+                setProgress(p);
+                // Ensure they STAY in position (even if simulated, we wait)
+                await new Promise(r => setTimeout(r, 100));
+            }
+
+            // Capture logic for the main profile (saved data)
             if (i === 1 && videoRef.current && canvasRef.current) {
                 const context = canvasRef.current.getContext('2d');
                 if (context) {
@@ -608,8 +711,9 @@ function FaceCaptureModal({ onClose, onCapture }: { onClose: () => void, onCaptu
                 }
             }
 
-            // Small pause between successful step verification and next instruction
-            await new Promise(r => setTimeout(r, 500));
+            setIsVerifying(false);
+            setStatus(`${steps[i].label} Validée`);
+            await new Promise(r => setTimeout(r, 800));
         }
 
         setStep(4);
@@ -720,7 +824,7 @@ function FaceCaptureModal({ onClose, onCapture }: { onClose: () => void, onCaptu
                         </div>
                     ) : (
                         <div className="w-full h-16 bg-[#fcfaf8] border border-[#e6dace] rounded-2xl flex items-center justify-center gap-4">
-                            <span className="text-[10px] font-black text-[#4a3426] uppercase animate-pulse">{steps[step].desc}</span>
+                            <span className="text-[10px] font-black text-[#4a3426] uppercase animate-pulse">{status}</span>
                         </div>
                     )}
 
