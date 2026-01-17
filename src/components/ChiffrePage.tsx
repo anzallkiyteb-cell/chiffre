@@ -9,7 +9,8 @@ import {
     Banknote, Coins, Plus, Search, Trash2, FileText, UploadCloud, ChevronDown, Check,
     LogOut, ZoomIn, ZoomOut, Maximize2, RotateCcw, LockIcon, UnlockIcon, X, PlusCircle, AlertCircle,
     Wallet, Eye, EyeOff, ChevronsRight, Upload, SlidersHorizontal, ArrowUpDown, Lock, Unlock, Settings,
-    Briefcase, User, MessageSquare, Share2, ExternalLink, List, Pencil, Save, Calculator, Zap, Sparkles, Clock, Tag
+    Briefcase, User, MessageSquare, Share2, ExternalLink, List, Pencil, Save, Calculator, Zap, Sparkles, Clock, Tag,
+    Camera, Image as ImageIcon
 } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -60,6 +61,8 @@ const GET_CHIFFRE = gql`
         diponce_divers
         diponce_admin
         offres
+        offres_data
+        caisse_photo
         is_locked
     }
 }
@@ -118,6 +121,8 @@ const SAVE_CHIFFRE = gql`
     $diponce_divers: String!
     $diponce_admin: String!
     $offres: String
+    $offres_data: String
+    $caisse_photo: String
     $payer: String
 ) {
     saveChiffre(
@@ -136,6 +141,8 @@ const SAVE_CHIFFRE = gql`
       diponce_divers: $diponce_divers
       diponce_admin: $diponce_admin
       offres: $offres
+      offres_data: $offres_data
+      caisse_photo: $caisse_photo
       payer: $payer
     ) {
         id
@@ -741,6 +748,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     const [doublagesList, setDoublagesList] = useState<{ id?: number, username: string, montant: string, created_at?: string }[]>([]);
     const [extrasList, setExtrasList] = useState<{ id?: number, username: string, montant: string, created_at?: string }[]>([]);
     const [primesList, setPrimesList] = useState<{ id?: number, username: string, montant: string, created_at?: string }[]>([]);
+    const [offresList, setOffresList] = useState<{ name: string, amount: string }[]>([]);
+    const [caissePhoto, setCaissePhoto] = useState<string | null>(null);
     const [restesSalairesList, setRestesSalairesList] = useState<{ id?: number, username: string, montant: string, nb_jours?: number, created_at?: string }[]>([]);
 
     // UI States
@@ -825,6 +834,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             setExtra(c.extra || '0');
             setPrimes(c.primes || '0');
             setOffres(c.offres || '0');
+            setOffresList(JSON.parse(c.offres_data || '[]'));
+            setCaissePhoto(c.caisse_photo || null);
             setAvancesList(c.avances_details || []);
             setDoublagesList(c.doublages_details || []);
             setExtrasList(c.extras_details || []);
@@ -1076,6 +1087,30 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         setExpensesDivers(expensesDivers.filter((_, i) => i !== index));
     };
 
+    const handleOffresChange = (index: number, field: string, value: string) => {
+        if (isLocked) return;
+        const list = [...offresList];
+        (list[index] as any)[field] = value;
+        setOffresList(list);
+        setOffres(list.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0).toString());
+        setHasInteracted(true);
+    };
+
+    const handleAddOffre = () => {
+        if (isLocked) return;
+        setOffresList([...offresList, { name: '', amount: '0' }]);
+        setHasInteracted(true);
+    };
+
+    const handleRemoveOffre = (index: number) => {
+        if (isLocked) return;
+        const list = [...offresList];
+        list.splice(index, 1);
+        setOffresList(list);
+        setOffres(list.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0).toString());
+        setHasInteracted(true);
+    };
+
     const handleShareInvoice = async (img: string) => {
         try {
             const response = await fetch(img);
@@ -1217,6 +1252,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                     extra,
                     primes,
                     offres,
+                    offres_data: JSON.stringify(offresList),
+                    caisse_photo: caissePhoto,
                     diponce_divers: JSON.stringify(expensesDivers),
                     diponce_admin: JSON.stringify(expensesAdmin),
                     payer: role
@@ -1395,6 +1432,60 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                             >
                                                 {hideRecetteCaisse ? <EyeOff size={14} /> : <Eye size={14} />}
                                             </button>
+
+                                            {/* Photo Caisse Controls */}
+                                            <div className="flex items-center gap-2 ml-4 border-l pl-4 border-[#4a3426]/10">
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    id="caisse-photo-upload"
+                                                    className="hidden"
+                                                    onChange={(e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (file) {
+                                                            const reader = new FileReader();
+                                                            reader.onloadend = () => {
+                                                                setCaissePhoto(reader.result as string);
+                                                                setHasInteracted(true);
+                                                                setToast({ msg: 'Photo caisse ajoutée', type: 'success' });
+                                                                setTimeout(() => setToast(null), 3000);
+                                                            };
+                                                            reader.readAsDataURL(file);
+                                                        }
+                                                    }}
+                                                />
+                                                <label
+                                                    htmlFor="caisse-photo-upload"
+                                                    className={`cursor-pointer group flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-[#2d6a4f]/5 transition-all
+                                                      ${isLocked ? 'pointer-events-none opacity-50' : ''}`}
+                                                    title={caissePhoto ? "Changer la photo" : "Capturer la caisse"}
+                                                >
+                                                    <Camera size={14} className="text-[#2d6a4f]" />
+                                                    <span className="text-[9px] font-black uppercase tracking-wider text-[#2d6a4f] hidden sm:block">
+                                                        {caissePhoto ? 'Modifier' : 'Capturer'}
+                                                    </span>
+                                                </label>
+
+                                                {caissePhoto && (
+                                                    <button
+                                                        onClick={() => {
+                                                            const win = window.open();
+                                                            win?.document.write(`
+                                                            <body style="margin:0;display:flex;align-items:center;justify-content:center;height:100vh;background:#000;">
+                                                                <img src="${caissePhoto}" style="max-width:100%;max-height:100%;object-fit:contain;box-shadow:0 0 20px rgba(255,255,255,0.1);" />
+                                                            </body>
+                                                        `);
+                                                        }}
+                                                        className="group flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-[#c69f6e]/10 transition-all border border-[#c69f6e]/20"
+                                                        title="Voir la photo"
+                                                    >
+                                                        <ImageIcon size={14} className="text-[#c69f6e]" />
+                                                        <span className="text-[9px] font-black uppercase tracking-wider text-[#c69f6e] hidden sm:block">
+                                                            Voir
+                                                        </span>
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
                                         {hideRecetteCaisse ? (
                                             <div className="text-6xl md:text-7xl lg:text-8xl font-black text-[#4a3426] py-1">
@@ -1433,34 +1524,77 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             </div>
                         </section>
 
-                        {/* NEW: Offres Card */}
+                        {/* NEW: Offres Card (Detailed) */}
                         <motion.section
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             className="bg-white rounded-[2rem] p-6 luxury-shadow border border-[#e6dace]/50"
                         >
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-2xl bg-[#c69f6e]/10 flex items-center justify-center text-[#c69f6e]">
-                                        <Tag size={24} />
+                            <div className="flex flex-col gap-4">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-2xl bg-[#c69f6e]/10 flex items-center justify-center text-[#c69f6e]">
+                                            <Tag size={24} />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-lg font-black text-[#4a3426] uppercase tracking-tight">Offres</h3>
+                                            <p className="text-[10px] font-black text-[#bba282] uppercase tracking-[0.2em]">Montant des offres (Informationnel)</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h3 className="text-lg font-black text-[#4a3426] uppercase tracking-tight">Offres</h3>
-                                        <p className="text-[10px] font-black text-[#bba282] uppercase tracking-[0.2em]">Montant des offres (Informationnel)</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-3 bg-[#fcfaf8] p-3 rounded-2xl border border-[#e6dace]">
-                                    <input
-                                        type="number"
-                                        value={offres}
+                                    <button
+                                        onClick={handleAddOffre}
                                         disabled={isLocked}
-                                        onFocus={(e) => { if (offres === '0') setOffres(''); }}
-                                        onBlur={(e) => { if (offres === '') setOffres('0'); }}
-                                        onChange={(e) => { setOffres(e.target.value); setHasInteracted(true); }}
-                                        className="bg-transparent text-2xl font-black text-[#4a3426] outline-none w-32 text-right"
-                                        placeholder="0"
-                                    />
-                                    <span className="text-sm font-black text-[#c69f6e]">DT</span>
+                                        className={`flex items-center gap-2 px-6 py-2 bg-white border border-[#e6dace] rounded-full text-[11px] font-bold uppercase tracking-widest text-[#c69f6e] shadow-sm hover:shadow-md hover:bg-[#fcfaf8] transition-all ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    >
+                                        <Plus size={14} />
+                                        Ajouter Offre
+                                    </button>
+                                </div>
+
+                                <div className="space-y-3">
+                                    {offresList.map((offre, index) => (
+                                        <div key={index} className="flex flex-col md:flex-row items-center gap-3">
+                                            <input
+                                                type="text"
+                                                placeholder="Nom du bénéficiaire"
+                                                value={offre.name}
+                                                disabled={isLocked}
+                                                onChange={(e) => handleOffresChange(index, 'name', e.target.value)}
+                                                className={`flex-1 bg-white border border-[#e6dace] rounded-xl h-12 px-4 font-bold text-[#4a3426] outline-none focus:border-[#c69f6e] ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
+                                            />
+                                            <div className="flex items-center gap-2 w-full md:w-auto">
+                                                <div className="relative w-full md:w-32">
+                                                    <input
+                                                        type="number"
+                                                        value={offre.amount}
+                                                        disabled={isLocked}
+                                                        onFocus={(e) => { if (offre.amount === '0') handleOffresChange(index, 'amount', ''); }}
+                                                        onBlur={(e) => { if (offre.amount === '') handleOffresChange(index, 'amount', '0'); }}
+                                                        onChange={(e) => handleOffresChange(index, 'amount', e.target.value)}
+                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 px-3 font-black text-xl outline-none focus:border-[#c69f6e] text-center ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                    />
+                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#bba282] text-xs font-black">DT</span>
+                                                </div>
+                                                <button
+                                                    onClick={() => handleRemoveOffre(index)}
+                                                    disabled={isLocked}
+                                                    className={`w-12 h-12 rounded-xl border border-red-200 text-red-300 hover:text-red-500 hover:bg-red-50 hover:border-red-300 flex items-center justify-center transition-all ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                >
+                                                    <Trash2 size={18} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {offresList.length === 0 && (
+                                        <div className="text-center py-6 text-[#8c8279] opacity-40 text-xs italic border border-dashed border-[#e6dace] rounded-2xl">
+                                            Aucune offre enregistrée
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="flex justify-end items-center gap-3 bg-[#fcfaf8] p-3 rounded-2xl border border-[#e6dace]/50 mt-2">
+                                    <span className="text-xs font-black text-[#8c8279] uppercase tracking-widest">Total Offres</span>
+                                    <span className="text-2xl font-black text-[#4a3426]">{parseFloat(offres).toFixed(3)} <span className="text-sm text-[#c69f6e]">DT</span></span>
                                 </div>
                             </div>
                         </motion.section>

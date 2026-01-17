@@ -38,6 +38,8 @@ export const typeDefs = `#graphql
     extra: String
     primes: String
     offres: String
+    offres_data: String # Stringified JSON
+    caisse_photo: String # Base64
     is_locked: Boolean
     # Bey Database Fields
     avances_details: [DetailItem]
@@ -117,6 +119,7 @@ export const typeDefs = `#graphql
     totalExpenses: Float
     totalRiadhExpenses: Float
     totalRestesSalaires: Float
+    totalOffres: Float
   }
 
   type Query {
@@ -152,6 +155,8 @@ export const typeDefs = `#graphql
       extra: String!
       primes: String!
       offres: String
+      offres_data: String
+      caisse_photo: String
       payer: String
     ): Chiffre
     

@@ -15,6 +15,7 @@ const GET_CHIFFRES_RANGE = gql`
       diponce_divers
       diponce_admin
       diponce
+      offres_data
     }
   }
 `;
@@ -40,7 +41,8 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
         restes_salaires: 'Restes Salaires',
         divers: 'Dépenses Divers',
         admin: 'Dépenses Administratif',
-        supplier: 'Dépenses Fournisseur'
+        supplier: 'Dépenses Fournisseur',
+        offres: 'Détail des Offres'
     };
 
     const detailsKeyMap: any = {
@@ -49,6 +51,7 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
         extra: 'extras_details',
         prime: 'primes_details',
         restes_salaires: 'restes_salaires_details',
+        offres: 'offres_data', // Special handling
         divers: 'diponce_divers',
         admin: 'diponce_admin',
         supplier: 'diponce'
@@ -60,7 +63,7 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
 
     historyData?.getChiffresByRange?.forEach((chiffre: any) => {
         let details = [];
-        const isJsonType = ['divers', 'admin', 'supplier'].includes(type);
+        const isJsonType = ['divers', 'admin', 'supplier', 'offres'].includes(type);
 
         if (isJsonType) {
             try {
@@ -69,7 +72,7 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
             // Normalize for logic reuse (some use 'supplier', some 'designation')
             details = details.map((d: any) => ({
                 ...d,
-                username: d.designation || d.supplier,
+                username: d.designation || d.supplier || d.name,
                 montant: d.amount
             }));
         } else {

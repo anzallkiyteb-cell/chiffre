@@ -7,7 +7,7 @@ import Sidebar from '@/components/Sidebar';
 import {
     LayoutDashboard, Loader2, Calendar,
     Wallet, TrendingUp, TrendingDown, CreditCard, Banknote, Coins, Receipt, Calculator,
-    Plus, Zap, Sparkles, Search, ChevronLeft, ChevronRight, ChevronDown, X, Eye, EyeOff, Truck, Download, Clock, Filter, RotateCcw, FileText, ZoomIn, ZoomOut, Maximize2, RotateCw
+    Plus, Zap, Sparkles, Search, ChevronLeft, ChevronRight, ChevronDown, X, Eye, EyeOff, Truck, Download, Clock, Filter, RotateCcw, FileText, ZoomIn, ZoomOut, Maximize2, RotateCw, Tag
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
@@ -144,6 +144,8 @@ const GET_CHIFFRES_MONTHLY = gql`
       restes_salaires_details { id username montant nb_jours created_at }
       diponce_divers
       diponce_admin
+      offres
+      offres_data
     }
   }
 `;
@@ -252,6 +254,7 @@ export default function DashboardPage() {
                 tickets_restaurant: acc.tickets_restaurant + parseFloat(curr.tickets_restaurant || '0'),
                 extra: acc.extra + parseFloat(curr.extra || '0'),
                 primes: acc.primes + parseFloat(curr.primes || '0'),
+                offres: acc.offres + parseFloat(curr.offres || '0'),
 
                 // Accumulate details
                 // Accumulate details with date injection
@@ -263,13 +266,14 @@ export default function DashboardPage() {
                 allRestesSalaires: [...acc.allRestesSalaires, ...curr.restes_salaires_details.map((i: any) => ({ ...i, date: curr.date }))],
                 allDivers: [...acc.allDivers, ...JSON.parse(curr.diponce_divers || '[]').map((i: any) => ({ ...i, date: curr.date, drillName: i.designation }))],
                 allAdmin: [...acc.allAdmin, ...JSON.parse(curr.diponce_admin || '[]').map((i: any) => ({ ...i, date: curr.date, drillName: i.designation }))],
+                allOffres: [...acc.allOffres, ...JSON.parse(curr.offres_data || '[]').map((i: any) => ({ ...i, date: curr.date, drillName: i.name }))],
             };
         }, {
             recette_de_caisse: 0, total_diponce: 0, recette_net: 0,
             tpe: 0, cheque_bancaire: 0, espaces: 0, tickets_restaurant: 0,
-            extra: 0, primes: 0,
+            extra: 0, primes: 0, offres: 0,
             allExpenses: [], allAvances: [], allDoublages: [], allExtras: [], allPrimes: [], allRestesSalaires: [],
-            allDivers: [], allAdmin: []
+            allDivers: [], allAdmin: [], allOffres: []
         });
 
         // Grouping function
@@ -295,6 +299,7 @@ export default function DashboardPage() {
         const groupedExpenses = filterByName(aggregateGroup(base.allExpenses, 'supplier', 'amount'));
         const groupedDivers = filterByName(aggregateGroup(base.allDivers, 'designation', 'amount'));
         const groupedAdmin = filterByName(aggregateGroup(base.allAdmin, 'designation', 'amount'));
+        const groupedOffres = filterByName(aggregateGroup(base.allOffres, 'name', 'amount'));
 
         const groupedAvances = filterByName(aggregateGroup(base.allAvances, 'username', 'montant'));
         const groupedDoublages = filterByName(aggregateGroup(base.allDoublages, 'username', 'montant'));
@@ -316,7 +321,7 @@ export default function DashboardPage() {
 
         return {
             ...base,
-            groupedExpenses, groupedDivers, groupedAdmin,
+            groupedExpenses, groupedDivers, groupedAdmin, groupedOffres,
             groupedAvances, groupedDoublages, groupedExtras, groupedPrimes, groupedRestesSalaires,
             totalGeneralExpenses, totalEmployeeExpenses
         };
@@ -585,6 +590,57 @@ export default function DashboardPage() {
                                                 )}
                                                 <span className="text-lg font-bold text-[#c69f6e]">DT</span>
                                             </div>
+                                        </div>
+                                    </div>
+
+                                    {/* TOTAL OFFRES CARD */}
+                                    <div className="bg-[#f0faf5] rounded-[2.5rem] p-8 relative overflow-hidden border border-[#d1fae5]">
+                                        <div className="absolute top-0 right-0 w-32 h-32 bg-[#c69f6e]/10 rounded-full blur-2xl -mr-16 -mt-16 pointer-events-none"></div>
+                                        <div className="flex justify-between items-end relative z-10 mb-2">
+                                            <div>
+                                                <div
+                                                    className="flex items-center gap-2 cursor-pointer group"
+                                                    onClick={() => setShowHistoryModal({ type: 'offres' })}
+                                                >
+                                                    <Tag size={18} className="text-[#2d6a4f] group-hover:scale-110 transition-transform" />
+                                                    <h3 className="text-sm font-black uppercase tracking-[0.2em] text-[#2d6a4f] group-hover:underline underline-offset-4 decoration-2">Total Offres</h3>
+                                                </div>
+                                                <p className="text-[10px] text-[#2d6a4f]/60 mt-1 uppercase tracking-wide">Montant cumulé des offres</p>
+                                            </div>
+                                            <div className="flex items-baseline gap-2">
+                                                <span className="text-4xl lg:text-5xl font-black tracking-tighter text-[#4a3426]">{aggregates.offres.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</span>
+                                                <span className="text-lg font-bold text-[#c69f6e]">DT</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Breakdown List */}
+                                        <div className="space-y-1 mt-4 border-t border-[#d1fae5] pt-4">
+                                            {aggregates.groupedOffres.slice(0, 5).map((p: any, i: number) => (
+                                                <div
+                                                    key={i}
+                                                    className="flex justify-between items-center text-xs py-1 px-2 hover:bg-[#d1fae5] rounded-lg cursor-pointer transition-colors group"
+                                                    onClick={() => setShowHistoryModal({ type: 'offres', targetName: p.name })}
+                                                >
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-4 h-4 rounded-full bg-[#2d6a4f] text-white flex items-center justify-center text-[8px] font-bold">
+                                                            {p.name.charAt(0)}
+                                                        </div>
+                                                        <span className="font-bold text-[#4a3426] group-hover:text-[#2d6a4f] transition-colors">{p.name}</span>
+                                                    </div>
+                                                    <span className="font-black text-[#2d6a4f]">{p.amount.toFixed(3)}</span>
+                                                </div>
+                                            ))}
+                                            {aggregates.groupedOffres.length === 0 && (
+                                                <div className="text-center text-[10px] text-[#2d6a4f]/50 italic py-2">Aucune donnée</div>
+                                            )}
+                                            {aggregates.groupedOffres.length > 5 && (
+                                                <div
+                                                    className="text-center text-[10px] font-bold text-[#2d6a4f] cursor-pointer hover:underline mt-2 uppercase tracking-wider"
+                                                    onClick={() => setShowHistoryModal({ type: 'offres' })}
+                                                >
+                                                    + {aggregates.groupedOffres.length - 5} autres
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -894,7 +950,7 @@ export default function DashboardPage() {
                     startDate={dateRange.start}
                     endDate={dateRange.end}
                 />
-            </div >
+            </div>
 
             <AnimatePresence>
                 {

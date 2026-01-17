@@ -244,6 +244,7 @@ export const resolvers = {
                     tickets_restaurant: '0',
                     extra: '0',
                     primes: '0',
+                    offres: '0',
                     diponce_divers: '[]',
                     diponce_admin: '[]'
                 };
@@ -407,7 +408,7 @@ export const resolvers = {
 
             const paidDateFilter = filterBy === 'date' ? dateFilter : dateFilter.replace('date', 'paid_date');
 
-            const [netRes, invoicesRes, unpaidInvoicesRes, tpeRes, chequeRes, cashRes, bankRes, caisseRes, expRes, ticketRes, riadhRes, restesSalairesRes] = await Promise.all([
+            const [netRes, invoicesRes, unpaidInvoicesRes, tpeRes, chequeRes, cashRes, bankRes, caisseRes, expRes, ticketRes, riadhRes, restesSalairesRes, offresRes] = await Promise.all([
                 query(`SELECT SUM(CAST(NULLIF(REPLACE(recette_net, ',', '.'), '') AS NUMERIC)) as total FROM chiffres WHERE date ${dateFilter}`, params),
                 query(`SELECT SUM(CAST(NULLIF(REPLACE(amount, ',', '.'), '') AS NUMERIC)) as total FROM invoices WHERE status = 'paid' AND (payer IS NULL OR payer != 'riadh') AND ${filterBy === 'date' ? 'date' : 'paid_date'} ${paidDateFilter}`, params),
                 query(`SELECT SUM(CAST(NULLIF(REPLACE(amount, ',', '.'), '') AS NUMERIC)) as total FROM invoices WHERE status = 'unpaid' AND date ${dateFilter}`, params),
@@ -419,7 +420,8 @@ export const resolvers = {
                 query(`SELECT SUM(CAST(NULLIF(REPLACE(total_diponce, ',', '.'), '') AS NUMERIC)) as total FROM chiffres WHERE date ${dateFilter}`, params),
                 query(`SELECT SUM(CAST(NULLIF(REPLACE(tickets_restaurant, ',', '.'), '') AS NUMERIC)) as total FROM chiffres WHERE date ${dateFilter}`, params),
                 query(`SELECT SUM(CAST(NULLIF(REPLACE(amount, ',', '.'), '') AS NUMERIC)) as total FROM invoices WHERE status = 'paid' AND payer = 'riadh' AND ${filterBy === 'date' ? 'date' : 'paid_date'} ${paidDateFilter}`, params),
-                query(`SELECT SUM(montant) as total FROM restes_salaires_daily WHERE date::text ${dateFilter}`, params)
+                query(`SELECT SUM(montant) as total FROM restes_salaires_daily WHERE date::text ${dateFilter}`, params),
+                query(`SELECT SUM(CAST(NULLIF(REPLACE(offres, ',', '.'), '') AS NUMERIC)) as total FROM chiffres WHERE date ${dateFilter}`, params)
             ]);
 
             const tBankDeposits = parseFloat(bankRes.rows[0]?.total || '0');
@@ -437,7 +439,8 @@ export const resolvers = {
                 totalExpenses: parseFloat(expRes.rows[0]?.total || '0'),
                 totalTicketsRestaurant: parseFloat(ticketRes.rows[0]?.total || '0'),
                 totalRiadhExpenses: parseFloat(riadhRes.rows[0]?.total || '0'),
-                totalRestesSalaires: parseFloat(restesSalairesRes.rows[0]?.total || '0')
+                totalRestesSalaires: parseFloat(restesSalairesRes.rows[0]?.total || '0'),
+                totalOffres: parseFloat(offresRes.rows[0]?.total || '0')
             };
         },
         getBankDeposits: async (_: any, { month, startDate, endDate }: { month?: string, startDate?: string, endDate?: string }) => {
@@ -659,6 +662,8 @@ export const resolvers = {
                 extra,
                 primes,
                 offres,
+                offres_data,
+                caisse_photo,
                 diponce_divers,
                 diponce_admin,
             } = args;
@@ -740,16 +745,18 @@ export const resolvers = {
             diponce_divers = $12::jsonb, 
             diponce_admin = $13::jsonb,
             offres = $14,
+            offres_data = $15::jsonb,
+            caisse_photo = $16,
             is_locked = true
-          WHERE date = $15 RETURNING *`,
-                    [recette_de_caisse, total_diponce, diponceToSave, recette_net, tpe, tpe2, cheque_bancaire, espaces, tickets_restaurant, extra, primes, diponceDiversToSave, diponceAdminToSave, offres || '0', date]
+          WHERE date = $17 RETURNING *`,
+                    [recette_de_caisse, total_diponce, diponceToSave, recette_net, tpe, tpe2, cheque_bancaire, espaces, tickets_restaurant, extra, primes, diponceDiversToSave, diponceAdminToSave, offres || '0', offres_data || '[]', caisse_photo || null, date]
                 );
             } else {
                 // Insert
                 res = await query(
-                    `INSERT INTO chiffres (date, recette_de_caisse, total_diponce, diponce, recette_net, tpe, tpe2, cheque_bancaire, espaces, tickets_restaurant, extra, primes, diponce_divers, diponce_admin, offres, is_locked)
-           VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb, $14::jsonb, $15, true) RETURNING *`,
-                    [date, recette_de_caisse, total_diponce, diponceToSave, recette_net, tpe, tpe2, cheque_bancaire, espaces, tickets_restaurant, extra, primes, diponceDiversToSave, diponceAdminToSave, offres || '0']
+                    `INSERT INTO chiffres (date, recette_de_caisse, total_diponce, diponce, recette_net, tpe, tpe2, cheque_bancaire, espaces, tickets_restaurant, extra, primes, diponce_divers, diponce_admin, offres, offres_data, caisse_photo, is_locked)
+           VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb, $14::jsonb, $15, $16::jsonb, $17, true) RETURNING *`,
+                    [date, recette_de_caisse, total_diponce, diponceToSave, recette_net, tpe, tpe2, cheque_bancaire, espaces, tickets_restaurant, extra, primes, diponceDiversToSave, diponceAdminToSave, offres || '0', offres_data || '[]', caisse_photo || null]
                 );
             }
             const row = res.rows[0];
