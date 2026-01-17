@@ -9,9 +9,20 @@ const initDb = async () => {
         password character varying(255) COLLATE pg_catalog."default" NOT NULL,
         role character varying(50) COLLATE pg_catalog."default" NOT NULL,
         full_name character varying(100) COLLATE pg_catalog."default",
+        last_active timestamp DEFAULT NULL,
         CONSTRAINT logins_pkey PRIMARY KEY (id),
         CONSTRAINT logins_username_key UNIQUE (username)
       );
+    `);
+
+    // Ensure last_active column exists
+    await query(`
+      DO $$ 
+      BEGIN 
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='logins' AND column_name='last_active') THEN
+          ALTER TABLE public.logins ADD COLUMN last_active timestamp DEFAULT NULL;
+        END IF;
+      END $$;
     `);
 
     await query(`
@@ -161,6 +172,27 @@ const initDb = async () => {
         );
       `);
     }
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS public.settings (
+        key character varying(255) PRIMARY KEY,
+        value text
+      );
+    `);
+
+    // Initialize block status if not exists
+    await query("INSERT INTO public.settings (key, value) VALUES ('is_blocked', 'false') ON CONFLICT (key) DO NOTHING");
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS public.devices (
+        id serial PRIMARY KEY,
+        ip character varying(50) NOT NULL UNIQUE,
+        name character varying(255),
+        type character varying(50),
+        status character varying(50) DEFAULT 'offline',
+        last_seen timestamp
+      );
+    `);
 
     console.log('Database tables initialized');
   } catch (err) {

@@ -482,6 +482,35 @@ export const resolvers = {
                 amount: parseFloat(r.amount || '0')
             }));
         },
+        getConnectedDevices: async () => {
+            // In a real scenario, this would check real hardware status.
+            // For now, we fetch from the devices table and possibly mock "online" status based on last_seen.
+            const res = await query('SELECT * FROM devices ORDER BY status DESC, last_seen DESC');
+            return res.rows.map(r => ({
+                ...r,
+                last_seen: r.last_seen ? new Date(r.last_seen).toISOString() : null
+            }));
+        },
+        getSystemStatus: async () => {
+            const res = await query("SELECT value FROM settings WHERE key = 'is_blocked'");
+            return {
+                is_blocked: res.rows[0]?.value === 'true'
+            };
+        },
+        getUsers: async () => {
+            const res = await query('SELECT id, username, role, full_name, last_active FROM logins ORDER BY username ASC');
+            const now = new Date();
+            return res.rows.map(r => {
+                const lastActive = r.last_active ? new Date(r.last_active) : null;
+                // Consider online if active in the last 5 minutes
+                const isOnline = lastActive && (now.getTime() - lastActive.getTime()) < 5 * 60 * 1000;
+                return {
+                    ...r,
+                    last_active: r.last_active ? new Date(r.last_active).toISOString() : null,
+                    is_online: !!isOnline
+                };
+            });
+        },
         getDailyExpenses: async (_: any, { month, startDate, endDate }: { month?: string, startDate?: string, endDate?: string }) => {
             let start = startDate;
             let end = endDate;
@@ -1061,6 +1090,58 @@ export const resolvers = {
         },
         deleteSalaryRemainder: async (_: any, { id }: any) => {
             await query('DELETE FROM salary_remainders WHERE id = $1', [id]);
+            return true;
+        },
+        updatePassword: async (_: any, { username, newPassword }: any) => {
+            await query('UPDATE public.logins SET password = $1 WHERE username = $2', [newPassword, username]);
+            return true;
+        },
+        toggleSystemBlock: async (_: any, { isBlocked }: { isBlocked: boolean }) => {
+            await query("UPDATE public.settings SET value = $1 WHERE key = 'is_blocked'", [isBlocked.toString()]);
+            return true;
+        },
+        upsertUser: async (_: any, { username, password, role, full_name }: any) => {
+            const existing = await query('SELECT id FROM logins WHERE username = $1', [username]);
+            let res;
+            if (existing.rows.length > 0) {
+                res = await query(
+                    'UPDATE logins SET password = $1, role = $2, full_name = $3 WHERE username = $4 RETURNING id, username, role, full_name',
+                    [password, role, full_name, username]
+                );
+            } else {
+                res = await query(
+                    'INSERT INTO logins (username, password, role, full_name) VALUES ($1, $2, $3, $4) RETURNING id, username, role, full_name',
+                    [username, password, role, full_name]
+                );
+            }
+            return res.rows[0];
+        },
+        deleteUser: async (_: any, { id }: any) => {
+            await query('DELETE FROM logins WHERE id = $1', [id]);
+            return true;
+        },
+        upsertDevice: async (_: any, { ip, name, type }: any) => {
+            const existing = await query('SELECT id FROM devices WHERE ip = $1', [ip]);
+            let res;
+            if (existing.rows.length > 0) {
+                res = await query(
+                    'UPDATE devices SET name = $1, type = $2 WHERE ip = $3 RETURNING *',
+                    [name, type, ip]
+                );
+            } else {
+                res = await query(
+                    'INSERT INTO devices (ip, name, type, status) VALUES ($1, $2, $3, \'offline\') RETURNING *',
+                    [ip, name, type]
+                );
+            }
+            return res.rows[0];
+        },
+        deleteDevice: async (_: any, { id }: any) => {
+            await query('DELETE FROM devices WHERE id = $1', [id]);
+            return true;
+        },
+        heartbeat: async (_: any, { username }: { username: string }) => {
+            await query('UPDATE logins SET last_active = CURRENT_TIMESTAMP WHERE username = $1', [username]);
             return true;
         },
     },

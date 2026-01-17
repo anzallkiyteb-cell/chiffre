@@ -122,6 +122,28 @@ export const typeDefs = `#graphql
     totalOffres: Float
   }
 
+  type UserAccount {
+    id: Int
+    username: String
+    role: String
+    full_name: String
+    last_active: String
+    is_online: Boolean
+  }
+
+  type Device {
+    id: Int
+    ip: String
+    name: String
+    type: String
+    status: String
+    last_seen: String
+  }
+
+  type SystemStatus {
+    is_blocked: Boolean
+  }
+
   type Query {
     getChiffreByDate(date: String!): Chiffre
     getChiffresByRange(startDate: String!, endDate: String!): [Chiffre]
@@ -136,6 +158,9 @@ export const typeDefs = `#graphql
     getDailyExpenses(month: String, startDate: String, endDate: String): [Chiffre]
     getEmployees: [Employee]
     getSalaryRemainders(month: String): [SalaryRemainder]
+    getConnectedDevices: [Device]
+    getSystemStatus: SystemStatus
+    getUsers: [UserAccount]
   }
 
   type Mutation {
@@ -257,5 +282,16 @@ export const typeDefs = `#graphql
     
     upsertSalaryRemainder(employee_name: String!, amount: Float!, month: String!, status: String): SalaryRemainder
     deleteSalaryRemainder(id: Int!): Boolean
+
+    updatePassword(username: String!, newPassword: String!): Boolean
+    toggleSystemBlock(isBlocked: Boolean!): Boolean
+
+    upsertUser(username: String!, password: String!, role: String!, full_name: String): UserAccount
+    deleteUser(id: Int!): Boolean
+    
+    upsertDevice(ip: String!, name: String, type: String): Device
+    deleteDevice(id: Int!): Boolean
+
+    heartbeat(username: String!): Boolean
   }
 `;
