@@ -231,13 +231,13 @@ export default function CoutAchatPage() {
         const invoices = data.getInvoices || [];
 
         const matchesCategory = (item: any) => {
-            const cat = (item.category || '').toLowerCase();
+            const cat = (item.category || '').trim().toLowerCase();
             // Strictly exclude administrative costs from this page
-            if (cat === 'administratif' || cat === 'admin') return false;
+            if (cat === 'administratif' || cat === 'admin' || cat === 'personnel') return false;
 
             if (categoryFilter === 'tous') return true;
             if (categoryFilter === 'fournisseur') {
-                return cat === '' || cat === 'fournisseur';
+                return cat === '' || cat === 'fournisseur' || cat === 'matiere premiere';
             }
             if (categoryFilter === 'divers') {
                 return cat === 'divers';
@@ -275,9 +275,19 @@ export default function CoutAchatPage() {
         const paidInvoices = filteredInvoices.filter((inv: any) => inv.status === 'paid');
         const unpaidInvoices = filteredInvoices.filter((inv: any) => inv.status !== 'paid');
 
-        // Split into Supplier vs Divers for clearer UI separation
+        // Split into Supplier vs Divers
         const paidSupplierInvoices = paidInvoices.filter((i: any) => (i.category || '').toLowerCase() !== 'divers');
         const unpaidSupplierInvoices = unpaidInvoices.filter((i: any) => (i.category || '').toLowerCase() !== 'divers');
+
+        const paidDiversInvoices = paidInvoices.filter((i: any) => (i.category || '').toLowerCase() === 'divers');
+        const unpaidDiversInvoices = unpaidInvoices.filter((i: any) => (i.category || '').toLowerCase() === 'divers');
+
+        // Merge Facturation Divers into allDivers for unified view
+        const mergedDivers = [
+            ...base.allDivers,
+            ...paidDiversInvoices.map((i: any) => ({ designation: i.supplier_name, amount: i.amount, isFromFacturation: true, date: i.date })),
+            ...unpaidDiversInvoices.map((i: any) => ({ designation: i.supplier_name, amount: i.amount, isFromFacturation: true, date: i.date, status: 'unpaid' }))
+        ];
 
         const aggregateGroup = (list: any[], nameKey: string, amountKey: string) => {
             const map = new Map();
@@ -299,11 +309,11 @@ export default function CoutAchatPage() {
         };
 
         const topFournisseurs = aggregateGroup(base.allExpenses, 'supplier', 'amount');
-        const topDivers = aggregateGroup(base.allDivers, 'designation', 'amount');
+        const topDivers = aggregateGroup(mergedDivers, 'designation', 'amount');
         const topPaid = aggregateGroup(paidSupplierInvoices, 'supplier_name', 'amount');
         const topUnpaid = aggregateGroup(unpaidSupplierInvoices, 'supplier_name', 'amount');
 
-        // Detailed Metrics for Summary Cards - strictly Suppliers for 'Facture/BL' stats
+        // Detailed Metrics for Summary Cards
         const stats = {
             facturePaid: paidSupplierInvoices.filter((i: any) => (i.doc_type || '').toLowerCase() === 'facture').reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0),
             factureUnpaid: unpaidSupplierInvoices.filter((i: any) => (i.doc_type || '').toLowerCase() === 'facture').reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0),
@@ -311,11 +321,17 @@ export default function CoutAchatPage() {
             blUnpaid: unpaidSupplierInvoices.filter((i: any) => (i.doc_type || '').toLowerCase() === 'bl').reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0),
         };
 
-        const totalPaid = paidSupplierInvoices.reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0);
-        const totalUnpaid = unpaidSupplierInvoices.reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0);
+        const totalInvoicesPaid = paidSupplierInvoices.reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0) + paidDiversInvoices.reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0);
+        const totalInvoicesUnpaid = unpaidSupplierInvoices.reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0) + unpaidDiversInvoices.reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0);
+
         const totalDirectManual = topFournisseurs.reduce((a, b) => a + b.amount, 0);
-        const totalDivers = topDivers.reduce((a, b) => a + b.amount, 0);
+        const totalManualDivers = base.manualDiversOnly.reduce((a: number, b: any) => a + (parseFloat(b.amount) || 0), 0);
+        const totalDiversOverall = topDivers.reduce((a, b) => a + b.amount, 0);
         const totalLabor = base.labor;
+
+        // The "Achat Payé" card should include Invoices (Status Paid) + Direct Fournisseurs + Manual Divers
+        // Note: topDivers already includes paidDiversInvoices, so we use totalManualDivers here to avoid double counting
+        const totalPaidOverall = totalInvoicesPaid + totalDirectManual + totalManualDivers;
 
         return {
             fournisseurs: filterByName(topFournisseurs),
@@ -323,15 +339,16 @@ export default function CoutAchatPage() {
             paidInvoices: filterByName(topPaid),
             unpaidInvoices: filterByName(topUnpaid),
             rawFournisseurs: base.allExpenses,
-            rawDivers: base.allDivers,
+            rawDivers: mergedDivers,
             rawPaidInvoices: paidSupplierInvoices,
             rawUnpaidInvoices: unpaidSupplierInvoices,
-            totalPaid,
-            totalUnpaid,
+            totalPaid: totalPaidOverall,
+            totalUnpaid: totalInvoicesUnpaid,
+            totalInvoicesPaid,
             stats,
             totalDirectManual,
-            totalDivers,
-            totalGlobalConsommation: totalPaid + totalUnpaid + totalDirectManual + totalDivers + totalLabor
+            totalDivers: totalDiversOverall,
+            totalGlobalConsommation: totalPaidOverall + totalInvoicesUnpaid + totalLabor
         };
     }, [data, searchQuery, categoryFilter]);
 
@@ -420,14 +437,22 @@ export default function CoutAchatPage() {
                                     </div>
                                     <div>
                                         <div className="text-2xl font-black tracking-tighter">{aggregates.totalPaid.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</div>
-                                        <div className="flex flex-col gap-0.5 mt-2 opacity-50">
-                                            <div className="flex justify-between text-[8px] font-bold uppercase tracking-widest">
+                                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-2 opacity-50">
+                                            <div className="flex justify-between text-[7px] font-bold uppercase tracking-widest border-b border-white/10 pb-0.5">
                                                 <span>Facture:</span>
                                                 <span>{aggregates.stats.facturePaid.toFixed(3)}</span>
                                             </div>
-                                            <div className="flex justify-between text-[8px] font-bold uppercase tracking-widest">
+                                            <div className="flex justify-between text-[7px] font-bold uppercase tracking-widest border-b border-white/10 pb-0.5">
                                                 <span>BL:</span>
                                                 <span>{aggregates.stats.blPaid.toFixed(3)}</span>
+                                            </div>
+                                            <div className="flex justify-between text-[7px] font-bold uppercase tracking-widest border-b border-white/10 pb-0.5">
+                                                <span>Directes:</span>
+                                                <span>{aggregates.totalDirectManual.toFixed(3)}</span>
+                                            </div>
+                                            <div className="flex justify-between text-[7px] font-bold uppercase tracking-widest border-b border-white/10 pb-0.5">
+                                                <span>Divers:</span>
+                                                <span>{aggregates.totalDivers.toFixed(3)}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -491,7 +516,7 @@ export default function CoutAchatPage() {
                                             <span className="text-xs font-black text-[#4a3426]">{aggregates.totalDirectManual.toFixed(3)}</span>
                                         </div>
                                         <div className="flex justify-between items-center pb-1 border-b border-[#e6dace]/30">
-                                            <span className="text-[9px] font-black text-[#8c8279] uppercase">Dép. Divers</span>
+                                            <span className="text-[9px] font-black text-[#8c8279] uppercase">Dép. Divers (Man)</span>
                                             <span className="text-xs font-black text-[#4a3426]">{aggregates.totalDivers.toFixed(3)}</span>
                                         </div>
                                     </div>
@@ -512,7 +537,7 @@ export default function CoutAchatPage() {
                                         </div>
                                         <div className="flex items-center gap-4">
                                             <div className="bg-[#fdfbf7] border border-[#e6dace]/40 px-3 py-2 rounded-xl text-xs font-black text-[#2d6a4f]">
-                                                {aggregates.totalPaid.toFixed(3)} DT
+                                                {aggregates.totalInvoicesPaid.toFixed(3)} DT
                                             </div>
                                             <motion.div animate={{ rotate: expandedSections['paid'] ? 180 : 0 }} className="text-[#c69f6e]"><ChevronDown size={20} /></motion.div>
                                         </div>

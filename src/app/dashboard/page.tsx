@@ -364,7 +364,7 @@ export default function DashboardPage() {
                             <input
                                 type="text"
                                 placeholder="Rechercher..."
-                                value={searchQuery}
+                                value={searchQuery ?? ''}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="w-full h-11 md:h-12 pl-10 pr-4 bg-[#fcfaf8] border border-[#e6dace] rounded-2xl text-xs font-bold text-[#4a3426] outline-none focus:border-[#c69f6e] transition-all"
                             />
@@ -446,77 +446,83 @@ export default function DashboardPage() {
                             </section>
 
                             {/* TOTAL OFFRES CARD - TOP SECTION */}
-                            <section className="mb-8">
-                                <div className="bg-white rounded-[2rem] p-6 luxury-shadow border border-[#e6dace]/50 transition-all max-w-5xl mx-auto">
-                                    <div className="flex flex-col">
-                                        {/* Header with Total - Always Visible */}
-                                        <div className="flex items-center justify-between mb-4">
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-12 h-12 rounded-2xl bg-[#c69f6e]/10 flex items-center justify-center text-[#c69f6e]">
-                                                    <Tag size={24} />
-                                                </div>
-                                                <div>
-                                                    <h3 className="text-lg font-black text-[#4a3426] uppercase tracking-tight">Offres</h3>
-                                                    <p className="text-[10px] font-black text-[#bba282] uppercase tracking-[0.2em]">Montant cumulé des offres</p>
-                                                </div>
+                            <motion.section
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="bg-white rounded-[2rem] p-6 luxury-shadow border border-[#e6dace]/50 transition-all"
+                            >
+                                <div className="flex flex-col">
+                                    {/* Header / Summary View */}
+                                    <div
+                                        className="flex items-center justify-between cursor-pointer"
+                                        onClick={() => setIsOffresExpanded(!isOffresExpanded)}
+                                    >
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 rounded-2xl bg-[#c69f6e]/10 flex items-center justify-center text-[#c69f6e]">
+                                                <Tag size={24} />
                                             </div>
-                                            <div className="flex items-baseline gap-2">
-                                                <span className="text-3xl font-black text-[#4a3426]">{aggregates.offres.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</span>
-                                                <span className="text-sm font-bold text-[#c69f6e]">DT</span>
+                                            <div>
+                                                <h3 className="text-lg font-black text-[#4a3426] uppercase tracking-tight">Offres</h3>
+                                                {!isOffresExpanded && (
+                                                    <div className="flex items-baseline gap-2 mt-1">
+                                                        <span className="text-xl font-black text-[#4a3426]">{aggregates.offres.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</span>
+                                                        <span className="text-xs font-bold text-[#c69f6e]">DT</span>
+                                                    </div>
+                                                )}
+                                                {isOffresExpanded && (
+                                                    <p className="text-[10px] font-black text-[#bba282] uppercase tracking-[0.2em]">Montant cumulé des offres</p>
+                                                )}
                                             </div>
                                         </div>
 
-                                        {/* Collapsible Breakdown */}
-                                        {aggregates.groupedOffres.length > 0 && (
-                                            <>
-                                                <div
-                                                    className="flex items-center justify-between cursor-pointer py-2 px-3 hover:bg-[#fcfaf8] rounded-xl transition-colors"
-                                                    onClick={() => setIsOffresExpanded(!isOffresExpanded)}
-                                                >
-                                                    <span className="text-xs font-black text-[#8c8279] uppercase tracking-widest">
-                                                        Détails par personne ({aggregates.groupedOffres.length})
-                                                    </span>
-                                                    <div className={`p-1 rounded-full transition-transform duration-300 ${isOffresExpanded ? 'rotate-180 bg-[#c69f6e]/10 text-[#c69f6e]' : 'text-[#bba282]'}`}>
-                                                        <ChevronDown size={16} />
+                                        <div className="flex items-center gap-3">
+                                            <div className={`p-2 rounded-full transition-transform duration-300 ${isOffresExpanded ? 'rotate-180 bg-[#c69f6e]/10 text-[#c69f6e]' : 'text-[#bba282]'}`}>
+                                                <ChevronDown size={20} />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Expanded Content */}
+                                    <AnimatePresence>
+                                        {isOffresExpanded && (
+                                            <motion.div
+                                                initial={{ height: 0, opacity: 0 }}
+                                                animate={{ height: 'auto', opacity: 1 }}
+                                                exit={{ height: 0, opacity: 0 }}
+                                                className="overflow-hidden"
+                                            >
+                                                <div className="pt-6 border-t border-[#e6dace]/50 mt-4 space-y-4">
+                                                    <div
+                                                        className="flex justify-between items-center bg-[#fcfaf8] p-3 rounded-2xl border border-[#e6dace]/50 hover:bg-[#f0faf5] hover:border-[#2d6a4f]/30 transition-all cursor-pointer group/total"
+                                                        onClick={() => setShowHistoryModal({ isOpen: true, type: 'offres' })}
+                                                    >
+                                                        <span className="text-xs font-black text-[#8c8279] uppercase tracking-widest pl-2 group-hover/total:text-[#2d6a4f]">Total Offres Cumulées</span>
+                                                        <span className="text-2xl font-black text-[#4a3426]">{aggregates.offres.toLocaleString('fr-FR', { minimumFractionDigits: 3 })} <span className="text-sm text-[#c69f6e]">DT</span></span>
+                                                    </div>
+
+                                                    <div className="space-y-2">
+                                                        {aggregates.groupedOffres.map((p: any, i: number) => (
+                                                            <div
+                                                                key={i}
+                                                                className="flex justify-between items-center p-3 bg-[#fcfaf8] rounded-2xl border border-transparent hover:border-[#c69f6e]/30 hover:bg-white transition-all cursor-pointer group"
+                                                                onClick={() => setShowHistoryModal({ isOpen: true, type: 'offres', targetName: p.name })}
+                                                            >
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className="w-8 h-8 rounded-xl bg-[#2d6a4f] text-white flex items-center justify-center text-sm font-bold">
+                                                                        {p.name.charAt(0)}
+                                                                    </div>
+                                                                    <span className="font-bold text-[#4a3426] group-hover:text-[#2d6a4f] transition-colors">{p.name}</span>
+                                                                </div>
+                                                                <span className="font-black text-[#2d6a4f] text-sm">{p.amount.toFixed(3)} <span className="text-xs text-[#c69f6e]">DT</span></span>
+                                                            </div>
+                                                        ))}
                                                     </div>
                                                 </div>
-
-                                                <AnimatePresence>
-                                                    {isOffresExpanded && (
-                                                        <motion.div
-                                                            initial={{ height: 0, opacity: 0 }}
-                                                            animate={{ height: 'auto', opacity: 1 }}
-                                                            exit={{ height: 0, opacity: 0 }}
-                                                            className="overflow-hidden"
-                                                        >
-                                                            <div className="pt-3 space-y-2">
-                                                                {aggregates.groupedOffres.map((p: any, i: number) => (
-                                                                    <div
-                                                                        key={i}
-                                                                        className="flex justify-between items-center px-4 py-3 bg-[#fcfaf8] hover:bg-[#f0faf5] rounded-xl cursor-pointer transition-colors group border border-transparent hover:border-[#d1fae5]"
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            setShowHistoryModal({ isOpen: true, type: 'offres', targetName: p.name });
-                                                                        }}
-                                                                    >
-                                                                        <div className="flex items-center gap-3">
-                                                                            <div className="w-8 h-8 rounded-xl bg-[#2d6a4f] text-white flex items-center justify-center text-sm font-bold">
-                                                                                {p.name.charAt(0)}
-                                                                            </div>
-                                                                            <span className="font-bold text-[#4a3426] group-hover:text-[#2d6a4f] transition-colors">{p.name}</span>
-                                                                        </div>
-                                                                        <span className="font-black text-[#2d6a4f] text-sm">{p.amount.toFixed(3)} <span className="text-xs text-[#c69f6e]">DT</span></span>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        </motion.div>
-                                                    )}
-                                                </AnimatePresence>
-                                            </>
+                                            </motion.div>
                                         )}
-                                    </div>
+                                    </AnimatePresence>
                                 </div>
-                            </section>
+                            </motion.section>
 
                             {/* 2. Unified Grid for All Expense Categories */}
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">

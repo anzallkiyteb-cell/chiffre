@@ -27,6 +27,8 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
         fetchPolicy: 'network-only'
     });
 
+    const [search, setSearch] = React.useState('');
+
     if (!isOpen) return null;
 
     if (error) {
@@ -129,6 +131,23 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
         employeesList = employeesList.filter((e: any) => e.username.toLowerCase() === targetName.toLowerCase());
     }
 
+    // Flatten all entries for the global view if no targetName
+    const allEntriesFlat = (!targetName && type === 'offres')
+        ? employeesList.flatMap((emp: any) => emp.entries.map((e: any) => ({ ...e, username: emp.username })))
+            .sort((a: any, b: any) => {
+                const [da, ma, ya] = a.date.split('/').map(Number);
+                const [db, mb, yb] = b.date.split('/').map(Number);
+                const timeA = new Date(ya, ma - 1, da).getTime();
+                const timeB = new Date(yb, mb - 1, db).getTime();
+                if (timeA !== timeB) return timeB - timeA;
+                return b.username.localeCompare(a.username);
+            })
+            .filter((e: any) =>
+                e.username.toLowerCase().includes(search.toLowerCase()) ||
+                e.date.includes(search)
+            )
+        : [];
+
     return (
         <AnimatePresence>
             <motion.div
@@ -143,32 +162,70 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 0.9, opacity: 0 }}
                     onClick={e => e.stopPropagation()}
-                    className="bg-white rounded-[2.5rem] w-full max-w-2xl overflow-hidden shadow-2xl border border-[#e6dace] flex flex-col max-h-[90vh]"
+                    className={`bg-white rounded-[2.5rem] w-full ${(!targetName && type === 'offres') ? 'max-w-6xl' : 'max-w-2xl'} overflow-hidden shadow-2xl border border-[#e6dace] flex flex-col max-h-[90vh] transition-all duration-500`}
                 >
-                    <div className="p-8 space-y-4 border-b border-[#f9f6f2]">
-                        <div className="flex justify-between items-center">
+                    <div className="p-6 md:p-8 space-y-4 border-b border-[#f9f6f2]">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                             <div className="flex items-center gap-3">
-                                <div className="p-3 bg-[#fcfaf8] rounded-2xl text-[#c69f6e]">
+                                <div className="p-3 bg-[#fcfaf8] rounded-2xl text-[#c69f6e] shadow-sm">
                                     <LayoutDashboard size={24} />
                                 </div>
-                                <h3 className="text-2xl font-black text-[#4a3426] tracking-tighter uppercase">
+                                <h3 className="text-xl md:text-2xl font-black text-[#4a3426] tracking-tighter uppercase whitespace-nowrap">
                                     {targetName ? `Historique: ${targetName}` : titleMap[type]}
                                 </h3>
                             </div>
-                            <button onClick={onClose} className="p-2 hover:bg-[#f9f6f2] rounded-xl transition-colors text-[#bba282]"><X size={24} /></button>
+                            <div className="flex items-center gap-3 w-full sm:w-auto">
+                                <div className="relative flex-1 sm:flex-initial">
+                                    <input
+                                        type="text"
+                                        placeholder="Rechercher (Nom, Date...)"
+                                        value={search}
+                                        onChange={(e) => setSearch(e.target.value)}
+                                        className="h-10 md:h-12 w-full sm:w-64 pl-4 pr-10 bg-[#fcfaf8] border border-[#e6dace] rounded-xl text-xs font-bold text-[#4a3426] outline-none focus:border-[#c69f6e] shadow-inner transition-all"
+                                    />
+                                </div>
+                                <button onClick={onClose} className="p-2 hover:bg-[#f9f6f2] rounded-xl transition-all text-[#bba282] shrink-0 border border-transparent hover:border-[#e6dace]/20"><X size={24} /></button>
+                            </div>
                         </div>
-                        <p className="text-[#8c8279] font-medium pl-1">{type === 'restes_salaires' ? 'Restes Salaires' : (type?.charAt(0).toUpperCase() + type?.slice(1) + 's')} groupés par employé</p>
+                        <p className="text-[#8c8279] font-bold text-[10px] uppercase tracking-[0.2em] pl-1 opacity-60">
+                            {type === 'offres' && !targetName ? 'Visualisation globale haute-densité' : (type === 'restes_salaires' ? 'Restes Salaires' : (type?.charAt(0).toUpperCase() + type?.slice(1) + 's')) + ' groupés par bénéficiaire'}
+                        </p>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-4 bg-[#fcfaf8]/50">
+                    <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar space-y-4 bg-[#fcfaf8]/50">
                         {loading ? (
                             <div className="flex flex-col items-center justify-center py-20 gap-4">
                                 <Loader2 className="animate-spin text-[#c69f6e]" size={40} />
                                 <p className="text-[#8c8279] font-bold uppercase tracking-widest text-xs">Chargement de l'historique...</p>
                             </div>
+                        ) : (type === 'offres' && !targetName) ? (
+                            // GLOBAL HIGH-DENSITY GRID FOR ALL OFFRES
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+                                {allEntriesFlat.length > 0 ? allEntriesFlat.map((entry, idx) => (
+                                    <div key={idx} className="bg-white border border-[#e6dace]/40 p-2.5 rounded-xl shadow-sm hover:shadow-md hover:border-[#2d6a4f]/30 transition-all flex justify-between items-center group cursor-default">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            <div className="w-8 h-8 rounded-lg bg-[#2d6a4f]/5 text-[#2d6a4f] flex items-center justify-center text-[10px] font-black shrink-0 group-hover:bg-[#2d6a4f] group-hover:text-white transition-colors">
+                                                {entry.username.charAt(0)}
+                                            </div>
+                                            <div className="flex flex-col min-w-0">
+                                                <span className="text-[10px] font-black text-[#4a3426] truncate uppercase tracking-tight leading-none mb-1">{entry.username}</span>
+                                                <span className="text-[9px] font-bold text-[#bba282]">{entry.date}</span>
+                                            </div>
+                                        </div>
+                                        <div className="text-right shrink-0 ml-2">
+                                            <div className="text-[12px] font-black text-[#2d6a4f] tracking-tight leading-none">{entry.amount.toFixed(3)}</div>
+                                            <div className="text-[8px] font-bold text-[#c69f6e] uppercase tracking-tighter">DT</div>
+                                        </div>
+                                    </div>
+                                )) : (
+                                    <div className="col-span-full py-20 text-center flex flex-col items-center gap-4 opacity-40">
+                                        <p className="text-[#8c8279] italic font-medium">Aucun résultat trouvé pour "{search}"</p>
+                                    </div>
+                                )}
+                            </div>
                         ) : employeesList.length > 0 ? (
                             type === 'offres' ? (
-                                // COMPACT GRID VIEW FOR ALL OFFRES - NO SCROLLING
+                                // COMPACT VIEW FOR INDIVIDUAL EMPLOYEE OFFRES
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                     {employeesList.map((emp: any, i: number) => (
                                         <div key={i} className="bg-white rounded-2xl border border-[#e6dace]/50 shadow-sm hover:shadow-md transition-all overflow-hidden">

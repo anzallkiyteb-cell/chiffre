@@ -309,7 +309,7 @@ const EntryModal = ({ isOpen, onClose, onSubmit, type, employees = [], initialDa
                                     <input
                                         type="text"
                                         placeholder="Rechercher un employé..."
-                                        value={search}
+                                        value={search ?? ''}
                                         onChange={(e) => { setSearch(e.target.value); setShowDropdown(true); }}
                                         onFocus={() => setShowDropdown(true)}
                                         onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
@@ -339,7 +339,7 @@ const EntryModal = ({ isOpen, onClose, onSubmit, type, employees = [], initialDa
                                         type="number"
                                         placeholder="0.000"
                                         step="0.001"
-                                        value={amount}
+                                        value={amount ?? ''}
                                         onWheel={(e) => e.currentTarget.blur()}
                                         onFocus={(e) => { if (amount === '0') setAmount(''); }}
                                         onChange={(e) => setAmount(e.target.value)}
@@ -358,7 +358,7 @@ const EntryModal = ({ isOpen, onClose, onSubmit, type, employees = [], initialDa
                                         type="number"
                                         placeholder="0"
                                         step="0.5"
-                                        value={nbJours}
+                                        value={nbJours ?? ''}
                                         onWheel={(e) => e.currentTarget.blur()}
                                         onFocus={(e) => { if (nbJours === '0') setNbJours(''); }}
                                         onChange={(e) => setNbJours(e.target.value)}
@@ -1509,7 +1509,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                             >
                                                 <input
                                                     type="number"
-                                                    value={recetteCaisse}
+                                                    value={recetteCaisse ?? ''}
                                                     disabled={isLocked}
                                                     onWheel={(e) => e.currentTarget.blur()}
                                                     onFocus={(e) => { if (recetteCaisse === '0') setRecetteCaisse(''); }}
@@ -1572,8 +1572,11 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                             className="overflow-hidden"
                                         >
                                             <div className="pt-6 border-t border-[#e6dace]/50 mt-4 space-y-4">
-                                                <div className="flex justify-between items-center bg-[#fcfaf8] p-3 rounded-2xl border border-[#e6dace]/50">
-                                                    <span className="text-xs font-black text-[#8c8279] uppercase tracking-widest pl-2">Total Offres</span>
+                                                <div
+                                                    className="flex justify-between items-center bg-[#fcfaf8] p-3 rounded-2xl border border-[#e6dace]/50 hover:bg-[#f0faf5] hover:border-[#2d6a4f]/30 transition-all cursor-pointer group/total"
+                                                    onClick={() => setShowHistoryModal({ isOpen: true, type: 'offres' })}
+                                                >
+                                                    <span className="text-xs font-black text-[#8c8279] uppercase tracking-widest pl-2 group-hover/total:text-[#2d6a4f]">Total Offres</span>
                                                     <span className="text-2xl font-black text-[#4a3426]">{parseFloat(offres).toFixed(3)} <span className="text-sm text-[#c69f6e]">DT</span></span>
                                                 </div>
 
@@ -1597,7 +1600,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                             <input
                                                                 type="text"
                                                                 placeholder="Nom du bénéficiaire"
-                                                                value={offre.name}
+                                                                value={offre.name ?? ''}
                                                                 disabled={isLocked}
                                                                 onChange={(e) => handleOffresChange(index, 'name', e.target.value)}
                                                                 className={`flex-1 bg-white border border-[#e6dace] rounded-xl h-12 px-4 font-bold text-[#4a3426] outline-none focus:border-[#c69f6e] ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
@@ -1606,7 +1609,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                                 <div className="relative w-full md:w-32">
                                                                     <input
                                                                         type="number"
-                                                                        value={offre.amount}
+                                                                        value={offre.amount ?? ''}
                                                                         disabled={isLocked}
                                                                         onFocus={(e) => { if (offre.amount === '0') handleOffresChange(index, 'amount', ''); }}
                                                                         onBlur={(e) => { if (offre.amount === '') handleOffresChange(index, 'amount', '0'); }}
@@ -1668,7 +1671,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         type="number"
                                                         placeholder="0.00"
                                                         disabled={expense.isFromFacturation || isLocked}
-                                                        value={expense.amount}
+                                                        value={expense.amount ?? ''}
                                                         onWheel={(e) => e.currentTarget.blur()}
                                                         onFocus={(e) => { if (expense.amount === '0') handleDetailChange(index, 'amount', ''); }}
                                                         onChange={(e) => handleDetailChange(index, 'amount', e.target.value)}
@@ -1684,7 +1687,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                     <input
                                                         type="text"
                                                         placeholder="Fournisseur..."
-                                                        value={expense.supplier}
+                                                        value={expense.supplier ?? ''}
                                                         disabled={expense.isFromFacturation || isLocked}
                                                         onFocus={() => {
                                                             if (!expense.isFromFacturation) {
@@ -1901,7 +1904,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                     <input
                                                         type="number"
                                                         placeholder="0.00"
-                                                        value={divers.amount}
+                                                        value={divers.amount ?? ''}
                                                         disabled={isLocked}
                                                         onWheel={(e) => e.currentTarget.blur()}
                                                         onFocus={(e) => { if (divers.amount === '0') handleDiversChange(index, 'amount', ''); }}
@@ -1916,7 +1919,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                     <input
                                                         type="text"
                                                         placeholder="Désignation Divers..."
-                                                        value={divers.designation}
+                                                        value={divers.designation ?? ''}
                                                         disabled={isLocked}
                                                         onFocus={() => {
                                                             setShowDiversDropdown(index);
@@ -2068,7 +2071,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                     <input
                                                         type="number"
                                                         placeholder="0.00"
-                                                        value={admin.amount}
+                                                        value={admin.amount ?? ''}
                                                         disabled={isLocked}
                                                         onWheel={(e) => e.currentTarget.blur()}
                                                         onFocus={(e) => { if (admin.amount === '0') handleAdminChange(index, 'amount', ''); }}
@@ -2088,7 +2091,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                     </div>
                                                     <input
                                                         type="text"
-                                                        value={admin.designation}
+                                                        value={admin.designation ?? ''}
                                                         readOnly
                                                         className="w-full bg-[#f9f6f2] border border-[#e6dace] rounded-xl h-12 pl-10 pr-4 outline-none font-bold text-[#4a3426] opacity-70 cursor-not-allowed"
                                                     />
@@ -2582,7 +2585,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         <input
                                                             type="number"
                                                             disabled={isLocked}
-                                                            value={m.val}
+                                                            value={m.val ?? ''}
                                                             onWheel={(e) => e.currentTarget.blur()}
                                                             onFocus={(e) => { if (m.val === '0') m.set(''); }}
                                                             onChange={(e) => m.set(e.target.value)}
@@ -2611,7 +2614,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         <input
                                                             type="number"
                                                             disabled={m.label === 'Espèces' || isLocked}
-                                                            value={m.val}
+                                                            value={m.val ?? ''}
                                                             onWheel={(e) => e.currentTarget.blur()}
                                                             onFocus={(e) => { if (m.val === '0') m.set(''); }}
                                                             onChange={(e) => m.set(e.target.value)}
@@ -2880,7 +2883,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     <div className="relative">
                                         <textarea
                                             autoFocus
-                                            value={tempDetails}
+                                            value={tempDetails ?? ''}
                                             readOnly={isLocked}
                                             onChange={(e) => !isLocked && setTempDetails(e.target.value)}
                                             onClick={() => {
@@ -3096,7 +3099,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         type="text"
                                                         readOnly
                                                         placeholder="Département (optionnel)..."
-                                                        value={employeeDepartment}
+                                                        value={employeeDepartment ?? ''}
                                                         className="w-full h-16 bg-[#fcfaf8] border border-[#e6dace] rounded-2xl pl-14 pr-14 font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all placeholder-[#bba282]/50 cursor-pointer"
                                                         onClick={async () => {
                                                             const { value: dept } = await MySwal.fire({
