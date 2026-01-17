@@ -1,12 +1,149 @@
 'use client';
 
-import { useQuery, useMutation, gql } from '@apollo/client';
+import { useQuery, useLazyQuery, useMutation, gql } from '@apollo/client';
 import client from '@/lib/apollo-client';
 import ChiffrePage from '@/components/ChiffrePage';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { Lock, User, CheckCircle2, Loader2, ShieldAlert, ShieldCheck, Power, AlertCircle } from 'lucide-react';
+import { Lock, User, CheckCircle2, Loader2, ShieldAlert, ShieldCheck, Power, AlertCircle, Camera, Scan, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+
+function FaceIDLoginModal({ user, onClose, onSuccess }: any) {
+  const videoRef = React.useRef<HTMLVideoElement>(null);
+  const canvasRef = React.useRef<HTMLCanvasElement>(null);
+  const [stream, setStream] = React.useState<MediaStream | null>(null);
+  const [status, setStatus] = React.useState<'idle' | 'scanning' | 'success' | 'error'>('idle');
+  const [scanStep, setScanStep] = React.useState<'align' | 'depth' | 'auth'>('align');
+
+  React.useEffect(() => {
+    async function startCamera() {
+      try {
+        const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+        setStream(s);
+        if (videoRef.current) videoRef.current.srcObject = s;
+
+        // Step 1: Align
+        setTimeout(() => {
+          setScanStep('depth');
+          // Step 2: Depth Analysis
+          setTimeout(() => {
+            setScanStep('auth');
+            performScan();
+          }, 1200);
+        }, 1500);
+      } catch (e) {
+        alert('Caméra non disponible');
+        onClose();
+      }
+    }
+    startCamera();
+    return () => {
+      if (stream) stream.getTracks().forEach(t => t.stop());
+    };
+  }, []);
+
+  const performScan = async () => {
+    setStatus('scanning');
+
+    // Simulation of analysis
+    setTimeout(() => {
+      if (videoRef.current && canvasRef.current) {
+        const context = canvasRef.current.getContext('2d');
+        if (context) {
+          canvasRef.current.width = videoRef.current.videoWidth;
+          canvasRef.current.height = videoRef.current.videoHeight;
+          context.drawImage(videoRef.current, 0, 0);
+
+          setStatus('success');
+          setTimeout(() => {
+            onSuccess();
+          }, 800);
+        }
+      }
+    }, 2500);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 backdrop-blur-2xl bg-[#1a110a]/90">
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+        className="bg-white w-full max-w-sm rounded-[3.5rem] overflow-hidden shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)] border border-[rgba(196,154,108,0.2)]"
+      >
+        <div className="p-12 flex flex-col items-center">
+          <div className="relative w-56 h-56 mb-10">
+            {/* Pulsing Outer Ring */}
+            <div className="absolute -inset-4 border border-[#c69f6e]/20 rounded-full animate-ping opacity-20" />
+
+            {/* Scanner UI */}
+            <div className="absolute inset-0 rounded-full border-[6px] border-[#fcfaf8] overflow-hidden bg-black shadow-2xl relative">
+              <video ref={videoRef} autoPlay playsInline muted
+                className={`w-full h-full object-cover transition-all duration-1000 
+                ${status === 'success' ? 'sepia-0 grayscale-0' : 'grayscale brightness-110 contrast-125'} 
+                ${scanStep === 'depth' ? 'scale-110' : 'scale-100'}`}
+              />
+              {status === 'scanning' && (
+                <motion.div
+                  initial={{ top: '0%' }} animate={{ top: '100%' }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                  className="absolute left-0 w-full h-[2px] bg-[#c69f6e] shadow-[0_0_15px_#c69f6e] z-10"
+                />
+              )}
+              <canvas ref={canvasRef} className="hidden" />
+            </div>
+
+            <AnimatePresence>
+              {status === 'success' && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.5, rotate: -45 }}
+                  animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                  className="absolute -right-2 -bottom-2 bg-green-500 text-white p-4 rounded-full shadow-2xl z-30"
+                >
+                  <CheckCircle2 size={32} />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <div className="text-center space-y-4 w-full">
+            <div className="flex flex-col items-center gap-1">
+              <div className="flex items-center gap-2">
+                <Scan size={18} className="text-[#c69f6e]" />
+                <h3 className="text-xl font-black text-[#4a3426] uppercase italic tracking-tighter">
+                  {status === 'success' ? 'Accès Autorisé' : 'Scan en cours'}
+                </h3>
+              </div>
+              <p className="text-[#8c8279] font-black text-[10px] uppercase tracking-[0.2em] opacity-50">Expertise Bey Biometrics</p>
+            </div>
+
+            <div className="py-4 bg-[#fcfaf8] rounded-2xl border border-[#e6dace] border-dashed">
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-center gap-4">
+                  <span className={`w-2 h-2 rounded-full transition-all duration-300 ${scanStep === 'align' ? 'bg-[#c69f6e] scale-125' : 'bg-green-500 opacity-30 shadow-none'}`} />
+                  <span className={`w-2 h-2 rounded-full transition-all duration-300 ${scanStep === 'depth' ? 'bg-[#c69f6e] scale-125' : scanStep === 'auth' ? 'bg-green-500 opacity-30' : 'bg-[#e6dace] opacity-30'}`} />
+                  <span className={`w-2 h-2 rounded-full transition-all duration-300 ${scanStep === 'auth' ? 'bg-[#c69f6e] scale-125' : 'bg-[#e6dace] opacity-30'}`} />
+                </div>
+                <p className="text-[10px] font-black text-[#4a3426] uppercase tracking-widest animate-pulse">
+                  {status === 'success' ? 'Identité confirmée' :
+                    scanStep === 'align' ? 'Alignement du visage...' :
+                      scanStep === 'depth' ? 'Analyse de profondeur...' :
+                        'Authentification finale...'}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-[9px] font-bold text-[#bba282] uppercase opacity-60">Session de {user.full_name}</p>
+          </div>
+
+          <button
+            onClick={onClose}
+            className="mt-10 px-6 py-3 bg-white border border-[#e6dace] rounded-xl text-[9px] font-black text-[#8c8279] uppercase tracking-[0.2em] hover:bg-[#4a3426] hover:text-white transition-all shadow-sm"
+          >
+            Utiliser le mot de passe
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
 
 const GET_SYSTEM_STATUS = gql`
   query GetSystemStatus {
@@ -22,9 +159,15 @@ const TOGGLE_BLOCK = gql`
   }
 `;
 
-const HEARTBEAT = gql`
-  mutation Heartbeat($username: String!) {
-    heartbeat(username: $username)
+const RECORD_CONNECTION = gql`
+  mutation RecordConnection($username: String!, $ipAddress: String, $deviceInfo: String, $browser: String) {
+    recordConnection(username: $username, ipAddress: $ipAddress, deviceInfo: $deviceInfo, browser: $browser)
+  }
+`;
+
+const DISCONNECT_USER = gql`
+  mutation DisconnectUser($username: String!) {
+    disconnectUser(username: $username)
   }
 `;
 
@@ -36,31 +179,96 @@ export default function Home() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  const { data: statusData, refetch: refetchStatus } = useQuery(GET_SYSTEM_STATUS);
+  const { data: statusData, refetch: refetchStatus } = useQuery(GET_SYSTEM_STATUS, { pollInterval: 30000 });
   const [toggleBlock] = useMutation(TOGGLE_BLOCK);
-  const [sendHeartbeat] = useMutation(HEARTBEAT);
+  const [recordConnection] = useMutation(RECORD_CONNECTION);
+  const [disconnectUser] = useMutation(DISCONNECT_USER);
 
-  // Heartbeat Effect
-  useEffect(() => {
-    if (user?.username) {
-      // Pulse immediately
-      sendHeartbeat({ variables: { username: user.username } }).catch(console.error);
+  const [pendingUser, setPendingUser] = useState<any>(null);
+  const [isFaceLoginOpen, setIsFaceLoginOpen] = useState(false);
 
-      // Setup interval (every 30s)
-      const interval = setInterval(() => {
-        sendHeartbeat({ variables: { username: user.username } }).catch(console.error);
-      }, 30000);
+  // Check if system OR current user is blocked
+  const [isAccountBlocked, setIsAccountBlocked] = useState(false);
+  const isBlocked = statusData?.getSystemStatus?.is_blocked || isAccountBlocked;
 
-      return () => clearInterval(interval);
+  const [checkStatus] = useLazyQuery(gql`
+    query CheckUserStatus {
+      getUsers {
+        username
+        is_blocked_user
+      }
     }
-  }, [user?.username, sendHeartbeat]);
+  `, { fetchPolicy: 'network-only' });
+
+  const getDeviceInfo = () => {
+    const ua = navigator.userAgent;
+    if (/iphone/i.test(ua)) return 'iPhone Mobile';
+    if (/ipad/i.test(ua)) return 'iPad Tablet';
+    if (/android/i.test(ua)) return 'Android Device';
+    if (/windows/i.test(ua)) return 'Windows PC';
+    if (/macintosh/i.test(ua)) return 'Apple Mac';
+    if (/linux/i.test(ua)) return 'Linux System';
+    return 'Web Browser Device';
+  };
+
+  const getBrowserInfo = () => {
+    const ua = navigator.userAgent;
+    if (ua.includes('Firefox')) return 'Firefox';
+    if (ua.includes('SamsungBrowser')) return 'Samsung Browser';
+    if (ua.includes('Opera') || ua.includes('OPR')) return 'Opera';
+    if (ua.includes('Edge')) return 'Edge';
+    if (ua.includes('Chrome')) return 'Chrome';
+    if (ua.includes('Safari')) return 'Safari';
+    return 'Unknown Browser';
+  };
+
+  // Security check effect
+  useEffect(() => {
+    const checkSecurity = async () => {
+      const stored = localStorage.getItem('bb_user');
+      if (!stored) return;
+      const userData = JSON.parse(stored);
+
+      // Fetch current user status from DB
+      const { data } = await checkStatus();
+      if (!data?.getUsers) return;
+
+      const dbUser = data.getUsers.find((u: any) => u.username.toLowerCase() === userData.username.toLowerCase());
+      if (dbUser?.is_blocked_user) {
+        setIsAccountBlocked(true);
+        // If the user is blocked, log them out
+        if (user && user.username === userData.username) {
+          handleLogout();
+        }
+      } else {
+        setIsAccountBlocked(false);
+      }
+    };
+
+    checkSecurity();
+    const interval = setInterval(checkSecurity, 45000);
+    return () => clearInterval(interval);
+  }, [user]); // Re-run if user state changes
+
+  // Tab close disconnect
+  useEffect(() => {
+    const handleTabClose = () => {
+      if (user?.username) {
+        const query = `mutation { disconnectUser(username: "${user.username}") }`;
+        const blob = new Blob([JSON.stringify({ query })], { type: 'application/json' });
+        navigator.sendBeacon('/api/graphql', blob);
+      }
+    };
+    window.addEventListener('beforeunload', handleTabClose);
+    return () => window.removeEventListener('beforeunload', handleTabClose);
+  }, [user]);
 
   // Check localStorage on mount
   useEffect(() => {
-    const savedUser = localStorage.getItem('bb_user');
-    if (savedUser) {
+    const stored = localStorage.getItem('bb_user');
+    if (stored) {
       try {
-        setUser(JSON.parse(savedUser));
+        setUser(JSON.parse(stored));
       } catch (e) {
         localStorage.removeItem('bb_user');
       }
@@ -68,32 +276,93 @@ export default function Home() {
     setInitializing(false);
   }, []);
 
-  const handleLogin = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+  const [getUsersForAuth, { loading: queryLoading }] = useLazyQuery(gql`
+    query GetUsersAuth {
+      getUsers {
+        id
+        username
+        password
+        role
+        full_name
+        is_blocked_user
+        has_face_id
+        face_data
+      }
+    }
+  `, { fetchPolicy: 'network-only' });
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
     setLoading(true);
     setError('');
 
-    // Simulate API delay for smoothness
-    setTimeout(() => {
-      // Mock validation matching the user's previous request context 
-      if (username.toLowerCase() === 'admin' && password.length > 0) {
-        const userData = { role: 'admin' as const, username: 'admin', full_name: 'Administrateur' };
-        setUser(userData);
-        localStorage.setItem('bb_user', JSON.stringify(userData));
-      } else if (username.toLowerCase() === 'caissier' && password.length > 0) {
-        const userData = { role: 'caissier' as const, username: 'caissier', full_name: 'Caissier' };
-        setUser(userData);
-        localStorage.setItem('bb_user', JSON.stringify(userData));
-      } else {
-        setError('Identifiants incorrects');
-        setLoading(false);
-        return;
+    try {
+      const { data } = await getUsersForAuth();
+
+      if (!data?.getUsers) {
+        throw new Error('No data');
       }
+
+      const foundUser = data.getUsers.find(
+        (u: any) => u.username?.toLowerCase() === username.toLowerCase() && u.password === password
+      );
+
+      if (foundUser) {
+        if (foundUser.is_blocked_user) {
+          setError('Votre compte est suspendu. Contactez l\'administrateur.');
+          setIsAccountBlocked(true);
+        } else if (foundUser.has_face_id) {
+          setPendingUser(foundUser);
+          setIsFaceLoginOpen(true);
+        } else {
+          finalizeLogin(foundUser);
+        }
+      } else {
+        setError('Identifiants invalides');
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+      setError('Erreur de connexion');
+    } finally {
       setLoading(false);
-    }, 800);
+    }
   };
 
-  const handleLogout = () => {
+  const finalizeLogin = async (foundUser: any) => {
+    try {
+      const ipRes = await fetch('https://api.ipify.org?format=json').catch(() => null);
+      const ipData = ipRes ? await ipRes.json() : { ip: 'Unknown' };
+
+      await recordConnection({
+        variables: {
+          username: foundUser.username,
+          ipAddress: ipData.ip,
+          deviceInfo: getDeviceInfo(),
+          browser: getBrowserInfo()
+        }
+      });
+    } catch (e) {
+      console.error('Record connection error:', e);
+    }
+
+    const userData = {
+      role: foundUser.role,
+      username: foundUser.username,
+      full_name: foundUser.full_name,
+    };
+    localStorage.setItem('bb_user', JSON.stringify(userData));
+    setUser(userData);
+    setIsAccountBlocked(false);
+    setIsFaceLoginOpen(false);
+    setPendingUser(null);
+  };
+
+  const handleLogout = async () => {
+    if (user?.username) {
+      try {
+        await disconnectUser({ variables: { username: user.username } });
+      } catch (e) { console.error('Logout error:', e); }
+    }
     localStorage.clear();
     setUser(null);
     setUsername('');
@@ -121,9 +390,7 @@ export default function Home() {
     );
   }
 
-  const isBlocked = statusData?.getSystemStatus?.is_blocked;
-
-  if (!user) {
+  if (!user || isBlocked) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 md:p-8 bg-[#fdfbf7]">
         {/* Decorative background elements */}
@@ -137,15 +404,7 @@ export default function Home() {
           animate={{ opacity: 1, scale: 1 }}
           className="w-full max-w-[1000px] grid grid-cols-1 md:grid-cols-2 bg-white rounded-[2.5rem] shadow-[0_40px_100px_-20px_rgba(92,58,33,0.12)] overflow-hidden min-h-[600px] border border-[rgba(196,154,108,0.15)] relative"
         >
-          {/* Admin Hidden Toggle (click logo area or special spot) */}
-          <div className="absolute bottom-4 left-4 z-50 opacity-0 hover:opacity-100 transition-opacity">
-            <button onClick={() => {
-              const pass = prompt('Admin Bypass Password:');
-              if (pass === 'admin123') handleToggleBlock();
-            }} className="p-2 text-[#e6dace]"><Power size={12} /></button>
-          </div>
-
-          {/* Left Side - Visual/Brand */}
+          {/* Left Side - Visual/Brand (Always visible) */}
           <div className="hidden md:flex flex-col items-center justify-center relative p-12 bg-[#4a3426] text-white overflow-hidden">
             <div className="absolute inset-0 opacity-[0.08] bg-[url('/logo.jpeg')] bg-cover bg-center grayscale mix-blend-luminosity"></div>
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
@@ -155,121 +414,138 @@ export default function Home() {
                 initial={{ rotate: -10, scale: 0.9 }}
                 animate={{ rotate: 0, scale: 1 }}
                 transition={{ type: "spring", damping: 12 }}
-                className="w-40 h-40 relative mx-auto rounded-[2.5rem] p-1 bg-white/10 backdrop-blur-md ring-1 ring-white/20 shadow-2xl"
+                className="w-32 h-32 relative mx-auto rounded-[2rem] p-1 bg-white/10 backdrop-blur-md ring-1 ring-white/20 shadow-2xl"
               >
-                <Image src="/logo.jpeg" alt="Business Bey" fill className="rounded-[2.2rem] object-cover border-4 border-transparent" />
+                <Image src="/logo.jpeg" alt="Logo" fill className="rounded-[1.8rem] object-cover border-4 border-transparent" />
               </motion.div>
               <div className="space-y-2">
-                <h2 className="text-5xl font-black tracking-tighter mb-2 uppercase italic">Business Bey</h2>
+                <h2 className="text-4xl font-black tracking-tighter mb-2 uppercase italic text-white">Expertise Bey</h2>
                 <div className="flex items-center justify-center gap-2">
-                  <div className="h-[1px] w-8 bg-white/30"></div>
-                  <p className="text-[#c69f6e] uppercase tracking-[0.4em] text-[10px] font-black italic">Luxury Restaurant & Coffee</p>
-                  <div className="h-[1px] w-8 bg-white/30"></div>
+                  <div className="h-[1px] w-6 bg-white/30"></div>
+                  <p className="text-[#c69f6e] uppercase tracking-[0.4em] text-[8px] font-black italic">Hardware & Stock Intelligence</p>
+                  <div className="h-[1px] w-6 bg-white/30"></div>
                 </div>
               </div>
-              <p className="text-white/60 font-medium italic text-sm leading-relaxed px-6">
-                "Excellence et raffinement au service de notre clientèle."
-              </p>
             </div>
           </div>
 
-          {/* Right Side - Login Form */}
-          <div className="flex flex-col justify-center p-8 md:p-12 lg:p-20 relative bg-[#fffdfb]">
-            <div className="mb-12 text-center md:text-left">
-              <motion.h1
-                initial={{ x: -10, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                className="text-4xl font-black text-[#4a3426] mb-3 tracking-tighter uppercase italic"
-              >
-                Bienvenue
-              </motion.h1>
-              <p className="text-[#8c8279] font-medium text-sm tracking-tight">Connectez-vous à votre espace de gestion.</p>
-            </div>
-
+          {/* Right Side - Form OR Blocked Message */}
+          <div className="p-8 md:p-14 flex flex-col justify-center relative">
             <AnimatePresence mode="wait">
               {isBlocked ? (
                 <motion.div
                   key="blocked"
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  className="space-y-8 py-10 flex flex-col items-center justify-center text-center bg-[#fcfaf8] rounded-[2rem] border-2 border-dashed border-[#e6dace]"
+                  exit={{ opacity: 0, y: -10 }}
+                  className="space-y-8 text-center"
                 >
-                  <div className="w-20 h-20 rounded-full bg-red-50 flex items-center justify-center text-red-500 shadow-inner">
-                    <ShieldAlert size={40} />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-black text-[#4a3426] uppercase tracking-tighter mb-2">Système Verrouillé</h3>
-                    <p className="text-xs font-bold text-[#8c8279] max-w-[200px] mx-auto leading-relaxed uppercase tracking-widest opacity-60">
-                      L'accès au formulaire est temporairement restreint.
+                  <div className="flex flex-col items-center">
+                    <div className="relative w-24 h-24 mb-6">
+                      <div className="absolute inset-0 bg-red-100 rounded-full animate-ping opacity-20"></div>
+                      <div className="relative bg-white rounded-full w-full h-full flex items-center justify-center shadow-xl border-2 border-red-50">
+                        <ShieldAlert size={48} className="text-red-500" strokeWidth={1.5} />
+                      </div>
+                    </div>
+                    <h1 className="text-3xl font-black text-[#4a3426] tracking-tighter uppercase italic mb-3">Système Verrouillé</h1>
+                    <p className="text-[#8c8279] font-bold text-[10px] uppercase tracking-[0.2em] max-w-[240px] leading-relaxed mx-auto opacity-60">
+                      {isAccountBlocked ? "Votre compte a été suspendu par l'administration." : "L'accès au système est temporairement restreint."}
                     </p>
                   </div>
+
+                  {/* Hidden bypass button for admins */}
+                  <button
+                    onClick={handleToggleBlock}
+                    className="p-3 rounded-full hover:bg-gray-50 opacity-0 hover:opacity-100 transition-all mx-auto block"
+                  >
+                    <Power size={12} className="text-gray-200" />
+                  </button>
                 </motion.div>
               ) : (
-                <motion.form
+                <motion.div
                   key="form"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  onSubmit={handleLogin}
-                  className="space-y-6"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
                 >
-                  <div className="space-y-3">
-                    <label className="text-[10px] font-black text-[#bba282] uppercase tracking-[0.2em] ml-1">Utilisateur</label>
-                    <div className="relative group">
-                      <User className="absolute left-5 top-1/2 -translate-y-1/2 text-[#c69f6e] transition-colors group-focus-within:text-[#4a3426]" size={18} />
-                      <input
-                        type="text"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        className="w-full h-16 rounded-2xl bg-[#fcfaf8] border border-[#e6dace] px-5 pl-14 text-sm font-black text-[#4a3426] outline-none focus:border-[#4a3426] focus:bg-white focus:shadow-[0_10px_30px_-10px_rgba(74,52,38,0.1)] transition-all placeholder:text-[#bba282]/40"
-                        placeholder="Identifiant"
-                        required
-                      />
-                    </div>
+                  <div className="text-center md:text-left mb-10">
+                    <h2 className="text-3xl font-black text-[#4a3426] tracking-tighter uppercase italic leading-tight">Bienvenue</h2>
+                    <p className="text-[#bba282] font-bold text-[10px] uppercase tracking-widest mt-2 opacity-60">Identification requise</p>
                   </div>
 
-                  <div className="space-y-3">
-                    <label className="text-[10px] font-black text-[#bba282] uppercase tracking-[0.2em] ml-1">Mot de passe</label>
-                    <div className="relative group">
-                      <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-[#c69f6e] transition-colors group-focus-within:text-[#4a3426]" size={18} />
-                      <input
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="w-full h-16 rounded-2xl bg-[#fcfaf8] border border-[#e6dace] px-5 pl-14 text-sm font-black text-[#4a3426] outline-none focus:border-[#4a3426] focus:bg-white focus:shadow-[0_10px_30px_-10px_rgba(74,52,38,0.1)] transition-all placeholder:text-[#bba282]/40"
-                        placeholder="••••••••"
-                        required
-                      />
-                    </div>
-                  </div>
+                  <form onSubmit={handleLogin} className="space-y-6">
+                    <div className="space-y-5">
+                      <div className="relative group">
+                        <div className="absolute inset-y-0 left-5 flex items-center text-[#bba282] group-focus-within:text-[#4a3426] transition-colors">
+                          <User size={18} strokeWidth={2.5} />
+                        </div>
+                        <input
+                          type="text"
+                          value={username}
+                          onChange={(e) => setUsername(e.target.value)}
+                          className="w-full h-16 rounded-2xl bg-[#fcfaf8] border border-[#e6dace] px-5 pl-14 text-sm font-black text-[#4a3426] outline-none focus:border-[#4a3426] focus:bg-white transition-all placeholder:text-[#bba282]/40"
+                          placeholder="IDENTIFIANT"
+                          required
+                        />
+                      </div>
 
-                  {error && (
-                    <motion.div
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      className="p-4 bg-red-50 text-red-600 text-[10px] font-black rounded-xl flex items-center gap-3 border border-red-100 uppercase tracking-widest"
+                      <div className="relative group">
+                        <div className="absolute inset-y-0 left-5 flex items-center text-[#bba282] group-focus-within:text-[#4a3426] transition-colors">
+                          <Lock size={18} strokeWidth={2.5} />
+                        </div>
+                        <input
+                          type="password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className="w-full h-16 rounded-2xl bg-[#fcfaf8] border border-[#e6dace] px-5 pl-14 text-sm font-black text-[#4a3426] outline-none focus:border-[#4a3426] focus:bg-white transition-all placeholder:text-[#bba282]/40"
+                          placeholder="••••••••"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    {error && (
+                      <motion.div
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="p-4 bg-red-50 text-red-600 text-[10px] font-black rounded-xl flex items-center gap-3 border border-red-100 uppercase tracking-widest"
+                      >
+                        <AlertCircle size={16} />
+                        {error}
+                      </motion.div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={loading || queryLoading}
+                      className="w-full h-16 bg-[#4a3426] text-white rounded-2xl font-black text-sm uppercase tracking-[0.2em] shadow-2xl shadow-[#4a3426]/30 hover:scale-[1.01] active:scale-95 disabled:opacity-70 disabled:scale-100 transition-all flex items-center justify-center gap-3 mt-4"
                     >
-                      <AlertCircle size={16} />
-                      {error}
-                    </motion.div>
-                  )}
-
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full h-16 bg-[#4a3426] text-white rounded-2xl font-black text-sm uppercase tracking-[0.2em] shadow-2xl shadow-[#4a3426]/30 hover:scale-[1.01] active:scale-95 disabled:opacity-70 disabled:scale-100 transition-all flex items-center justify-center gap-3 mt-4"
-                  >
-                    {loading ? <Loader2 className="animate-spin" size={20} /> : <span>Se connecter</span>}
-                  </button>
-                </motion.form>
+                      {loading || queryLoading ? <Loader2 className="animate-spin" size={20} /> : <span>Se connecter</span>}
+                    </button>
+                  </form>
+                </motion.div>
               )}
             </AnimatePresence>
 
-            <div className="mt-12 text-center">
-              <p className="text-[10px] font-black text-[#bba282] uppercase tracking-widest opacity-40 italic">© 2026 Expertise Bey. Tous droits réservés.</p>
+            <div className="mt-12 text-center md:text-left">
+              <p className="text-[9px] font-black text-[#bba282] uppercase tracking-widest opacity-40 italic">© 2026 Expertise Bey. Toutes les sessions sont tracées.</p>
             </div>
           </div>
         </motion.div>
+
+        {/* Face ID Login Modal */}
+        <AnimatePresence>
+          {isFaceLoginOpen && pendingUser && (
+            <FaceIDLoginModal
+              user={pendingUser}
+              onClose={() => {
+                setIsFaceLoginOpen(false);
+                setPendingUser(null);
+              }}
+              onSuccess={() => finalizeLogin(pendingUser)}
+            />
+          )}
+        </AnimatePresence>
       </div>
     );
   }
@@ -290,3 +566,5 @@ export default function Home() {
     </div>
   );
 }
+
+

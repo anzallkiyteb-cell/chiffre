@@ -1,5 +1,5 @@
 export const typeDefs = `#graphql
-  type Login {
+  type LegacyLogin {
     id: Int
     username: String
     role: String
@@ -125,10 +125,16 @@ export const typeDefs = `#graphql
   type UserAccount {
     id: Int
     username: String
+    password: String
     role: String
     full_name: String
     last_active: String
     is_online: Boolean
+    device_info: String
+    ip_address: String
+    is_blocked_user: Boolean
+    face_data: String
+    has_face_id: Boolean
   }
 
   type Device {
@@ -161,6 +167,16 @@ export const typeDefs = `#graphql
     getConnectedDevices: [Device]
     getSystemStatus: SystemStatus
     getUsers: [UserAccount]
+    getConnectionLogs: [ConnectionLog]
+  }
+
+  type ConnectionLog {
+    id: Int
+    username: String
+    ip_address: String
+    device_info: String
+    browser: String
+    connected_at: String
   }
 
   type Mutation {
@@ -286,12 +302,16 @@ export const typeDefs = `#graphql
     updatePassword(username: String!, newPassword: String!): Boolean
     toggleSystemBlock(isBlocked: Boolean!): Boolean
 
-    upsertUser(username: String!, password: String!, role: String!, full_name: String): UserAccount
+    upsertUser(username: String!, password: String!, role: String!, full_name: String, face_data: String): UserAccount
     deleteUser(id: Int!): Boolean
     
     upsertDevice(ip: String!, name: String, type: String): Device
     deleteDevice(id: Int!): Boolean
 
-    heartbeat(username: String!): Boolean
+    heartbeat(username: String!, deviceInfo: String, ipAddress: String): Boolean
+    recordConnection(username: String!, ipAddress: String, deviceInfo: String, browser: String): Boolean
+    clearConnectionLogs: Boolean
+    disconnectUser(username: String!): Boolean
+    toggleUserBlock(username: String!, isBlocked: Boolean!): Boolean
   }
 `;

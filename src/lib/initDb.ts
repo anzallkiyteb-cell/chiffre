@@ -9,18 +9,40 @@ const initDb = async () => {
         password character varying(255) COLLATE pg_catalog."default" NOT NULL,
         role character varying(50) COLLATE pg_catalog."default" NOT NULL,
         full_name character varying(100) COLLATE pg_catalog."default",
-        last_active timestamp DEFAULT NULL,
+        last_active timestamptz DEFAULT NULL,
         CONSTRAINT logins_pkey PRIMARY KEY (id),
         CONSTRAINT logins_username_key UNIQUE (username)
       );
     `);
 
-    // Ensure last_active column exists
+    // Ensure necessary columns exist for activity and security tracking
     await query(`
       DO $$ 
       BEGIN 
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='logins' AND column_name='last_active') THEN
-          ALTER TABLE public.logins ADD COLUMN last_active timestamp DEFAULT NULL;
+          ALTER TABLE public.logins ADD COLUMN last_active timestamptz DEFAULT NULL;
+        ELSE
+          ALTER TABLE public.logins ALTER COLUMN last_active TYPE timestamptz;
+        END IF;
+
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='logins' AND column_name='device_info') THEN
+          ALTER TABLE public.logins ADD COLUMN device_info text;
+        END IF;
+
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='logins' AND column_name='ip_address') THEN
+          ALTER TABLE public.logins ADD COLUMN ip_address character varying(50);
+        END IF;
+
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='logins' AND column_name='is_blocked_user') THEN
+          ALTER TABLE public.logins ADD COLUMN is_blocked_user boolean DEFAULT false;
+        END IF;
+
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='logins' AND column_name='face_data') THEN
+          ALTER TABLE public.logins ADD COLUMN face_data text;
+        END IF;
+
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='logins' AND column_name='has_face_id') THEN
+          ALTER TABLE public.logins ADD COLUMN has_face_id boolean DEFAULT false;
         END IF;
       END $$;
     `);
@@ -191,6 +213,24 @@ const initDb = async () => {
         type character varying(50),
         status character varying(50) DEFAULT 'offline',
         last_seen timestamp
+      );
+    `);
+
+    // Seed default users if empty
+    const logCheck = await query('SELECT count(*) FROM public.logins');
+    if (parseInt(logCheck.rows[0].count) === 0) {
+      await query("INSERT INTO public.logins (username, password, role, full_name) VALUES ('admin', 'admin', 'admin', 'Administrateur')");
+      await query("INSERT INTO public.logins (username, password, role, full_name) VALUES ('caissier', 'caissier', 'caissier', 'Caissier Principal')");
+    }
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS public.connection_logs (
+        id serial PRIMARY KEY,
+        username character varying(255) NOT NULL,
+        ip_address character varying(50),
+        device_info text,
+        browser text,
+        connected_at timestamptz DEFAULT CURRENT_TIMESTAMP
       );
     `);
 

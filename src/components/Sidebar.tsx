@@ -14,13 +14,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const GET_DEVICES = gql`
   query GetConnectedDevices {
-    getConnectedDevices {
+    getUsers {
       id
-      ip
-      name
-      type
-      status
-      last_seen
+      username
+      full_name
+      is_online
+      device_info
+      ip_address
     }
   }
 `;
@@ -28,6 +28,18 @@ const GET_DEVICES = gql`
 const UPDATE_PASSWORD = gql`
   mutation UpdatePassword($username: String!, $newPassword: String!) {
     updatePassword(username: $username, newPassword: $newPassword)
+  }
+`;
+
+const HEARTBEAT = gql`
+  mutation Heartbeat($username: String!, $deviceInfo: String, $ipAddress: String) {
+    heartbeat(username: $username, deviceInfo: $deviceInfo, ipAddress: $ipAddress)
+  }
+`;
+
+const DISCONNECT_USER = gql`
+  mutation DisconnectUser($username: String!) {
+    disconnectUser(username: $username)
   }
 `;
 
@@ -44,15 +56,73 @@ export default function Sidebar({ role }: SidebarProps) {
     const [updateStatus, setUpdateStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
     const { data: deviceData } = useQuery(GET_DEVICES, {
-        pollInterval: 10000 // Poll every 10s for device status
+        pollInterval: 60000
     });
 
     const [updatePassword] = useMutation(UPDATE_PASSWORD);
+    const [sendHeartbeat] = useMutation(HEARTBEAT);
+    const [disconnectUser] = useMutation(DISCONNECT_USER);
+
+    // Explicit disconnect on tab close
+    useEffect(() => {
+        const handleTabClose = () => {
+            if (user?.username) {
+                // We use a simple fetch to the graphql endpoint since mutations are async
+                // and might not finish before the tab closes.
+                const query = `mutation { disconnectUser(username: "${user.username}") }`;
+                const blob = new Blob([JSON.stringify({ query })], { type: 'application/json' });
+                navigator.sendBeacon('/api/graphql', blob);
+            }
+        };
+
+        window.addEventListener('beforeunload', handleTabClose);
+        return () => window.removeEventListener('beforeunload', handleTabClose);
+    }, [user]);
 
     useEffect(() => {
         const stored = localStorage.getItem('bb_user');
-        if (stored) setUser(JSON.parse(stored));
-    }, []);
+        const userData = stored ? JSON.parse(stored) : null;
+        if (userData) setUser(userData);
+
+        const getDeviceInfo = () => {
+            const ua = navigator.userAgent;
+            if (/iphone/i.test(ua)) return 'iPhone Mobile';
+            if (/android/i.test(ua)) return 'Android Device';
+            if (/ipad/i.test(ua)) return 'iPad Tablet';
+            if (/linux/i.test(ua)) return 'Linux System';
+            return 'Desktop Computer';
+        };
+
+        const pulse = async () => {
+            const hbUsername = userData?.username || userData?.role;
+            if (!hbUsername) return;
+
+            try {
+                // Fetch public IP with timeout
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+                const ipRes = await fetch('https://api.ipify.org?format=json', { signal: controller.signal }).catch(() => null);
+                clearTimeout(timeoutId);
+
+                const ipData = ipRes ? await ipRes.json() : { ip: 'Unknown' };
+
+                await sendHeartbeat({
+                    variables: {
+                        username: hbUsername,
+                        deviceInfo: getDeviceInfo(),
+                        ipAddress: ipData.ip
+                    }
+                });
+            } catch (e) { console.error('HB Error:', e); }
+        };
+
+        if (userData) {
+            pulse();
+            const interval = setInterval(pulse, 15000);
+            return () => clearInterval(interval);
+        }
+    }, [sendHeartbeat]);
 
     const navItems = [
         { name: 'Journalier', icon: LayoutDashboard, href: '/' },
@@ -68,8 +138,13 @@ export default function Sidebar({ role }: SidebarProps) {
         navItems.push({ name: 'Paramètres', icon: Settings, href: '/admin/settings' });
     }
 
-    const handleLogout = () => {
-        localStorage.clear(); // Clear all: user, auth tokens, etc.
+    const handleLogout = async () => {
+        if (user?.username) {
+            try {
+                await disconnectUser({ variables: { username: user.username } });
+            } catch (e) { console.error('Logout sync error:', e); }
+        }
+        localStorage.clear();
         window.location.href = '/';
     };
 
@@ -134,22 +209,23 @@ export default function Sidebar({ role }: SidebarProps) {
                         <div className="mb-8 shrink-0">
                             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#bba282] px-4 mb-4 opacity-60">Appareils</p>
                             <div className="space-y-2 px-2">
-                                {deviceData?.getConnectedDevices?.length > 0 ? deviceData.getConnectedDevices.map((dev: any) => (
-                                    <div key={dev.id} className="flex items-center gap-3 p-3 bg-[#fcfaf8] border border-[#e6dace]/50 rounded-xl">
-                                        <div className={`p-2 rounded-lg ${dev.status === 'online' ? 'bg-green-50 text-green-500' : 'bg-red-50 text-red-500'}`}>
-                                            <Monitor size={14} />
+                                {deviceData?.getUsers?.filter((u: any) => u.is_online).length > 0 ?
+                                    deviceData.getUsers.filter((u: any) => u.is_online).map((onlineUser: any) => (
+                                        <div key={onlineUser.id} className="flex items-center gap-3 p-3 bg-[#fcfaf8] border border-[#e6dace]/50 rounded-xl">
+                                            <div className="p-2 rounded-lg bg-[#4a3426] text-white">
+                                                <Monitor size={14} />
+                                            </div>
+                                            <div className="flex flex-col min-w-0">
+                                                <span className="text-[10px] font-black text-[#4a3426] truncate uppercase tracking-tight">{onlineUser.username}</span>
+                                                <span className="text-[7px] font-bold text-[#bba282] uppercase truncate">{onlineUser.device_info || 'Appareil Connecté'}</span>
+                                            </div>
+                                            <div className="ml-auto w-1 h-1 rounded-full bg-green-500 animate-pulse"></div>
                                         </div>
-                                        <div className="flex flex-col min-w-0">
-                                            <span className="text-[10px] font-black text-[#4a3426] truncate uppercase tracking-tight">{dev.name || dev.ip}</span>
-                                            <span className="text-[8px] font-bold text-[#bba282] uppercase">{dev.status}</span>
+                                    )) : (
+                                        <div className="px-4 py-2 border border-dashed border-[#e6dace] rounded-xl text-center">
+                                            <p className="text-[9px] font-bold text-[#bba282] italic">Aucun appareil actif</p>
                                         </div>
-                                        {dev.status === 'online' && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-green-500"></div>}
-                                    </div>
-                                )) : (
-                                    <div className="px-4 py-2 border border-dashed border-[#e6dace] rounded-xl text-center">
-                                        <p className="text-[9px] font-bold text-[#bba282] italic">Aucun appareil scané</p>
-                                    </div>
-                                )}
+                                    )}
                             </div>
                         </div>
                     )}
@@ -159,12 +235,17 @@ export default function Sidebar({ role }: SidebarProps) {
                         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#bba282] px-4 mb-3 opacity-60">Session</p>
                         <div className="bg-[#fcfaf8] border border-[#e6dace]/50 rounded-[1.5rem] p-3 mx-2">
                             <div className="flex items-center gap-3 mb-3 pb-3 border-b border-[#e6dace]/30">
-                                <div className="w-10 h-10 rounded-[1rem] bg-[#4a3426] flex items-center justify-center text-white text-sm font-black ring-4 ring-[#fcfaf8]">
-                                    {user?.full_name?.charAt(0) || user?.username?.charAt(0) || <UserIcon size={18} />}
+                                <div className="relative">
+                                    <div className="w-10 h-10 rounded-[1rem] bg-[#4a3426] flex items-center justify-center text-white text-sm font-black ring-4 ring-[#fcfaf8]">
+                                        {user?.full_name?.charAt(0) || user?.username?.charAt(0) || <UserIcon size={18} />}
+                                    </div>
+                                    <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full shadow-[0_0_10px_rgba(34,197,94,0.6)] animate-pulse"></div>
                                 </div>
                                 <div className="flex flex-col min-w-0">
                                     <span className="text-[11px] font-black text-[#4a3426] truncate uppercase tracking-tight">{user?.full_name || user?.username}</span>
-                                    <span className="text-[9px] font-bold text-[#c69f6e] uppercase tracking-widest opacity-60">Connecté</span>
+                                    <div className="flex items-center gap-1.5">
+                                        <p className="text-[8px] font-black text-green-500 uppercase tracking-widest">En Ligne</p>
+                                    </div>
                                 </div>
                             </div>
 

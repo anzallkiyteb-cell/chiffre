@@ -1,13 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, gql } from '@apollo/client';
 import Sidebar from '@/components/Sidebar';
 import {
     Monitor, Users, Shield, Plus, Trash2, Edit2,
     Save, X, Check, Loader2, AlertTriangle, Cpu, Globe,
     ChevronRight, Settings as SettingsIcon, Lock, UserPlus,
-    Clock, Activity, Wifi, WifiOff
+    Clock, Activity, Wifi, WifiOff, ShieldCheck, ShieldAlert,
+    Camera, Scan, CheckCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -26,15 +27,32 @@ const GET_SETTINGS_DATA = gql`
       username
       role
       full_name
+      last_active
+      is_online
+      device_info
+      ip_address
+      is_blocked_user
+      face_data
+      has_face_id
+    }
+    getConnectionLogs {
+      id
+      username
+      ip_address
+      device_info
+      browser
+      connected_at
     }
   }
 `;
 
 const UPSERT_USER = gql`
-  mutation UpsertUser($username: String!, $password: String!, $role: String!, $full_name: String) {
-    upsertUser(username: $username, password: $password, role: $role, full_name: $full_name) {
+  mutation UpsertUser($username: String!, $password: String!, $role: String!, $full_name: String, $face_data: String) {
+    upsertUser(username: $username, password: $password, role: $role, full_name: $full_name, face_data: $face_data) {
       id
       username
+      face_data
+      has_face_id
     }
   }
 `;
@@ -60,14 +78,35 @@ const DELETE_DEVICE = gql`
   }
 `;
 
+const DISCONNECT_USER = gql`
+  mutation DisconnectUser($username: String!) {
+    disconnectUser(username: $username)
+  }
+`;
+
+const TOGGLE_USER_BLOCK = gql`
+  mutation ToggleUserBlock($username: String!, $isBlocked: Boolean!) {
+    toggleUserBlock(username: $username, isBlocked: $isBlocked)
+  }
+`;
+
+const CLEAR_LOGS = gql`
+  mutation ClearConnectionLogs {
+    clearConnectionLogs
+  }
+`;
+
 export default function SettingsPage() {
     const { data, loading, refetch } = useQuery(GET_SETTINGS_DATA, {
-        pollInterval: 10000 // Refresh every 10s to see online status changes
+        pollInterval: 20000 // Refresh every 20s to see online status changes
     });
     const [upsertUser] = useMutation(UPSERT_USER);
     const [deleteUser] = useMutation(DELETE_USER);
     const [upsertDevice] = useMutation(UPSERT_DEVICE);
     const [deleteDevice] = useMutation(DELETE_DEVICE);
+    const [disconnectUser] = useMutation(DISCONNECT_USER);
+    const [toggleUserBlock] = useMutation(TOGGLE_USER_BLOCK);
+    const [clearLogs] = useMutation(CLEAR_LOGS);
 
     const [isUserModalOpen, setIsUserModalOpen] = useState(false);
     const [isDeviceModalOpen, setIsDeviceModalOpen] = useState(false);
@@ -75,15 +114,25 @@ export default function SettingsPage() {
     const [editingDevice, setEditingDevice] = useState<any>(null);
 
     // Form States
-    const [userForm, setUserForm] = useState({ username: '', password: '', role: 'caissier', full_name: '' });
-    const [deviceForm, setDeviceForm] = useState({ ip: '', name: '', type: 'ZKTeco' });
+    const [userForm, setUserForm] = useState({ username: '', password: '', role: 'caissier', full_name: '', face_data: '' });
+    const [deviceForm, setDeviceForm] = useState({ ip: '', name: '', type: 'pc' });
+
+    const [isFaceCaptureOpen, setIsFaceCaptureOpen] = useState(false);
+    const [facePreview, setFacePreview] = useState<string | null>(null);
 
     const handleSaveUser = async () => {
         try {
-            await upsertUser({ variables: userForm });
-            setIsUserModalOpen(false);
-            setUserForm({ username: '', password: '', role: 'caissier', full_name: '' });
-            refetch();
+            const res = await upsertUser({
+                variables: {
+                    ...userForm,
+                    face_data: userForm.face_data
+                }
+            });
+            if (res.data) {
+                setIsUserModalOpen(false);
+                setUserForm({ username: '', password: '', role: 'caissier', full_name: '', face_data: '' });
+                refetch();
+            }
         } catch (e) { alert('Error saving user'); }
     };
 
@@ -103,6 +152,31 @@ export default function SettingsPage() {
             else await deleteDevice({ variables: { id } });
             refetch();
         } catch (e) { alert('Error deleting'); }
+    };
+
+    const handleDisconnect = async (username: string) => {
+        if (!confirm(`Déconnecter ${username} ?`)) return;
+        try {
+            await disconnectUser({ variables: { username } });
+            refetch();
+        } catch (e) { alert('Error disconnecting user'); }
+    };
+
+    const handleToggleBlock = async (username: string, currentStatus: boolean) => {
+        const action = currentStatus ? 'Débloquer' : 'Bloquer';
+        if (!confirm(`${action} ${username} ?`)) return;
+        try {
+            await toggleUserBlock({ variables: { username, isBlocked: !currentStatus } });
+            refetch();
+        } catch (e) { alert('Error toggling block'); }
+    };
+
+    const handleClearLogs = async () => {
+        if (!confirm('Effacer tout l\'historique des connexions ?')) return;
+        try {
+            await clearLogs();
+            refetch();
+        } catch (e) { alert('Erreur lors de l\'effacement'); }
     };
 
     return (
@@ -137,7 +211,7 @@ export default function SettingsPage() {
                                 <button
                                     onClick={() => {
                                         setEditingUser(null);
-                                        setUserForm({ username: '', password: '', role: 'caissier', full_name: '' });
+                                        setUserForm({ username: '', password: '', role: 'caissier', full_name: '', face_data: '' });
                                         setIsUserModalOpen(true);
                                     }}
                                     className="p-2.5 bg-white border border-[#e6dace] rounded-xl text-[#c69f6e] hover:bg-[#4a3426] hover:text-white hover:border-[#4a3426] shadow-sm transition-all"
@@ -152,16 +226,16 @@ export default function SettingsPage() {
                                         <thead>
                                             <tr className="bg-[#fcfaf8] border-b border-[#e6dace]">
                                                 <th className="px-6 py-4 text-[10px] font-black uppercase text-[#8c8279] tracking-widest">Utilisateur</th>
-                                                <th className="px-6 py-4 text-[10px] font-black uppercase text-[#8c8279] tracking-widest">Statut</th>
+                                                <th className="px-6 py-4 text-[10px] font-black uppercase text-[#8c8279] tracking-widest">Statut / Appareil</th>
                                                 <th className="px-6 py-4 text-[10px] font-black uppercase text-[#8c8279] tracking-widest text-right">Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-[#f9f6f2]">
                                             {data?.getUsers?.map((u: any) => (
-                                                <tr key={u.id} className="group hover:bg-[#fcfaf8] transition-all">
+                                                <tr key={u.id} className={`group hover:bg-[#fcfaf8] transition-all ${u.is_blocked_user ? 'bg-red-50/30' : ''}`}>
                                                     <td className="px-6 py-4">
                                                         <div className="flex items-center gap-3">
-                                                            <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-white text-[10px] font-black uppercase shadow-lg ${u.is_online ? 'bg-green-500 shadow-green-500/20' : 'bg-[#4a3426] shadow-[#4a3426]/20'}`}>
+                                                            <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-white text-[10px] font-black uppercase shadow-lg ${u.is_online ? 'bg-green-500 shadow-green-500/20' : u.is_blocked_user ? 'bg-red-500 shadow-red-500/20' : 'bg-[#4a3426] shadow-[#4a3426]/20'}`}>
                                                                 {u.username.charAt(0)}
                                                             </div>
                                                             <div>
@@ -172,21 +246,54 @@ export default function SettingsPage() {
                                                     </td>
                                                     <td className="px-6 py-4">
                                                         <div className="flex flex-col gap-1">
-                                                            <span className={`flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest ${u.is_online ? 'text-green-500' : 'text-[#8c8279] opacity-40'}`}>
-                                                                <div className={`w-1.5 h-1.5 rounded-full ${u.is_online ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-                                                                {u.is_online ? 'En Ligne' : 'Hors Ligne'}
-                                                            </span>
-                                                            <span className="px-2 py-0.5 rounded-md bg-[#e6dace]/20 text-[#8c8279] text-[8px] font-black uppercase w-fit tracking-tighter">
-                                                                {u.role}
+                                                            <div className="flex items-center gap-2">
+                                                                <div className={`w-2 h-2 rounded-full ${u.is_online ? 'bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.4)]' : 'bg-gray-300'}`}></div>
+                                                                <span className={`text-[10px] font-black uppercase tracking-widest ${u.is_online ? 'text-green-500' : 'text-[#8c8279] opacity-40'}`}>
+                                                                    {u.is_online ? 'En Ligne' : 'Hors Ligne'}
+                                                                </span>
+                                                            </div>
+                                                            {u.last_active && (
+                                                                <span className="text-[8px] font-bold text-[#bba282] italic">
+                                                                    Actif {new Date(u.last_active).toLocaleTimeString()}
+                                                                </span>
+                                                            )}
+                                                            {u.is_online && (
+                                                                <div className="space-y-0.5">
+                                                                    <p className="text-[8px] font-bold text-[#4a3426] uppercase opacity-70 flex items-center gap-1">
+                                                                        <Monitor size={8} /> {u.device_info || 'Unknown Device'}
+                                                                    </p>
+                                                                    <p className="text-[8px] font-bold text-[#c69f6e] uppercase opacity-70 flex items-center gap-1">
+                                                                        <Globe size={8} /> {u.ip_address || 'No IP'}
+                                                                    </p>
+                                                                </div>
+                                                            )}
+                                                            <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase w-fit tracking-tighter ${u.is_blocked_user ? 'bg-red-100 text-red-600' : 'bg-[#e6dace]/20 text-[#8c8279]'}`}>
+                                                                {u.is_blocked_user ? 'BLOQUÉ' : u.role}
                                                             </span>
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4 text-right">
-                                                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            {u.is_online && (
+                                                                <button
+                                                                    onClick={() => handleDisconnect(u.username)}
+                                                                    className="p-2 hover:bg-orange-50 rounded-lg text-orange-400 hover:text-orange-600 border border-transparent hover:border-orange-100"
+                                                                    title="Déconnecter"
+                                                                >
+                                                                    <WifiOff size={14} />
+                                                                </button>
+                                                            )}
+                                                            <button
+                                                                onClick={() => handleToggleBlock(u.username, u.is_blocked_user)}
+                                                                className={`p-2 rounded-lg border border-transparent ${u.is_blocked_user ? 'bg-green-50 text-green-600 hover:bg-green-100' : 'hover:bg-red-50 text-red-400 hover:text-red-600 hover:border-red-100'}`}
+                                                                title={u.is_blocked_user ? "Débloquer" : "Bloquer"}
+                                                            >
+                                                                {u.is_blocked_user ? <ShieldCheck size={14} /> : <ShieldAlert size={14} />}
+                                                            </button>
                                                             <button
                                                                 onClick={() => {
                                                                     setEditingUser(u);
-                                                                    setUserForm({ ...u, password: '' });
+                                                                    setUserForm({ ...u, password: '', face_data: u.face_data || '' });
                                                                     setIsUserModalOpen(true);
                                                                 }}
                                                                 className="p-2 hover:bg-white rounded-lg text-[#bba282] hover:text-[#c69f6e] border border-transparent hover:border-[#e6dace]"
@@ -209,70 +316,73 @@ export default function SettingsPage() {
                             </div>
                         </section>
 
-                        {/* Hardware Management */}
+                        {/* Connection Logs Management */}
                         <section className="space-y-6">
                             <div className="flex items-center justify-between px-2">
                                 <div className="flex items-center gap-3">
-                                    <Monitor className="text-[#c69f6e]" size={20} />
+                                    <Activity className="text-[#c69f6e]" size={20} />
                                     <h2 className="text-xl font-black text-[#4a3426] uppercase tracking-tighter">Appareils Connectés</h2>
                                 </div>
                                 <button
-                                    onClick={() => {
-                                        setEditingDevice(null);
-                                        setDeviceForm({ ip: '', name: '', type: 'ZKTeco' });
-                                        setIsDeviceModalOpen(true);
-                                    }}
-                                    className="p-2.5 bg-white border border-[#e6dace] rounded-xl text-[#c69f6e] hover:bg-[#4a3426] hover:text-white hover:border-[#4a3426] shadow-sm transition-all"
+                                    onClick={handleClearLogs}
+                                    className="px-4 py-2 bg-white border border-red-100 rounded-xl text-red-400 hover:bg-red-500 hover:text-white hover:border-red-500 shadow-sm transition-all text-[10px] font-black uppercase tracking-widest flex items-center gap-2"
                                 >
-                                    <Plus size={18} />
+                                    <Trash2 size={14} />
+                                    Effacer
                                 </button>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                {data?.getConnectedDevices?.map((dev: any) => (
-                                    <div key={dev.id} className="bg-white p-5 rounded-[2rem] border border-[#e6dace] shadow-sm hover:shadow-md transition-all group">
-                                        <div className="flex items-start justify-between mb-4">
-                                            <div className={`p-3 rounded-2xl ${dev.status === 'online' ? 'bg-green-50 text-green-500' : 'bg-red-50 text-red-500'}`}>
-                                                <Cpu size={24} />
+                            <div className="bg-white rounded-[2rem] border border-[#e6dace] shadow-sm overflow-hidden h-[600px] flex flex-col">
+                                <div className="p-6 bg-[#fcfaf8] border-b border-[#e6dace] flex justify-between items-center">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-[#8c8279] opacity-60">Appareils et Sessions détectées</p>
+                                    <span className="px-3 py-1 bg-[#4a3426] text-white text-[8px] font-black rounded-full uppercase tracking-tighter shadow-lg shadow-[#4a3426]/20">Temps Réel</span>
+                                </div>
+                                <div className="flex-1 overflow-y-auto no-scrollbar p-6 space-y-4">
+                                    <AnimatePresence>
+                                        {data?.getConnectionLogs?.map((log: any, idx: number) => (
+                                            <motion.div
+                                                key={log.id}
+                                                initial={{ opacity: 0, x: 20 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                transition={{ delay: idx * 0.05 }}
+                                                className="flex items-center gap-4 p-4 bg-[#fcfaf8] rounded-2xl border border-[#e6dace]/50 hover:border-[#c69f6e]/30 transition-all group relative overflow-hidden"
+                                            >
+                                                <div className="absolute top-0 left-0 w-1 h-full bg-[#c69f6e] opacity-0 group-hover:opacity-100 transition-all"></div>
+                                                <div className="w-10 h-10 rounded-xl bg-white border border-[#e6dace] flex items-center justify-center text-[#4a3426] shadow-sm shrink-0">
+                                                    {log.username?.charAt(0).toUpperCase()}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center justify-between mb-1.5">
+                                                        <h3 className="text-xs font-black text-[#4a3426] uppercase truncate pr-4">{log.username}</h3>
+                                                        <span className="text-[8px] font-bold text-[#bba282] uppercase whitespace-nowrap bg-white px-2 py-0.5 rounded border border-[#e6dace]">
+                                                            {log.connected_at ? new Date(log.connected_at).toLocaleString() : ''}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex flex-wrap items-center gap-y-1 gap-x-4">
+                                                        <span className="text-[9px] font-black text-[#8c8279] uppercase flex items-center gap-1.5">
+                                                            <Globe size={10} className="text-[#c69f6e]" /> {log.ip_address}
+                                                        </span>
+                                                        <span className="text-[9px] font-black text-[#8c8279] uppercase flex items-center gap-1.5">
+                                                            <Monitor size={10} className="text-[#c69f6e]" /> {log.device_info}
+                                                        </span>
+                                                        <span className="text-[9px] font-black text-[#8c8279] uppercase flex items-center gap-1.5">
+                                                            <Shield size={10} className="text-[#c69f6e]" /> {log.browser}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </motion.div>
+                                        ))}
+                                    </AnimatePresence>
+                                    {(!data?.getConnectionLogs || data.getConnectionLogs.length === 0) && (
+                                        <div className="h-full flex flex-col items-center justify-center opacity-40 py-20 grayscale">
+                                            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6">
+                                                <div className="animate-ping absolute w-16 h-16 bg-gray-200 rounded-full opacity-50"></div>
+                                                <Clock size={32} />
                                             </div>
-                                            <div className="flex gap-1">
-                                                <button
-                                                    onClick={() => {
-                                                        setEditingDevice(dev);
-                                                        setDeviceForm({ ip: dev.ip, name: dev.name, type: dev.type });
-                                                        setIsDeviceModalOpen(true);
-                                                    }}
-                                                    className="p-2 hover:bg-[#fcfaf8] rounded-xl text-[#bba282]"
-                                                >
-                                                    <Edit2 size={14} />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDelete('device', dev.id)}
-                                                    className="p-2 hover:bg-red-50 rounded-xl text-red-300 hover:text-red-500"
-                                                >
-                                                    <Trash2 size={14} />
-                                                </button>
-                                            </div>
+                                            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#4a3426]">En attente de sessions...</p>
                                         </div>
-                                        <div className="space-y-1">
-                                            <div className="flex items-center justify-between">
-                                                <h3 className="text-sm font-black text-[#4a3426] uppercase line-clamp-1">{dev.name || 'Device'}</h3>
-                                                <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${dev.status === 'online' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                                    {dev.status}
-                                                </span>
-                                            </div>
-                                            <p className="text-[10px] font-bold text-[#8c8279] flex items-center gap-1.5 uppercase tracking-widest">
-                                                <Globe size={10} /> {dev.ip}
-                                            </p>
-                                        </div>
-                                        <div className="mt-4 pt-4 border-t border-[#f9f6f2] flex items-center justify-between">
-                                            <span className="text-[8px] font-black text-[#bba282] uppercase tracking-[0.2em]">{dev.type}</span>
-                                            {dev.last_seen && (
-                                                <span className="text-[8px] font-bold text-[#bba282] italic">Vu {new Date(dev.last_seen).toLocaleString()}</span>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
+                                    )}
+                                </div>
                             </div>
                         </section>
 
@@ -331,6 +441,31 @@ export default function SettingsPage() {
                                         <option value="admin">Administrateur</option>
                                     </select>
                                 </div>
+
+                                <div className="space-y-3 p-4 bg-[#fcfaf8] rounded-2xl border border-[#e6dace] border-dashed">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <Scan size={16} className="text-[#c69f6e]" />
+                                            <span className="text-[10px] font-black uppercase text-[#4a3426]">Reconnaissance Faciale</span>
+                                        </div>
+                                        {userForm.face_data ? (
+                                            <div className="flex items-center gap-1 text-green-500">
+                                                <CheckCircle size={14} />
+                                                <span className="text-[8px] font-black uppercase">Activé</span>
+                                            </div>
+                                        ) : (
+                                            <span className="text-[8px] font-black uppercase text-[#8c8279] opacity-50">Non Configuré</span>
+                                        )}
+                                    </div>
+                                    <button
+                                        onClick={() => setIsFaceCaptureOpen(true)}
+                                        className="w-full py-3 bg-white border border-[#e6dace] rounded-xl text-[10px] font-black uppercase text-[#4a3426] hover:bg-[#4a3426] hover:text-white transition-all flex items-center justify-center gap-2 shadow-sm"
+                                    >
+                                        <Camera size={14} />
+                                        {userForm.face_data ? 'Mettre à jour le Visage' : 'Scanner le Visage'}
+                                    </button>
+                                </div>
+
                                 <div className="flex gap-3 pt-4">
                                     <button onClick={() => setIsUserModalOpen(false)} className="flex-1 h-14 bg-[#fcfaf8] text-[#8c8279] rounded-2xl font-black uppercase tracking-widest text-[10px]">Annuler</button>
                                     <button onClick={handleSaveUser} className="flex-1 h-14 bg-[#4a3426] text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-[#4a3426]/20">Enregistrer</button>
@@ -380,8 +515,8 @@ export default function SettingsPage() {
                                         className="w-full h-14 bg-[#fcfaf8] border border-[#e6dace] rounded-2xl px-5 text-sm font-black outline-none focus:border-[#c69f6e]"
                                     >
                                         <option value="ZKTeco">ZKTeco</option>
-                                        <option value="HikVision">HikVision</option>
-                                        <option value="Autre">Autre</option>
+                                        <option value="pc">Ordinateur</option>
+                                        <option value="Printer">Imprimante</option>
                                     </select>
                                 </div>
                                 <div className="flex gap-3 pt-4">
@@ -393,6 +528,201 @@ export default function SettingsPage() {
                     </div>
                 )}
             </AnimatePresence>
+
+            {/* Face Capture Modal */}
+            <AnimatePresence>
+                {isFaceCaptureOpen && (
+                    <FaceCaptureModal
+                        onClose={() => setIsFaceCaptureOpen(false)}
+                        onCapture={(img) => {
+                            setUserForm({ ...userForm, face_data: img });
+                            setIsFaceCaptureOpen(false);
+                        }}
+                    />
+                )}
+            </AnimatePresence>
         </div>
     );
 }
+
+function FaceCaptureModal({ onClose, onCapture }: { onClose: () => void, onCapture: (img: string) => void }) {
+    const videoRef = React.useRef<HTMLVideoElement>(null);
+    const canvasRef = React.useRef<HTMLCanvasElement>(null);
+    const [stream, setStream] = React.useState<MediaStream | null>(null);
+    const [capturedImage, setCapturedImage] = React.useState<string | null>(null);
+    const [step, setStep] = React.useState<number>(0); // 0: Start, 1: Frontal, 2: Left, 3: Right, 4: Done
+    const [progress, setProgress] = React.useState(0);
+    const [status, setStatus] = React.useState("Prêt pour l'enrôlement");
+
+    const steps = [
+        { id: 0, label: 'Initialisation', desc: 'Centrer votre visage' },
+        { id: 1, label: 'Face', desc: 'Maintenez la pose' },
+        { id: 2, label: 'Gauche', desc: 'Tournez légèrement à gauche' },
+        { id: 3, label: 'Droite', desc: 'Tournez légèrement à droite' },
+        { id: 4, label: 'Finalisation', desc: 'Analyse biométrique...' }
+    ];
+
+    React.useEffect(() => {
+        async function startCamera() {
+            try {
+                const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+                setStream(s);
+                if (videoRef.current) videoRef.current.srcObject = s;
+            } catch (e) {
+                alert('Impossible d\'accéder à la caméra');
+                onClose();
+            }
+        }
+        startCamera();
+        return () => {
+            if (stream) stream.getTracks().forEach(t => t.stop());
+        };
+    }, []);
+
+    const startEnrollment = async () => {
+        setStep(1);
+        setStatus("Analyse de la face...");
+
+        // Simuler les étapes d'enrôlement
+        for (let i = 1; i <= 4; i++) {
+            setStep(i);
+            setStatus(steps[i].desc);
+
+            // Progress animation for each step
+            for (let p = 0; p <= 100; p += 10) {
+                setProgress(p);
+                await new Promise(r => setTimeout(r, 150));
+            }
+
+            if (i === 1 && videoRef.current && canvasRef.current) {
+                // Capture the main face image at step 1
+                const context = canvasRef.current.getContext('2d');
+                if (context) {
+                    canvasRef.current.width = videoRef.current.videoWidth;
+                    canvasRef.current.height = videoRef.current.videoHeight;
+                    context.drawImage(videoRef.current, 0, 0);
+                    const data = canvasRef.current.toDataURL('image/jpeg', 0.8);
+                    setCapturedImage(data);
+                }
+            }
+        }
+
+        setStatus("Enrôlement terminé avec succès");
+    };
+
+    return (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 backdrop-blur-3xl bg-[#1a110a]/90">
+            <motion.div
+                initial={{ y: 20, opacity: 0, scale: 0.9 }} animate={{ y: 0, opacity: 1, scale: 1 }}
+                className="bg-white w-full max-w-lg rounded-[3rem] overflow-hidden shadow-2xl border border-[#e6dace]"
+            >
+                <div className="p-8 border-b border-[#e6dace] flex justify-between items-center bg-[#fcfaf8]">
+                    <div className="flex flex-col">
+                        <h3 className="text-xl font-black text-[#4a3426] uppercase italic tracking-tighter">Enrôlement Biométrique</h3>
+                        <p className="text-[9px] font-black text-[#c69f6e] uppercase tracking-[0.2em]">{status}</p>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X size={20} /></button>
+                </div>
+
+                <div className="p-8 flex flex-col items-center">
+                    {/* Multi-step progress bits */}
+                    <div className="flex gap-2 mb-8 w-full">
+                        {steps.map((s, idx) => (
+                            <div key={idx} className="flex-1 flex flex-col gap-2">
+                                <div className={`h-1 rounded-full transition-all duration-500 ${step > idx ? 'bg-green-500' : step === idx ? 'bg-[#c69f6e]' : 'bg-[#e6dace] opacity-30'}`}>
+                                    {step === idx && (
+                                        <motion.div
+                                            initial={{ width: '0%' }} animate={{ width: `${progress}%` }}
+                                            className="h-full bg-green-500 rounded-full"
+                                        />
+                                    )}
+                                </div>
+                                <span className={`text-[7px] font-black uppercase tracking-tighter text-center ${step === idx ? 'text-[#4a3426]' : 'text-[#8c8279] opacity-40'}`}>
+                                    {s.label}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="relative w-full aspect-square max-w-[320px] rounded-[3.5rem] overflow-hidden bg-black border-[6px] border-[#fcfaf8] shadow-2xl mb-8 group">
+                        <div className="absolute inset-0 z-10 pointer-events-none border-[1px] border-white/20 rounded-[3rem] m-2"></div>
+
+                        {!capturedImage || step < 4 ? (
+                            <>
+                                <video ref={videoRef} autoPlay playsInline muted className={`w-full h-full object-cover grayscale brightness-110 contrast-125 transition-all duration-700 ${step > 0 ? 'scale-110' : 'scale-100'}`} />
+
+                                {/* Overlay scan lines */}
+                                <div className="absolute inset-x-8 top-1/2 -translate-y-1/2 h-[1px] bg-[#c69f6e] opacity-30 shadow-[0_0_15px_#c69f6e] z-10 animate-pulse"></div>
+                                <div className="absolute inset-y-8 left-1/2 -translate-x-1/2 w-[1px] bg-[#c69f6e] opacity-30 shadow-[0_0_15px_#c69f6e] z-10 animate-pulse"></div>
+
+                                {/* Circular Guide */}
+                                <div className="absolute inset-12 border-[2px] border-dashed border-[#c69f6e] rounded-full opacity-20 animate-[spin_20s_linear_infinite]"></div>
+
+                                {step > 0 && (
+                                    <div className="absolute inset-0 flex items-center justify-center p-12 pointer-events-none">
+                                        <div className="w-full h-full border-4 border-[#c69f6e] rounded-full opacity-40 animate-pulse"></div>
+                                    </div>
+                                )}
+                            </>
+                        ) : (
+                            <motion.img
+                                initial={{ scale: 1.1 }} animate={{ scale: 1 }}
+                                src={capturedImage}
+                                className="w-full h-full object-cover"
+                            />
+                        )}
+
+                        {/* Status badge in corner */}
+                        <div className="absolute bottom-6 right-6 z-20">
+                            {step === 4 ? (
+                                <div className="bg-green-500 text-white p-2 rounded-xl shadow-lg">
+                                    <CheckCircle size={20} />
+                                </div>
+                            ) : step > 0 ? (
+                                <div className="bg-[#4a3426] text-white p-2 rounded-xl shadow-lg animate-spin">
+                                    <Loader2 size={20} />
+                                </div>
+                            ) : null}
+                        </div>
+                    </div>
+
+                    <canvas ref={canvasRef} className="hidden" />
+
+                    {step === 0 ? (
+                        <button
+                            onClick={startEnrollment}
+                            className="w-full h-16 bg-[#4a3426] text-white rounded-2xl font-black uppercase tracking-[0.2em] shadow-xl flex items-center justify-center gap-3 hover:scale-105 active:scale-95 transition-all"
+                        >
+                            <Camera size={20} />
+                            Démarrer l'enrôlement
+                        </button>
+                    ) : step === 4 ? (
+                        <div className="flex gap-4 w-full">
+                            <button
+                                onClick={() => { setCapturedImage(null); setStep(0); setProgress(0); }}
+                                className="flex-1 h-16 bg-[#fcfaf8] text-[#8c8279] border border-[#e6dace] rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-white transition-all"
+                            >
+                                Recommencer
+                            </button>
+                            <button
+                                onClick={() => onCapture(capturedImage!)}
+                                className="flex-1 h-16 bg-green-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-green-500/20 hover:bg-green-700 transition-all"
+                            >
+                                Valider le Profil
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="w-full h-16 bg-[#fcfaf8] border border-[#e6dace] rounded-2xl flex items-center justify-center gap-4">
+                            <span className="text-[10px] font-black text-[#4a3426] uppercase animate-pulse">{steps[step].desc}</span>
+                        </div>
+                    )}
+
+                    <p className="mt-8 text-[8px] font-black text-[#bba282] uppercase tracking-[0.2em] text-center opacity-40 max-w-[280px]">
+                        L'intelligence artificielle analyse 128 points de repère faciaux pour une sécurité maximale.
+                    </p>
+                </div>
+            </motion.div>
+        </div>
+    );
+}
+

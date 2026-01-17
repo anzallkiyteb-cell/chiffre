@@ -498,18 +498,23 @@ export const resolvers = {
             };
         },
         getUsers: async () => {
-            const res = await query('SELECT id, username, role, full_name, last_active FROM logins ORDER BY username ASC');
-            const now = new Date();
-            return res.rows.map(r => {
-                const lastActive = r.last_active ? new Date(r.last_active) : null;
-                // Consider online if active in the last 5 minutes
-                const isOnline = lastActive && (now.getTime() - lastActive.getTime()) < 5 * 60 * 1000;
-                return {
-                    ...r,
-                    last_active: r.last_active ? new Date(r.last_active).toISOString() : null,
-                    is_online: !!isOnline
-                };
-            });
+            const res = await query(`
+                SELECT id, username, password, role, full_name, last_active, device_info, ip_address, is_blocked_user, face_data, has_face_id,
+                (last_active IS NOT NULL AND last_active > (CURRENT_TIMESTAMP - INTERVAL '3 minutes'))::boolean as is_online
+                FROM logins 
+                ORDER BY username ASC
+            `);
+            return res.rows.map(r => ({
+                ...r,
+                last_active: r.last_active ? new Date(r.last_active).toISOString() : null
+            }));
+        },
+        getConnectionLogs: async () => {
+            const res = await query('SELECT * FROM connection_logs ORDER BY connected_at DESC LIMIT 100');
+            return res.rows.map(r => ({
+                ...r,
+                connected_at: r.connected_at ? new Date(r.connected_at).toISOString() : null
+            }));
         },
         getDailyExpenses: async (_: any, { month, startDate, endDate }: { month?: string, startDate?: string, endDate?: string }) => {
             let start = startDate;
@@ -1100,18 +1105,25 @@ export const resolvers = {
             await query("UPDATE public.settings SET value = $1 WHERE key = 'is_blocked'", [isBlocked.toString()]);
             return true;
         },
-        upsertUser: async (_: any, { username, password, role, full_name }: any) => {
+        upsertUser: async (_: any, { username, password, role, full_name, face_data }: any) => {
             const existing = await query('SELECT id FROM logins WHERE username = $1', [username]);
             let res;
             if (existing.rows.length > 0) {
-                res = await query(
-                    'UPDATE logins SET password = $1, role = $2, full_name = $3 WHERE username = $4 RETURNING id, username, role, full_name',
-                    [password, role, full_name, username]
-                );
+                if (face_data) {
+                    res = await query(
+                        'UPDATE logins SET password = $1, role = $2, full_name = $3, face_data = $4, has_face_id = true WHERE username = $5 RETURNING id, username, role, full_name, face_data, has_face_id',
+                        [password, role, full_name, face_data, username]
+                    );
+                } else {
+                    res = await query(
+                        'UPDATE logins SET password = $1, role = $2, full_name = $3 WHERE username = $4 RETURNING id, username, role, full_name, face_data, has_face_id',
+                        [password, role, full_name, username]
+                    );
+                }
             } else {
                 res = await query(
-                    'INSERT INTO logins (username, password, role, full_name) VALUES ($1, $2, $3, $4) RETURNING id, username, role, full_name',
-                    [username, password, role, full_name]
+                    'INSERT INTO logins (username, password, role, full_name, face_data, has_face_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, username, role, full_name, face_data, has_face_id',
+                    [username, password, role, full_name, face_data, !!face_data]
                 );
             }
             return res.rows[0];
@@ -1140,8 +1152,45 @@ export const resolvers = {
             await query('DELETE FROM devices WHERE id = $1', [id]);
             return true;
         },
-        heartbeat: async (_: any, { username }: { username: string }) => {
-            await query('UPDATE logins SET last_active = CURRENT_TIMESTAMP WHERE username = $1', [username]);
+        heartbeat: async (_: any, { username, deviceInfo, ipAddress }: any) => {
+            console.log(`Heartbeat received for: ${username} from ${ipAddress}`);
+            const res = await query(`
+                UPDATE logins 
+                SET last_active = CURRENT_TIMESTAMP,
+                    device_info = $2,
+                    ip_address = $3
+                WHERE LOWER(username) = LOWER($1)
+            `, [username, deviceInfo, ipAddress]);
+            return true;
+        },
+        recordConnection: async (_: any, { username, ipAddress, deviceInfo, browser }: any) => {
+            // Record in logs
+            await query(`
+                INSERT INTO connection_logs (username, ip_address, device_info, browser)
+                VALUES ($1, $2, $3, $4)
+            `, [username, ipAddress, deviceInfo, browser]);
+
+            // Also update main login status immediately
+            await query(`
+                UPDATE logins 
+                SET last_active = CURRENT_TIMESTAMP,
+                    ip_address = $2,
+                    device_info = $3
+                WHERE LOWER(username) = LOWER($1)
+            `, [username, ipAddress, deviceInfo]);
+
+            return true;
+        },
+        clearConnectionLogs: async () => {
+            await query('TRUNCATE TABLE connection_logs');
+            return true;
+        },
+        disconnectUser: async (_: any, { username }: any) => {
+            await query('UPDATE logins SET last_active = NULL WHERE LOWER(username) = LOWER($1)', [username]);
+            return true;
+        },
+        toggleUserBlock: async (_: any, { username, isBlocked }: any) => {
+            await query('UPDATE logins SET is_blocked_user = $1 WHERE LOWER(username) = LOWER($2)', [isBlocked, username]);
             return true;
         },
     },
