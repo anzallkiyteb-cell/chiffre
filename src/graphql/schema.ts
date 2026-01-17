@@ -37,6 +37,7 @@ export const typeDefs = `#graphql
     tickets_restaurant: String
     extra: String
     primes: String
+    offres: String
     is_locked: Boolean
     # Bey Database Fields
     avances_details: [DetailItem]
@@ -125,8 +126,8 @@ export const typeDefs = `#graphql
     getDesignations: [Designation]
     getMonthlySalaries(startDate: String!, endDate: String!): [SalaryHistory]
     getPaidUsers(month: String, startDate: String, endDate: String): [PaidUser]
-    getInvoices(supplierName: String, startDate: String, endDate: String, month: String, payer: String): [Invoice]
-    getPaymentStats(month: String, startDate: String, endDate: String): PaymentStats
+    getInvoices(supplierName: String, startDate: String, endDate: String, month: String, payer: String, filterBy: String): [Invoice]
+    getPaymentStats(month: String, startDate: String, endDate: String, filterBy: String): PaymentStats
     getBankDeposits(month: String, startDate: String, endDate: String): [BankDeposit]
     getLockedDates: [String]
     getDailyExpenses(month: String, startDate: String, endDate: String): [Chiffre]
@@ -150,6 +151,7 @@ export const typeDefs = `#graphql
       tickets_restaurant: String!
       extra: String!
       primes: String!
+      offres: String
       payer: String
     ): Chiffre
     

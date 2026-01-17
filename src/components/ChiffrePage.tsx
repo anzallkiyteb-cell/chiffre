@@ -9,7 +9,7 @@ import {
     Banknote, Coins, Plus, Search, Trash2, FileText, UploadCloud, ChevronDown, Check,
     LogOut, ZoomIn, ZoomOut, Maximize2, RotateCcw, LockIcon, UnlockIcon, X, PlusCircle, AlertCircle,
     Wallet, Eye, EyeOff, ChevronsRight, Upload, SlidersHorizontal, ArrowUpDown, Lock, Unlock, Settings,
-    Briefcase, User, MessageSquare, Share2, ExternalLink, List, Pencil, Save, Calculator, Zap, Sparkles, Clock
+    Briefcase, User, MessageSquare, Share2, ExternalLink, List, Pencil, Save, Calculator, Zap, Sparkles, Clock, Tag
 } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -59,6 +59,7 @@ const GET_CHIFFRE = gql`
         restes_salaires_details { id username montant nb_jours created_at }
         diponce_divers
         diponce_admin
+        offres
         is_locked
     }
 }
@@ -116,6 +117,7 @@ const SAVE_CHIFFRE = gql`
     $primes: String!
     $diponce_divers: String!
     $diponce_admin: String!
+    $offres: String
     $payer: String
 ) {
     saveChiffre(
@@ -133,6 +135,7 @@ const SAVE_CHIFFRE = gql`
       primes: $primes
       diponce_divers: $diponce_divers
       diponce_admin: $diponce_admin
+      offres: $offres
       payer: $payer
     ) {
         id
@@ -731,6 +734,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     const [ticketsRestaurant, setTicketsRestaurant] = useState('0');
     const [extra, setExtra] = useState('0');
     const [primes, setPrimes] = useState('0');
+    const [offres, setOffres] = useState('0');
 
     // Bey Details (Now Local)
     const [avancesList, setAvancesList] = useState<{ id?: number, username: string, montant: string, created_at?: string }[]>([]);
@@ -798,7 +802,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         primesList,
         restesSalairesList,
         expensesDivers,
-        expensesAdmin
+        expensesAdmin,
+        offres
     });
 
 
@@ -819,6 +824,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             setTicketsRestaurant(c.tickets_restaurant || '0');
             setExtra(c.extra || '0');
             setPrimes(c.primes || '0');
+            setOffres(c.offres || '0');
             setAvancesList(c.avances_details || []);
             setDoublagesList(c.doublages_details || []);
             setExtrasList(c.extras_details || []);
@@ -876,6 +882,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             setTicketsRestaurant('0');
             setExtra('0');
             setPrimes('0');
+            setOffres('0');
             setAvancesList([]);
             setDoublagesList([]);
             setExtrasList([]);
@@ -1209,6 +1216,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                     tickets_restaurant: ticketsRestaurant,
                     extra,
                     primes,
+                    offres,
                     diponce_divers: JSON.stringify(expensesDivers),
                     diponce_admin: JSON.stringify(expensesAdmin),
                     payer: role
@@ -1424,6 +1432,38 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 </div>
                             </div>
                         </section>
+
+                        {/* NEW: Offres Card */}
+                        <motion.section
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="bg-white rounded-[2rem] p-6 luxury-shadow border border-[#e6dace]/50"
+                        >
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-2xl bg-[#c69f6e]/10 flex items-center justify-center text-[#c69f6e]">
+                                        <Tag size={24} />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-black text-[#4a3426] uppercase tracking-tight">Offres</h3>
+                                        <p className="text-[10px] font-black text-[#bba282] uppercase tracking-[0.2em]">Montant des offres (Informationnel)</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3 bg-[#fcfaf8] p-3 rounded-2xl border border-[#e6dace]">
+                                    <input
+                                        type="number"
+                                        value={offres}
+                                        disabled={isLocked}
+                                        onFocus={(e) => { if (offres === '0') setOffres(''); }}
+                                        onBlur={(e) => { if (offres === '') setOffres('0'); }}
+                                        onChange={(e) => { setOffres(e.target.value); setHasInteracted(true); }}
+                                        className="bg-transparent text-2xl font-black text-[#4a3426] outline-none w-32 text-right"
+                                        placeholder="0"
+                                    />
+                                    <span className="text-sm font-black text-[#c69f6e]">DT</span>
+                                </div>
+                            </div>
+                        </motion.section>
 
                         {/* 1. Dépenses Fournisseur */}
                         <div>

@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import {
     LayoutDashboard, CheckCircle2, ShoppingBag, AlertCircle, ShoppingCart, TrendingUp, History, User, CreditCard, Banknote, Coins, Receipt, LayoutGrid,
-    Calculator, Plus, Zap, Sparkles, Search, ChevronDown, X, Eye, Truck, Download, Clock, Filter, RotateCcw, FileText, Calendar, Loader2
+    Calculator, Plus, Zap, Sparkles, Search, ChevronDown, X, Eye, Truck, Download, Clock, Filter, RotateCcw, FileText, Calendar, Loader2,
+    ZoomIn, ZoomOut, Maximize2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
@@ -141,7 +142,7 @@ const GET_CHIFFRES_DATA = gql`
         montant
       }
     }
-    getInvoices(startDate: $startDate, endDate: $endDate) {
+    getInvoices(startDate: $startDate, endDate: $endDate, filterBy: "date") {
       id
       supplier_name
       amount
@@ -152,8 +153,13 @@ const GET_CHIFFRES_DATA = gql`
       payer
       category
       doc_type
+      doc_number
+      photo_url
+      photos
+      photo_cheque_url
+      photo_verso_url
     }
-    getPaymentStats(startDate: $startDate, endDate: $endDate) {
+    getPaymentStats(startDate: $startDate, endDate: $endDate, filterBy: "date") {
       totalRecetteCaisse
       totalExpenses
       totalRecetteNette
@@ -184,10 +190,20 @@ export default function CoutAchatPage() {
         paid: true,
         unpaid: true
     });
+    const [selectedDetail, setSelectedDetail] = useState<{ name: string, type: 'paid' | 'unpaid' | 'fournisseur' | 'divers' } | null>(null);
+    const [viewingData, setViewingData] = useState<any>(null);
+    const [imgZoom, setImgZoom] = useState(1);
+    const [imgRotation, setImgRotation] = useState(0);
+
+    const resetView = () => {
+        setImgZoom(1);
+        setImgRotation(0);
+    };
 
     const toggleSection = (id: string) => {
         setExpandedSections(prev => ({ ...prev, [id]: !prev[id] }));
     };
+
 
     useEffect(() => {
         const savedUser = localStorage.getItem('bb_user');
@@ -231,9 +247,13 @@ export default function CoutAchatPage() {
 
         const base = data.getChiffresByRange.reduce((acc: any, curr: any) => {
             const diponceList = JSON.parse(curr.diponce || '[]');
-            const manualExpenses = diponceList.filter((e: any) => !e.isFromFacturation && matchesCategory(e));
+            const manualExpenses = diponceList
+                .filter((e: any) => !e.isFromFacturation && matchesCategory(e))
+                .map((e: any) => ({ ...e, date: curr.date }));
 
-            const diversList = JSON.parse(curr.diponce_divers || '[]').filter((e: any) => matchesCategory({ ...e, category: 'Divers' }));
+            const diversList = JSON.parse(curr.diponce_divers || '[]')
+                .filter((e: any) => matchesCategory({ ...e, category: 'Divers' }))
+                .map((e: any) => ({ ...e, date: curr.date }));
 
             return {
                 allExpenses: [...acc.allExpenses, ...manualExpenses],
@@ -258,9 +278,6 @@ export default function CoutAchatPage() {
         // Split into Supplier vs Divers for clearer UI separation
         const paidSupplierInvoices = paidInvoices.filter((i: any) => (i.category || '').toLowerCase() !== 'divers');
         const unpaidSupplierInvoices = unpaidInvoices.filter((i: any) => (i.category || '').toLowerCase() !== 'divers');
-
-        // Divers invoices are integrated into topDivers below via base.allDivers which comes from getChiffresByRange combined lists.
-        // For the invoice lists specifically, we'll keep them to Suppliers.
 
         const aggregateGroup = (list: any[], nameKey: string, amountKey: string) => {
             const map = new Map();
@@ -305,6 +322,10 @@ export default function CoutAchatPage() {
             divers: filterByName(topDivers),
             paidInvoices: filterByName(topPaid),
             unpaidInvoices: filterByName(topUnpaid),
+            rawFournisseurs: base.allExpenses,
+            rawDivers: base.allDivers,
+            rawPaidInvoices: paidSupplierInvoices,
+            rawUnpaidInvoices: unpaidSupplierInvoices,
             totalPaid,
             totalUnpaid,
             stats,
@@ -501,11 +522,14 @@ export default function CoutAchatPage() {
                                             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                                                 <div className="pt-6 space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-2 mt-2 border-t border-dashed border-[#e6dace]/50 text-xs">
                                                     {aggregates.paidInvoices.length > 0 ? aggregates.paidInvoices.map((a: any, i: number) => (
-                                                        <div key={i} className="flex justify-between items-center p-3 bg-[#fcfaf8] rounded-xl border border-[#e6dace]/30">
+                                                        <div key={i}
+                                                            onClick={() => setSelectedDetail({ name: a.name, type: 'paid' })}
+                                                            className="flex justify-between items-center p-3 bg-[#fcfaf8] rounded-xl border border-[#e6dace]/30 cursor-pointer hover:bg-[#c69f6e]/5 transition-colors">
                                                             <span className="font-bold text-[#4a3426] opacity-70">{a.name}</span>
-                                                            <span className="font-black text-[#2d6a4f]">{a.amount.toFixed(3)}</span>
+                                                            <span className="font-black text-[#2d6a4f]">{a.amount.toFixed(3)} DT</span>
                                                         </div>
                                                     )) : <div className="py-10 text-center italic text-[#8c8279] opacity-40">Aucun paiement</div>}
+
                                                 </div>
                                             </motion.div>
                                         )}
@@ -534,11 +558,14 @@ export default function CoutAchatPage() {
                                             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                                                 <div className="pt-6 space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-2 mt-2 border-t border-dashed border-[#e6dace]/50 text-xs">
                                                     {aggregates.unpaidInvoices.length > 0 ? aggregates.unpaidInvoices.map((a: any, i: number) => (
-                                                        <div key={i} className="flex justify-between items-center p-3 bg-red-50/30 rounded-xl border border-red-100">
+                                                        <div key={i}
+                                                            onClick={() => setSelectedDetail({ name: a.name, type: 'unpaid' })}
+                                                            className="flex justify-between items-center p-3 bg-red-50/30 rounded-xl border border-red-100 cursor-pointer hover:bg-red-50 transition-colors">
                                                             <span className="font-bold text-[#4a3426] opacity-70">{a.name}</span>
-                                                            <span className="font-black text-red-500">{a.amount.toFixed(3)}</span>
+                                                            <span className="font-black text-red-500">{a.amount.toFixed(3)} DT</span>
                                                         </div>
                                                     )) : <div className="py-10 text-center italic text-[#8c8279] opacity-40">Toutes les factures sont payées</div>}
+
                                                 </div>
                                             </motion.div>
                                         )}
@@ -568,11 +595,14 @@ export default function CoutAchatPage() {
                                             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                                                 <div className="pt-6 space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-2 mt-2 border-t border-dashed border-[#e6dace]/50 text-xs">
                                                     {aggregates.fournisseurs.length > 0 ? aggregates.fournisseurs.map((a: any, i: number) => (
-                                                        <div key={i} className="flex justify-between items-center p-3 bg-[#fcfaf8] rounded-xl border border-[#e6dace]/30">
+                                                        <div key={i}
+                                                            onClick={() => setSelectedDetail({ name: a.name, type: 'fournisseur' })}
+                                                            className="flex justify-between items-center p-3 bg-[#fcfaf8] rounded-xl border border-[#e6dace]/30 cursor-pointer hover:bg-[#c69f6e]/5 transition-colors">
                                                             <span className="font-bold text-[#4a3426] opacity-70">{a.name}</span>
-                                                            <span className="font-black text-[#4a3426]">{a.amount.toFixed(3)}</span>
+                                                            <span className="font-black text-[#4a3426]">{a.amount.toFixed(3)} DT</span>
                                                         </div>
                                                     )) : <div className="py-10 text-center italic text-[#8c8279] opacity-40">Aucune donnée</div>}
+
                                                 </div>
                                             </motion.div>
                                         )}
@@ -601,11 +631,14 @@ export default function CoutAchatPage() {
                                             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                                                 <div className="pt-6 space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-2 mt-2 border-t border-dashed border-[#e6dace]/50 text-xs">
                                                     {aggregates.divers.length > 0 ? aggregates.divers.map((a: any, i: number) => (
-                                                        <div key={i} className="flex justify-between items-center p-3 bg-[#fcfaf8] rounded-xl border border-[#e6dace]/30">
+                                                        <div key={i}
+                                                            onClick={() => setSelectedDetail({ name: a.name, type: 'divers' })}
+                                                            className="flex justify-between items-center p-3 bg-[#fcfaf8] rounded-xl border border-[#e6dace]/30 cursor-pointer hover:bg-[#c69f6e]/5 transition-colors">
                                                             <span className="font-bold text-[#4a3426] opacity-70">{a.name}</span>
-                                                            <span className="font-black text-[#4a3426]">{a.amount.toFixed(3)}</span>
+                                                            <span className="font-black text-[#4a3426]">{a.amount.toFixed(3)} DT</span>
                                                         </div>
-                                                    )) : <div className="py-10 text-center italic text-[#8c8279] opacity-40">Aucune donnée</div>}
+                                                    )) : <div className="py-10 text-center italic text-[#8c8279] opacity-40">Aucune dépense</div>}
+
                                                 </div>
                                             </motion.div>
                                         )}
@@ -617,9 +650,323 @@ export default function CoutAchatPage() {
                     )}
                 </main>
             </div>
+
+            <AnimatePresence>
+                {selectedDetail && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[110] bg-[#1a110a]/80 backdrop-blur-xl flex items-center justify-center p-4 md:p-10"
+                        onClick={() => setSelectedDetail(null)}
+                    >
+                        <motion.button
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            whileHover={{ scale: 1.1, rotate: 90 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={() => setSelectedDetail(null)}
+                            className="fixed top-6 right-6 md:top-10 md:right-10 z-[120] w-14 h-14 flex items-center justify-center group active:scale-95"
+                        >
+                            <div className="absolute inset-0 bg-white/5 hover:bg-white/10 backdrop-blur-md rounded-full border border-white/10 transition-colors shadow-2xl"></div>
+                            <X size={32} className="text-white/40 group-hover:text-white transition-colors relative z-10" />
+                        </motion.button>
+
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                            onClick={e => e.stopPropagation()}
+                            className="bg-white rounded-[3rem] w-full max-w-5xl max-h-[90vh] overflow-hidden shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)] border border-white/20 flex flex-col relative"
+                        >
+                            <div className="p-10 md:p-14 bg-[#4a3426] text-white relative flex justify-between items-center shrink-0 overflow-hidden">
+                                <div className="absolute top-0 right-0 w-80 h-80 bg-[#c69f6e]/10 rounded-full blur-[100px] -mr-40 -mt-40 pointer-events-none"></div>
+                                <div className="relative z-10 flex-1">
+                                    <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-8 mb-4">
+                                        <div className="flex items-center gap-4">
+                                            <div className="bg-white/10 p-4 rounded-[2rem] backdrop-blur-md border border-white/10 shadow-inner">
+                                                {selectedDetail.type === 'divers' ? <Sparkles size={36} className="text-[#c69f6e]" /> : <Truck size={36} className="text-[#c69f6e]" />}
+                                            </div>
+                                            <h2 className="text-2xl md:text-3xl lg:text-4xl font-black uppercase tracking-tighter leading-none">
+                                                {selectedDetail.name}
+                                            </h2>
+                                        </div>
+                                        <div className="hidden md:block h-10 w-px bg-white/10"></div>
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#c69f6e]/80 mb-1">Total Période</span>
+                                            <div className="flex items-baseline gap-2">
+                                                <span className="text-3xl font-black tracking-tighter text-white">
+                                                    {(() => {
+                                                        let group: any[] = [];
+                                                        if (selectedDetail.type === 'fournisseur') group = aggregates?.fournisseurs || [];
+                                                        else if (selectedDetail.type === 'divers') group = aggregates?.divers || [];
+                                                        else if (selectedDetail.type === 'paid') group = aggregates?.paidInvoices || [];
+                                                        else if (selectedDetail.type === 'unpaid') group = aggregates?.unpaidInvoices || [];
+                                                        return group?.find((e: any) => e.name === selectedDetail.name)?.amount.toLocaleString('fr-FR', { minimumFractionDigits: 3 });
+                                                    })()}
+
+                                                </span>
+                                                <span className="text-sm font-bold text-[#c69f6e]">DT</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-2 h-2 rounded-full bg-[#c69f6e] animate-pulse"></div>
+                                        <p className="text-[11px] text-white/50 font-bold uppercase tracking-[0.2em]">
+                                            Détails du {new Date(startDate).toLocaleDateString('fr-FR')} au {new Date(endDate).toLocaleDateString('fr-FR')}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto p-8 md:p-12 custom-scrollbar bg-[#fdfbf7]">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {(() => {
+                                        let list: any[] = [];
+                                        if (selectedDetail.type === 'paid') list = (aggregates?.rawPaidInvoices || []).filter((i: any) => i.supplier_name === selectedDetail.name);
+                                        else if (selectedDetail.type === 'unpaid') list = (aggregates?.rawUnpaidInvoices || []).filter((i: any) => i.supplier_name === selectedDetail.name);
+                                        else if (selectedDetail.type === 'fournisseur') list = (aggregates?.rawFournisseurs || []).filter((i: any) => i.supplier === selectedDetail.name);
+                                        else if (selectedDetail.type === 'divers') list = (aggregates?.rawDivers || []).filter((i: any) => i.designation === selectedDetail.name);
+
+
+                                        return (list || [])
+                                            .sort((a: any, b: any) => new Date(b.date || b.paid_date).getTime() - new Date(a.date || a.paid_date).getTime())
+                                            .map((item: any, idx: number) => (
+
+                                                <motion.div
+                                                    key={idx}
+                                                    whileHover={{ y: -5 }}
+                                                    className="bg-white rounded-[2rem] border border-[#e6dace]/50 p-6 relative group overflow-hidden shadow-sm hover:shadow-xl transition-all"
+                                                >
+                                                    <div className="relative z-10">
+                                                        <div className="flex justify-between items-start mb-6">
+                                                            <div className="space-y-1">
+                                                                <div className="text-[10px] font-black uppercase text-[#8c8279] tracking-widest flex items-center gap-2">
+                                                                    <Calendar size={12} className="text-[#c69f6e]" />
+                                                                    {new Date(item.date || item.paid_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                                </div>
+                                                                {item.doc_type && (
+                                                                    <div className="px-2 py-1 rounded-lg text-[8px] font-black uppercase inline-flex items-center gap-1 bg-[#4a3426]/5 text-[#4a3426] border border-[#4a3426]/10">
+                                                                        <FileText size={10} />
+                                                                        {item.doc_type} {item.doc_number && `#${item.doc_number}`}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            <div className={`p-2 rounded-xl text-white shadow-lg ${item.status === 'paid' ? 'bg-green-500 shadow-green-500/20' : 'bg-red-500 shadow-red-500/20'}`}>
+                                                                {item.status === 'paid' ? <CheckCircle2 size={16} /> : <Clock size={16} />}
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="flex flex-col mb-6">
+                                                            <span className="text-[8px] font-black uppercase tracking-[0.2em] text-[#c69f6e] mb-1">Montant</span>
+                                                            <div className="flex items-baseline gap-1">
+                                                                <span className="text-2xl font-black text-[#4a3426] tracking-tighter">
+                                                                    {parseFloat(item.amount).toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                                                </span>
+                                                                <span className="text-[10px] font-black text-[#8c8279]">DT</span>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="mb-6">
+                                                            {(() => {
+                                                                const hasLegacy = !!(item.photo_url && item.photo_url.length > 5);
+                                                                const hasCheque = !!((item.photo_cheque || item.photo_cheque_url || '').length > 5 || (item.photo_verso || item.photo_verso_url || '').length > 5);
+                                                                const hasGallery = Array.isArray(item.invoices) && item.invoices.length > 0;
+                                                                const hasNewPhotos = !!(item.photos && item.photos !== '[]' && item.photos.length > 5);
+
+                                                                if (hasLegacy || hasCheque || hasGallery || hasNewPhotos) {
+                                                                    return (
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                const normalized = {
+                                                                                    ...item,
+                                                                                    photos: Array.isArray(item.invoices) ? JSON.stringify(item.invoices) : (item.photos || '[]'),
+                                                                                    photo_cheque_url: item.photo_cheque || item.photo_cheque_url,
+                                                                                    photo_verso_url: item.photo_verso || item.photo_verso_url
+                                                                                };
+                                                                                setViewingData(normalized);
+                                                                                resetView();
+                                                                            }}
+                                                                            className="w-full h-12 bg-[#4a3426] hover:bg-[#c69f6e] text-white rounded-xl flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-[#4a3426]/10 hover:shadow-[#c69f6e]/20"
+                                                                        >
+                                                                            <Eye size={16} />
+                                                                            <span>Justificatifs</span>
+                                                                        </button>
+                                                                    );
+                                                                }
+
+                                                                return (
+                                                                    <div className="w-full h-12 bg-[#f9f7f5] rounded-xl flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest text-[#8c8279] border border-dashed border-[#e6dace]">
+                                                                        <span>Aucun visuel</span>
+                                                                    </div>
+                                                                );
+                                                            })()}
+                                                        </div>
+
+                                                        <div className="pt-4 border-t border-[#e6dace]/50 flex items-center justify-between">
+
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="w-6 h-6 rounded-lg bg-[#fdfbf7] flex items-center justify-center border border-[#e6dace]/50">
+                                                                    {item.payment_method === 'Espèces' ? <Coins size={12} className="text-[#c69f6e]" /> : <CreditCard size={12} className="text-[#c69f6e]" />}
+                                                                </div>
+                                                                <span className="text-[9px] font-bold text-[#8c8279] uppercase">{item.payment_method || 'Especes'}</span>
+                                                            </div>
+                                                            {item.payer && (
+                                                                <div className="flex items-center gap-1 opacity-40">
+                                                                    <User size={10} />
+                                                                    <span className="text-[8px] font-black uppercase tracking-[0.1em]">{item.payer}</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </motion.div>
+                                            ));
+                                    })()}
+                                </div>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Photo Viewer Modal */}
+            <AnimatePresence>
+                {viewingData && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center p-8 overflow-y-auto no-scrollbar"
+                        onClick={() => setViewingData(null)}
+                    >
+                        <div className="w-full max-w-6xl space-y-8 py-10" onClick={e => e.stopPropagation()}>
+                            <div className="flex justify-between items-center text-white mb-4">
+                                <div>
+                                    <h2 className="text-3xl font-black uppercase tracking-tight">{selectedDetail?.name}</h2>
+                                    <p className="text-sm font-bold opacity-60 uppercase tracking-[0.3em]">
+                                        {parseFloat(viewingData.amount).toLocaleString('fr-FR', { minimumFractionDigits: 3 })} DT • {viewingData.payment_method || 'Espèces'}
+                                    </p>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <div className="flex bg-white/10 rounded-2xl p-1 gap-1 border border-white/10 text-white">
+                                        <button onClick={() => setImgZoom(prev => Math.max(0.5, prev - 0.25))} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all" title="Zoom Arrière"><ZoomOut size={20} /></button>
+                                        <div className="w-16 flex items-center justify-center font-black text-xs tabular-nums text-[#c69f6e]">{Math.round(imgZoom * 100)}%</div>
+                                        <button onClick={() => setImgZoom(prev => Math.min(4, prev + 0.25))} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all" title="Zoom Avant"><ZoomIn size={20} /></button>
+                                        <div className="w-px h-6 bg-white/10 self-center mx-1"></div>
+                                        <button onClick={() => setImgRotation(prev => prev + 90)} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all" title="Tourner"><RotateCcw size={20} /></button>
+                                        <button onClick={resetView} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all" title="Réinitialiser"><Maximize2 size={20} /></button>
+                                    </div>
+                                    <button onClick={() => setViewingData(null)} className="w-12 h-12 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-all text-white"><X size={32} /></button>
+                                </div>
+                            </div>
+
+                            <div className={`grid grid-cols-1 ${viewingData.payment_method === 'Chèque' ? 'md:grid-cols-3' : 'md:grid-cols-1'} gap-8`}>
+                                {/* Photo Facture */}
+                                <div className="space-y-8">
+                                    {(() => {
+                                        let gallery: string[] = [];
+                                        try {
+                                            const rawPhotos = viewingData.photos;
+                                            if (rawPhotos && rawPhotos !== 'null' && rawPhotos !== '[]') {
+                                                const parsed = typeof rawPhotos === 'string' ? JSON.parse(rawPhotos) : rawPhotos;
+                                                gallery = Array.isArray(parsed) ? parsed : [];
+                                            }
+                                        } catch (e) { gallery = []; }
+
+                                        const allPhotos = [...gallery];
+                                        if (viewingData.photo_url && viewingData.photo_url.length > 5 && !allPhotos.includes(viewingData.photo_url)) {
+                                            allPhotos.unshift(viewingData.photo_url);
+                                        }
+
+                                        if (allPhotos.length === 0) {
+                                            return <div className="h-[70vh] bg-white/5 rounded-[2rem] border-2 border-dashed border-white/10 flex items-center justify-center text-white/20 italic font-bold uppercase tracking-widest">Sans Facture</div>;
+                                        }
+
+                                        return allPhotos.map((photo, pIdx) => (
+                                            <div key={pIdx} className="space-y-4">
+                                                <div className="flex justify-between items-center text-white">
+                                                    <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] italic">Document {pIdx + 1} / Facture</p>
+                                                    <a href={photo} download target="_blank" className="flex items-center gap-2 text-[9px] font-black text-[#c69f6e] uppercase tracking-widest hover:text-white transition-colors bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">
+                                                        <Download size={12} /> Télécharger
+                                                    </a>
+                                                </div>
+                                                <div
+                                                    className="bg-black rounded-[2rem] border border-white/10 shadow-2xl overflow-hidden group h-[70vh] relative"
+                                                    onWheel={(e) => {
+                                                        if (e.deltaY < 0) setImgZoom(prev => Math.min(4, prev + 0.1));
+                                                        else setImgZoom(prev => Math.max(0.5, prev - 0.1));
+                                                    }}
+                                                >
+                                                    <motion.div
+                                                        className={`w-full h-full flex items-center justify-center p-4 ${imgZoom > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-zoom-in'}`}
+                                                        animate={{ scale: imgZoom, rotate: imgRotation }}
+                                                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                                        drag={imgZoom > 1}
+                                                        dragConstraints={{ left: -1000, right: 1000, top: -1000, bottom: 1000 }}
+                                                        dragElastic={0.1}
+                                                    >
+                                                        <img
+                                                            src={photo}
+                                                            draggable="false"
+                                                            className="max-w-full max-h-full rounded-xl object-contain shadow-2xl"
+                                                            alt={`Facture ${pIdx + 1}`}
+                                                            style={{ pointerEvents: imgZoom > 1 ? 'none' : 'auto', userSelect: 'none' }}
+                                                        />
+                                                    </motion.div>
+                                                </div>
+                                            </div>
+                                        ));
+                                    })()}
+                                </div>
+
+                                {/* Photos Chèque */}
+                                {viewingData.payment_method === 'Chèque' && (
+                                    <>
+                                        <div className="space-y-4">
+                                            <div className="flex justify-between items-center text-white">
+                                                <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] italic">Chèque Recto</p>
+                                                {viewingData.photo_cheque_url && (
+                                                    <a href={viewingData.photo_cheque_url} download target="_blank" className="flex items-center gap-2 text-[9px] font-black text-[#c69f6e] uppercase tracking-widest hover:text-white transition-colors bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">
+                                                        <Download size={12} />
+                                                    </a>
+                                                )}
+                                            </div>
+                                            {viewingData.photo_cheque_url ? (
+                                                <div className="bg-black rounded-[2rem] border border-white/10 shadow-2xl overflow-hidden h-[70vh] relative" onWheel={(e) => e.deltaY < 0 ? setImgZoom(prev => Math.min(4, prev + 0.1)) : setImgZoom(prev => Math.max(0.5, prev - 0.1))}>
+                                                    <motion.div className={`w-full h-full flex items-center justify-center p-4 ${imgZoom > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-zoom-in'}`} animate={{ scale: imgZoom, rotate: imgRotation }} drag={imgZoom > 1} dragConstraints={{ left: -1000, right: 1000, top: -1000, bottom: 1000 }}>
+                                                        <img src={viewingData.photo_cheque_url} draggable="false" className="max-w-full max-h-full rounded-xl object-contain shadow-2xl" alt="Chèque Recto" style={{ pointerEvents: imgZoom > 1 ? 'none' : 'auto', userSelect: 'none' }} />
+                                                    </motion.div>
+                                                </div>
+                                            ) : <div className="h-[70vh] bg-white/5 rounded-[2rem] border-2 border-dashed border-white/10 flex items-center justify-center text-white/20 italic font-bold">Sans Recto</div>}
+                                        </div>
+                                        <div className="space-y-4">
+                                            <div className="flex justify-between items-center text-white">
+                                                <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] italic">Chèque Verso</p>
+                                                {viewingData.photo_verso_url && (
+                                                    <a href={viewingData.photo_verso_url} download target="_blank" className="flex items-center gap-2 text-[9px] font-black text-[#c69f6e] uppercase tracking-widest hover:text-white transition-colors bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">
+                                                        <Download size={12} />
+                                                    </a>
+                                                )}
+                                            </div>
+                                            {viewingData.photo_verso_url ? (
+                                                <div className="bg-black rounded-[2rem] border border-white/10 shadow-2xl overflow-hidden h-[70vh] relative" onWheel={(e) => e.deltaY < 0 ? setImgZoom(prev => Math.min(4, prev + 0.1)) : setImgZoom(prev => Math.max(0.5, prev - 0.1))}>
+                                                    <motion.div className={`w-full h-full flex items-center justify-center p-4 ${imgZoom > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-zoom-in'}`} animate={{ scale: imgZoom, rotate: imgRotation }} drag={imgZoom > 1} dragConstraints={{ left: -1000, right: 1000, top: -1000, bottom: 1000 }}>
+                                                        <img src={viewingData.photo_verso_url} draggable="false" className="max-w-full max-h-full rounded-xl object-contain shadow-2xl" alt="Chèque Verso" style={{ pointerEvents: imgZoom > 1 ? 'none' : 'auto', userSelect: 'none' }} />
+                                                    </motion.div>
+                                                </div>
+                                            ) : <div className="h-[70vh] bg-white/5 rounded-[2rem] border-2 border-dashed border-white/10 flex items-center justify-center text-white/20 italic font-bold">Sans Verso</div>}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }
+
 
 function ChevronLeft({ size, className }: { size: number, className?: string }) {
     return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m15 18-6-6 6-6" /></svg>;

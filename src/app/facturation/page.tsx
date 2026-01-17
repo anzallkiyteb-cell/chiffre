@@ -880,8 +880,8 @@ export default function FacturationPage() {
                                                     animate={{ opacity: 1, scale: 1 }}
                                                     className="bg-red-100 rounded-[2.5rem] border-2 border-red-400/50 overflow-hidden group hover:shadow-2xl hover:shadow-red-500/20 transition-all"
                                                 >
-                                                    <div className="p-6 pb-0 flex justify-between items-center">
-                                                        <div className="flex items-center gap-2">
+                                                    <div className="p-6 pb-0 flex flex-wrap justify-between items-center gap-3">
+                                                        <div className="flex flex-wrap items-center gap-2">
                                                             <div className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider shadow-sm flex items-center gap-1.5 bg-red-500 text-white">
                                                                 <Clock size={12} />
                                                                 Non Payé
@@ -893,15 +893,24 @@ export default function FacturationPage() {
                                                                 {inv.category === 'divers' ? 'Divers' : 'Fournisseur'}
                                                             </div>
                                                         </div>
-                                                        {inv.photo_url && (
-                                                            <button
-                                                                onClick={() => setViewingData(inv)}
-                                                                className="flex items-center gap-2 text-red-600 hover:text-red-700 transition-colors bg-white/60 px-3 py-1 rounded-lg border border-red-200"
-                                                            >
-                                                                <Eye size={14} />
-                                                                <span className="text-[10px] font-black uppercase tracking-widest">Voir Photo</span>
-                                                            </button>
-                                                        )}
+                                                        {(() => {
+                                                            const hasLegacy = !!(inv.photo_url && inv.photo_url.length > 5);
+                                                            const hasNewPhotos = !!(inv.photos && inv.photos !== '[]' && inv.photos.length > 5);
+                                                            const hasCheque = !!((inv.photo_cheque_url || '').length > 5 || (inv.photo_verso_url || '').length > 5);
+
+                                                            if (hasLegacy || hasNewPhotos || hasCheque) {
+                                                                return (
+                                                                    <button
+                                                                        onClick={() => setViewingData(inv)}
+                                                                        className="flex items-center gap-2 text-red-600 hover:text-red-700 transition-colors bg-white/60 px-3 py-1 rounded-lg border border-red-200"
+                                                                    >
+                                                                        <Eye size={14} />
+                                                                        <span className="text-[10px] font-black uppercase tracking-widest">Voir Photo</span>
+                                                                    </button>
+                                                                );
+                                                            }
+                                                            return null;
+                                                        })()}
                                                     </div>
 
                                                     <div className="p-6">
@@ -1012,8 +1021,8 @@ export default function FacturationPage() {
                                                     animate={{ opacity: 1, scale: 1 }}
                                                     className="bg-green-100 rounded-[2.5rem] border-2 border-green-400/50 overflow-hidden group hover:shadow-2xl hover:shadow-green-500/20 transition-all"
                                                 >
-                                                    <div className="p-6 pb-0 flex justify-between items-center">
-                                                        <div className="flex items-center gap-2">
+                                                    <div className="p-6 pb-0 flex flex-wrap justify-between items-center gap-3">
+                                                        <div className="flex flex-wrap items-center gap-2">
                                                             <div className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider shadow-sm flex items-center gap-1.5 bg-green-500 text-white">
                                                                 <CheckCircle2 size={12} />
                                                                 Payé
@@ -1031,15 +1040,24 @@ export default function FacturationPage() {
                                                                 </div>
                                                             )}
                                                         </div>
-                                                        {inv.photo_url && (
-                                                            <button
-                                                                onClick={() => setViewingData(inv)}
-                                                                className="flex items-center gap-2 text-green-700 hover:text-green-800 transition-colors bg-white/60 px-3 py-1 rounded-lg border border-green-200"
-                                                            >
-                                                                <Eye size={14} />
-                                                                <span className="text-[10px] font-black uppercase tracking-widest">Voir Photo</span>
-                                                            </button>
-                                                        )}
+                                                        {(() => {
+                                                            const hasLegacy = !!(inv.photo_url && inv.photo_url.length > 5);
+                                                            const hasNewPhotos = !!(inv.photos && inv.photos !== '[]' && inv.photos.length > 5);
+                                                            const hasCheque = !!((inv.photo_cheque_url || '').length > 5 || (inv.photo_verso_url || '').length > 5);
+
+                                                            if (hasLegacy || hasNewPhotos || hasCheque) {
+                                                                return (
+                                                                    <button
+                                                                        onClick={() => setViewingData(inv)}
+                                                                        className="flex items-center gap-2 text-green-700 hover:text-green-800 transition-colors bg-white/60 px-3 py-1 rounded-lg border border-green-200"
+                                                                    >
+                                                                        <Eye size={14} />
+                                                                        <span className="text-[10px] font-black uppercase tracking-widest">Voir Photo</span>
+                                                                    </button>
+                                                                );
+                                                            }
+                                                            return null;
+                                                        })()}
                                                     </div>
 
                                                     <div className="p-6">
