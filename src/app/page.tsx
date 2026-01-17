@@ -186,6 +186,7 @@ export default function Home() {
 
   const [pendingUser, setPendingUser] = useState<any>(null);
   const [isFaceLoginOpen, setIsFaceLoginOpen] = useState(false);
+  const [isBlockConfirmOpen, setIsBlockConfirmOpen] = useState(false);
 
   // Check if system OR current user is blocked
   const [isAccountBlocked, setIsAccountBlocked] = useState(false);
@@ -455,7 +456,7 @@ export default function Home() {
 
                   {/* Hidden bypass button for admins */}
                   <button
-                    onClick={handleToggleBlock}
+                    onClick={() => setIsBlockConfirmOpen(true)}
                     className="p-3 rounded-full hover:bg-gray-50 opacity-0 hover:opacity-100 transition-all mx-auto block"
                   >
                     <Power size={12} className="text-gray-200" />
@@ -555,13 +556,59 @@ export default function Home() {
       {/* Quick Block Toggle for Admins while in app */}
       {user.role === 'admin' && (
         <button
-          onClick={handleToggleBlock}
+          onClick={() => setIsBlockConfirmOpen(true)}
           className={`fixed bottom-6 right-6 z-[100] p-4 rounded-full shadow-2xl transition-all hover:scale-110 active:scale-90 ${isBlocked ? 'bg-red-500 text-white shadow-red-500/40' : 'bg-green-500 text-white shadow-green-500/40'}`}
           title={isBlocked ? "Déverrouiller le système" : "Verrouiller le système"}
         >
           {isBlocked ? <ShieldAlert size={24} /> : <ShieldCheck size={24} />}
         </button>
       )}
+
+      {/* Block/Unblock Confirmation Modal */}
+      <AnimatePresence>
+        {isBlockConfirmOpen && (
+          <div className="fixed inset-0 z-[300] flex items-center justify-center p-6 backdrop-blur-md bg-black/20">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl p-10 flex flex-col items-center text-center border border-[#e6dace]"
+            >
+              <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 ${isBlocked ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                {isBlocked ? <ShieldCheck size={40} /> : <ShieldAlert size={40} />}
+              </div>
+
+              <h3 className="text-xl font-black text-[#4a3426] uppercase italic tracking-tighter mb-4">
+                {isBlocked ? "Déverrouiller le système ?" : "Verrouiller le système ?"}
+              </h3>
+
+              <p className="text-[10px] font-bold text-[#8c8279] uppercase tracking-widest leading-relaxed mb-8 opacity-60">
+                {isBlocked
+                  ? "Cela rétablira l'accès complet pour tous les caissiers."
+                  : "Cela bloquera instantanément l'accès pour tous les utilisateurs."}
+              </p>
+
+              <div className="flex gap-4 w-full">
+                <button
+                  onClick={() => setIsBlockConfirmOpen(false)}
+                  className="flex-1 h-14 bg-[#fcfaf8] text-[#8c8279] font-black uppercase text-[10px] tracking-widest rounded-2xl border border-[#e6dace]"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={() => {
+                    handleToggleBlock();
+                    setIsBlockConfirmOpen(false);
+                  }}
+                  className={`flex-1 h-14 font-black uppercase text-[10px] tracking-widest rounded-2xl text-white shadow-lg ${isBlocked ? 'bg-green-600 shadow-green-600/20' : 'bg-red-600 shadow-red-600/20'}`}
+                >
+                  Confirmer
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
       <ChiffrePage role={user.role} onLogout={handleLogout} />
     </div>
   );
