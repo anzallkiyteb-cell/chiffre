@@ -600,7 +600,7 @@ export default function DashboardPage() {
                                             <div>
                                                 <div
                                                     className="flex items-center gap-2 cursor-pointer group"
-                                                    onClick={() => setShowHistoryModal({ type: 'offres' })}
+                                                    onClick={() => setShowHistoryModal({ isOpen: true, type: 'offres' })}
                                                 >
                                                     <Tag size={18} className="text-[#2d6a4f] group-hover:scale-110 transition-transform" />
                                                     <h3 className="text-sm font-black uppercase tracking-[0.2em] text-[#2d6a4f] group-hover:underline underline-offset-4 decoration-2">Total Offres</h3>
@@ -619,7 +619,7 @@ export default function DashboardPage() {
                                                 <div
                                                     key={i}
                                                     className="flex justify-between items-center text-xs py-1 px-2 hover:bg-[#d1fae5] rounded-lg cursor-pointer transition-colors group"
-                                                    onClick={() => setShowHistoryModal({ type: 'offres', targetName: p.name })}
+                                                    onClick={() => setShowHistoryModal({ isOpen: true, type: 'offres', targetName: p.name })}
                                                 >
                                                     <div className="flex items-center gap-2">
                                                         <div className="w-4 h-4 rounded-full bg-[#2d6a4f] text-white flex items-center justify-center text-[8px] font-bold">
@@ -636,7 +636,7 @@ export default function DashboardPage() {
                                             {aggregates.groupedOffres.length > 5 && (
                                                 <div
                                                     className="text-center text-[10px] font-bold text-[#2d6a4f] cursor-pointer hover:underline mt-2 uppercase tracking-wider"
-                                                    onClick={() => setShowHistoryModal({ type: 'offres' })}
+                                                    onClick={() => setShowHistoryModal({ isOpen: true, type: 'offres' })}
                                                 >
                                                     + {aggregates.groupedOffres.length - 5} autres
                                                 </div>
