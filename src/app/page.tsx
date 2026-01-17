@@ -58,7 +58,7 @@ function FaceIDLoginModal({ user, onClose, onSuccess }: any) {
           try {
             const similarity = await simulateBiometricMatching(canvasRef.current, user.face_data);
 
-            if (similarity > 0.86) { // Strict threshold
+            if (similarity > 0.88) { // Ultra-Strict threshold
               setStatus('success');
               setTimeout(() => {
                 onSuccess();
@@ -121,40 +121,47 @@ function FaceIDLoginModal({ user, onClose, onSuccess }: any) {
         ctx2.drawImage(currentCanvas, 0, 0, SIZE, SIZE);
         const data2 = ctx2.getImageData(0, 0, SIZE, SIZE).data;
 
-        let pixelDiff = 0;
-        let luminanceDiff = 0;
+        let totalPixelDiff = 0;
+        let totalGradDiff = 0;
+        let totalWeight = 0;
 
-        // Precise RGB & structural mapping
+        // Precise RGB & structural mapping with Center-Focus Weighting
         for (let i = 0; i < data1.length; i += 4) {
+          const idx = i / 4;
+          const x = idx % SIZE;
+          const y = Math.floor(idx / SIZE);
+
+          // Distance from center (50, 50)
+          const dx = (x / SIZE) - 0.5;
+          const dy = (y / SIZE) - 0.5;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          // Weight: High in center (face area), Low at edges (background)
+          const weight = Math.max(0.1, 5.0 * (1 - dist * 1.8)); // 5x weight multiplier for center
+          totalWeight += weight;
+
           const r1 = data1[i], g1 = data1[i + 1], b1 = data1[i + 2];
           const r2 = data2[i], g2 = data2[i + 1], b2 = data2[i + 2];
 
-          pixelDiff += Math.abs(r1 - r2) + Math.abs(g1 - g2) + Math.abs(b1 - b2);
+          const pDiff = (Math.abs(r1 - r2) + Math.abs(g1 - g2) + Math.abs(b1 - b2)) / (3 * 255);
+          totalPixelDiff += pDiff * weight;
 
-          // Grayscale for structure
           const l1 = (0.299 * r1 + 0.587 * g1 + 0.114 * b1);
           const l2 = (0.299 * r2 + 0.587 * g2 + 0.114 * b2);
 
-          // Edge/Gradient detection (crude Sobel-like vertical check)
           if (i > SIZE * 4) {
             const l1Prev = (0.299 * data1[i - (SIZE * 4)] + 0.587 * data1[i - (SIZE * 4) + 1] + 0.114 * data1[i - (SIZE * 4) + 2]);
             const l2Prev = (0.299 * data2[i - (SIZE * 4)] + 0.587 * data2[i - (SIZE * 4) + 1] + 0.114 * data2[i - (SIZE * 4) + 2]);
-            const grad1 = Math.abs(l1 - l1Prev);
-            const grad2 = Math.abs(l2 - l2Prev);
-            luminanceDiff += Math.abs(grad1 - grad2);
+            const gDiff = Math.abs(Math.abs(l1 - l1Prev) - Math.abs(l2 - l2Prev)) / 255;
+            totalGradDiff += gDiff * weight;
           }
         }
 
-        const maxPixelDiff = SIZE * SIZE * 3 * 255;
-        const maxGradDiff = SIZE * (SIZE - 1) * 255;
+        const pixelSimilarity = 1 - (totalPixelDiff / totalWeight);
+        const graduationSimilarity = 1 - (totalGradDiff / totalWeight);
 
-        // Weights: 70% Structure (Gradients), 30% RGB
-        const pixelSimilarity = 1 - (pixelDiff / maxPixelDiff);
-        const graduationSimilarity = 1 - (luminanceDiff / maxGradDiff);
-
-        // Center-Focus Multiplier: We weigh pixels in the center 60% of the grid 2x more
-        // because that's where the face is. Background (edges) is suppressed.
-        let finalScore = (pixelSimilarity * 0.3) + (graduationSimilarity * 0.7);
+        // Score weighted heavily on structural gradients (80%)
+        const finalScore = (pixelSimilarity * 0.2) + (graduationSimilarity * 0.8);
 
         resolve(finalScore);
       };
@@ -420,7 +427,7 @@ export default function Home() {
         if (foundUser.is_blocked_user) {
           setError('Votre compte est suspendu. Contactez l\'administrateur.');
           setIsAccountBlocked(true);
-        } else if (foundUser.has_face_id) {
+        } else if (foundUser.has_face_id || foundUser.face_data) {
           setPendingUser(foundUser);
           setIsFaceLoginOpen(true);
         } else {
