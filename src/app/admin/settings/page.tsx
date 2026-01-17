@@ -232,7 +232,7 @@ export default function SettingsPage() {
                                         </thead>
                                         <tbody className="divide-y divide-[#f9f6f2]">
                                             {data?.getUsers?.map((u: any) => (
-                                                <tr key={u.id} className={`group hover:bg-[#fcfaf8] transition-all ${u.is_blocked_user ? 'bg-red-50/30' : ''}`}>
+                                                <tr key={u.id} className={`hover:bg-[#fcfaf8] transition-all ${u.is_blocked_user ? 'bg-red-50/30' : ''}`}>
                                                     <td className="px-6 py-4">
                                                         <div className="flex items-center gap-3">
                                                             <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-white text-[10px] font-black uppercase shadow-lg ${u.is_online ? 'bg-green-500 shadow-green-500/20' : u.is_blocked_user ? 'bg-red-500 shadow-red-500/20' : 'bg-[#4a3426] shadow-[#4a3426]/20'}`}>
@@ -273,7 +273,7 @@ export default function SettingsPage() {
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4 text-right">
-                                                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <div className="flex items-center justify-end gap-1 transition-opacity">
                                                             {u.is_online && (
                                                                 <button
                                                                     onClick={() => handleDisconnect(u.username)}
@@ -579,35 +579,42 @@ function FaceCaptureModal({ onClose, onCapture }: { onClose: () => void, onCaptu
         };
     }, []);
 
-    const startEnrollment = async () => {
-        setStep(1);
-        setStatus("Analyse de la face...");
+    const nextStep = async () => {
+        setStatus(`Vérification de la position: ${steps[step].label}...`);
 
-        // Simuler les étapes d'enrôlement
-        for (let i = 1; i <= 4; i++) {
-            setStep(i);
-            setStatus(steps[i].desc);
+        // Progress animation for verification
+        setProgress(0);
+        for (let p = 0; p <= 100; p += 25) {
+            setProgress(p);
+            await new Promise(r => setTimeout(r, 150));
+        }
 
-            // Progress animation for each step
-            for (let p = 0; p <= 100; p += 10) {
-                setProgress(p);
-                await new Promise(r => setTimeout(r, 150));
-            }
-
-            if (i === 1 && videoRef.current && canvasRef.current) {
-                // Capture the main face image at step 1
-                const context = canvasRef.current.getContext('2d');
-                if (context) {
-                    canvasRef.current.width = videoRef.current.videoWidth;
-                    canvasRef.current.height = videoRef.current.videoHeight;
-                    context.drawImage(videoRef.current, 0, 0);
-                    const data = canvasRef.current.toDataURL('image/jpeg', 0.8);
-                    setCapturedImage(data);
-                }
+        if (videoRef.current && canvasRef.current) {
+            const context = canvasRef.current.getContext('2d');
+            if (context) {
+                canvasRef.current.width = videoRef.current.videoWidth;
+                canvasRef.current.height = videoRef.current.videoHeight;
+                context.drawImage(videoRef.current, 0, 0);
+                const data = canvasRef.current.toDataURL('image/jpeg', 0.8);
+                // Keep the "main" face if it's step 1, but we simulate capturing for all
+                if (step === 1) setCapturedImage(data);
             }
         }
 
-        setStatus("Enrôlement terminé avec succès");
+        const nextS = step + 1;
+        setStep(nextS);
+        setProgress(0);
+        if (nextS < 4) {
+            setStatus(steps[nextS].desc);
+        } else {
+            setStatus("Enrôlement terminé avec succès");
+        }
+    };
+
+    const startEnrollment = () => {
+        setStep(1);
+        setStatus(steps[1].desc);
+        setProgress(0);
     };
 
     return (
@@ -712,9 +719,12 @@ function FaceCaptureModal({ onClose, onCapture }: { onClose: () => void, onCaptu
                             </button>
                         </div>
                     ) : (
-                        <div className="w-full h-16 bg-[#fcfaf8] border border-[#e6dace] rounded-2xl flex items-center justify-center gap-4">
-                            <span className="text-[10px] font-black text-[#4a3426] uppercase animate-pulse">{steps[step].desc}</span>
-                        </div>
+                        <button
+                            onClick={nextStep}
+                            className="w-full h-16 bg-[#4a3426] text-white rounded-2xl font-black uppercase tracking-[0.2em] shadow-xl flex items-center justify-center gap-3 hover:scale-105 active:scale-95 transition-all"
+                        >
+                            <span>Valider {steps[step].label}</span>
+                        </button>
                     )}
 
                     <p className="mt-8 text-[8px] font-black text-[#bba282] uppercase tracking-[0.2em] text-center opacity-40 max-w-[280px]">
