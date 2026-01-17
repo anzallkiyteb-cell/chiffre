@@ -167,63 +167,107 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
                                 <p className="text-[#8c8279] font-bold uppercase tracking-widest text-xs">Chargement de l'historique...</p>
                             </div>
                         ) : employeesList.length > 0 ? (
-                            employeesList.map((emp: any, i: number) => (
-                                <div key={i} className="bg-white p-6 rounded-[2rem] border border-[#e6dace]/50 shadow-sm hover:shadow-md transition-all group">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-white shadow-md">
-                                                {/* Placeholder for avatar, utilizing first letter if no image */}
-                                                <div className="w-full h-full bg-[#f4ece4] flex items-center justify-center text-[#4a3426] font-black text-2xl uppercase">
-                                                    {emp.username.charAt(0)}
+                            type === 'offres' ? (
+                                // COMPACT GRID VIEW FOR ALL OFFRES - NO SCROLLING
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    {employeesList.map((emp: any, i: number) => (
+                                        <div key={i} className="bg-white rounded-2xl border border-[#e6dace]/50 shadow-sm hover:shadow-md transition-all overflow-hidden">
+                                            {/* Compact Person Header */}
+                                            <div className="bg-gradient-to-r from-[#f0faf5] to-[#fcfaf8] px-4 py-3 border-b border-[#e6dace]/30 flex justify-between items-center">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-xl bg-[#2d6a4f] flex items-center justify-center text-white font-black text-lg shadow-md">
+                                                        {emp.username.charAt(0)}
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="text-base font-black text-[#4a3426] tracking-tight leading-none">{emp.username}</h4>
+                                                        <p className="text-[9px] font-bold text-[#8c8279] uppercase tracking-wider mt-0.5">
+                                                            {emp.entries.length} offre{emp.entries.length > 1 ? 's' : ''}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="bg-white px-3 py-1.5 rounded-xl border border-[#d1fae5] shadow-sm">
+                                                    <div className="flex items-baseline gap-1">
+                                                        <span className="text-lg font-black text-[#2d6a4f] tracking-tighter">{emp.total.toFixed(3)}</span>
+                                                        <span className="text-[9px] font-bold text-[#c69f6e]">DT</span>
+                                                    </div>
                                                 </div>
                                             </div>
-                                            <div>
-                                                <h4 className="text-xl font-black text-[#4a3426] tracking-tight mb-1">{emp.username}</h4>
-                                                <p className="text-xs font-serif text-[#8c8279] italic">Dates travaillées:</p>
-                                            </div>
-                                        </div>
-                                        <div className="text-2xl font-black text-[#c69f6e] tracking-tighter">
-                                            {emp.total.toFixed(3)} <span className="text-sm">DT</span>
-                                        </div>
-                                    </div>
 
-                                    <div className="space-y-3 mt-4">
-                                        {emp.entries.map((entry: any, dIndex: number) => (
-                                            <div key={dIndex} className="bg-[#fcfaf8] p-4 rounded-2xl border border-[#e6dace] shadow-sm flex justify-between items-center group/item hover:bg-white hover:shadow-md transition-all">
-                                                <div className="flex flex-col gap-1">
-                                                    <div className="text-[#4a3426] font-bold text-xs">
-                                                        {entry.date}
+                                            {/* Compact Entries List */}
+                                            <div className="p-3 space-y-1.5">
+                                                {emp.entries.map((entry: any, dIndex: number) => (
+                                                    <div
+                                                        key={dIndex}
+                                                        className="flex justify-between items-center px-3 py-2 bg-[#fcfaf8] hover:bg-[#f0faf5]/50 rounded-lg transition-colors border border-transparent hover:border-[#d1fae5]"
+                                                    >
+                                                        <span className="text-xs font-bold text-[#4a3426]">{entry.date}</span>
+                                                        <span className="text-sm font-black text-[#2d6a4f]">{entry.amount.toFixed(3)} <span className="text-[10px] text-[#c69f6e]">DT</span></span>
                                                     </div>
-                                                    {entry.created_at && (
-                                                        <div className="flex items-center gap-1.5 opacity-60">
-                                                            <Clock size={10} className="text-[#c69f6e]" />
-                                                            <span className="text-[10px] font-medium text-[#8c8279]">
-                                                                {(() => {
-                                                                    try {
-                                                                        const d = new Date(typeof entry.created_at === 'string' ? entry.created_at.replace(' ', 'T') : entry.created_at);
-                                                                        if (isNaN(d.getTime())) return "";
-                                                                        return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-                                                                    } catch (e) { return ""; }
-                                                                })()}
-                                                            </span>
-                                                        </div>
-                                                    )}
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                // ORIGINAL VIEW FOR OTHER TYPES
+                                employeesList.map((emp: any, i: number) => (
+                                    <div key={i} className="bg-white p-6 rounded-[2rem] border border-[#e6dace]/50 shadow-sm hover:shadow-md transition-all group">
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-white shadow-md">
+                                                    {/* Placeholder for avatar, utilizing first letter if no image */}
+                                                    <div className="w-full h-full bg-[#f4ece4] flex items-center justify-center text-[#4a3426] font-black text-2xl uppercase">
+                                                        {emp.username.charAt(0)}
+                                                    </div>
                                                 </div>
-                                                <div className="text-right flex flex-col items-end gap-1">
-                                                    <div className="text-[#c69f6e] font-black text-sm">
-                                                        {entry.amount.toFixed(3)} DT
-                                                    </div>
-                                                    {entry.nb_jours > 0 && (
-                                                        <span className="text-[9px] font-bold text-[#8c8279] uppercase tracking-wider bg-[#f4ece4] px-1.5 py-0.5 rounded">
-                                                            {entry.nb_jours} Jours
-                                                        </span>
-                                                    )}
+                                                <div>
+                                                    <h4 className="text-xl font-black text-[#4a3426] tracking-tight mb-1">{emp.username}</h4>
+                                                    <p className="text-xs font-serif text-[#8c8279] italic">Dates travaillées:</p>
                                                 </div>
                                             </div>
-                                        ))}
+                                            <div className="text-2xl font-black text-[#c69f6e] tracking-tighter">
+                                                {emp.total.toFixed(3)} <span className="text-sm">DT</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-3 mt-4">
+                                            {emp.entries.map((entry: any, dIndex: number) => (
+                                                <div key={dIndex} className="bg-[#fcfaf8] p-4 rounded-2xl border border-[#e6dace] shadow-sm flex justify-between items-center group/item hover:bg-white hover:shadow-md transition-all">
+                                                    <div className="flex flex-col gap-1">
+                                                        <div className="text-[#4a3426] font-bold text-xs">
+                                                            {entry.date}
+                                                        </div>
+                                                        {entry.created_at && (
+                                                            <div className="flex items-center gap-1.5 opacity-60">
+                                                                <Clock size={10} className="text-[#c69f6e]" />
+                                                                <span className="text-[10px] font-medium text-[#8c8279]">
+                                                                    {(() => {
+                                                                        try {
+                                                                            const d = new Date(typeof entry.created_at === 'string' ? entry.created_at.replace(' ', 'T') : entry.created_at);
+                                                                            if (isNaN(d.getTime())) return "";
+                                                                            return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+                                                                        } catch (e) { return ""; }
+                                                                    })()}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div className="text-right flex flex-col items-end gap-1">
+                                                        <div className="text-[#c69f6e] font-black text-sm">
+                                                            {entry.amount.toFixed(3)} DT
+                                                        </div>
+                                                        {entry.nb_jours > 0 && (
+                                                            <span className="text-[9px] font-bold text-[#8c8279] uppercase tracking-wider bg-[#f4ece4] px-1.5 py-0.5 rounded">
+                                                                {entry.nb_jours} Jours
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
-                                </div>
-                            ))
+                                ))
+                            )
                         ) : (
                             <div className="flex flex-col items-center justify-center py-20 opacity-50">
                                 <p className="text-[#8c8279] italic font-medium">Aucun historique disponible pour cette période.</p>

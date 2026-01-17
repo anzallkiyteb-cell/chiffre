@@ -749,6 +749,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     const [extrasList, setExtrasList] = useState<{ id?: number, username: string, montant: string, created_at?: string }[]>([]);
     const [primesList, setPrimesList] = useState<{ id?: number, username: string, montant: string, created_at?: string }[]>([]);
     const [offresList, setOffresList] = useState<{ name: string, amount: string }[]>([]);
+    const [isOffresExpanded, setIsOffresExpanded] = useState(false);
+    const [viewingPhoto, setViewingPhoto] = useState<string | null>(null);
     const [caissePhoto, setCaissePhoto] = useState<string | null>(null);
     const [restesSalairesList, setRestesSalairesList] = useState<{ id?: number, username: string, montant: string, nb_jours?: number, created_at?: string }[]>([]);
 
@@ -1454,36 +1456,49 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         }
                                                     }}
                                                 />
-                                                <label
-                                                    htmlFor="caisse-photo-upload"
-                                                    className={`cursor-pointer group flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-[#2d6a4f]/5 transition-all
-                                                      ${isLocked ? 'pointer-events-none opacity-50' : ''}`}
-                                                    title={caissePhoto ? "Changer la photo" : "Capturer la caisse"}
-                                                >
-                                                    <Camera size={14} className="text-[#2d6a4f]" />
-                                                    <span className="text-[9px] font-black uppercase tracking-wider text-[#2d6a4f] hidden sm:block">
-                                                        {caissePhoto ? 'Modifier' : 'Capturer'}
-                                                    </span>
-                                                </label>
 
-                                                {caissePhoto && (
-                                                    <button
-                                                        onClick={() => {
-                                                            const win = window.open();
-                                                            win?.document.write(`
-                                                            <body style="margin:0;display:flex;align-items:center;justify-content:center;height:100vh;background:#000;">
-                                                                <img src="${caissePhoto}" style="max-width:100%;max-height:100%;object-fit:contain;box-shadow:0 0 20px rgba(255,255,255,0.1);" />
-                                                            </body>
-                                                        `);
-                                                        }}
-                                                        className="group flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-[#c69f6e]/10 transition-all border border-[#c69f6e]/20"
-                                                        title="Voir la photo"
+                                                {!caissePhoto ? (
+                                                    <label
+                                                        htmlFor="caisse-photo-upload"
+                                                        className={`cursor-pointer group flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-[#2d6a4f]/5 transition-all
+                                                        ${isLocked ? 'pointer-events-none opacity-50' : ''}`}
+                                                        title="Capturer la caisse"
                                                     >
-                                                        <ImageIcon size={14} className="text-[#c69f6e]" />
-                                                        <span className="text-[9px] font-black uppercase tracking-wider text-[#c69f6e] hidden sm:block">
-                                                            Voir
+                                                        <Camera size={14} className="text-[#2d6a4f]" />
+                                                        <span className="text-[9px] font-black uppercase tracking-wider text-[#2d6a4f] hidden sm:block">
+                                                            Capturer
                                                         </span>
-                                                    </button>
+                                                    </label>
+                                                ) : (
+                                                    <div className="flex items-center gap-2">
+                                                        <div
+                                                            className="relative w-8 h-8 rounded-lg overflow-hidden border border-[#c69f6e]/30 cursor-pointer group"
+                                                            onClick={() => setViewingPhoto(caissePhoto)}
+                                                        >
+                                                            <Image
+                                                                src={caissePhoto}
+                                                                alt="Caisse"
+                                                                fill
+                                                                className="object-cover group-hover:scale-110 transition-transform"
+                                                            />
+                                                            <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <Maximize2 size={12} className="text-white" />
+                                                            </div>
+                                                        </div>
+
+                                                        {!isLocked && (
+                                                            <button
+                                                                onClick={() => {
+                                                                    setCaissePhoto(null);
+                                                                    setHasInteracted(true);
+                                                                }}
+                                                                className="p-1 hover:bg-red-50 rounded-full text-red-400 hover:text-red-500 transition-colors"
+                                                                title="Supprimer la photo"
+                                                            >
+                                                                <X size={14} />
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 )}
                                             </div>
                                         </div>
@@ -1528,74 +1543,112 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                         <motion.section
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="bg-white rounded-[2rem] p-6 luxury-shadow border border-[#e6dace]/50"
+                            className="bg-white rounded-[2rem] p-6 luxury-shadow border border-[#e6dace]/50 transition-all"
                         >
-                            <div className="flex flex-col gap-4">
-                                <div className="flex items-center justify-between">
+                            <div className="flex flex-col">
+                                {/* Header / Summary View */}
+                                <div
+                                    className="flex items-center justify-between cursor-pointer"
+                                    onClick={() => setIsOffresExpanded(!isOffresExpanded)}
+                                >
                                     <div className="flex items-center gap-4">
                                         <div className="w-12 h-12 rounded-2xl bg-[#c69f6e]/10 flex items-center justify-center text-[#c69f6e]">
                                             <Tag size={24} />
                                         </div>
                                         <div>
                                             <h3 className="text-lg font-black text-[#4a3426] uppercase tracking-tight">Offres</h3>
-                                            <p className="text-[10px] font-black text-[#bba282] uppercase tracking-[0.2em]">Montant des offres (Informationnel)</p>
+                                            {!isOffresExpanded && (
+                                                <div className="flex items-baseline gap-2 mt-1">
+                                                    <span className="text-xl font-black text-[#4a3426]">{parseFloat(offres).toFixed(3)}</span>
+                                                    <span className="text-xs font-bold text-[#c69f6e]">DT</span>
+                                                </div>
+                                            )}
+                                            {isOffresExpanded && (
+                                                <p className="text-[10px] font-black text-[#bba282] uppercase tracking-[0.2em]">Montant des offres (Informationnel)</p>
+                                            )}
                                         </div>
                                     </div>
-                                    <button
-                                        onClick={handleAddOffre}
-                                        disabled={isLocked}
-                                        className={`flex items-center gap-2 px-6 py-2 bg-white border border-[#e6dace] rounded-full text-[11px] font-bold uppercase tracking-widest text-[#c69f6e] shadow-sm hover:shadow-md hover:bg-[#fcfaf8] transition-all ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                    >
-                                        <Plus size={14} />
-                                        Ajouter Offre
-                                    </button>
+
+                                    <div className="flex items-center gap-3">
+                                        <div className={`p-2 rounded-full transition-transform duration-300 ${isOffresExpanded ? 'rotate-180 bg-[#c69f6e]/10 text-[#c69f6e]' : 'text-[#bba282]'}`}>
+                                            <ChevronDown size={20} />
+                                        </div>
+                                    </div>
                                 </div>
 
-                                <div className="space-y-3">
-                                    {offresList.map((offre, index) => (
-                                        <div key={index} className="flex flex-col md:flex-row items-center gap-3">
-                                            <input
-                                                type="text"
-                                                placeholder="Nom du bénéficiaire"
-                                                value={offre.name}
-                                                disabled={isLocked}
-                                                onChange={(e) => handleOffresChange(index, 'name', e.target.value)}
-                                                className={`flex-1 bg-white border border-[#e6dace] rounded-xl h-12 px-4 font-bold text-[#4a3426] outline-none focus:border-[#c69f6e] ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
-                                            />
-                                            <div className="flex items-center gap-2 w-full md:w-auto">
-                                                <div className="relative w-full md:w-32">
-                                                    <input
-                                                        type="number"
-                                                        value={offre.amount}
-                                                        disabled={isLocked}
-                                                        onFocus={(e) => { if (offre.amount === '0') handleOffresChange(index, 'amount', ''); }}
-                                                        onBlur={(e) => { if (offre.amount === '') handleOffresChange(index, 'amount', '0'); }}
-                                                        onChange={(e) => handleOffresChange(index, 'amount', e.target.value)}
-                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 px-3 font-black text-xl outline-none focus:border-[#c69f6e] text-center ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
-                                                    />
-                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#bba282] text-xs font-black">DT</span>
+                                {/* Expanded Content */}
+                                <AnimatePresence>
+                                    {isOffresExpanded && (
+                                        <motion.div
+                                            initial={{ height: 0, opacity: 0 }}
+                                            animate={{ height: 'auto', opacity: 1 }}
+                                            exit={{ height: 0, opacity: 0 }}
+                                            className="overflow-hidden"
+                                        >
+                                            <div className="pt-6 border-t border-[#e6dace]/50 mt-4 space-y-4">
+                                                <div className="flex justify-between items-center bg-[#fcfaf8] p-3 rounded-2xl border border-[#e6dace]/50">
+                                                    <span className="text-xs font-black text-[#8c8279] uppercase tracking-widest pl-2">Total Offres</span>
+                                                    <span className="text-2xl font-black text-[#4a3426]">{parseFloat(offres).toFixed(3)} <span className="text-sm text-[#c69f6e]">DT</span></span>
                                                 </div>
-                                                <button
-                                                    onClick={() => handleRemoveOffre(index)}
-                                                    disabled={isLocked}
-                                                    className={`w-12 h-12 rounded-xl border border-red-200 text-red-300 hover:text-red-500 hover:bg-red-50 hover:border-red-300 flex items-center justify-center transition-all ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                >
-                                                    <Trash2 size={18} />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                    {offresList.length === 0 && (
-                                        <div className="text-center py-6 text-[#8c8279] opacity-40 text-xs italic border border-dashed border-[#e6dace] rounded-2xl">
-                                            Aucune offre enregistrée
-                                        </div>
-                                    )}
-                                </div>
 
-                                <div className="flex justify-end items-center gap-3 bg-[#fcfaf8] p-3 rounded-2xl border border-[#e6dace]/50 mt-2">
-                                    <span className="text-xs font-black text-[#8c8279] uppercase tracking-widest">Total Offres</span>
-                                    <span className="text-2xl font-black text-[#4a3426]">{parseFloat(offres).toFixed(3)} <span className="text-sm text-[#c69f6e]">DT</span></span>
-                                </div>
+                                                <div className="flex justify-end">
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleAddOffre();
+                                                        }}
+                                                        disabled={isLocked}
+                                                        className={`flex items-center gap-2 px-6 py-2 bg-white border border-[#e6dace] rounded-full text-[11px] font-bold uppercase tracking-widest text-[#c69f6e] shadow-sm hover:shadow-md hover:bg-[#fcfaf8] transition-all ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    >
+                                                        <Plus size={14} />
+                                                        Ajouter Offre
+                                                    </button>
+                                                </div>
+
+                                                <div className="space-y-3">
+                                                    {offresList.map((offre, index) => (
+                                                        <div key={index} className="flex flex-col md:flex-row items-center gap-3">
+                                                            <input
+                                                                type="text"
+                                                                placeholder="Nom du bénéficiaire"
+                                                                value={offre.name}
+                                                                disabled={isLocked}
+                                                                onChange={(e) => handleOffresChange(index, 'name', e.target.value)}
+                                                                className={`flex-1 bg-white border border-[#e6dace] rounded-xl h-12 px-4 font-bold text-[#4a3426] outline-none focus:border-[#c69f6e] ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                            />
+                                                            <div className="flex items-center gap-2 w-full md:w-auto">
+                                                                <div className="relative w-full md:w-32">
+                                                                    <input
+                                                                        type="number"
+                                                                        value={offre.amount}
+                                                                        disabled={isLocked}
+                                                                        onFocus={(e) => { if (offre.amount === '0') handleOffresChange(index, 'amount', ''); }}
+                                                                        onBlur={(e) => { if (offre.amount === '') handleOffresChange(index, 'amount', '0'); }}
+                                                                        onChange={(e) => handleOffresChange(index, 'amount', e.target.value)}
+                                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 px-3 font-black text-xl outline-none focus:border-[#c69f6e] text-center ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                                    />
+                                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#bba282] text-xs font-black">DT</span>
+                                                                </div>
+                                                                <button
+                                                                    onClick={() => handleRemoveOffre(index)}
+                                                                    disabled={isLocked}
+                                                                    className={`w-12 h-12 rounded-xl border border-red-200 text-red-300 hover:text-red-500 hover:bg-red-50 hover:border-red-300 flex items-center justify-center transition-all ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                                >
+                                                                    <Trash2 size={18} />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                    {offresList.length === 0 && (
+                                                        <div className="text-center py-6 text-[#8c8279] opacity-40 text-xs italic border border-dashed border-[#e6dace] rounded-2xl">
+                                                            Aucune offre enregistrée
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                             </div>
                         </motion.section>
 
@@ -2903,7 +2956,54 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             </AnimatePresence>
 
             <AnimatePresence>
-                {/* Removed old showSupplierModal */}
+                {viewingPhoto && (
+                    <div className="fixed inset-0 z-[600] flex items-center justify-center overflow-hidden">
+                        <div
+                            className="absolute inset-0 bg-black/95 backdrop-blur-xl"
+                            onClick={() => setViewingPhoto(null)}
+                        />
+
+                        {/* Draggable Image Container */}
+                        <motion.div
+                            className="relative w-full h-full flex items-center justify-center"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                        >
+                            <motion.img
+                                drag
+                                dragConstraints={{ left: -1000, right: 1000, top: -1000, bottom: 1000 }}
+                                dragElastic={0.05}
+                                whileTap={{ cursor: "grabbing" }}
+                                initial={{ scale: 0.9 }}
+                                animate={{ scale: 1 }}
+                                exit={{ scale: 0.9 }}
+                                src={viewingPhoto}
+                                alt="Caisse Full"
+                                className="max-w-[90vw] max-h-[90vh] object-contain cursor-grab shadow-2xl shadow-black/50 touch-none"
+                            />
+                        </motion.div>
+
+                        {/* Comparison Badge */}
+                        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-md border border-white/10 p-4 rounded-3xl flex flex-col items-center gap-1 min-w-[200px] pointer-events-none z-50">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-white/60">Recette Caisse Actuelle</span>
+                            <div className="flex items-baseline gap-2 text-white">
+                                <span className="text-3xl font-black tracking-tighter">
+                                    {parseFloat(recetteCaisse || '0').toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                </span>
+                                <span className="text-xs font-bold text-[#c69f6e]">DT</span>
+                            </div>
+                        </div>
+
+                        {/* Controls */}
+                        <button
+                            onClick={() => setViewingPhoto(null)}
+                            className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 backdrop-blur-md p-3 rounded-full text-white transition-colors z-50"
+                        >
+                            <X size={24} />
+                        </button>
+                    </div>
+                )}
             </AnimatePresence>
 
             {/* Selection Modals Divers */}
