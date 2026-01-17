@@ -57,7 +57,7 @@ function FaceIDLoginModal({ user, onClose, onSuccess }: any) {
           try {
             const similarity = await simulateBiometricMatching(canvasRef.current, user.face_data);
 
-            if (similarity > 0.75) {
+            if (similarity > 0.85) {
               setStatus('success');
               setTimeout(() => {
                 onSuccess();
@@ -93,23 +93,57 @@ function FaceIDLoginModal({ user, onClose, onSuccess }: any) {
         const ctx = canvas.getContext('2d');
         if (!ctx) return resolve(0);
 
-        canvas.width = 50; // Small sample for speed
-        canvas.height = 50;
-        ctx.drawImage(img, 0, 0, 50, 50);
-        const data1 = ctx.getImageData(0, 0, 50, 50).data;
+        const SIZE = 100;
+        canvas.width = SIZE;
+        canvas.height = SIZE;
 
-        const ctx2 = currentCanvas.getContext('2d');
+        // Process Saved Image
+        ctx.drawImage(img, 0, 0, SIZE, SIZE);
+        const data1 = ctx.getImageData(0, 0, SIZE, SIZE).data;
+
+        // Process Current Frame
+        const canvas2 = document.createElement('canvas');
+        const ctx2 = canvas2.getContext('2d');
         if (!ctx2) return resolve(0);
-        ctx.drawImage(currentCanvas, 0, 0, 50, 50);
-        const data2 = ctx.getImageData(0, 0, 50, 50).data;
+        canvas2.width = SIZE;
+        canvas2.height = SIZE;
+        ctx2.drawImage(currentCanvas, 0, 0, SIZE, SIZE);
+        const data2 = ctx2.getImageData(0, 0, SIZE, SIZE).data;
 
-        let diff = 0;
+        let pixelDiff = 0;
+        let luminanceDiff = 0;
+
+        // Precise RGB & structural mapping
         for (let i = 0; i < data1.length; i += 4) {
-          diff += Math.abs(data1[i] - data2[i]); // Comparing Red channel as sample
+          const r1 = data1[i], g1 = data1[i + 1], b1 = data1[i + 2];
+          const r2 = data2[i], g2 = data2[i + 1], b2 = data2[i + 2];
+
+          pixelDiff += Math.abs(r1 - r2) + Math.abs(g1 - g2) + Math.abs(b1 - b2);
+
+          // Grayscale for structure
+          const l1 = (0.299 * r1 + 0.587 * g1 + 0.114 * b1);
+          const l2 = (0.299 * r2 + 0.587 * g2 + 0.114 * b2);
+
+          // Edge/Gradient detection (crude Sobel-like vertical check)
+          if (i > SIZE * 4) {
+            const l1Prev = (0.299 * data1[i - (SIZE * 4)] + 0.587 * data1[i - (SIZE * 4) + 1] + 0.114 * data1[i - (SIZE * 4) + 2]);
+            const l2Prev = (0.299 * data2[i - (SIZE * 4)] + 0.587 * data2[i - (SIZE * 4) + 1] + 0.114 * data2[i - (SIZE * 4) + 2]);
+            const grad1 = Math.abs(l1 - l1Prev);
+            const grad2 = Math.abs(l2 - l2Prev);
+            luminanceDiff += Math.abs(grad1 - grad2);
+          }
         }
 
-        const similarity = 1 - (diff / (data1.length / 4 * 255));
-        resolve(similarity);
+        const maxPixelDiff = SIZE * SIZE * 3 * 255;
+        const maxGradDiff = SIZE * (SIZE - 1) * 255;
+
+        const pixelSimilarity = 1 - (pixelDiff / maxPixelDiff);
+        const graduationSimilarity = 1 - (luminanceDiff / maxGradDiff);
+
+        // Score weighted heavily on structural gradients (70%)
+        const finalScore = (pixelSimilarity * 0.3) + (graduationSimilarity * 0.7);
+
+        resolve(finalScore);
       };
       img.onerror = () => resolve(0);
       img.src = savedData;
