@@ -271,7 +271,13 @@ export default function Sidebar({ role }: SidebarProps) {
 
             {/* Mobile Bottom Navigation - Static for simplicity here, but can be updated similarly */}
             <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md border-t border-[#e6dace] py-2 flex items-center z-[60] shadow-[0_-10px_30px_-5px_rgba(0,0,0,0.05)] overflow-x-auto scrollbar-hide px-4 gap-2 no-scrollbar">
-                <div className="flex items-center gap-1 min-w-max mx-auto">
+                <div className="flex items-center gap-0.5 min-w-max mx-auto">
+                    <div className="flex flex-col items-center gap-1 p-3 px-4 min-w-max opacity-80">
+                        <div className="w-6 h-6 rounded-lg bg-[#4a3426] flex items-center justify-center text-white text-[10px] font-black uppercase ring-2 ring-white shadow-sm">
+                            {user?.full_name?.charAt(0) || user?.username?.charAt(0) || 'U'}
+                        </div>
+                        <span className="text-[9px] font-black uppercase tracking-tighter text-center">Profil</span>
+                    </div>
                     {navItems.map((item) => {
                         const isActive = pathname === item.href;
                         return (

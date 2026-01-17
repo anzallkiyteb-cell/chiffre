@@ -579,42 +579,42 @@ function FaceCaptureModal({ onClose, onCapture }: { onClose: () => void, onCaptu
         };
     }, []);
 
-    const nextStep = async () => {
-        setStatus(`Vérification de la position: ${steps[step].label}...`);
-
-        // Progress animation for verification
-        setProgress(0);
-        for (let p = 0; p <= 100; p += 25) {
-            setProgress(p);
-            await new Promise(r => setTimeout(r, 150));
-        }
-
-        if (videoRef.current && canvasRef.current) {
-            const context = canvasRef.current.getContext('2d');
-            if (context) {
-                canvasRef.current.width = videoRef.current.videoWidth;
-                canvasRef.current.height = videoRef.current.videoHeight;
-                context.drawImage(videoRef.current, 0, 0);
-                const data = canvasRef.current.toDataURL('image/jpeg', 0.8);
-                // Keep the "main" face if it's step 1, but we simulate capturing for all
-                if (step === 1) setCapturedImage(data);
-            }
-        }
-
-        const nextS = step + 1;
-        setStep(nextS);
-        setProgress(0);
-        if (nextS < 4) {
-            setStatus(steps[nextS].desc);
-        } else {
-            setStatus("Enrôlement terminé avec succès");
-        }
-    };
-
-    const startEnrollment = () => {
+    const startEnrollment = async () => {
         setStep(1);
-        setStatus(steps[1].desc);
         setProgress(0);
+
+        // Automated sequenced enrollment
+        for (let i = 1; i <= 3; i++) {
+            setStep(i);
+            setStatus(steps[i].desc);
+            setProgress(0);
+
+            // Step Verification Phase (Automated)
+            // The process won't proceed until this loop completes (simulated verification)
+            for (let p = 0; p <= 100; p += 10) {
+                setProgress(p);
+                await new Promise(r => setTimeout(r, 150));
+            }
+
+            // Capture logic for the main profile
+            if (i === 1 && videoRef.current && canvasRef.current) {
+                const context = canvasRef.current.getContext('2d');
+                if (context) {
+                    canvasRef.current.width = videoRef.current.videoWidth;
+                    canvasRef.current.height = videoRef.current.videoHeight;
+                    context.drawImage(videoRef.current, 0, 0);
+                    const data = canvasRef.current.toDataURL('image/jpeg', 0.8);
+                    setCapturedImage(data);
+                }
+            }
+
+            // Small pause between successful step verification and next instruction
+            await new Promise(r => setTimeout(r, 500));
+        }
+
+        setStep(4);
+        setStatus("Enrôlement terminé avec succès");
+        setProgress(100);
     };
 
     return (
@@ -719,12 +719,9 @@ function FaceCaptureModal({ onClose, onCapture }: { onClose: () => void, onCaptu
                             </button>
                         </div>
                     ) : (
-                        <button
-                            onClick={nextStep}
-                            className="w-full h-16 bg-[#4a3426] text-white rounded-2xl font-black uppercase tracking-[0.2em] shadow-xl flex items-center justify-center gap-3 hover:scale-105 active:scale-95 transition-all"
-                        >
-                            <span>Valider {steps[step].label}</span>
-                        </button>
+                        <div className="w-full h-16 bg-[#fcfaf8] border border-[#e6dace] rounded-2xl flex items-center justify-center gap-4">
+                            <span className="text-[10px] font-black text-[#4a3426] uppercase animate-pulse">{steps[step].desc}</span>
+                        </div>
                     )}
 
                     <p className="mt-8 text-[8px] font-black text-[#bba282] uppercase tracking-[0.2em] text-center opacity-40 max-w-[280px]">

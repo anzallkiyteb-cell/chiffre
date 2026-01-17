@@ -45,22 +45,75 @@ function FaceIDLoginModal({ user, onClose, onSuccess }: any) {
   const performScan = async () => {
     setStatus('scanning');
 
-    // Simulation of analysis
-    setTimeout(() => {
+    setTimeout(async () => {
       if (videoRef.current && canvasRef.current) {
         const context = canvasRef.current.getContext('2d');
-        if (context) {
+        if (context && user.face_data) {
           canvasRef.current.width = videoRef.current.videoWidth;
           canvasRef.current.height = videoRef.current.videoHeight;
           context.drawImage(videoRef.current, 0, 0);
 
-          setStatus('success');
-          setTimeout(() => {
-            onSuccess();
-          }, 800);
+          // Basic pixel-based similarity logic
+          try {
+            const similarity = await simulateBiometricMatching(canvasRef.current, user.face_data);
+
+            if (similarity > 0.75) {
+              setStatus('success');
+              setTimeout(() => {
+                onSuccess();
+              }, 800);
+            } else {
+              setStatus('error');
+              setTimeout(() => {
+                setStatus('idle');
+                setScanStep('align');
+                // Restart scan sequence
+                setTimeout(() => {
+                  setScanStep('depth');
+                  setTimeout(() => {
+                    setScanStep('auth');
+                    performScan();
+                  }, 1200);
+                }, 1500);
+              }, 2000);
+            }
+          } catch (err) {
+            setStatus('error');
+          }
         }
       }
     }, 2500);
+  };
+
+  const simulateBiometricMatching = async (currentCanvas: HTMLCanvasElement, savedData: string) => {
+    return new Promise<number>((resolve) => {
+      const img = new (window as any).Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return resolve(0);
+
+        canvas.width = 50; // Small sample for speed
+        canvas.height = 50;
+        ctx.drawImage(img, 0, 0, 50, 50);
+        const data1 = ctx.getImageData(0, 0, 50, 50).data;
+
+        const ctx2 = currentCanvas.getContext('2d');
+        if (!ctx2) return resolve(0);
+        ctx.drawImage(currentCanvas, 0, 0, 50, 50);
+        const data2 = ctx.getImageData(0, 0, 50, 50).data;
+
+        let diff = 0;
+        for (let i = 0; i < data1.length; i += 4) {
+          diff += Math.abs(data1[i] - data2[i]); // Comparing Red channel as sample
+        }
+
+        const similarity = 1 - (diff / (data1.length / 4 * 255));
+        resolve(similarity);
+      };
+      img.onerror = () => resolve(0);
+      img.src = savedData;
+    });
   };
 
   return (
@@ -121,11 +174,12 @@ function FaceIDLoginModal({ user, onClose, onSuccess }: any) {
                   <span className={`w-2 h-2 rounded-full transition-all duration-300 ${scanStep === 'depth' ? 'bg-[#c69f6e] scale-125' : scanStep === 'auth' ? 'bg-green-500 opacity-30' : 'bg-[#e6dace] opacity-30'}`} />
                   <span className={`w-2 h-2 rounded-full transition-all duration-300 ${scanStep === 'auth' ? 'bg-[#c69f6e] scale-125' : 'bg-[#e6dace] opacity-30'}`} />
                 </div>
-                <p className="text-[10px] font-black text-[#4a3426] uppercase tracking-widest animate-pulse">
+                <p className={`text-[10px] font-black uppercase tracking-widest ${status === 'error' ? 'text-red-500' : 'text-[#4a3426] animate-pulse'}`}>
                   {status === 'success' ? 'Identité confirmée' :
-                    scanStep === 'align' ? 'Alignement du visage...' :
-                      scanStep === 'depth' ? 'Analyse de profondeur...' :
-                        'Authentification finale...'}
+                    status === 'error' ? "Échec de l'Authentification" :
+                      scanStep === 'align' ? 'Alignement du visage...' :
+                        scanStep === 'depth' ? 'Analyse de profondeur...' :
+                          'Authentification finale...'}
                 </p>
               </div>
             </div>
@@ -557,10 +611,10 @@ export default function Home() {
       {user.role === 'admin' && (
         <button
           onClick={() => setIsBlockConfirmOpen(true)}
-          className={`fixed bottom-6 right-6 z-[100] p-4 rounded-full shadow-2xl transition-all hover:scale-110 active:scale-90 ${isBlocked ? 'bg-red-500 text-white shadow-red-500/40' : 'bg-green-500 text-white shadow-green-500/40'}`}
+          className={`fixed bottom-28 lg:bottom-10 right-6 z-[100] p-3.5 lg:p-4 rounded-full shadow-2xl transition-all hover:scale-110 active:scale-90 ${isBlocked ? 'bg-red-500 text-white shadow-red-500/40' : 'bg-green-500 text-white shadow-green-500/40'}`}
           title={isBlocked ? "Déverrouiller le système" : "Verrouiller le système"}
         >
-          {isBlocked ? <ShieldAlert size={24} /> : <ShieldCheck size={24} />}
+          {isBlocked ? <ShieldAlert size={22} className="lg:w-6 lg:h-6" /> : <ShieldCheck size={22} className="lg:w-6 lg:h-6" />}
         </button>
       )}
 

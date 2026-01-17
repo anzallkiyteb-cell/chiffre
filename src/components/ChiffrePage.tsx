@@ -1657,7 +1657,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     className={`flex items-center gap-2 px-6 py-2 bg-white border border-[#e6dace] rounded-full text-[11px] font-bold uppercase tracking-widest text-[#c69f6e] shadow-sm hover:shadow-md hover:bg-[#fcfaf8] transition-all ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 >
                                     <Plus size={14} />
-                                    Ajouter Fournisseur
+                                    <span className="hidden xs:inline">Ajouter Fournisseur</span>
+                                    <span className="xs:hidden">Fournisseur</span>
                                 </button>
                             </div>
 
@@ -1891,7 +1892,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     className={`flex items-center gap-2 px-6 py-2 bg-white border border-[#e6dace] rounded-full text-[11px] font-bold uppercase tracking-widest text-[#c69f6e] shadow-sm hover:shadow-md hover:bg-[#fcfaf8] transition-all ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 >
                                     <Plus size={14} />
-                                    Ajouter Divers
+                                    <span className="hidden xs:inline">Ajouter Divers</span>
+                                    <span className="xs:hidden">Divers</span>
                                 </button>
                             </div>
 
@@ -2136,7 +2138,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     className={`flex items-center gap-2 px-6 py-2 bg-white border border-[#e6dace] rounded-full text-[11px] font-bold uppercase tracking-widest text-[#c69f6e] shadow-sm hover:shadow-md hover:bg-[#fcfaf8] transition-all ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 >
                                     <Plus size={14} />
-                                    Ajouter Employé
+                                    <span className="hidden xs:inline">Ajouter Employé</span>
+                                    <span className="xs:hidden">Employé</span>
                                 </button>
                             </div>
                         </div>
