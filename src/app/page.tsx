@@ -54,11 +54,58 @@ function FaceIDLoginModal({ user, onClose, onSuccess }: any) {
           canvasRef.current.height = videoRef.current.videoHeight;
           context.drawImage(videoRef.current, 0, 0);
 
+          // Check if frame has valid content (not empty/black)
+          const frameData = context.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height).data;
+          let totalBrightness = 0;
+          let variance = 0;
+          const sampleSize = Math.min(frameData.length, 40000); // Sample for performance
+          const step = Math.floor(frameData.length / sampleSize) * 4;
+          let sampleCount = 0;
+
+          for (let i = 0; i < frameData.length; i += step) {
+            const brightness = (frameData[i] + frameData[i + 1] + frameData[i + 2]) / 3;
+            totalBrightness += brightness;
+            sampleCount++;
+          }
+          const avgBrightness = totalBrightness / sampleCount;
+
+          // Calculate variance to detect if image has detail
+          for (let i = 0; i < frameData.length; i += step) {
+            const brightness = (frameData[i] + frameData[i + 1] + frameData[i + 2]) / 3;
+            variance += Math.pow(brightness - avgBrightness, 2);
+          }
+          variance = variance / sampleCount;
+
+          // Reject if frame is too dark, too bright, or has no variance (empty/blank)
+          if (avgBrightness < 20 || avgBrightness > 250 || variance < 100) {
+            // Frame appears empty or invalid
+            const newCount = failCount + 1;
+            setFailCount(newCount);
+            if (newCount >= 3) {
+              setStatus('locked');
+              localStorage.setItem(`lock_${user.username}`, Date.now().toString());
+            } else {
+              setStatus('error');
+              setTimeout(() => {
+                setStatus('idle');
+                setScanStep('align');
+                setTimeout(() => {
+                  setScanStep('depth');
+                  setTimeout(() => {
+                    setScanStep('auth');
+                    performScan();
+                  }, 1200);
+                }, 1500);
+              }, 2000);
+            }
+            return;
+          }
+
           // Critical: Structural Central-Focus Analysis
           try {
             const similarity = await simulateBiometricMatching(canvasRef.current, user.face_data);
 
-            if (similarity > 0.88) { // Ultra-Strict threshold
+            if (similarity > 0.75) { // Strict threshold - requires strong match on all metrics
               setStatus('success');
               setTimeout(() => {
                 onSuccess();
@@ -104,7 +151,8 @@ function FaceIDLoginModal({ user, onClose, onSuccess }: any) {
         const ctx = canvas.getContext('2d');
         if (!ctx) return resolve(0);
 
-        const SIZE = 100;
+        // Use higher resolution for better matching
+        const SIZE = 150;
         canvas.width = SIZE;
         canvas.height = SIZE;
 
@@ -121,49 +169,162 @@ function FaceIDLoginModal({ user, onClose, onSuccess }: any) {
         ctx2.drawImage(currentCanvas, 0, 0, SIZE, SIZE);
         const data2 = ctx2.getImageData(0, 0, SIZE, SIZE).data;
 
-        let totalPixelDiff = 0;
-        let totalGradDiff = 0;
-        let totalWeight = 0;
+        // Calculate color histogram for both images (more robust than pixel comparison)
+        const getColorHistogram = (data: Uint8ClampedArray) => {
+          const bins = 16; // 16 bins per channel
+          const histogram = new Array(bins * 3).fill(0);
+          for (let i = 0; i < data.length; i += 4) {
+            const rBin = Math.floor(data[i] / (256 / bins));
+            const gBin = Math.floor(data[i + 1] / (256 / bins));
+            const bBin = Math.floor(data[i + 2] / (256 / bins));
+            histogram[rBin]++;
+            histogram[bins + gBin]++;
+            histogram[bins * 2 + bBin]++;
+          }
+          // Normalize
+          const total = data.length / 4;
+          return histogram.map(v => v / total);
+        };
 
-        // Precise RGB & structural mapping with Center-Focus Weighting
-        for (let i = 0; i < data1.length; i += 4) {
-          const idx = i / 4;
-          const x = idx % SIZE;
-          const y = Math.floor(idx / SIZE);
+        // Extract facial region features (center-focused)
+        const getFaceRegionFeatures = (data: Uint8ClampedArray) => {
+          const features: number[] = [];
+          // Divide image into 5x5 grid, focus on center 3x3 (face area)
+          const gridSize = 5;
+          const cellSize = SIZE / gridSize;
 
-          // Distance from center (50, 50)
-          const dx = (x / SIZE) - 0.5;
-          const dy = (y / SIZE) - 0.5;
-          const dist = Math.sqrt(dx * dx + dy * dy);
+          for (let gy = 1; gy < 4; gy++) { // Center 3 rows
+            for (let gx = 1; gx < 4; gx++) { // Center 3 columns
+              let avgR = 0, avgG = 0, avgB = 0;
+              let edgeStrength = 0;
+              let count = 0;
 
-          // Weight: High in center (face area), Low at edges (background)
-          const weight = Math.max(0.1, 5.0 * (1 - dist * 1.8)); // 5x weight multiplier for center
-          totalWeight += weight;
+              for (let y = Math.floor(gy * cellSize); y < Math.floor((gy + 1) * cellSize); y++) {
+                for (let x = Math.floor(gx * cellSize); x < Math.floor((gx + 1) * cellSize); x++) {
+                  const idx = (y * SIZE + x) * 4;
+                  avgR += data[idx];
+                  avgG += data[idx + 1];
+                  avgB += data[idx + 2];
 
-          const r1 = data1[i], g1 = data1[i + 1], b1 = data1[i + 2];
-          const r2 = data2[i], g2 = data2[i + 1], b2 = data2[i + 2];
+                  // Calculate edge strength (Sobel-like)
+                  if (x > 0 && y > 0) {
+                    const prevXIdx = (y * SIZE + x - 1) * 4;
+                    const prevYIdx = ((y - 1) * SIZE + x) * 4;
+                    const grayC = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
+                    const grayX = 0.299 * data[prevXIdx] + 0.587 * data[prevXIdx + 1] + 0.114 * data[prevXIdx + 2];
+                    const grayY = 0.299 * data[prevYIdx] + 0.587 * data[prevYIdx + 1] + 0.114 * data[prevYIdx + 2];
+                    edgeStrength += Math.sqrt(Math.pow(grayC - grayX, 2) + Math.pow(grayC - grayY, 2));
+                  }
+                  count++;
+                }
+              }
 
-          const pDiff = (Math.abs(r1 - r2) + Math.abs(g1 - g2) + Math.abs(b1 - b2)) / (3 * 255);
-          totalPixelDiff += pDiff * weight;
+              features.push(avgR / count / 255);
+              features.push(avgG / count / 255);
+              features.push(avgB / count / 255);
+              features.push(edgeStrength / count / 255);
+            }
+          }
+          return features;
+        };
 
-          const l1 = (0.299 * r1 + 0.587 * g1 + 0.114 * b1);
-          const l2 = (0.299 * r2 + 0.587 * g2 + 0.114 * b2);
+        // Calculate Local Binary Pattern-like texture features
+        const getTextureFeatures = (data: Uint8ClampedArray) => {
+          const features: number[] = [];
+          const step = 10;
 
-          if (i > SIZE * 4) {
-            const l1Prev = (0.299 * data1[i - (SIZE * 4)] + 0.587 * data1[i - (SIZE * 4) + 1] + 0.114 * data1[i - (SIZE * 4) + 2]);
-            const l2Prev = (0.299 * data2[i - (SIZE * 4)] + 0.587 * data2[i - (SIZE * 4) + 1] + 0.114 * data2[i - (SIZE * 4) + 2]);
-            const gDiff = Math.abs(Math.abs(l1 - l1Prev) - Math.abs(l2 - l2Prev)) / 255;
-            totalGradDiff += gDiff * weight;
+          for (let y = step; y < SIZE - step; y += step) {
+            for (let x = step; x < SIZE - step; x += step) {
+              const idx = (y * SIZE + x) * 4;
+              const gray = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
+
+              // Compare with 8 neighbors
+              let pattern = 0;
+              const neighbors = [
+                [-1, -1], [0, -1], [1, -1],
+                [-1, 0],          [1, 0],
+                [-1, 1],  [0, 1],  [1, 1]
+              ];
+
+              neighbors.forEach(([dx, dy], bit) => {
+                const nIdx = ((y + dy * step) * SIZE + (x + dx * step)) * 4;
+                const nGray = 0.299 * data[nIdx] + 0.587 * data[nIdx + 1] + 0.114 * data[nIdx + 2];
+                if (nGray >= gray) pattern |= (1 << bit);
+              });
+
+              features.push(pattern / 255);
+            }
+          }
+          return features;
+        };
+
+        // Get all features
+        const hist1 = getColorHistogram(data1);
+        const hist2 = getColorHistogram(data2);
+        const face1 = getFaceRegionFeatures(data1);
+        const face2 = getFaceRegionFeatures(data2);
+        const texture1 = getTextureFeatures(data1);
+        const texture2 = getTextureFeatures(data2);
+
+        // Calculate histogram similarity (Bhattacharyya-like coefficient)
+        let histSimilarity = 0;
+        for (let i = 0; i < hist1.length; i++) {
+          histSimilarity += Math.sqrt(hist1[i] * hist2[i]);
+        }
+        histSimilarity = histSimilarity / (hist1.length / 3); // Normalize by channels
+
+        // Calculate face region similarity (cosine similarity)
+        let dot = 0, mag1 = 0, mag2 = 0;
+        for (let i = 0; i < face1.length; i++) {
+          dot += face1[i] * face2[i];
+          mag1 += face1[i] * face1[i];
+          mag2 += face2[i] * face2[i];
+        }
+        const faceSimilarity = dot / (Math.sqrt(mag1) * Math.sqrt(mag2) + 0.0001);
+
+        // Calculate texture similarity
+        let textureDot = 0, textureMag1 = 0, textureMag2 = 0;
+        for (let i = 0; i < texture1.length; i++) {
+          textureDot += texture1[i] * texture2[i];
+          textureMag1 += texture1[i] * texture1[i];
+          textureMag2 += texture2[i] * texture2[i];
+        }
+        const textureSimilarity = textureDot / (Math.sqrt(textureMag1) * Math.sqrt(textureMag2) + 0.0001);
+
+        // Direct pixel comparison for the face center region only
+        let centerPixelDiff = 0;
+        let centerCount = 0;
+        const centerStart = Math.floor(SIZE * 0.25);
+        const centerEnd = Math.floor(SIZE * 0.75);
+
+        for (let y = centerStart; y < centerEnd; y++) {
+          for (let x = centerStart; x < centerEnd; x++) {
+            const idx = (y * SIZE + x) * 4;
+            const diff = (
+              Math.abs(data1[idx] - data2[idx]) +
+              Math.abs(data1[idx + 1] - data2[idx + 1]) +
+              Math.abs(data1[idx + 2] - data2[idx + 2])
+            ) / (3 * 255);
+            centerPixelDiff += diff;
+            centerCount++;
           }
         }
+        const centerPixelSimilarity = 1 - (centerPixelDiff / centerCount);
 
-        const pixelSimilarity = 1 - (totalPixelDiff / totalWeight);
-        const graduationSimilarity = 1 - (totalGradDiff / totalWeight);
+        // Combined score with strict weighting
+        // All metrics must be high for a match
+        const finalScore = (
+          histSimilarity * 0.15 +          // Color distribution: 15%
+          faceSimilarity * 0.30 +          // Face region features: 30%
+          textureSimilarity * 0.25 +       // Texture patterns: 25%
+          centerPixelSimilarity * 0.30     // Center pixel match: 30%
+        );
 
-        // Score weighted heavily on structural gradients (80%)
-        const finalScore = (pixelSimilarity * 0.2) + (graduationSimilarity * 0.8);
+        // Apply non-linear penalty - if any component is too low, reduce overall score
+        const minComponent = Math.min(histSimilarity, faceSimilarity, textureSimilarity, centerPixelSimilarity);
+        const penalizedScore = minComponent < 0.5 ? finalScore * 0.5 : finalScore;
 
-        resolve(finalScore);
+        resolve(penalizedScore);
       };
       img.onerror = () => resolve(0);
       img.src = savedData;
