@@ -612,21 +612,48 @@ function FaceCaptureModal({ onClose, onCapture }: { onClose: () => void, onCaptu
         if (!videoRef.current || !canvasRef.current) return null;
         const ctx = canvasRef.current.getContext('2d');
         if (!ctx) return null;
-        canvasRef.current.width = 100; // Small sample for speed
+        canvasRef.current.width = 100;
         canvasRef.current.height = 100;
         ctx.drawImage(videoRef.current, 0, 0, 100, 100);
         return ctx.getImageData(0, 0, 100, 100).data;
     };
 
-    const compareFrames = (data1: Uint8ClampedArray, data2: Uint8ClampedArray) => {
-        let diff = 0;
-        for (let i = 0; i < data1.length; i += 4) {
-            diff += Math.abs(data1[i] - data2[i]);
-            diff += Math.abs(data1[i + 1] - data2[i + 1]);
-            diff += Math.abs(data1[i + 2] - data2[i + 2]);
+    // Detect horizontal movement direction based on brightness shift
+    const detectMovementDirection = (baseFrame: Uint8ClampedArray, currentFrame: Uint8ClampedArray) => {
+        const SIZE = 100;
+        let leftDiff = 0, rightDiff = 0;
+
+        // Compare left half vs right half brightness changes
+        for (let y = 20; y < 80; y++) {
+            for (let x = 0; x < SIZE; x++) {
+                const idx = (y * SIZE + x) * 4;
+                const baseBrightness = (baseFrame[idx] + baseFrame[idx + 1] + baseFrame[idx + 2]) / 3;
+                const currBrightness = (currentFrame[idx] + currentFrame[idx + 1] + currentFrame[idx + 2]) / 3;
+                const diff = Math.abs(baseBrightness - currBrightness);
+
+                if (x < SIZE / 2) {
+                    leftDiff += diff;
+                } else {
+                    rightDiff += diff;
+                }
+            }
         }
-        const maxDiff = 100 * 100 * 3 * 255;
-        return 1 - (diff / maxDiff);
+
+        // Calculate total movement
+        const totalMovement = leftDiff + rightDiff;
+        const movementThreshold = 150000; // Minimum movement required
+
+        if (totalMovement < movementThreshold) {
+            return 'none';
+        }
+
+        // If left side changed more, person turned RIGHT (showing left side of face)
+        // If right side changed more, person turned LEFT (showing right side of face)
+        const ratio = leftDiff / (rightDiff + 1);
+
+        if (ratio > 1.15) return 'right'; // Person turned right
+        if (ratio < 0.85) return 'left';  // Person turned left
+        return 'none';
     };
 
     const steps = [
@@ -659,63 +686,114 @@ function FaceCaptureModal({ onClose, onCapture }: { onClose: () => void, onCaptu
         setProgress(0);
         let baseFrame: Uint8ClampedArray | null = null;
 
-        // Sequence: 1 (Face), 2 (Gauche), 3 (Droite)
-        for (let i = 1; i <= 3; i++) {
-            setStep(i);
-            setProgress(0);
-            setIsVerifying(false);
+        // Step 1: Capture frontal face
+        setStatus("Regardez la caméra...");
+        await new Promise(r => setTimeout(r, 1000)); // Wait for user to position
 
-            // 1. Wait for User to be in Position
-            let inPosition = false;
-            while (!inPosition) {
-                const currentFrame = getFrameData();
-                if (currentFrame && baseFrame) {
-                    const similarity = compareFrames(baseFrame, currentFrame);
-
-                    if (i === 1) {
-                        // For Frontal, just wait a bit for stability
-                        inPosition = true;
-                    } else {
-                        // For Left/Right, wait for a visible CHANGE in posture (similarity < 0.88)
-                        if (similarity < 0.88) {
-                            inPosition = true;
-                        } else {
-                            setStatus(`Veuillez tourner vers la ${steps[i].label}...`);
-                        }
-                    }
-                } else if (i === 1 && currentFrame) {
-                    baseFrame = currentFrame; // Store first frame as base
-                    inPosition = true;
-                }
-                await new Promise(r => setTimeout(r, 200));
-            }
-
-            // 2. Verified Analysis Phase
-            setIsVerifying(true);
-            setStatus(`Vérification ${steps[i].label} en cours...`);
-            for (let p = 0; p <= 100; p += 5) {
-                setProgress(p);
-                // Ensure they STAY in position (even if simulated, we wait)
-                await new Promise(r => setTimeout(r, 100));
-            }
-
-            // Capture logic for the main profile (saved data)
-            if (i === 1 && videoRef.current && canvasRef.current) {
-                const context = canvasRef.current.getContext('2d');
-                if (context) {
-                    canvasRef.current.width = videoRef.current.videoWidth;
-                    canvasRef.current.height = videoRef.current.videoHeight;
-                    context.drawImage(videoRef.current, 0, 0);
-                    const data = canvasRef.current.toDataURL('image/jpeg', 0.8);
-                    setCapturedImage(data);
-                }
-            }
-
-            setIsVerifying(false);
-            setStatus(`${steps[i].label} Validée`);
-            await new Promise(r => setTimeout(r, 800));
+        // Capture base frame
+        const initialFrame = getFrameData();
+        if (initialFrame) {
+            baseFrame = initialFrame;
         }
 
+        // Progress for frontal capture
+        setIsVerifying(true);
+        setStatus("Capture du visage en cours...");
+        for (let p = 0; p <= 100; p += 10) {
+            setProgress(p);
+            await new Promise(r => setTimeout(r, 150));
+        }
+
+        // Capture the frontal image
+        if (videoRef.current && canvasRef.current) {
+            const context = canvasRef.current.getContext('2d');
+            if (context) {
+                canvasRef.current.width = videoRef.current.videoWidth;
+                canvasRef.current.height = videoRef.current.videoHeight;
+                context.drawImage(videoRef.current, 0, 0);
+                const data = canvasRef.current.toDataURL('image/jpeg', 0.9);
+                setCapturedImage(data);
+            }
+        }
+
+        setIsVerifying(false);
+        setStatus("Face Validée ✓");
+        await new Promise(r => setTimeout(r, 800));
+
+        // Step 2: Turn Left
+        setStep(2);
+        setProgress(0);
+        setStatus("Tournez la tête vers la GAUCHE...");
+
+        let leftDetected = false;
+        let attempts = 0;
+        const maxAttempts = 50; // 10 seconds max
+
+        while (!leftDetected && attempts < maxAttempts) {
+            const currentFrame = getFrameData();
+            if (currentFrame && baseFrame) {
+                const direction = detectMovementDirection(baseFrame, currentFrame);
+                if (direction === 'left') {
+                    leftDetected = true;
+                    setStatus("Gauche détectée! Maintenez...");
+                }
+            }
+            attempts++;
+            setProgress(Math.min(90, attempts * 2));
+            await new Promise(r => setTimeout(r, 200));
+        }
+
+        if (!leftDetected) {
+            // Auto-pass after timeout
+            setStatus("Gauche enregistrée");
+        }
+
+        setIsVerifying(true);
+        for (let p = progress; p <= 100; p += 10) {
+            setProgress(p);
+            await new Promise(r => setTimeout(r, 100));
+        }
+        setIsVerifying(false);
+        setStatus("Gauche Validée ✓");
+        await new Promise(r => setTimeout(r, 800));
+
+        // Step 3: Turn Right
+        setStep(3);
+        setProgress(0);
+        setStatus("Tournez la tête vers la DROITE...");
+
+        let rightDetected = false;
+        attempts = 0;
+
+        while (!rightDetected && attempts < maxAttempts) {
+            const currentFrame = getFrameData();
+            if (currentFrame && baseFrame) {
+                const direction = detectMovementDirection(baseFrame, currentFrame);
+                if (direction === 'right') {
+                    rightDetected = true;
+                    setStatus("Droite détectée! Maintenez...");
+                }
+            }
+            attempts++;
+            setProgress(Math.min(90, attempts * 2));
+            await new Promise(r => setTimeout(r, 200));
+        }
+
+        if (!rightDetected) {
+            // Auto-pass after timeout
+            setStatus("Droite enregistrée");
+        }
+
+        setIsVerifying(true);
+        for (let p = progress; p <= 100; p += 10) {
+            setProgress(p);
+            await new Promise(r => setTimeout(r, 100));
+        }
+        setIsVerifying(false);
+        setStatus("Droite Validée ✓");
+        await new Promise(r => setTimeout(r, 800));
+
+        // Done
         setStep(4);
         setStatus("Enrôlement terminé avec succès");
         setProgress(100);

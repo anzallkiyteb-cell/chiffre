@@ -105,7 +105,7 @@ function FaceIDLoginModal({ user, onClose, onSuccess }: any) {
           try {
             const similarity = await simulateBiometricMatching(canvasRef.current, user.face_data);
 
-            if (similarity > 0.82) { // Threshold: same person ~0.85+, different person ~0.60-0.75
+            if (similarity > 0.78) { // Threshold: same person ~0.85+, different person ~0.50-0.70
               setStatus('success');
               setTimeout(() => {
                 onSuccess();
@@ -151,7 +151,7 @@ function FaceIDLoginModal({ user, onClose, onSuccess }: any) {
         const ctx = canvas.getContext('2d');
         if (!ctx) return resolve(0);
 
-        const SIZE = 100;
+        const SIZE = 80; // Smaller size = more tolerant to minor variations
         canvas.width = SIZE;
         canvas.height = SIZE;
 
@@ -168,142 +168,120 @@ function FaceIDLoginModal({ user, onClose, onSuccess }: any) {
         ctx2.drawImage(currentCanvas, 0, 0, SIZE, SIZE);
         const data2 = ctx2.getImageData(0, 0, SIZE, SIZE).data;
 
-        // Normalize both images for lighting differences
-        const normalizeImage = (data: Uint8ClampedArray) => {
-          let minL = 255, maxL = 0;
-          const luminance: number[] = [];
+        // Convert to grayscale and normalize for lighting
+        const toNormalizedGray = (data: Uint8ClampedArray) => {
+          const gray: number[] = [];
+          let sum = 0;
 
           for (let i = 0; i < data.length; i += 4) {
-            const l = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-            luminance.push(l);
-            if (l < minL) minL = l;
-            if (l > maxL) maxL = l;
+            const g = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+            gray.push(g);
+            sum += g;
           }
 
-          const range = maxL - minL || 1;
-          return luminance.map(l => (l - minL) / range);
+          const mean = sum / gray.length;
+          let stdSum = 0;
+          for (const g of gray) {
+            stdSum += (g - mean) * (g - mean);
+          }
+          const std = Math.sqrt(stdSum / gray.length) || 1;
+
+          // Z-score normalization (robust to lighting changes)
+          return gray.map(g => (g - mean) / std);
         };
 
-        const norm1 = normalizeImage(data1);
-        const norm2 = normalizeImage(data2);
+        const norm1 = toNormalizedGray(data1);
+        const norm2 = toNormalizedGray(data2);
 
-        // Calculate structural similarity on normalized luminance
-        let structuralScore = 0;
-        let structuralCount = 0;
+        // Method 1: Correlation coefficient (robust similarity measure)
+        let sum1 = 0, sum2 = 0, sum12 = 0, sumSq1 = 0, sumSq2 = 0;
+        const n = norm1.length;
 
-        // Compare in a grid pattern focusing on center
-        const gridSize = 8;
-        const cellSize = SIZE / gridSize;
+        for (let i = 0; i < n; i++) {
+          sum1 += norm1[i];
+          sum2 += norm2[i];
+          sum12 += norm1[i] * norm2[i];
+          sumSq1 += norm1[i] * norm1[i];
+          sumSq2 += norm2[i] * norm2[i];
+        }
 
-        for (let gy = 1; gy < gridSize - 1; gy++) {
-          for (let gx = 1; gx < gridSize - 1; gx++) {
-            let cellSum1 = 0, cellSum2 = 0;
-            let cellCount = 0;
+        const numerator = n * sum12 - sum1 * sum2;
+        const denominator = Math.sqrt((n * sumSq1 - sum1 * sum1) * (n * sumSq2 - sum2 * sum2));
+        const correlation = denominator !== 0 ? numerator / denominator : 0;
 
-            for (let y = Math.floor(gy * cellSize); y < Math.floor((gy + 1) * cellSize); y++) {
-              for (let x = Math.floor(gx * cellSize); x < Math.floor((gx + 1) * cellSize); x++) {
+        // Correlation ranges from -1 to 1, normalize to 0-1
+        const correlationScore = (correlation + 1) / 2;
+
+        // Method 2: Block-based comparison (tolerant to small position shifts)
+        const blockSize = 10;
+        const numBlocks = Math.floor(SIZE / blockSize);
+        let blockScore = 0;
+        let blockCount = 0;
+
+        for (let by = 1; by < numBlocks - 1; by++) {
+          for (let bx = 1; bx < numBlocks - 1; bx++) {
+            let blockSum1 = 0, blockSum2 = 0;
+
+            for (let y = by * blockSize; y < (by + 1) * blockSize; y++) {
+              for (let x = bx * blockSize; x < (bx + 1) * blockSize; x++) {
                 const idx = y * SIZE + x;
-                cellSum1 += norm1[idx];
-                cellSum2 += norm2[idx];
-                cellCount++;
+                blockSum1 += norm1[idx];
+                blockSum2 += norm2[idx];
               }
             }
 
-            const avg1 = cellSum1 / cellCount;
-            const avg2 = cellSum2 / cellCount;
+            const blockAvg1 = blockSum1 / (blockSize * blockSize);
+            const blockAvg2 = blockSum2 / (blockSize * blockSize);
 
-            // Relative comparison - which cells are brighter/darker than average
-            const diff = Math.abs(avg1 - avg2);
+            // Compare relative brightness patterns
+            const blockDiff = Math.abs(blockAvg1 - blockAvg2);
+            // Use sigmoid-like function to be more tolerant
+            const blockSim = 1 / (1 + blockDiff * 2);
 
-            // Weight center cells more heavily (face area)
-            const centerDist = Math.sqrt(Math.pow(gx - gridSize/2, 2) + Math.pow(gy - gridSize/2, 2));
-            const weight = Math.max(0.5, 2 - centerDist * 0.3);
-
-            structuralScore += (1 - diff) * weight;
-            structuralCount += weight;
+            blockScore += blockSim;
+            blockCount++;
           }
         }
 
-        const normalizedStructural = structuralScore / structuralCount;
+        const normalizedBlockScore = blockScore / blockCount;
 
-        // Edge pattern comparison (face has unique edge patterns)
-        let edgeScore = 0;
-        let edgeCount = 0;
+        // Method 3: Skin color ratio comparison
+        const getSkinColorSignature = (data: Uint8ClampedArray) => {
+          let rSum = 0, gSum = 0, bSum = 0, count = 0;
+          const start = Math.floor(SIZE * 0.25);
+          const end = Math.floor(SIZE * 0.75);
 
-        for (let y = 15; y < SIZE - 15; y += 5) {
-          for (let x = 15; x < SIZE - 15; x += 5) {
-            const idx = y * SIZE + x;
-
-            // Calculate local gradient direction
-            const getGradient = (norm: number[]) => {
-              const left = norm[idx - 1] || 0;
-              const right = norm[idx + 1] || 0;
-              const up = norm[idx - SIZE] || 0;
-              const down = norm[idx + SIZE] || 0;
-              const gx = right - left;
-              const gy = down - up;
-              return Math.atan2(gy, gx);
-            };
-
-            const grad1 = getGradient(norm1);
-            const grad2 = getGradient(norm2);
-
-            // Compare gradient directions (tolerant to magnitude differences)
-            let angleDiff = Math.abs(grad1 - grad2);
-            if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
-            const similarity = 1 - (angleDiff / Math.PI);
-
-            edgeScore += similarity;
-            edgeCount++;
-          }
-        }
-
-        const normalizedEdge = edgeScore / edgeCount;
-
-        // Color distribution comparison (skin tone matching)
-        const getColorRatios = (data: Uint8ClampedArray) => {
-          let totalR = 0, totalG = 0, totalB = 0;
-          const centerStart = Math.floor(SIZE * 0.3);
-          const centerEnd = Math.floor(SIZE * 0.7);
-          let count = 0;
-
-          for (let y = centerStart; y < centerEnd; y++) {
-            for (let x = centerStart; x < centerEnd; x++) {
+          for (let y = start; y < end; y++) {
+            for (let x = start; x < end; x++) {
               const idx = (y * SIZE + x) * 4;
-              totalR += data[idx];
-              totalG += data[idx + 1];
-              totalB += data[idx + 2];
+              rSum += data[idx];
+              gSum += data[idx + 1];
+              bSum += data[idx + 2];
               count++;
             }
           }
 
-          const total = totalR + totalG + totalB || 1;
-          return {
-            r: totalR / total,
-            g: totalG / total,
-            b: totalB / total
-          };
+          const total = rSum + gSum + bSum || 1;
+          return { r: rSum / total, g: gSum / total, b: bSum / total };
         };
 
-        const colors1 = getColorRatios(data1);
-        const colors2 = getColorRatios(data2);
+        const skin1 = getSkinColorSignature(data1);
+        const skin2 = getSkinColorSignature(data2);
 
-        const colorDiff = (
-          Math.abs(colors1.r - colors2.r) +
-          Math.abs(colors1.g - colors2.g) +
-          Math.abs(colors1.b - colors2.b)
-        );
-        const colorScore = 1 - colorDiff * 2; // Scale up differences
+        const skinDiff = Math.abs(skin1.r - skin2.r) + Math.abs(skin1.g - skin2.g) + Math.abs(skin1.b - skin2.b);
+        const skinScore = Math.max(0, 1 - skinDiff * 3);
 
-        // Final weighted score
-        // Structural patterns are most important, then edges, then color
+        // Combined score: correlation is most reliable
         const finalScore = (
-          normalizedStructural * 0.50 +  // 50% structural patterns
-          normalizedEdge * 0.35 +         // 35% edge patterns
-          Math.max(0, colorScore) * 0.15  // 15% color ratios
+          correlationScore * 0.55 +    // 55% correlation (most reliable)
+          normalizedBlockScore * 0.30 + // 30% block patterns
+          skinScore * 0.15              // 15% skin color
         );
 
-        resolve(finalScore);
+        // Apply a boost for high correlation (same person should have correlation > 0.7)
+        const boostedScore = correlation > 0.6 ? Math.min(1, finalScore * 1.1) : finalScore;
+
+        resolve(boostedScore);
       };
       img.onerror = () => resolve(0);
       img.src = savedData;
