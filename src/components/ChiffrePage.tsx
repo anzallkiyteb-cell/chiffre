@@ -751,6 +751,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     const [offresList, setOffresList] = useState<{ name: string, amount: string }[]>([]);
     const [isOffresExpanded, setIsOffresExpanded] = useState(false);
     const [viewingPhoto, setViewingPhoto] = useState<string | null>(null);
+    const [photoZoom, setPhotoZoom] = useState(1);
     const [caissePhoto, setCaissePhoto] = useState<string | null>(null);
     const [restesSalairesList, setRestesSalairesList] = useState<{ id?: number, username: string, montant: string, nb_jours?: number, created_at?: string }[]>([]);
 
@@ -1470,34 +1471,19 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         </span>
                                                     </label>
                                                 ) : (
-                                                    <div className="flex items-center gap-2">
-                                                        <div
-                                                            className="relative w-8 h-8 rounded-lg overflow-hidden border border-[#c69f6e]/30 cursor-pointer group"
-                                                            onClick={() => setViewingPhoto(caissePhoto)}
-                                                        >
-                                                            <Image
-                                                                src={caissePhoto}
-                                                                alt="Caisse"
-                                                                fill
-                                                                className="object-cover group-hover:scale-110 transition-transform"
-                                                            />
-                                                            <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                <Maximize2 size={12} className="text-white" />
-                                                            </div>
+                                                    <div
+                                                        className="relative w-8 h-8 rounded-lg overflow-hidden border border-[#c69f6e]/30 cursor-pointer group"
+                                                        onClick={() => setViewingPhoto(caissePhoto)}
+                                                    >
+                                                        <Image
+                                                            src={caissePhoto}
+                                                            alt="Caisse"
+                                                            fill
+                                                            className="object-cover group-hover:scale-110 transition-transform"
+                                                        />
+                                                        <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <Maximize2 size={12} className="text-white" />
                                                         </div>
-
-                                                        {!isLocked && (
-                                                            <button
-                                                                onClick={() => {
-                                                                    setCaissePhoto(null);
-                                                                    setHasInteracted(true);
-                                                                }}
-                                                                className="p-1 hover:bg-red-50 rounded-full text-red-400 hover:text-red-500 transition-colors"
-                                                                title="Supprimer la photo"
-                                                            >
-                                                                <X size={14} />
-                                                            </button>
-                                                        )}
                                                     </div>
                                                 )}
                                             </div>
@@ -2957,13 +2943,23 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
 
             <AnimatePresence>
                 {viewingPhoto && (
-                    <div className="fixed inset-0 z-[600] flex items-center justify-center overflow-hidden">
+                    <div
+                        className="fixed inset-0 z-[600] flex items-center justify-center overflow-hidden"
+                        onWheel={(e) => {
+                            e.preventDefault();
+                            const delta = e.deltaY > 0 ? -0.1 : 0.1;
+                            setPhotoZoom(Math.max(0.5, Math.min(3, photoZoom + delta)));
+                        }}
+                    >
                         <div
                             className="absolute inset-0 bg-black/95 backdrop-blur-xl"
-                            onClick={() => setViewingPhoto(null)}
+                            onClick={() => {
+                                setViewingPhoto(null);
+                                setPhotoZoom(1);
+                            }}
                         />
 
-                        {/* Draggable Image Container */}
+                        {/* Draggable & Zoomable Image Container */}
                         <motion.div
                             className="relative w-full h-full flex items-center justify-center"
                             initial={{ opacity: 0 }}
@@ -2976,11 +2972,12 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 dragElastic={0.05}
                                 whileTap={{ cursor: "grabbing" }}
                                 initial={{ scale: 0.9 }}
-                                animate={{ scale: 1 }}
+                                animate={{ scale: photoZoom }}
                                 exit={{ scale: 0.9 }}
                                 src={viewingPhoto}
                                 alt="Caisse Full"
                                 className="max-w-[90vw] max-h-[90vh] object-contain cursor-grab shadow-2xl shadow-black/50 touch-none"
+                                style={{ scale: photoZoom }}
                             />
                         </motion.div>
 
@@ -2995,13 +2992,45 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             </div>
                         </div>
 
-                        {/* Controls */}
-                        <button
-                            onClick={() => setViewingPhoto(null)}
-                            className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 backdrop-blur-md p-3 rounded-full text-white transition-colors z-50"
-                        >
-                            <X size={24} />
-                        </button>
+                        {/* Top Controls */}
+                        <div className="absolute top-4 right-4 flex items-center gap-2 z-50">
+                            {/* Zoom Percentage Display */}
+                            <div className="bg-black/60 backdrop-blur-md border border-white/10 rounded-full px-4 py-2">
+                                <span className="text-white text-sm font-bold">
+                                    {Math.round(photoZoom * 100)}%
+                                </span>
+                            </div>
+
+                            {/* Close Button */}
+                            <button
+                                onClick={() => {
+                                    setViewingPhoto(null);
+                                    setPhotoZoom(1);
+                                }}
+                                className="bg-white/10 hover:bg-white/20 backdrop-blur-md p-3 rounded-full text-white transition-colors"
+                            >
+                                <X size={24} />
+                            </button>
+                        </div>
+
+                        {/* Delete Photo Button */}
+                        {!isLocked && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setCaissePhoto(null);
+                                    setViewingPhoto(null);
+                                    setPhotoZoom(1);
+                                    setHasInteracted(true);
+                                    setToast({ msg: 'Photo supprimée', type: 'success' });
+                                    setTimeout(() => setToast(null), 3000);
+                                }}
+                                className="absolute bottom-10 right-10 bg-red-500/90 hover:bg-red-600 backdrop-blur-md px-6 py-3 rounded-2xl text-white font-black uppercase tracking-wider text-sm transition-all shadow-lg hover:shadow-xl flex items-center gap-2 z-50"
+                            >
+                                <Trash2 size={18} />
+                                Supprimer Photo
+                            </button>
+                        )}
                     </div>
                 )}
             </AnimatePresence>

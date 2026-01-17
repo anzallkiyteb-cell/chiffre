@@ -183,6 +183,7 @@ export default function DashboardPage() {
     const [hideTotalExpenses, setHideTotalExpenses] = useState(false);
     const [hideTotalSalaries, setHideTotalSalaries] = useState(false);
     const [hideMonthlySummary, setHideMonthlySummary] = useState(false);
+    const [isOffresExpanded, setIsOffresExpanded] = useState(false);
     const [imgZoom, setImgZoom] = useState(1);
     const [imgRotation, setImgRotation] = useState(0);
 
@@ -444,6 +445,79 @@ export default function DashboardPage() {
                                 </div>
                             </section>
 
+                            {/* TOTAL OFFRES CARD - TOP SECTION */}
+                            <section className="mb-8">
+                                <div className="bg-white rounded-[2rem] p-6 luxury-shadow border border-[#e6dace]/50 transition-all max-w-5xl mx-auto">
+                                    <div className="flex flex-col">
+                                        {/* Header with Total - Always Visible */}
+                                        <div className="flex items-center justify-between mb-4">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-12 h-12 rounded-2xl bg-[#c69f6e]/10 flex items-center justify-center text-[#c69f6e]">
+                                                    <Tag size={24} />
+                                                </div>
+                                                <div>
+                                                    <h3 className="text-lg font-black text-[#4a3426] uppercase tracking-tight">Offres</h3>
+                                                    <p className="text-[10px] font-black text-[#bba282] uppercase tracking-[0.2em]">Montant cumulé des offres</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-baseline gap-2">
+                                                <span className="text-3xl font-black text-[#4a3426]">{aggregates.offres.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</span>
+                                                <span className="text-sm font-bold text-[#c69f6e]">DT</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Collapsible Breakdown */}
+                                        {aggregates.groupedOffres.length > 0 && (
+                                            <>
+                                                <div
+                                                    className="flex items-center justify-between cursor-pointer py-2 px-3 hover:bg-[#fcfaf8] rounded-xl transition-colors"
+                                                    onClick={() => setIsOffresExpanded(!isOffresExpanded)}
+                                                >
+                                                    <span className="text-xs font-black text-[#8c8279] uppercase tracking-widest">
+                                                        Détails par personne ({aggregates.groupedOffres.length})
+                                                    </span>
+                                                    <div className={`p-1 rounded-full transition-transform duration-300 ${isOffresExpanded ? 'rotate-180 bg-[#c69f6e]/10 text-[#c69f6e]' : 'text-[#bba282]'}`}>
+                                                        <ChevronDown size={16} />
+                                                    </div>
+                                                </div>
+
+                                                <AnimatePresence>
+                                                    {isOffresExpanded && (
+                                                        <motion.div
+                                                            initial={{ height: 0, opacity: 0 }}
+                                                            animate={{ height: 'auto', opacity: 1 }}
+                                                            exit={{ height: 0, opacity: 0 }}
+                                                            className="overflow-hidden"
+                                                        >
+                                                            <div className="pt-3 space-y-2">
+                                                                {aggregates.groupedOffres.map((p: any, i: number) => (
+                                                                    <div
+                                                                        key={i}
+                                                                        className="flex justify-between items-center px-4 py-3 bg-[#fcfaf8] hover:bg-[#f0faf5] rounded-xl cursor-pointer transition-colors group border border-transparent hover:border-[#d1fae5]"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setShowHistoryModal({ isOpen: true, type: 'offres', targetName: p.name });
+                                                                        }}
+                                                                    >
+                                                                        <div className="flex items-center gap-3">
+                                                                            <div className="w-8 h-8 rounded-xl bg-[#2d6a4f] text-white flex items-center justify-center text-sm font-bold">
+                                                                                {p.name.charAt(0)}
+                                                                            </div>
+                                                                            <span className="font-bold text-[#4a3426] group-hover:text-[#2d6a4f] transition-colors">{p.name}</span>
+                                                                        </div>
+                                                                        <span className="font-black text-[#2d6a4f] text-sm">{p.amount.toFixed(3)} <span className="text-xs text-[#c69f6e]">DT</span></span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </motion.div>
+                                                    )}
+                                                </AnimatePresence>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                            </section>
+
                             {/* 2. Unified Grid for All Expense Categories */}
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
                                 {/* LEFT COLUMN: General Expenses */}
@@ -590,57 +664,6 @@ export default function DashboardPage() {
                                                 )}
                                                 <span className="text-lg font-bold text-[#c69f6e]">DT</span>
                                             </div>
-                                        </div>
-                                    </div>
-
-                                    {/* TOTAL OFFRES CARD */}
-                                    <div className="bg-[#f0faf5] rounded-[2.5rem] p-8 relative overflow-hidden border border-[#d1fae5]">
-                                        <div className="absolute top-0 right-0 w-32 h-32 bg-[#c69f6e]/10 rounded-full blur-2xl -mr-16 -mt-16 pointer-events-none"></div>
-                                        <div className="flex justify-between items-end relative z-10 mb-2">
-                                            <div>
-                                                <div
-                                                    className="flex items-center gap-2 cursor-pointer group"
-                                                    onClick={() => setShowHistoryModal({ isOpen: true, type: 'offres' })}
-                                                >
-                                                    <Tag size={18} className="text-[#2d6a4f] group-hover:scale-110 transition-transform" />
-                                                    <h3 className="text-sm font-black uppercase tracking-[0.2em] text-[#2d6a4f] group-hover:underline underline-offset-4 decoration-2">Total Offres</h3>
-                                                </div>
-                                                <p className="text-[10px] text-[#2d6a4f]/60 mt-1 uppercase tracking-wide">Montant cumulé des offres</p>
-                                            </div>
-                                            <div className="flex items-baseline gap-2">
-                                                <span className="text-4xl lg:text-5xl font-black tracking-tighter text-[#4a3426]">{aggregates.offres.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</span>
-                                                <span className="text-lg font-bold text-[#c69f6e]">DT</span>
-                                            </div>
-                                        </div>
-
-                                        {/* Breakdown List */}
-                                        <div className="space-y-1 mt-4 border-t border-[#d1fae5] pt-4">
-                                            {aggregates.groupedOffres.slice(0, 5).map((p: any, i: number) => (
-                                                <div
-                                                    key={i}
-                                                    className="flex justify-between items-center text-xs py-1 px-2 hover:bg-[#d1fae5] rounded-lg cursor-pointer transition-colors group"
-                                                    onClick={() => setShowHistoryModal({ isOpen: true, type: 'offres', targetName: p.name })}
-                                                >
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="w-4 h-4 rounded-full bg-[#2d6a4f] text-white flex items-center justify-center text-[8px] font-bold">
-                                                            {p.name.charAt(0)}
-                                                        </div>
-                                                        <span className="font-bold text-[#4a3426] group-hover:text-[#2d6a4f] transition-colors">{p.name}</span>
-                                                    </div>
-                                                    <span className="font-black text-[#2d6a4f]">{p.amount.toFixed(3)}</span>
-                                                </div>
-                                            ))}
-                                            {aggregates.groupedOffres.length === 0 && (
-                                                <div className="text-center text-[10px] text-[#2d6a4f]/50 italic py-2">Aucune donnée</div>
-                                            )}
-                                            {aggregates.groupedOffres.length > 5 && (
-                                                <div
-                                                    className="text-center text-[10px] font-bold text-[#2d6a4f] cursor-pointer hover:underline mt-2 uppercase tracking-wider"
-                                                    onClick={() => setShowHistoryModal({ isOpen: true, type: 'offres' })}
-                                                >
-                                                    + {aggregates.groupedOffres.length - 5} autres
-                                                </div>
-                                            )}
                                         </div>
                                     </div>
                                 </div>
