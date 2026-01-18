@@ -750,17 +750,23 @@ function FaceCaptureModal({ onClose, onCapture }: { onClose: () => void, onCaptu
                 const direction = detectMovementDirection(baseFrame, currentFrame);
                 if (direction === 'left') {
                     leftDetected = true;
-                    setStatus("Gauche détectée! Maintenez...");
+                    setStatus("BINGO! Gauche détectée.");
+                    if (navigator.vibrate) navigator.vibrate(50);
                 }
             }
             attempts++;
-            setProgress(Math.min(90, attempts * 2));
-            await new Promise(r => setTimeout(r, 200));
+
+            if (!leftDetected) {
+                if (attempts % 10 === 0) setStatus("Tournez la tête vers la GAUCHE...");
+                setProgress(Math.min(80, attempts));
+                await new Promise(r => setTimeout(r, 200));
+            }
         }
 
         if (!leftDetected) {
-            // Auto-pass after timeout
-            setStatus("Gauche enregistrée");
+            setStatus("Échec: Mouvement non détecté. Recommencez.");
+            setStep(0);
+            return;
         }
 
         setIsVerifying(true);
@@ -786,17 +792,26 @@ function FaceCaptureModal({ onClose, onCapture }: { onClose: () => void, onCaptu
                 const direction = detectMovementDirection(baseFrame, currentFrame);
                 if (direction === 'right') {
                     rightDetected = true;
-                    setStatus("Droite détectée! Maintenez...");
+                    setStatus("BINGO! Droite détectée.");
+
+                    // Trigger haptic feedback if available (mobile)
+                    if (navigator.vibrate) navigator.vibrate(50);
                 }
             }
             attempts++;
-            setProgress(Math.min(90, attempts * 2));
-            await new Promise(r => setTimeout(r, 200));
+            // Only progress if we actually detect something or just spin slowly to show activity
+            // But we do NOT advance until detected.
+            if (!rightDetected) {
+                if (attempts % 10 === 0) setStatus("Tournez la tête vers la DROITE...");
+                setProgress(Math.min(80, attempts)); // Cap progress until success
+                await new Promise(r => setTimeout(r, 200));
+            }
         }
 
         if (!rightDetected) {
-            // Auto-pass after timeout
-            setStatus("Droite enregistrée");
+            setStatus("Échec: Mouvement non détecté. Recommencez.");
+            setStep(0);
+            return;
         }
 
         setIsVerifying(true);

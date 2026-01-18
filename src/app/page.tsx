@@ -300,17 +300,63 @@ function FaceIDLoginModal({ user, onClose, onSuccess }: any) {
           return { r: r / total, g: g / total, b: b / total };
         };
 
-        const skin1 = getSkinTone(data1);
-        const skin2 = getSkinTone(data2);
-        const skinDiff = Math.abs(skin1.r - skin2.r) + Math.abs(skin1.g - skin2.g) + Math.abs(skin1.b - skin2.b);
-        const skinSimilarity = Math.max(0, 1 - skinDiff * 5);
+        // GEOMETRIC TRIANGULATION (Eye-Eye-Mouth Ratios)
+        // This is crucial for distinguishing individuals with similar accessories (like glasses)
+        const getFacialGeometry = (gray: number[]) => {
+          // Find "darkest" regions in top-half (eyes) and bottom-half (mouth)
+          const zoneSize = SIZE / 3;
+          let leftEye = { x: 0, y: 0, val: 255 };
+          let rightEye = { x: 0, y: 0, val: 255 };
+          let mouth = { x: 0, y: 0, val: 255 };
+
+          // Left Eye Search (Top-Left quadrant)
+          for (let y = 10; y < SIZE / 2; y++) {
+            for (let x = 10; x < SIZE / 2; x++) {
+              const val = gray[y * SIZE + x];
+              if (val < leftEye.val) leftEye = { x, y, val };
+            }
+          }
+          // Right Eye Search (Top-Right quadrant)
+          for (let y = 10; y < SIZE / 2; y++) {
+            for (let x = SIZE / 2; x < SIZE - 10; x++) {
+              const val = gray[y * SIZE + x];
+              if (val < rightEye.val) rightEye = { x, y, val };
+            }
+          }
+          // Mouth Search (Bottom Center)
+          for (let y = SIZE / 2 + 5; y < SIZE - 10; y++) {
+            for (let x = SIZE / 4; x < SIZE * 0.75; x++) {
+              const val = gray[y * SIZE + x];
+              if (val < mouth.val) mouth = { x, y, val };
+            }
+          }
+
+          // Calculate Triangle Distances
+          const dLeftRight = Math.sqrt(Math.pow(rightEye.x - leftEye.x, 2) + Math.pow(rightEye.y - leftEye.y, 2));
+          const dLeftMouth = Math.sqrt(Math.pow(mouth.x - leftEye.x, 2) + Math.pow(mouth.y - leftEye.y, 2));
+          const dRightMouth = Math.sqrt(Math.pow(mouth.x - rightEye.x, 2) + Math.pow(mouth.y - rightEye.y, 2));
+
+          // Ratios (invariant to scale/distance) [Base: Eye Distance]
+          return {
+            r1: dLeftMouth / (dLeftRight || 1),
+            r2: dRightMouth / (dLeftRight || 1),
+            aspect: dLeftRight / (dLeftMouth + dRightMouth || 1)
+          };
+        };
+
+        const geom1 = getFacialGeometry(eq1);
+        const geom2 = getFacialGeometry(eq2);
+
+        // Strict Geometry Difference
+        const geoDiff = Math.abs(geom1.r1 - geom2.r1) + Math.abs(geom1.r2 - geom2.r2) + Math.abs(geom1.aspect - geom2.aspect);
+        const geometrySimilarity = Math.max(0, 1 - (geoDiff * 3)); // High penalty for structure mismatch
 
         // Final score combining all methods
-        // HOG features are most important for face recognition
+        // HOG (Structure) + Geometry (Features) + Pattern (Lighting)
         const finalScore = (
-          hogSimilarity * 0.50 +       // 50% HOG features (face structure)
-          patternSimilarity * 0.35 +   // 35% zone patterns
-          skinSimilarity * 0.15        // 15% skin tone
+          hogSimilarity * 0.40 +       // 40% HOG features (General Shape)
+          geometrySimilarity * 0.40 +  // 40% Geometric Triangulation (Identity / Glasses Proof)
+          patternSimilarity * 0.20     // 20% Zone patterns (Texture)
         );
 
         resolve(finalScore);
