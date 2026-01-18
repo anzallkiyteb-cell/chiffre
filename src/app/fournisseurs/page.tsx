@@ -256,7 +256,7 @@ export default function FournisseursPage() {
                             onClick={() => { setActiveTab('designations'); setSearchTerm(''); }}
                             className={`px-6 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${activeTab === 'designations' ? 'bg-white text-[#4a3426] shadow-sm ring-1 ring-[#e6dace]' : 'text-[#8c8279] hover:text-[#4a3426]'}`}
                         >
-                            Désignations
+                            divers
                         </button>
                     </div>
 

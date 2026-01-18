@@ -955,17 +955,17 @@ export const resolvers = {
             await query('DELETE FROM designations WHERE id = $1', [id]);
             return true;
         },
-        addBankDeposit: async (_: any, { amount, date }: { amount: string, date: string }) => {
+        addBankDeposit: async (_: any, { amount, date, type }: { amount: string, date: string, type?: string }) => {
             const res = await query(
-                'INSERT INTO bank_deposits (amount, date) VALUES ($1, $2) RETURNING *',
-                [amount, date]
+                'INSERT INTO bank_deposits (amount, date, type) VALUES ($1, $2, $3) RETURNING *',
+                [amount, date, type || 'deposit']
             );
             return res.rows[0];
         },
-        updateBankDeposit: async (_: any, { id, amount, date }: { id: number, amount: string, date: string }) => {
+        updateBankDeposit: async (_: any, { id, amount, date, type }: { id: number, amount: string, date: string, type?: string }) => {
             const res = await query(
-                'UPDATE bank_deposits SET amount = $1, date = $2 WHERE id = $3 RETURNING *',
-                [amount, date, id]
+                'UPDATE bank_deposits SET amount = $1, date = $2, type = $3 WHERE id = $4 RETURNING *',
+                [amount, date, type || 'deposit', id]
             );
             return res.rows[0];
         },

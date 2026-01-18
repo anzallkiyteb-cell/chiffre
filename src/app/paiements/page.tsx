@@ -168,6 +168,7 @@ const GET_PAYMENT_DATA = gql`
       id
       amount
       date
+      type
     }
     getInvoices(month: $month, startDate: $startDate, endDate: $endDate) {
       id
@@ -222,16 +223,16 @@ const GET_PAYMENT_DATA = gql`
 `;
 
 const ADD_BANK_DEPOSIT = gql`
-  mutation AddBankDeposit($amount: String!, $date: String!) {
-    addBankDeposit(amount: $amount, date: $date) {
+  mutation AddBankDeposit($amount: String!, $date: String!, $type: String) {
+    addBankDeposit(amount: $amount, date: $date, type: $type) {
       id
     }
   }
 `;
 
 const UPDATE_BANK_DEPOSIT = gql`
-  mutation UpdateBankDeposit($id: Int!, $amount: String!, $date: String!) {
-    updateBankDeposit(id: $id, amount: $amount, date: $date) {
+  mutation UpdateBankDeposit($id: Int!, $amount: String!, $date: String!, $type: String) {
+    updateBankDeposit(id: $id, amount: $amount, date: $date, type: $type) {
       id
     }
   }
@@ -407,6 +408,7 @@ export default function PaiementsPage() {
     });
     const [imgZoom, setImgZoom] = useState(1);
     const [imgRotation, setImgRotation] = useState(0);
+    const [bankTransactionType, setBankTransactionType] = useState<'deposit' | 'withdraw'>('deposit');
     const [unpaidSearchFilter, setUnpaidSearchFilter] = useState('');
     const [unpaidDateRange, setUnpaidDateRange] = useState({ start: '', end: '' });
 
@@ -580,14 +582,32 @@ export default function PaiementsPage() {
             expenses: acc.expenses + safeParse(curr.total_diponce)
         }), { chiffreAffaire: 0, reste: 0, cash: 0, tpe: 0, cheque: 0, tickets: 0, expenses: 0 });
 
+        const pendingRemaindersTotal = (data?.getSalaryRemainders || []).reduce((acc: number, r: any) => acc + safeParse(r.amount), 0);
+        const bankDepositsTotal = (data?.getBankDeposits || []).reduce((acc: number, d: any) => acc + safeParse(d.amount), 0);
+
+        // Base Cash (Available from Sales/Espaces only, before transfers)
+        // If we have aggregated data (source), use it. otherwise reconstruct from backend stats (which is TotalCash + BankDeposits)
+        const totalEspaces = aggregated.chiffreAffaire > 0
+            ? aggregated.cash
+            : (safeParse(data?.getPaymentStats?.totalCash) + safeParse(data?.getPaymentStats?.totalBankDeposits));
+
         // Add Riadh's expenses (excluded from backend daily totals) to aggregated totals for this page only
-        const finalExpenses = (aggregated.expenses || safeParse(data?.getPaymentStats?.totalExpenses)) + riadhTotal;
-        const finalReste = (aggregated.reste || safeParse(data?.getPaymentStats?.totalRecetteNette)) - riadhTotal;
+        // Also add Pending Remainders to Total Expenses
+        const finalExpenses = (aggregated.expenses || safeParse(data?.getPaymentStats?.totalExpenses)) + riadhTotal + pendingRemaindersTotal;
+
+        // Subtract Riadh's expenses AND Pending Remainders from Net Revenue
+        const finalReste = (aggregated.reste || safeParse(data?.getPaymentStats?.totalRecetteNette)) - riadhTotal - pendingRemaindersTotal;
+
+        // Final Cash = (Total Espaces) - (Net Bank Transfers) - (Pending Salary Remainders)
+        // Note: bankDepositsTotal is positive for deposits, negative for withdrawals.
+        // Deposit (Positive): Cash decreases (- 100)
+        // Withdrawal (Negative): Cash increases (- -100 = +100)
+        const finalCash = totalEspaces - bankDepositsTotal - pendingRemaindersTotal;
 
         return {
             chiffreAffaire: aggregated.chiffreAffaire || safeParse(data?.getPaymentStats?.totalRecetteCaisse),
             reste: finalReste,
-            cash: aggregated.cash || safeParse(data?.getPaymentStats?.totalCash),
+            cash: finalCash,
             tpe: aggregated.tpe || safeParse(data?.getPaymentStats?.totalTPE),
             cheque: aggregated.cheque || safeParse(data?.getPaymentStats?.totalCheque),
             tickets: aggregated.tickets || safeParse(data?.getPaymentStats?.totalTicketsRestaurant),
@@ -703,6 +723,17 @@ export default function PaiementsPage() {
             };
         }, { ...base });
 
+        // Add Pending Salary Remainders (from Restes Salaires module)
+        const pendingRemainders = data?.getSalaryRemainders || [];
+        pendingRemainders.forEach((r: any) => {
+            agg.restesSalaires.push({
+                username: r.employee_name,
+                montant: r.amount,
+                date: r.updated_at || new Date().toISOString(),
+                isPending: true
+            });
+        });
+
         // Add Riadh's paid invoices (excluded from backend daily merge)
         const riadhInvoices = (data?.getInvoices || []).filter((inv: any) => inv.status === 'paid' && inv.payer === 'riadh');
         riadhInvoices.forEach((inv: any) => {
@@ -808,11 +839,27 @@ export default function PaiementsPage() {
     const handleBankSubmit = async () => {
         if (!bankAmount || !bankDate) return;
         try {
+            const rawAmount = Math.abs(parseFloat(bankAmount));
+            const finalAmount = bankTransactionType === 'withdraw' ? -rawAmount : rawAmount;
+
             if (editingDeposit) {
-                await updateBankDeposit({ variables: { id: parseInt(editingDeposit.id), amount: bankAmount, date: bankDate } });
+                await updateBankDeposit({
+                    variables: {
+                        id: parseInt(editingDeposit.id),
+                        amount: finalAmount.toString(),
+                        date: bankDate,
+                        type: bankTransactionType
+                    }
+                });
                 setEditingDeposit(null);
             } else {
-                await addBankDeposit({ variables: { amount: bankAmount, date: bankDate } });
+                await addBankDeposit({
+                    variables: {
+                        amount: finalAmount.toString(),
+                        date: bankDate,
+                        type: bankTransactionType
+                    }
+                });
             }
             setBankAmount('');
             setShowBankForm(false);
@@ -820,7 +867,7 @@ export default function PaiementsPage() {
             Swal.fire({
                 icon: 'success',
                 title: 'Succès',
-                text: editingDeposit ? 'Versement bancaire mis à jour' : 'Versement bancaire ajouté',
+                text: editingDeposit ? 'Transaction mise à jour' : (bankTransactionType === 'withdraw' ? 'Retrait effectué' : 'Versement effectué'),
                 timer: 1500,
                 showConfirmButton: false
             });
@@ -1423,17 +1470,46 @@ export default function PaiementsPage() {
                                         </div>
                                         Bancaire
                                     </h3>
-                                    <button
-                                        onClick={() => {
-                                            setShowBankForm(!showBankForm);
-                                            setEditingDeposit(null);
-                                            setBankAmount('');
-                                            setBankDate(todayStr);
-                                        }}
-                                        className="text-[10px] font-black uppercase tracking-widest bg-[#f4ece4] text-[#c69f6e] px-3 py-2 rounded-xl hover:bg-[#ebdccf] transition-all"
-                                    >
-                                        {showBankForm ? 'Annuler' : 'Verser à la banque'}
-                                    </button>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => {
+                                                if (showBankForm && bankTransactionType === 'deposit') {
+                                                    setShowBankForm(false);
+                                                } else {
+                                                    setShowBankForm(true);
+                                                    setBankTransactionType('deposit');
+                                                    setBankAmount('');
+                                                    setBankDate(todayStr);
+                                                    setEditingDeposit(null);
+                                                }
+                                            }}
+                                            className={`text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl transition-all ${showBankForm && bankTransactionType === 'deposit'
+                                                ? 'bg-[#4a3426] text-white shadow-md'
+                                                : 'bg-[#f4ece4] text-[#c69f6e] hover:bg-[#ebdccf]'
+                                                }`}
+                                        >
+                                            {showBankForm && bankTransactionType === 'deposit' ? 'Fermer' : 'Verser à la banque'}
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                if (showBankForm && bankTransactionType === 'withdraw') {
+                                                    setShowBankForm(false);
+                                                } else {
+                                                    setShowBankForm(true);
+                                                    setBankTransactionType('withdraw');
+                                                    setBankAmount('');
+                                                    setBankDate(todayStr);
+                                                    setEditingDeposit(null);
+                                                }
+                                            }}
+                                            className={`text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl transition-all ${showBankForm && bankTransactionType === 'withdraw'
+                                                ? 'bg-red-500 text-white shadow-md'
+                                                : 'bg-red-50 text-red-500 hover:bg-red-100'
+                                                }`}
+                                        >
+                                            {showBankForm && bankTransactionType === 'withdraw' ? 'Fermer' : 'Retirer Cash'}
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <AnimatePresence>
@@ -1467,9 +1543,12 @@ export default function PaiementsPage() {
                                                 <button
                                                     onClick={handleBankSubmit}
                                                     disabled={addingBank}
-                                                    className="w-full h-11 bg-[#4a3426] text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-[#4a3426]/20"
+                                                    className={`w-full h-11 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg ${bankTransactionType === 'withdraw'
+                                                        ? 'bg-red-500 shadow-red-500/20 hover:bg-red-600'
+                                                        : 'bg-[#4a3426] shadow-[#4a3426]/20 hover:bg-[#604432]'
+                                                        }`}
                                                 >
-                                                    {addingBank ? <Loader2 size={16} className="animate-spin mx-auto" /> : (editingDeposit ? 'Mettre à jour' : 'Confirmer le Versement')}
+                                                    {addingBank ? <Loader2 size={16} className="animate-spin mx-auto" /> : (editingDeposit ? 'Mettre à jour' : (bankTransactionType === 'withdraw' ? 'Confirmer le Retrait' : 'Confirmer le Versement'))}
                                                 </button>
                                             </div>
                                         </motion.div>
@@ -1485,7 +1564,9 @@ export default function PaiementsPage() {
                                             .map((d: any) => (
                                                 <div key={d.id} className="flex justify-between items-center p-4 bg-[#fcfaf8] rounded-2xl border border-transparent hover:border-[#e6dace] transition-all group">
                                                     <div>
-                                                        <p className="text-sm font-black text-[#4a3426] text-[15px]">{parseFloat(d.amount).toFixed(3)} DT</p>
+                                                        <p className={`text-sm font-black text-[15px] ${parseFloat(d.amount) < 0 ? 'text-red-500' : 'text-[#4a3426]'}`}>
+                                                            {parseFloat(d.amount) < 0 ? 'Retrait' : 'Versement'} : {Math.abs(parseFloat(d.amount)).toFixed(3)} DT
+                                                        </p>
                                                         <p className="text-[10px] font-bold text-[#8c8279] uppercase tracking-tighter">{new Date(d.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}</p>
                                                     </div>
                                                     <div className="flex items-center gap-2">
@@ -1503,9 +1584,15 @@ export default function PaiementsPage() {
                                                                 <Trash2 size={14} />
                                                             </button>
                                                         </div>
-                                                        <div className="bg-green-100 p-2 rounded-xl text-green-600">
-                                                            <TrendingUp size={16} />
-                                                        </div>
+                                                        {parseFloat(d.amount) < 0 ? (
+                                                            <div className="bg-red-50 p-2 rounded-xl text-red-500 transform rotate-180">
+                                                                <ArrowUpRight size={16} />
+                                                            </div>
+                                                        ) : (
+                                                            <div className="bg-green-100 p-2 rounded-xl text-green-600">
+                                                                <TrendingUp size={16} />
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                             ))

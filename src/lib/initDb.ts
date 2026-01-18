@@ -234,6 +234,26 @@ const initDb = async () => {
       );
     `);
 
+    await query(`
+      CREATE TABLE IF NOT EXISTS public.bank_deposits (
+        id serial PRIMARY KEY,
+        amount character varying(255) NOT NULL,
+        date character varying(255) NOT NULL,
+        type character varying(50) DEFAULT 'deposit',
+        created_at timestamptz DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // Ensure type column exists for bank_deposits
+    await query(`
+      DO $$ 
+      BEGIN 
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bank_deposits' AND column_name='type') THEN
+          ALTER TABLE public.bank_deposits ADD COLUMN type character varying(50) DEFAULT 'deposit';
+        END IF;
+      END $$;
+    `);
+
     console.log('Database tables initialized');
   } catch (err) {
     console.error('Error initializing database:', err);

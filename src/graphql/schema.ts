@@ -95,6 +95,7 @@ export const typeDefs = `#graphql
     id: Int
     amount: String
     date: String
+    type: String
   }
 
   type SalaryRemainder {
@@ -249,12 +250,14 @@ export const typeDefs = `#graphql
     addBankDeposit(
       amount: String!
       date: String!
+      type: String
     ): BankDeposit
 
     updateBankDeposit(
       id: Int!
       amount: String!
       date: String!
+      type: String
     ): BankDeposit
 
     deleteBankDeposit(id: Int!): Boolean

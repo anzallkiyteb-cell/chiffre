@@ -826,35 +826,40 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             const c = chiffreData.getChiffreByDate;
 
 
-            setRecetteCaisse(c.recette_de_caisse);
-            setIsLocked(c.is_locked || false);
-            setExpenses(JSON.parse(c.diponce || '[]').map((e: any) => ({ ...e, details: e.details || '' })));
-            setTpe(c.tpe);
-            setTpe2(c.tpe2 || '0');
-            setCheque(c.cheque_bancaire);
-            setEspeces(c.espaces);
-            setTicketsRestaurant(c.tickets_restaurant || '0');
-            setExtra(c.extra || '0');
-            setPrimes(c.primes || '0');
-            setOffres(c.offres || '0');
-            setOffresList(JSON.parse(c.offres_data || '[]'));
-            setCaissePhoto(c.caisse_photo || null);
             setAvancesList(c.avances_details || []);
             setDoublagesList(c.doublages_details || []);
             setExtrasList(c.extras_details || []);
             setPrimesList(c.primes_details || []);
             setRestesSalairesList(c.restes_salaires_details || []);
-            setExpensesDivers(JSON.parse(c.diponce_divers || '[]').map((d: any) => ({ ...d, details: d.details || '' })));
-            let adminData = JSON.parse(c.diponce_admin || '[]');
-            if (adminData.length === 0) {
-                adminData = [
-                    { designation: 'Riadh', amount: '0', paymentMethod: 'Espèces' },
-                    { designation: 'Malika', amount: '0', paymentMethod: 'Espèces' },
-                    { designation: 'Salaires', amount: '0', paymentMethod: 'Espèces' }
-                ];
+            setIsLocked(c.is_locked || false);
+
+            // Only overwrite editable fields if user hasn't interacted (is clean)
+            if (!hasInteracted) {
+                setRecetteCaisse(c.recette_de_caisse);
+                setExpenses(JSON.parse(c.diponce || '[]').map((e: any) => ({ ...e, details: e.details || '' })));
+                setTpe(c.tpe);
+                setTpe2(c.tpe2 || '0');
+                setCheque(c.cheque_bancaire);
+                setEspeces(c.espaces);
+                setTicketsRestaurant(c.tickets_restaurant || '0');
+                setExtra(c.extra || '0');
+                setPrimes(c.primes || '0');
+                setOffres(c.offres || '0');
+                setOffresList(JSON.parse(c.offres_data || '[]'));
+                setCaissePhoto(c.caisse_photo || null);
+                setExpensesDivers(JSON.parse(c.diponce_divers || '[]').map((d: any) => ({ ...d, details: d.details || '' })));
+
+                let adminData = JSON.parse(c.diponce_admin || '[]');
+                if (adminData.length === 0) {
+                    adminData = [
+                        { designation: 'Riadh', amount: '0', paymentMethod: 'Espèces' },
+                        { designation: 'Malika', amount: '0', paymentMethod: 'Espèces' },
+                        { designation: 'Salaires', amount: '0', paymentMethod: 'Espèces' }
+                    ];
+                }
+                setExpensesAdmin(adminData);
+                setHasInteracted(false);
             }
-            setExpensesAdmin(adminData);
-            setHasInteracted(false); // Reset interaction flag after loading from server
         } else {
             // Check for draft even if no server data
             const savedDraft = localStorage.getItem(`chiffre_draft_${date}`);
@@ -876,6 +881,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                         setExtrasList(d.extrasList);
                         setPrimesList(d.primesList);
                         setRestesSalairesList(d.restesSalairesList || []);
+                        setOffres(d.offres || '0');
+                        setOffresList(d.offresList || []);
                         setExpenses(d.expenses.map((e: any) => ({ ...e, details: e.details || '' })));
                         setExpensesDivers((d.expensesDivers || []).map((dv: any) => ({ ...dv, details: dv.details || '' })));
                         if (!d.expensesDivers) setExpensesDivers([{ designation: '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces' }]);
@@ -906,6 +913,46 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             setHasInteracted(false);
         }
     }, [chiffreData, date]);
+
+    // Auto-save Draft to LocalStorage
+    useEffect(() => {
+        if (!date || !hasInteracted) return;
+
+        const timer = setTimeout(() => {
+            const state = {
+                recetteCaisse,
+                expenses,
+                tpe,
+                tpe2,
+                cheque,
+                especes,
+                ticketsRestaurant,
+                extra,
+                primes,
+                avancesList,
+                doublagesList,
+                extrasList,
+                primesList,
+                restesSalairesList,
+                expensesDivers,
+                expensesAdmin,
+                offres,
+                offresList
+            };
+            const draft = {
+                date,
+                timestamp: new Date().toISOString(),
+                data: state
+            };
+            localStorage.setItem(`chiffre_draft_${date}`, JSON.stringify(draft));
+        }, 500); // Debounce save
+
+        return () => clearTimeout(timer);
+    }, [
+        recetteCaisse, expenses, tpe, tpe2, cheque, especes, ticketsRestaurant,
+        extra, primes, avancesList, doublagesList, extrasList, primesList,
+        restesSalairesList, expensesDivers, expensesAdmin, offres, offresList, date, hasInteracted
+    ]);
 
     // Calculations
     const acompte = avancesList.reduce((acc, curr) => acc + (parseFloat(curr.montant) || 0), 0);
@@ -1263,6 +1310,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                 }
             });
             setToast({ msg: 'Session enregistrée avec succès', type: 'success' });
+            localStorage.removeItem(`chiffre_draft_${date}`); // Clear draft on save
+            setHasInteracted(false); // Validated state matches server
             setTimeout(() => setToast(null), 3000);
             refetchChiffre();
         } catch (e) {
@@ -1395,7 +1444,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                     </div>
                 </header>
 
-                <main className="max-w-5xl mx-auto px-4 md:px-6 mt-6 md:mt-8">
+                <main className="w-full max-w-full px-4 md:px-8 lg:px-12 mt-6 md:mt-8">
                     <div className="space-y-6">
                         {/* 1. Recette De Caisse (Hero) */}
                         <section className="bg-[#f0faf5] rounded-[2.5rem] p-6 md:p-10 lg:p-12 luxury-shadow border border-[#d1fae5] relative overflow-hidden">

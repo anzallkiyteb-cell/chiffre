@@ -63,21 +63,8 @@ export default function Sidebar({ role }: SidebarProps) {
     const [sendHeartbeat] = useMutation(HEARTBEAT);
     const [disconnectUser] = useMutation(DISCONNECT_USER);
 
-    // Explicit disconnect on tab close
-    useEffect(() => {
-        const handleTabClose = () => {
-            if (user?.username) {
-                // We use a simple fetch to the graphql endpoint since mutations are async
-                // and might not finish before the tab closes.
-                const query = `mutation { disconnectUser(username: "${user.username}") }`;
-                const blob = new Blob([JSON.stringify({ query })], { type: 'application/json' });
-                navigator.sendBeacon('/api/graphql', blob);
-            }
-        };
-
-        window.addEventListener('beforeunload', handleTabClose);
-        return () => window.removeEventListener('beforeunload', handleTabClose);
-    }, [user]);
+    // Note: Removed auto-disconnect on tab close/reload
+    // User session persists until explicit logout or inactivity timeout
 
     useEffect(() => {
         const stored = localStorage.getItem('bb_user');

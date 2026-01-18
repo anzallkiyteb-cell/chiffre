@@ -3,7 +3,7 @@
 import { useQuery, useLazyQuery, useMutation, gql } from '@apollo/client';
 import client from '@/lib/apollo-client';
 import ChiffrePage from '@/components/ChiffrePage';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { Lock, User, CheckCircle2, Loader2, ShieldAlert, ShieldCheck, Power, AlertCircle, Camera, Scan, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -597,10 +597,10 @@ export default function Home() {
 
       const dbUser = data.getUsers.find((u: any) => u.username.toLowerCase() === userData.username.toLowerCase());
 
-      // Forced logout if blocked OR if an admin manually cleared the session (last_active is null)
-      if (dbUser?.is_blocked_user || (dbUser && dbUser.last_active === null)) {
-        console.log("Session invalid or blocked. Forced logout.");
-        setIsAccountBlocked(!!dbUser?.is_blocked_user);
+      // Forced logout only if user is blocked
+      if (dbUser?.is_blocked_user) {
+        console.log("User blocked. Forced logout.");
+        setIsAccountBlocked(true);
         handleLogout();
       } else {
         setIsAccountBlocked(false);
@@ -612,27 +612,17 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [user]); // Re-run if user state changes
 
-  // Auto-disconnect logic (Minimize & Inactivity)
+  // Auto-disconnect on inactivity (10 minutes)
   useEffect(() => {
     if (!user?.username) return;
 
-    // 1. Disconnect on minimize/tab switch
-    const handleVisibilityChange = () => {
-      // If document becomes hidden, disconnect immediately
-      if (document.visibilityState === 'hidden') {
-        console.log("Window hidden/minimized. Auto-disconnecting.");
-        handleLogout();
-      }
-    };
-
-    // 2. Disconnect on inactivity (3 minutes)
     let inactivityTimer: NodeJS.Timeout;
-    const DISCONNECT_TIME = 3 * 60 * 1000; // 3 minutes
+    const DISCONNECT_TIME = 10 * 60 * 1000; // 10 minutes of inactivity
 
     const resetInactivityTimer = () => {
       clearTimeout(inactivityTimer);
       inactivityTimer = setTimeout(() => {
-        console.log("User inactive for 3 mins. Auto-disconnecting.");
+        console.log("User inactive for 10 mins. Auto-disconnecting.");
         handleLogout();
       }, DISCONNECT_TIME);
     };
@@ -640,19 +630,14 @@ export default function Home() {
     // Initialize timer
     resetInactivityTimer();
 
-    // Event listeners
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
     // Activity listeners
     window.addEventListener('mousemove', resetInactivityTimer);
     window.addEventListener('keydown', resetInactivityTimer);
     window.addEventListener('click', resetInactivityTimer);
     window.addEventListener('scroll', resetInactivityTimer);
-    window.addEventListener('touchstart', resetInactivityTimer); // Mobile support
+    window.addEventListener('touchstart', resetInactivityTimer);
 
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-
       clearTimeout(inactivityTimer);
       window.removeEventListener('mousemove', resetInactivityTimer);
       window.removeEventListener('keydown', resetInactivityTimer);
