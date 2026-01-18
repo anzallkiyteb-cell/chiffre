@@ -105,7 +105,7 @@ function FaceIDLoginModal({ user, onClose, onSuccess }: any) {
           try {
             const similarity = await simulateBiometricMatching(canvasRef.current, user.face_data);
 
-            if (similarity > 0.65) { // Threshold: same person ~0.75+, different person ~0.40-0.55
+            if (similarity > 0.78) { // Security Threshold: 0.75-0.85 for HOG/Zone matching
               setStatus('success');
               setTimeout(() => {
                 onSuccess();
@@ -436,6 +436,7 @@ export default function Home() {
   const [initializing, setInitializing] = useState(true);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [lastUser, setLastUser] = useState<any>(null);
   const [error, setError] = useState('');
 
   const { data: statusData, refetch: refetchStatus } = useQuery(GET_SYSTEM_STATUS, { pollInterval: 30000 });
@@ -462,13 +463,39 @@ export default function Home() {
 
   const getDeviceInfo = () => {
     const ua = navigator.userAgent;
-    if (/iphone/i.test(ua)) return 'iPhone Mobile';
-    if (/ipad/i.test(ua)) return 'iPad Tablet';
-    if (/android/i.test(ua)) return 'Android Device';
-    if (/windows/i.test(ua)) return 'Windows PC';
-    if (/macintosh/i.test(ua)) return 'Apple Mac';
+
+    // Android Detection (Model extraction)
+    if (/android/i.test(ua)) {
+      const match = ua.match(/Android\s+[^;]+;\s+([^);]+)/i);
+      if (match && match[1]) {
+        const model = match[1].trim();
+        if (!/mobile|tablet/i.test(model)) return `Android (${model})`;
+      }
+      return 'Android Device';
+    }
+
+    // iOS Detection
+    if (/iphone/i.test(ua)) return 'Apple iPhone';
+    if (/ipad/i.test(ua)) return 'Apple iPad';
+
+    // Macintosh Detection
+    if (/macintosh/i.test(ua)) {
+      const match = ua.match(/OS X\s+([^);]+)/i);
+      if (match && match[1]) return `Mac OS (${match[1].replace(/_/g, '.')})`;
+      return 'Apple Mac';
+    }
+
+    // Windows Detection
+    if (/windows/i.test(ua)) {
+      if (/nt 10.0/i.test(ua)) return 'Windows 10/11';
+      if (/nt 6.3/i.test(ua)) return 'Windows 8.1';
+      if (/nt 6.2/i.test(ua)) return 'Windows 8';
+      if (/nt 6.1/i.test(ua)) return 'Windows 7';
+      return 'Windows PC';
+    }
+
     if (/linux/i.test(ua)) return 'Linux System';
-    return 'Web Browser Device';
+    return 'Poste de travail';
   };
 
   const getBrowserInfo = () => {
@@ -533,6 +560,16 @@ export default function Home() {
         localStorage.removeItem('bb_user');
       }
     }
+
+    // Check for last user for quick reconnect
+    const last = localStorage.getItem('bb_last_user');
+    if (last) {
+      try {
+        setLastUser(JSON.parse(last));
+      } catch (e) {
+        localStorage.removeItem('bb_last_user');
+      }
+    }
     setInitializing(false);
   }, []);
 
@@ -595,6 +632,43 @@ export default function Home() {
     }
   };
 
+  const handleFacialReconnect = async () => {
+    if (!lastUser) return;
+    setLoading(true);
+    setError('');
+    try {
+      const { data } = await getUsersForAuth();
+      if (!data?.getUsers) throw new Error('No data');
+
+      const foundUser = data.getUsers.find(
+        (u: any) => u.username?.toLowerCase() === lastUser.username.toLowerCase()
+      );
+
+      if (foundUser) {
+        // Enforce Face ID lockout check
+        const isLocallyLocked = localStorage.getItem(`lock_${foundUser.username}`);
+        if (isLocallyLocked) {
+          setError('ACCÈS REFUSÉ : Trop de tentatives Face ID échouées.');
+          return;
+        }
+
+        if (foundUser.is_blocked_user) {
+          setError('Votre compte est suspendu. Contactez l\'administrateur.');
+          setIsAccountBlocked(true);
+        } else if (foundUser.has_face_id || foundUser.face_data) {
+          setPendingUser(foundUser);
+          setIsFaceLoginOpen(true);
+        } else {
+          setError('Veuillez vous connecter avec votre mot de passe.');
+        }
+      }
+    } catch (err) {
+      setError('Erreur de reconnexion');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const finalizeLogin = async (foundUser: any) => {
     try {
       const ipRes = await fetch('https://api.ipify.org?format=json').catch(() => null);
@@ -618,6 +692,11 @@ export default function Home() {
       full_name: foundUser.full_name,
     };
     localStorage.setItem('bb_user', JSON.stringify(userData));
+    localStorage.setItem('bb_last_user', JSON.stringify({
+      username: foundUser.username,
+      full_name: foundUser.full_name,
+      has_face_id: foundUser.has_face_id || !!foundUser.face_data
+    }));
     setUser(userData);
     setIsAccountBlocked(false);
     setIsFaceLoginOpen(false);
@@ -780,6 +859,25 @@ export default function Home() {
                     >
                       {loading || queryLoading ? <Loader2 className="animate-spin" size={20} /> : <span>Se connecter</span>}
                     </button>
+
+                    {lastUser && lastUser.has_face_id && (
+                      <div className="relative pt-8 mt-2">
+                        <div className="absolute top-8 left-0 right-0 flex items-center justify-center">
+                          <span className="bg-white px-4 text-[9px] font-black text-[#bba282] uppercase tracking-[0.2em] opacity-40">OU</span>
+                        </div>
+                        <div className="border-t border-[#e6dace] opacity-30 pt-8">
+                          <button
+                            type="button"
+                            onClick={handleFacialReconnect}
+                            disabled={loading || queryLoading}
+                            className="w-full h-16 border-2 border-[#4a3426] text-[#4a3426] rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-[#4a3426] hover:text-white transition-all flex items-center justify-center gap-3 group"
+                          >
+                            <Scan size={18} className="group-hover:scale-110 transition-transform" />
+                            <span>Reconnexion Faciale ({lastUser.username})</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </form>
                 </motion.div>
               )}

@@ -86,11 +86,35 @@ export default function Sidebar({ role }: SidebarProps) {
 
         const getDeviceInfo = () => {
             const ua = navigator.userAgent;
-            if (/iphone/i.test(ua)) return 'iPhone Mobile';
-            if (/android/i.test(ua)) return 'Android Device';
-            if (/ipad/i.test(ua)) return 'iPad Tablet';
+
+            if (/android/i.test(ua)) {
+                const match = ua.match(/Android\s+[^;]+;\s+([^);]+)/i);
+                if (match && match[1]) {
+                    const model = match[1].trim();
+                    if (!/mobile|tablet/i.test(model)) return `Android (${model})`;
+                }
+                return 'Android Device';
+            }
+
+            if (/iphone/i.test(ua)) return 'Apple iPhone';
+            if (/ipad/i.test(ua)) return 'Apple iPad';
+
+            if (/macintosh/i.test(ua)) {
+                const match = ua.match(/OS X\s+([^);]+)/i);
+                if (match && match[1]) return `Mac OS (${match[1].replace(/_/g, '.')})`;
+                return 'Apple Mac';
+            }
+
+            if (/windows/i.test(ua)) {
+                if (/nt 10.0/i.test(ua)) return 'Windows 10/11';
+                if (/nt 6.3/i.test(ua)) return 'Windows 8.1';
+                if (/nt 6.2/i.test(ua)) return 'Windows 8';
+                if (/nt 6.1/i.test(ua)) return 'Windows 7';
+                return 'Windows PC';
+            }
+
             if (/linux/i.test(ua)) return 'Linux System';
-            return 'Desktop Computer';
+            return 'Ordinateur';
         };
 
         const pulse = async () => {
