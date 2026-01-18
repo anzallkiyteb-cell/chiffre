@@ -11,6 +11,25 @@ import {
     Camera, Scan, CheckCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import * as faceapi from 'face-api.js';
+
+// Load face-api models once
+let modelsLoaded = false;
+const loadModels = async () => {
+  if (modelsLoaded) return true;
+  try {
+    await Promise.all([
+      faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
+      faceapi.nets.faceLandmark68Net.loadFromUri('/models'),
+      faceapi.nets.faceRecognitionNet.loadFromUri('/models'),
+    ]);
+    modelsLoaded = true;
+    return true;
+  } catch (err) {
+    console.error('Failed to load face-api models:', err);
+    return false;
+  }
+};
 
 const GET_SETTINGS_DATA = gql`
   query GetSettingsData {
@@ -617,215 +636,143 @@ function FaceCaptureModal({ onClose, onCapture }: { onClose: () => void, onCaptu
     const canvasRef = React.useRef<HTMLCanvasElement>(null);
     const [stream, setStream] = React.useState<MediaStream | null>(null);
     const [capturedImage, setCapturedImage] = React.useState<string | null>(null);
-    const [step, setStep] = React.useState<number>(0); // 0: Start, 1: Frontal, 2: Left, 3: Right, 4: Done
+    const [step, setStep] = React.useState<number>(0); // 0: Loading, 1: Ready, 2: Detecting, 3: Captured, 4: Done
     const [progress, setProgress] = React.useState(0);
-    const [status, setStatus] = React.useState("Prêt pour l'enrôlement");
-    const [isVerifying, setIsVerifying] = React.useState(false);
-
-    // Helpers for visual verification
-    const getFrameData = () => {
-        if (!videoRef.current || !canvasRef.current) return null;
-        const ctx = canvasRef.current.getContext('2d');
-        if (!ctx) return null;
-        canvasRef.current.width = 100;
-        canvasRef.current.height = 100;
-        ctx.drawImage(videoRef.current, 0, 0, 100, 100);
-        return ctx.getImageData(0, 0, 100, 100).data;
-    };
-
-    // Detect horizontal movement direction based on brightness shift
-    const detectMovementDirection = (baseFrame: Uint8ClampedArray, currentFrame: Uint8ClampedArray) => {
-        const SIZE = 100;
-        let leftDiff = 0, rightDiff = 0;
-
-        // Compare left half vs right half brightness changes
-        for (let y = 20; y < 80; y++) {
-            for (let x = 0; x < SIZE; x++) {
-                const idx = (y * SIZE + x) * 4;
-                const baseBrightness = (baseFrame[idx] + baseFrame[idx + 1] + baseFrame[idx + 2]) / 3;
-                const currBrightness = (currentFrame[idx] + currentFrame[idx + 1] + currentFrame[idx + 2]) / 3;
-                const diff = Math.abs(baseBrightness - currBrightness);
-
-                if (x < SIZE / 2) {
-                    leftDiff += diff;
-                } else {
-                    rightDiff += diff;
-                }
-            }
-        }
-
-        // Calculate total movement
-        const totalMovement = leftDiff + rightDiff;
-        const movementThreshold = 150000; // Minimum movement required
-
-        if (totalMovement < movementThreshold) {
-            return 'none';
-        }
-
-        // If left side changed more, person turned RIGHT (showing left side of face)
-        // If right side changed more, person turned LEFT (showing right side of face)
-        const ratio = leftDiff / (rightDiff + 1);
-
-        if (ratio > 1.15) return 'right'; // Person turned right
-        if (ratio < 0.85) return 'left';  // Person turned left
-        return 'none';
-    };
+    const [status, setStatus] = React.useState("Chargement de l'IA...");
+    const [faceDetected, setFaceDetected] = React.useState(false);
 
     const steps = [
-        { id: 0, label: 'Initialisation', desc: 'Centrer votre visage' },
-        { id: 1, label: 'Face', desc: 'Maintenez la pose' },
-        { id: 2, label: 'Gauche', desc: 'Tournez légèrement à gauche' },
-        { id: 3, label: 'Droite', desc: 'Tournez légèrement à droite' },
-        { id: 4, label: 'Finalisation', desc: 'Analyse biométrique...' }
+        { id: 0, label: 'IA', desc: 'Chargement modèle' },
+        { id: 1, label: 'Caméra', desc: 'Prêt' },
+        { id: 2, label: 'Détection', desc: 'Recherche visage' },
+        { id: 3, label: 'Capture', desc: 'Enregistrement' },
+        { id: 4, label: 'Terminé', desc: 'Succès' }
     ];
 
     React.useEffect(() => {
-        async function startCamera() {
+        let animationId: number;
+        let isActive = true;
+
+        async function init() {
+            // Load AI models
+            setStatus("Chargement du modèle IA...");
+            const loaded = await loadModels();
+            if (!loaded || !isActive) {
+                alert("Erreur: Impossible de charger le modèle IA");
+                onClose();
+                return;
+            }
+
+            setStep(1);
+            setStatus("Démarrage caméra...");
+
+            // Start camera
             try {
-                const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+                const s = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
+                });
+                if (!isActive) {
+                    s.getTracks().forEach(t => t.stop());
+                    return;
+                }
                 setStream(s);
-                if (videoRef.current) videoRef.current.srcObject = s;
+                if (videoRef.current) {
+                    videoRef.current.srcObject = s;
+                    await new Promise(resolve => {
+                        if (videoRef.current) videoRef.current.onloadedmetadata = resolve;
+                    });
+                }
+
+                setStatus("Placez votre visage dans le cercle");
+
+                // Start continuous face detection
+                const detectFace = async () => {
+                    if (!isActive || !videoRef.current) return;
+
+                    try {
+                        const detection = await faceapi
+                            .detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.5 }))
+                            .withFaceLandmarks();
+
+                        if (detection) {
+                            setFaceDetected(true);
+                            setStatus("Visage détecté! Restez immobile...");
+                        } else {
+                            setFaceDetected(false);
+                            setStatus("Placez votre visage dans le cercle");
+                        }
+                    } catch (err) {
+                        console.error('Detection error:', err);
+                    }
+
+                    if (isActive) {
+                        animationId = requestAnimationFrame(detectFace);
+                    }
+                };
+
+                detectFace();
             } catch (e) {
                 alert('Impossible d\'accéder à la caméra');
                 onClose();
             }
         }
-        startCamera();
+
+        init();
+
         return () => {
+            isActive = false;
+            if (animationId) cancelAnimationFrame(animationId);
             if (stream) stream.getTracks().forEach(t => t.stop());
         };
     }, []);
 
-    const startEnrollment = async () => {
-        setStep(1);
-        setProgress(0);
-        let baseFrame: Uint8ClampedArray | null = null;
+    const captureface = async () => {
+        if (!videoRef.current || !canvasRef.current) return;
 
-        // Step 1: Capture frontal face
-        setStatus("Regardez la caméra...");
-        await new Promise(r => setTimeout(r, 1000)); // Wait for user to position
-
-        // Capture base frame
-        const initialFrame = getFrameData();
-        if (initialFrame) {
-            baseFrame = initialFrame;
-        }
-
-        // Progress for frontal capture
-        setIsVerifying(true);
-        setStatus("Capture du visage en cours...");
-        for (let p = 0; p <= 100; p += 10) {
-            setProgress(p);
-            await new Promise(r => setTimeout(r, 150));
-        }
-
-        // Capture the frontal image
-        if (videoRef.current && canvasRef.current) {
-            const context = canvasRef.current.getContext('2d');
-            if (context) {
-                canvasRef.current.width = videoRef.current.videoWidth;
-                canvasRef.current.height = videoRef.current.videoHeight;
-                context.drawImage(videoRef.current, 0, 0);
-                const data = canvasRef.current.toDataURL('image/jpeg', 0.9);
-                setCapturedImage(data);
-            }
-        }
-
-        setIsVerifying(false);
-        setStatus("Face Validée ✓");
-        await new Promise(r => setTimeout(r, 800));
-
-        // Step 2: Turn Left
         setStep(2);
+        setStatus("Analyse du visage...");
         setProgress(0);
-        setStatus("Tournez la tête vers la GAUCHE...");
 
-        let leftDetected = false;
-        let attempts = 0;
-        const maxAttempts = 50; // 10 seconds max
-
-        while (!leftDetected && attempts < maxAttempts) {
-            const currentFrame = getFrameData();
-            if (currentFrame && baseFrame) {
-                const direction = detectMovementDirection(baseFrame, currentFrame);
-                if (direction === 'left') {
-                    leftDetected = true;
-                    setStatus("BINGO! Gauche détectée.");
-                    if (navigator.vibrate) navigator.vibrate(50);
-                }
-            }
-            attempts++;
-
-            if (!leftDetected) {
-                if (attempts % 10 === 0) setStatus("Tournez la tête vers la GAUCHE...");
-                setProgress(Math.min(80, attempts));
-                await new Promise(r => setTimeout(r, 200));
-            }
-        }
-
-        if (!leftDetected) {
-            setStatus("Échec: Mouvement non détecté. Recommencez.");
-            setStep(0);
-            return;
-        }
-
-        setIsVerifying(true);
-        for (let p = progress; p <= 100; p += 10) {
+        // Progress animation
+        for (let p = 0; p <= 50; p += 10) {
             setProgress(p);
             await new Promise(r => setTimeout(r, 100));
         }
-        setIsVerifying(false);
-        setStatus("Gauche Validée ✓");
-        await new Promise(r => setTimeout(r, 800));
 
-        // Step 3: Turn Right
-        setStep(3);
-        setProgress(0);
-        setStatus("Tournez la tête vers la DROITE...");
+        // Detect face with full descriptor
+        const detection = await faceapi
+            .detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions())
+            .withFaceLandmarks()
+            .withFaceDescriptor();
 
-        let rightDetected = false;
-        attempts = 0;
-
-        while (!rightDetected && attempts < maxAttempts) {
-            const currentFrame = getFrameData();
-            if (currentFrame && baseFrame) {
-                const direction = detectMovementDirection(baseFrame, currentFrame);
-                if (direction === 'right') {
-                    rightDetected = true;
-                    setStatus("BINGO! Droite détectée.");
-
-                    // Trigger haptic feedback if available (mobile)
-                    if (navigator.vibrate) navigator.vibrate(50);
-                }
-            }
-            attempts++;
-            // Only progress if we actually detect something or just spin slowly to show activity
-            // But we do NOT advance until detected.
-            if (!rightDetected) {
-                if (attempts % 10 === 0) setStatus("Tournez la tête vers la DROITE...");
-                setProgress(Math.min(80, attempts)); // Cap progress until success
-                await new Promise(r => setTimeout(r, 200));
-            }
-        }
-
-        if (!rightDetected) {
-            setStatus("Échec: Mouvement non détecté. Recommencez.");
-            setStep(0);
+        if (!detection) {
+            setStatus("Aucun visage détecté. Réessayez.");
+            setStep(1);
             return;
         }
 
-        setIsVerifying(true);
-        for (let p = progress; p <= 100; p += 10) {
+        for (let p = 50; p <= 80; p += 10) {
             setProgress(p);
             await new Promise(r => setTimeout(r, 100));
         }
-        setIsVerifying(false);
-        setStatus("Droite Validée ✓");
-        await new Promise(r => setTimeout(r, 800));
 
-        // Done
+        // Capture high-quality image
+        const context = canvasRef.current.getContext('2d');
+        if (context) {
+            canvasRef.current.width = videoRef.current.videoWidth;
+            canvasRef.current.height = videoRef.current.videoHeight;
+            context.drawImage(videoRef.current, 0, 0);
+            const data = canvasRef.current.toDataURL('image/jpeg', 0.95);
+            setCapturedImage(data);
+        }
+
+        for (let p = 80; p <= 100; p += 10) {
+            setProgress(p);
+            await new Promise(r => setTimeout(r, 100));
+        }
+
         setStep(4);
-        setStatus("Enrôlement terminé avec succès");
+        setStatus("Visage enregistré avec succès!");
         setProgress(100);
     };
 
@@ -874,12 +821,16 @@ function FaceCaptureModal({ onClose, onCapture }: { onClose: () => void, onCaptu
                                 <div className="absolute inset-x-8 top-1/2 -translate-y-1/2 h-[1px] bg-[#c69f6e] opacity-30 shadow-[0_0_15px_#c69f6e] z-10 animate-pulse"></div>
                                 <div className="absolute inset-y-8 left-1/2 -translate-x-1/2 w-[1px] bg-[#c69f6e] opacity-30 shadow-[0_0_15px_#c69f6e] z-10 animate-pulse"></div>
 
-                                {/* Circular Guide */}
-                                <div className="absolute inset-12 border-[2px] border-dashed border-[#c69f6e] rounded-full opacity-20 animate-[spin_20s_linear_infinite]"></div>
+                                {/* Circular Guide - changes color based on face detection */}
+                                <div className={`absolute inset-12 border-[3px] rounded-full transition-all duration-300 ${
+                                    faceDetected
+                                        ? 'border-green-500 opacity-80 shadow-[0_0_20px_rgba(34,197,94,0.5)]'
+                                        : 'border-dashed border-[#c69f6e] opacity-30'
+                                }`}></div>
 
-                                {step > 0 && (
+                                {step > 0 && faceDetected && (
                                     <div className="absolute inset-0 flex items-center justify-center p-12 pointer-events-none">
-                                        <div className="w-full h-full border-4 border-[#c69f6e] rounded-full opacity-40 animate-pulse"></div>
+                                        <div className="w-full h-full border-4 border-green-500 rounded-full opacity-60 animate-pulse"></div>
                                     </div>
                                 )}
                             </>
@@ -897,23 +848,41 @@ function FaceCaptureModal({ onClose, onCapture }: { onClose: () => void, onCaptu
                                 <div className="bg-green-500 text-white p-2 rounded-xl shadow-lg">
                                     <CheckCircle size={20} />
                                 </div>
-                            ) : step > 0 ? (
+                            ) : faceDetected && step >= 1 ? (
+                                <div className="bg-green-500 text-white p-2 rounded-xl shadow-lg">
+                                    <Check size={20} />
+                                </div>
+                            ) : step >= 1 ? (
+                                <div className="bg-[#4a3426] text-white p-2 rounded-xl shadow-lg">
+                                    <Scan size={20} className="animate-pulse" />
+                                </div>
+                            ) : (
                                 <div className="bg-[#4a3426] text-white p-2 rounded-xl shadow-lg animate-spin">
                                     <Loader2 size={20} />
                                 </div>
-                            ) : null}
+                            )}
                         </div>
                     </div>
 
                     <canvas ref={canvasRef} className="hidden" />
 
                     {step === 0 ? (
+                        <div className="w-full h-16 bg-[#fcfaf8] border border-[#e6dace] rounded-2xl flex items-center justify-center gap-4">
+                            <Loader2 className="w-5 h-5 animate-spin text-[#c69f6e]" />
+                            <span className="text-[10px] font-black text-[#4a3426] uppercase">Chargement IA...</span>
+                        </div>
+                    ) : step === 1 ? (
                         <button
-                            onClick={startEnrollment}
-                            className="w-full h-16 bg-[#4a3426] text-white rounded-2xl font-black uppercase tracking-[0.2em] shadow-xl flex items-center justify-center gap-3 hover:scale-105 active:scale-95 transition-all"
+                            onClick={captureface}
+                            disabled={!faceDetected}
+                            className={`w-full h-16 rounded-2xl font-black uppercase tracking-[0.2em] shadow-xl flex items-center justify-center gap-3 transition-all ${
+                                faceDetected
+                                    ? 'bg-[#4a3426] text-white hover:scale-105 active:scale-95'
+                                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                            }`}
                         >
                             <Camera size={20} />
-                            Démarrer l'enrôlement
+                            {faceDetected ? 'Capturer le visage' : 'En attente de visage...'}
                         </button>
                     ) : step === 4 ? (
                         <div className="flex gap-4 w-full">

@@ -7,37 +7,72 @@ import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Lock, User, CheckCircle2, Loader2, ShieldAlert, ShieldCheck, Power, AlertCircle, Camera, Scan, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import * as faceapi from 'face-api.js';
+
+// Load face-api models once
+let modelsLoaded = false;
+const loadModels = async () => {
+  if (modelsLoaded) return;
+  try {
+    await Promise.all([
+      faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
+      faceapi.nets.faceLandmark68Net.loadFromUri('/models'),
+      faceapi.nets.faceRecognitionNet.loadFromUri('/models'),
+    ]);
+    modelsLoaded = true;
+  } catch (err) {
+    console.error('Failed to load face-api models:', err);
+  }
+};
 
 function FaceIDLoginModal({ user, onClose, onSuccess }: any) {
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const [stream, setStream] = React.useState<MediaStream | null>(null);
-  const [status, setStatus] = React.useState<'idle' | 'scanning' | 'success' | 'error' | 'locked'>('idle');
+  const [status, setStatus] = React.useState<'idle' | 'loading' | 'scanning' | 'success' | 'error' | 'locked'>('idle');
   const [scanStep, setScanStep] = React.useState<'align' | 'depth' | 'auth'>('align');
   const [failCount, setFailCount] = React.useState(0);
+  const [statusText, setStatusText] = React.useState('');
 
   React.useEffect(() => {
-    async function startCamera() {
-      try {
-        const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-        setStream(s);
-        if (videoRef.current) videoRef.current.srcObject = s;
+    async function init() {
+      setStatus('loading');
+      setStatusText('Chargement du modèle IA...');
 
-        // Step 1: Align
+      // Load face-api models
+      await loadModels();
+
+      // Start camera
+      try {
+        const s = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
+        });
+        setStream(s);
+        if (videoRef.current) {
+          videoRef.current.srcObject = s;
+          await new Promise(resolve => {
+            if (videoRef.current) videoRef.current.onloadedmetadata = resolve;
+          });
+        }
+
+        setStatus('idle');
+        setStatusText('');
+
+        // Start scan sequence
+        setScanStep('align');
         setTimeout(() => {
           setScanStep('depth');
-          // Step 2: Depth Analysis
           setTimeout(() => {
             setScanStep('auth');
             performScan();
-          }, 1200);
-        }, 1500);
+          }, 800);
+        }, 800);
       } catch (e) {
         alert('Caméra non disponible');
         onClose();
       }
     }
-    startCamera();
+    init();
     return () => {
       if (stream) stream.getTracks().forEach(t => t.stop());
     };
@@ -45,323 +80,107 @@ function FaceIDLoginModal({ user, onClose, onSuccess }: any) {
 
   const performScan = async () => {
     setStatus('scanning');
+    setStatusText('Détection du visage...');
 
-    setTimeout(async () => {
-      if (videoRef.current && canvasRef.current) {
-        const context = canvasRef.current.getContext('2d');
-        if (context && user.face_data) {
-          canvasRef.current.width = videoRef.current.videoWidth;
-          canvasRef.current.height = videoRef.current.videoHeight;
-          context.drawImage(videoRef.current, 0, 0);
-
-          // Check if frame has valid content (not empty/black)
-          const frameData = context.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height).data;
-          let totalBrightness = 0;
-          let variance = 0;
-          const sampleSize = Math.min(frameData.length, 40000); // Sample for performance
-          const step = Math.floor(frameData.length / sampleSize) * 4;
-          let sampleCount = 0;
-
-          for (let i = 0; i < frameData.length; i += step) {
-            const brightness = (frameData[i] + frameData[i + 1] + frameData[i + 2]) / 3;
-            totalBrightness += brightness;
-            sampleCount++;
-          }
-          const avgBrightness = totalBrightness / sampleCount;
-
-          // Calculate variance to detect if image has detail
-          for (let i = 0; i < frameData.length; i += step) {
-            const brightness = (frameData[i] + frameData[i + 1] + frameData[i + 2]) / 3;
-            variance += Math.pow(brightness - avgBrightness, 2);
-          }
-          variance = variance / sampleCount;
-
-          // Reject only completely black/white frames
-          if (avgBrightness < 5 || avgBrightness > 253 || variance < 20) {
-            // Frame appears empty or invalid
-            const newCount = failCount + 1;
-            setFailCount(newCount);
-            if (newCount >= 3) {
-              setStatus('locked');
-              localStorage.setItem(`lock_${user.username}`, Date.now().toString());
-            } else {
-              setStatus('error');
-              setTimeout(() => {
-                setStatus('idle');
-                setScanStep('align');
-                setTimeout(() => {
-                  setScanStep('depth');
-                  setTimeout(() => {
-                    setScanStep('auth');
-                    performScan();
-                  }, 1200);
-                }, 1500);
-              }, 2000);
-            }
-            return;
-          }
-
-          // Critical: Structural Central-Focus Analysis
-          try {
-            const similarity = await simulateBiometricMatching(canvasRef.current, user.face_data);
-
-            if (similarity > 0.72) { // Robust Threshold with Grid Matching
-              setStatus('success');
-              setTimeout(() => {
-                onSuccess();
-              }, 800);
-            } else {
-              const newCount = failCount + 1;
-              setFailCount(newCount);
-
-              if (newCount >= 3) {
-                setStatus('locked');
-                // In a real app, we would call a mutation to block the user.
-                // For now, we block the local session.
-                localStorage.setItem(`lock_${user.username}`, Date.now().toString());
-              } else {
-                setStatus('error');
-                setTimeout(() => {
-                  setStatus('idle');
-                  setScanStep('align');
-                  // Restart scan sequence after a short delay
-                  setTimeout(() => {
-                    setScanStep('depth');
-                    setTimeout(() => {
-                      setScanStep('auth');
-                      performScan();
-                    }, 1200);
-                  }, 1500);
-                }, 2000);
-              }
-            }
-          } catch (err) {
-            setStatus('error');
-          }
-        }
+    try {
+      if (!videoRef.current || !user.face_data) {
+        throw new Error('Video or face data not available');
       }
-    }, 2500);
+
+      // Detect face in current video frame
+      const currentDetection = await faceapi
+        .detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions())
+        .withFaceLandmarks()
+        .withFaceDescriptor();
+
+      if (!currentDetection) {
+        setStatusText('Aucun visage détecté');
+        handleScanFailure();
+        return;
+      }
+
+      setStatusText('Comparaison biométrique...');
+
+      // Get saved face descriptor
+      const savedDescriptor = await getSavedFaceDescriptor(user.face_data);
+
+      if (!savedDescriptor) {
+        setStatusText('Erreur: données sauvegardées invalides');
+        handleScanFailure();
+        return;
+      }
+
+      // Compare face descriptors using Euclidean distance
+      const distance = faceapi.euclideanDistance(currentDetection.descriptor, savedDescriptor);
+
+      // Distance < 0.6 means same person (lower = more similar)
+      // iPhone uses ~0.6, we use 0.5 for better security
+      const threshold = 0.5;
+
+      if (distance < threshold) {
+        setStatus('success');
+        setStatusText('Identité confirmée');
+        setTimeout(() => {
+          onSuccess();
+        }, 800);
+      } else {
+        setStatusText(`Visage non reconnu`);
+        handleScanFailure();
+      }
+    } catch (err) {
+      console.error('Face scan error:', err);
+      setStatusText('Erreur de scan');
+      handleScanFailure();
+    }
   };
 
-  const simulateBiometricMatching = async (currentCanvas: HTMLCanvasElement, savedData: string) => {
-    return new Promise<number>((resolve) => {
+  const handleScanFailure = () => {
+    const newCount = failCount + 1;
+    setFailCount(newCount);
+
+    if (newCount >= 3) {
+      setStatus('locked');
+      localStorage.setItem(`lock_${user.username}`, Date.now().toString());
+    } else {
+      setStatus('error');
+      setTimeout(() => {
+        setStatus('idle');
+        setScanStep('align');
+        setTimeout(() => {
+          setScanStep('depth');
+          setTimeout(() => {
+            setScanStep('auth');
+            performScan();
+          }, 800);
+        }, 800);
+      }, 1500);
+    }
+  };
+
+  // Extract face descriptor from saved base64 image
+  const getSavedFaceDescriptor = async (base64Data: string): Promise<Float32Array | null> => {
+    return new Promise((resolve) => {
       const img = new (window as any).Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return resolve(0);
+      img.crossOrigin = 'anonymous';
+      img.onload = async () => {
+        try {
+          const detection = await faceapi
+            .detectSingleFace(img, new faceapi.TinyFaceDetectorOptions())
+            .withFaceLandmarks()
+            .withFaceDescriptor();
 
-        const SIZE = 64;
-        canvas.width = SIZE;
-        canvas.height = SIZE;
-
-        ctx.drawImage(img, 0, 0, SIZE, SIZE);
-        const data1 = ctx.getImageData(0, 0, SIZE, SIZE).data;
-
-        const canvas2 = document.createElement('canvas');
-        const ctx2 = canvas2.getContext('2d');
-        if (!ctx2) return resolve(0);
-        canvas2.width = SIZE;
-        canvas2.height = SIZE;
-        ctx2.drawImage(currentCanvas, 0, 0, SIZE, SIZE);
-        const data2 = ctx2.getImageData(0, 0, SIZE, SIZE).data;
-
-        // Convert to grayscale with histogram equalization for lighting invariance
-        const toEqualizedGray = (data: Uint8ClampedArray) => {
-          const gray: number[] = [];
-          const histogram = new Array(256).fill(0);
-
-          // Convert to grayscale and build histogram
-          for (let i = 0; i < data.length; i += 4) {
-            const g = Math.round(0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]);
-            gray.push(g);
-            histogram[g]++;
+          if (detection) {
+            resolve(detection.descriptor);
+          } else {
+            resolve(null);
           }
-
-          // Build cumulative histogram
-          const cdf = new Array(256).fill(0);
-          cdf[0] = histogram[0];
-          for (let i = 1; i < 256; i++) {
-            cdf[i] = cdf[i - 1] + histogram[i];
-          }
-
-          // Normalize CDF
-          const cdfMin = cdf.find(v => v > 0) || 0;
-          const total = gray.length;
-
-          // Apply histogram equalization
-          return gray.map(g => Math.round(((cdf[g] - cdfMin) / (total - cdfMin)) * 255));
-        };
-
-        const eq1 = toEqualizedGray(data1);
-        const eq2 = toEqualizedGray(data2);
-
-        // Extract HOG-like features (simplified)
-        // This captures face STRUCTURE not exact pixels
-        const extractFaceFeatures = (gray: number[]) => {
-          const features: number[] = [];
-          const cellSize = 8;
-          const numCells = SIZE / cellSize;
-
-          for (let cy = 0; cy < numCells; cy++) {
-            for (let cx = 0; cx < numCells; cx++) {
-              // For each cell, compute gradient histogram (4 directions)
-              const gradHist = [0, 0, 0, 0]; // 0°, 45°, 90°, 135°
-
-              for (let y = cy * cellSize + 1; y < (cy + 1) * cellSize - 1; y++) {
-                for (let x = cx * cellSize + 1; x < (cx + 1) * cellSize - 1; x++) {
-                  const idx = y * SIZE + x;
-
-                  // Compute gradients
-                  const gx = gray[idx + 1] - gray[idx - 1];
-                  const gy = gray[idx + SIZE] - gray[idx - SIZE];
-
-                  const magnitude = Math.sqrt(gx * gx + gy * gy);
-                  let angle = Math.atan2(gy, gx) * 180 / Math.PI;
-                  if (angle < 0) angle += 180;
-
-                  // Bin the angle into 4 directions
-                  const bin = Math.floor(angle / 45) % 4;
-                  gradHist[bin] += magnitude;
-                }
-              }
-
-              // Normalize the histogram
-              const sum = gradHist.reduce((a, b) => a + b, 0) || 1;
-              features.push(...gradHist.map(v => v / sum));
-            }
-          }
-
-          return features;
-        };
-
-        const features1 = extractFaceFeatures(eq1);
-        const features2 = extractFaceFeatures(eq2);
-
-        // Compare features using cosine similarity
-        let dotProduct = 0, mag1 = 0, mag2 = 0;
-        for (let i = 0; i < features1.length; i++) {
-          dotProduct += features1[i] * features2[i];
-          mag1 += features1[i] * features1[i];
-          mag2 += features2[i] * features2[i];
+        } catch (err) {
+          console.error('Error extracting saved face:', err);
+          resolve(null);
         }
-        const hogSimilarity = dotProduct / (Math.sqrt(mag1) * Math.sqrt(mag2) + 0.0001);
-
-        // Also compute regional brightness pattern (face zones)
-        const getZonePattern = (gray: number[]) => {
-          const zones: number[] = [];
-          const zoneSize = SIZE / 4;
-
-          for (let zy = 0; zy < 4; zy++) {
-            for (let zx = 0; zx < 4; zx++) {
-              let sum = 0, count = 0;
-              for (let y = zy * zoneSize; y < (zy + 1) * zoneSize; y++) {
-                for (let x = zx * zoneSize; x < (zx + 1) * zoneSize; x++) {
-                  sum += gray[y * SIZE + x];
-                  count++;
-                }
-              }
-              zones.push(sum / count);
-            }
-          }
-
-          // Convert to relative pattern (which zones are brighter/darker)
-          const mean = zones.reduce((a, b) => a + b, 0) / zones.length;
-          return zones.map(z => z > mean ? 1 : 0);
-        };
-
-        const pattern1 = getZonePattern(eq1);
-        const pattern2 = getZonePattern(eq2);
-
-        // Compare patterns (how many zones match)
-        let patternMatch = 0;
-        for (let i = 0; i < pattern1.length; i++) {
-          if (pattern1[i] === pattern2[i]) patternMatch++;
-        }
-        const patternSimilarity = patternMatch / pattern1.length;
-
-        // Skin tone comparison (relative RGB ratios)
-        const getSkinTone = (data: Uint8ClampedArray) => {
-          let r = 0, g = 0, b = 0, count = 0;
-          const start = Math.floor(SIZE * 0.3);
-          const end = Math.floor(SIZE * 0.7);
-
-          for (let y = start; y < end; y++) {
-            for (let x = start; x < end; x++) {
-              const idx = (y * SIZE + x) * 4;
-              r += data[idx];
-              g += data[idx + 1];
-              b += data[idx + 2];
-              count++;
-            }
-          }
-
-          const total = r + g + b || 1;
-          return { r: r / total, g: g / total, b: b / total };
-        };
-
-        // GRID-BASED STRUCTURAL SYMMETRY (Robust to Lighting, Sensitive to Features)
-        // Instead of unstable "darkest pixel" points, we use Grid Texture Analysis
-        const getGridStructure = (gray: number[]) => {
-          const gridSize = 8;
-          const cell = SIZE / gridSize; // 64 / 8 = 8px cells
-          const gridData = [];
-
-          for (let gy = 0; gy < gridSize; gy++) {
-            for (let gx = 0; gx < gridSize; gx++) {
-              let sum = 0;
-              let sumSq = 0;
-              let count = 0;
-
-              for (let y = gy * cell; y < (gy + 1) * cell; y++) {
-                for (let x = gx * cell; x < (gx + 1) * cell; x++) {
-                  const val = gray[y * SIZE + x];
-                  sum += val;
-                  sumSq += val * val;
-                  count++;
-                }
-              }
-
-              const mean = sum / count;
-              const variance = (sumSq / count) - (mean * mean);
-              // Store both brightness (mean) and texture complexity (variance)
-              gridData.push({ m: mean, v: Math.sqrt(variance) });
-            }
-          }
-          return gridData;
-        };
-
-        const grid1 = getGridStructure(eq1);
-        const grid2 = getGridStructure(eq2);
-
-        // Compare Grids
-        let gridMatchScore = 0;
-        for (let i = 0; i < grid1.length; i++) {
-          const g1 = grid1[i];
-          const g2 = grid2[i];
-
-          // Texture similarity (Are these both smooth skin? Or both eyes/edges?)
-          const varDiff = Math.abs(g1.v - g2.v) / (Math.max(g1.v, g2.v) + 1);
-          // Brightness similarity (normalized)
-          const meanDiff = Math.abs(g1.m - g2.m) / 255;
-
-          // Match if both texture and brightness are close
-          const score = (1 - varDiff) * 0.7 + (1 - meanDiff) * 0.3;
-          gridMatchScore += Math.max(0, score);
-        }
-        const gridSimilarity = gridMatchScore / grid1.length;
-
-        // Final score combining all methods
-        const finalScore = (
-          hogSimilarity * 0.40 +       // 40% HOG features (Overall Shape)
-          gridSimilarity * 0.40 +      // 40% Grid Structure (Texture/Feature Locations)
-          patternSimilarity * 0.20     // 20% Zone patterns (Broad Lighting)
-        );
-
-        resolve(finalScore);
       };
-      img.onerror = () => resolve(0);
-      img.src = savedData;
+      img.onerror = () => resolve(null);
+      img.src = base64Data;
     });
   };
 
@@ -383,11 +202,16 @@ function FaceIDLoginModal({ user, onClose, onSuccess }: any) {
                 ${status === 'success' ? 'sepia-0 grayscale-0' : 'grayscale brightness-110 contrast-125'} 
                 ${scanStep === 'depth' ? 'scale-110' : 'scale-100'}`}
               />
-              {status === 'scanning' && (
+              {(status === 'scanning' || status === 'loading') && (
                 <motion.div
-                  initial={{ top: '0%' }} animate={{ top: '100%' }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                  initial={{ top: '0%' }} animate={{ top: '100%' }} transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
                   className="absolute left-0 w-full h-[2px] bg-[#c69f6e] shadow-[0_0_15px_#c69f6e] z-10"
                 />
+              )}
+              {status === 'loading' && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-20">
+                  <Loader2 className="w-12 h-12 text-[#c69f6e] animate-spin" />
+                </div>
               )}
               <canvas ref={canvasRef} className="hidden" />
             </div>
@@ -410,7 +234,10 @@ function FaceIDLoginModal({ user, onClose, onSuccess }: any) {
               <div className="flex items-center gap-2">
                 <Scan size={18} className="text-[#c69f6e]" />
                 <h3 className="text-xl font-black text-[#4a3426] uppercase italic tracking-tighter">
-                  {status === 'success' ? 'Accès Autorisé' : 'Scan en cours'}
+                  {status === 'loading' ? 'Initialisation...' :
+                    status === 'success' ? 'Accès Autorisé' :
+                    status === 'error' ? 'Échec' :
+                    status === 'locked' ? 'Bloqué' : 'Scan IA'}
                 </h3>
               </div>
               <p className="text-[#8c8279] font-black text-[10px] uppercase tracking-[0.2em] opacity-50">Expertise Bey Biometrics</p>
@@ -424,12 +251,14 @@ function FaceIDLoginModal({ user, onClose, onSuccess }: any) {
                   <span className={`w-2 h-2 rounded-full transition-all duration-300 ${scanStep === 'auth' ? 'bg-[#c69f6e] scale-125' : 'bg-[#e6dace] opacity-30'}`} />
                 </div>
                 <p className={`text-[10px] font-black uppercase tracking-widest ${status === 'error' || status === 'locked' ? 'text-red-500' : 'text-[#4a3426] animate-pulse'}`}>
-                  {status === 'success' ? 'Identité confirmée' :
+                  {status === 'loading' ? statusText || 'Chargement...' :
+                    status === 'success' ? 'Identité confirmée' :
                     status === 'locked' ? 'ACCÈS REFUSÉ - COMPTE BLOQUÉ' :
                       status === 'error' ? `Échec - Tentative ${failCount}/3` :
-                        scanStep === 'align' ? 'Alignement du visage...' :
-                          scanStep === 'depth' ? 'Analyse de profondeur...' :
-                            'Authentification finale...'}
+                        status === 'scanning' ? statusText || 'Analyse en cours...' :
+                          scanStep === 'align' ? 'Alignement du visage...' :
+                            scanStep === 'depth' ? 'Analyse IA...' :
+                              'Reconnaissance faciale...'}
                 </p>
               </div>
             </div>
@@ -484,7 +313,7 @@ export default function Home() {
   const [lastUser, setLastUser] = useState<any>(null);
   const [error, setError] = useState('');
 
-  const { data: statusData, refetch: refetchStatus } = useQuery(GET_SYSTEM_STATUS, { pollInterval: 30000 });
+  const { data: statusData, loading: statusLoading, refetch: refetchStatus } = useQuery(GET_SYSTEM_STATUS, { pollInterval: 30000 });
   const [recordConnection] = useMutation(RECORD_CONNECTION);
   const [disconnectUser] = useMutation(DISCONNECT_USER);
 
@@ -760,7 +589,7 @@ export default function Home() {
     setPassword('');
   };
 
-  if (initializing) {
+  if (initializing || statusLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#fdfbf7]">
         <div className="animate-pulse flex flex-col items-center">
@@ -784,10 +613,11 @@ export default function Home() {
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-[1000px] grid grid-cols-1 md:grid-cols-2 bg-white rounded-[2.5rem] shadow-[0_40px_100px_-20px_rgba(92,58,33,0.12)] overflow-hidden min-h-[600px] border border-[rgba(196,154,108,0.15)] relative"
+          className={`w-full max-w-[1000px] grid grid-cols-1 ${!isBlocked || showAdminLogin ? 'md:grid-cols-2' : ''} bg-white rounded-[2.5rem] shadow-[0_40px_100px_-20px_rgba(92,58,33,0.12)] overflow-hidden min-h-[600px] border border-[rgba(196,154,108,0.15)] relative`}
         >
-          {/* Left Side - Visual/Brand (Always visible) */}
-          <div className="hidden md:flex flex-col items-center justify-center relative p-12 bg-[#4a3426] text-white overflow-hidden">
+          {/* Left Side - Visual/Brand (Visible only when NOT blocked or when admin login is requested) */}
+          {/* Left Side - Visual/Brand (Always active, becomes full screen when blocked) */}
+          <div className={`${(!isBlocked || showAdminLogin) ? 'hidden md:flex' : 'flex'} flex-col items-center justify-center relative p-12 bg-[#4a3426] text-white overflow-hidden h-full min-h-[600px] transition-all duration-500`}>
             <div className="absolute inset-0 opacity-[0.08] bg-[url('/logo.jpeg')] bg-cover bg-center grayscale mix-blend-luminosity"></div>
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
 
@@ -796,54 +626,32 @@ export default function Home() {
                 initial={{ rotate: -10, scale: 0.9 }}
                 animate={{ rotate: 0, scale: 1 }}
                 transition={{ type: "spring", damping: 12 }}
-                className="w-32 h-32 relative mx-auto rounded-[2rem] p-1 bg-white/10 backdrop-blur-md ring-1 ring-white/20 shadow-2xl"
+                className="w-32 h-32 relative mx-auto rounded-[2rem] p-1 bg-white/10 backdrop-blur-md ring-1 ring-white/20 shadow-2xl cursor-pointer"
+                onDoubleClick={() => {
+                  if (isBlocked && !showAdminLogin) setShowAdminLogin(true);
+                }}
               >
                 <Image src="/logo.jpeg" alt="Logo" fill className="rounded-[1.8rem] object-cover border-4 border-transparent" />
               </motion.div>
-              <div className="space-y-2">
-                <h2 className="text-4xl font-black tracking-tighter mb-2 uppercase italic text-white">Expertise Bey</h2>
-                <div className="flex items-center justify-center gap-2">
-                  <div className="h-[1px] w-6 bg-white/30"></div>
-                  <p className="text-[#c69f6e] uppercase tracking-[0.4em] text-[8px] font-black italic">Hardware & Stock Intelligence</p>
-                  <div className="h-[1px] w-6 bg-white/30"></div>
+
+              {/* Show text ONLY if NOT blocked (or if admin login active) */}
+              {(!isBlocked || showAdminLogin) && (
+                <div className="space-y-2">
+                  <h2 className="text-4xl font-black tracking-tighter mb-2 uppercase italic text-white">Expertise Bey</h2>
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="h-[1px] w-6 bg-white/30"></div>
+                    <p className="text-[#c69f6e] uppercase tracking-[0.4em] text-[8px] font-black italic">Hardware & Stock Intelligence</p>
+                    <div className="h-[1px] w-6 bg-white/30"></div>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
 
-          {/* Right Side - Form OR Blocked Message */}
-          <div className="p-8 md:p-14 flex flex-col justify-center relative">
-            <AnimatePresence mode="wait">
-              {isBlocked && !showAdminLogin ? (
-                <motion.div
-                  key="blocked"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="space-y-8 text-center"
-                >
-                  <div className="flex flex-col items-center">
-                    <div className="relative w-24 h-24 mb-6">
-                      <div className="absolute inset-0 bg-red-100 rounded-full animate-ping opacity-20"></div>
-                      <div className="relative bg-white rounded-full w-full h-full flex items-center justify-center shadow-xl border-2 border-red-50">
-                        <ShieldAlert size={48} className="text-red-500" strokeWidth={1.5} />
-                      </div>
-                    </div>
-                    <h1 className="text-3xl font-black text-[#4a3426] tracking-tighter uppercase italic mb-3">Système Verrouillé</h1>
-                    <p className="text-[#8c8279] font-bold text-[10px] uppercase tracking-[0.2em] max-w-[240px] leading-relaxed mx-auto opacity-60">
-                      {isAccountBlocked ? "Votre compte a été suspendu par l'administration." : "L'accès au système est temporairement restreint."}
-                    </p>
-                  </div>
-
-                  {/* Visible bypass button for admins to reach settings and unblock */}
-                  <button
-                    onClick={() => setShowAdminLogin(true)}
-                    className="mt-6 px-6 py-3 rounded-xl bg-[#4a3426] text-white text-[10px] font-black uppercase tracking-[0.2em] hover:scale-105 active:scale-95 transition-all shadow-lg mx-auto block"
-                  >
-                    Connexion Administration
-                  </button>
-                </motion.div>
-              ) : (
+          {/* Right Side - Form (Only visible when NOT blocked or unlocked) */}
+          {(!isBlocked || showAdminLogin) && (
+            <div className="p-8 md:p-14 flex flex-col justify-center relative">
+              <AnimatePresence mode="wait">
                 <motion.div
                   key="form"
                   initial={{ opacity: 0, y: 10 }}
@@ -925,13 +733,10 @@ export default function Home() {
                     )}
                   </form>
                 </motion.div>
-              )}
-            </AnimatePresence>
+              </AnimatePresence>
 
-            <div className="mt-12 text-center md:text-left">
-              <p className="text-[9px] font-black text-[#bba282] uppercase tracking-widest opacity-40 italic">© 2026 Expertise Bey. Toutes les sessions sont tracées.</p>
             </div>
-          </div>
+          )}
         </motion.div>
 
         {/* Face ID Login Modal */}
