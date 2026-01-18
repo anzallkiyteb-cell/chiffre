@@ -114,6 +114,13 @@ export default function SettingsPage() {
     const { data, loading, refetch } = useQuery(GET_SETTINGS_DATA, {
         pollInterval: 20000 // Refresh every 20s to see online status changes
     });
+
+    const [currentUser, setCurrentUser] = React.useState<any>(null);
+
+    React.useEffect(() => {
+        const stored = localStorage.getItem('bb_user');
+        if (stored) setCurrentUser(JSON.parse(stored));
+    }, []);
     const [upsertUser] = useMutation(UPSERT_USER);
     const [deleteUser] = useMutation(DELETE_USER);
     const [upsertDevice] = useMutation(UPSERT_DEVICE);
@@ -176,6 +183,14 @@ export default function SettingsPage() {
         if (!confirm(`Déconnecter ${username} ?`)) return;
         try {
             await disconnectUser({ variables: { username } });
+
+            // If the admin disconnects themselves, log out immediately
+            if (currentUser && currentUser.username.toLowerCase() === username.toLowerCase()) {
+                localStorage.clear();
+                window.location.href = '/';
+                return;
+            }
+
             refetch();
         } catch (e) { alert('Error disconnecting user'); }
     };

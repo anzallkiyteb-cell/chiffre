@@ -107,13 +107,18 @@ export default function Sidebar({ role }: SidebarProps) {
 
                 const ipData = ipRes ? await ipRes.json() : { ip: 'Unknown' };
 
-                await sendHeartbeat({
+                const hbRes = await sendHeartbeat({
                     variables: {
                         username: hbUsername,
                         deviceInfo: getDeviceInfo(),
                         ipAddress: ipData.ip
                     }
                 });
+
+                if (hbRes.data?.heartbeat === false) {
+                    console.log('Session invalidated by server. Logging out...');
+                    handleLogout();
+                }
             } catch (e) { console.error('HB Error:', e); }
         };
 
@@ -169,15 +174,15 @@ export default function Sidebar({ role }: SidebarProps) {
             {/* Desktop Sidebar */}
             <aside className="hidden lg:flex sticky top-0 h-screen w-64 bg-white border-r border-[#e6dace] flex-col justify-between py-8 px-4 z-40 transition-all duration-300">
                 <div className="flex flex-col h-full overflow-y-auto no-scrollbar">
-                    <div className="flex flex-col items-start mb-10 px-2 shrink-0">
-                        <div className="relative w-12 h-12 mb-4">
+                    <div className="flex flex-row items-center gap-3 mb-10 px-2 shrink-0">
+                        <div className="relative w-12 h-12 shrink-0">
                             <Image src="/logo.jpeg" alt="Logo" fill className="rounded-full shadow-md border-2 border-white object-cover" />
                         </div>
-                        <div className="w-full">
-                            <h1 className="font-black text-[#4a3426] text-lg tracking-tighter uppercase line-clamp-1">Business Bey</h1>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                                <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]"></div>
-                                <p className="text-[9px] font-black uppercase tracking-widest text-[#8c8279]">
+                        <div className="flex flex-col min-w-0">
+                            <h1 className="font-black text-[#4a3426] text-[18px] leading-tight tracking-tighter uppercase truncate">Business Bey</h1>
+                            <div className="flex items-center gap-2 mt-0.5">
+                                <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)] shrink-0"></div>
+                                <p className="text-[10px] font-black uppercase tracking-widest text-[#8c8279] truncate">
                                     {role === 'admin' ? 'Administration' : 'Gestion Caisse'}
                                 </p>
                             </div>

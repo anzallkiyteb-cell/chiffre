@@ -455,6 +455,7 @@ export default function Home() {
       getUsers {
         username
         is_blocked_user
+        last_active
       }
     }
   `, { fetchPolicy: 'network-only' });
@@ -493,12 +494,12 @@ export default function Home() {
       if (!data?.getUsers) return;
 
       const dbUser = data.getUsers.find((u: any) => u.username.toLowerCase() === userData.username.toLowerCase());
-      if (dbUser?.is_blocked_user) {
-        setIsAccountBlocked(true);
-        // If the user is blocked, log them out
-        if (user && user.username === userData.username) {
-          handleLogout();
-        }
+
+      // Forced logout if blocked OR if an admin manually cleared the session (last_active is null)
+      if (dbUser?.is_blocked_user || (dbUser && dbUser.last_active === null)) {
+        console.log("Session invalid or blocked. Forced logout.");
+        setIsAccountBlocked(!!dbUser?.is_blocked_user);
+        handleLogout();
       } else {
         setIsAccountBlocked(false);
       }

@@ -1153,14 +1153,22 @@ export const resolvers = {
             return true;
         },
         heartbeat: async (_: any, { username, deviceInfo, ipAddress }: any) => {
-            console.log(`Heartbeat received for: ${username} from ${ipAddress}`);
             const res = await query(`
                 UPDATE logins 
                 SET last_active = CURRENT_TIMESTAMP,
                     device_info = $2,
                     ip_address = $3
                 WHERE LOWER(username) = LOWER($1)
+                AND last_active IS NOT NULL
+                RETURNING id
             `, [username, deviceInfo, ipAddress]);
+
+            if (res.rowCount === 0) {
+                console.log(`Heartbeat failed: session for ${username} was likely terminated by admin.`);
+                return false;
+            }
+
+            console.log(`Heartbeat received for: ${username} from ${ipAddress}`);
             return true;
         },
         recordConnection: async (_: any, { username, ipAddress, deviceInfo, browser }: any) => {
