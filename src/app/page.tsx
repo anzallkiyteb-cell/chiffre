@@ -105,7 +105,7 @@ function FaceIDLoginModal({ user, onClose, onSuccess }: any) {
           try {
             const similarity = await simulateBiometricMatching(canvasRef.current, user.face_data);
 
-            if (similarity > 0.78) { // Security Threshold: 0.75-0.85 for HOG/Zone matching
+            if (similarity > 0.72) { // Robust Threshold with Grid Matching
               setStatus('success');
               setTimeout(() => {
                 onSuccess();
@@ -300,63 +300,62 @@ function FaceIDLoginModal({ user, onClose, onSuccess }: any) {
           return { r: r / total, g: g / total, b: b / total };
         };
 
-        // GEOMETRIC TRIANGULATION (Eye-Eye-Mouth Ratios)
-        // This is crucial for distinguishing individuals with similar accessories (like glasses)
-        const getFacialGeometry = (gray: number[]) => {
-          // Find "darkest" regions in top-half (eyes) and bottom-half (mouth)
-          const zoneSize = SIZE / 3;
-          let leftEye = { x: 0, y: 0, val: 255 };
-          let rightEye = { x: 0, y: 0, val: 255 };
-          let mouth = { x: 0, y: 0, val: 255 };
+        // GRID-BASED STRUCTURAL SYMMETRY (Robust to Lighting, Sensitive to Features)
+        // Instead of unstable "darkest pixel" points, we use Grid Texture Analysis
+        const getGridStructure = (gray: number[]) => {
+          const gridSize = 8;
+          const cell = SIZE / gridSize; // 64 / 8 = 8px cells
+          const gridData = [];
 
-          // Left Eye Search (Top-Left quadrant)
-          for (let y = 10; y < SIZE / 2; y++) {
-            for (let x = 10; x < SIZE / 2; x++) {
-              const val = gray[y * SIZE + x];
-              if (val < leftEye.val) leftEye = { x, y, val };
+          for (let gy = 0; gy < gridSize; gy++) {
+            for (let gx = 0; gx < gridSize; gx++) {
+              let sum = 0;
+              let sumSq = 0;
+              let count = 0;
+
+              for (let y = gy * cell; y < (gy + 1) * cell; y++) {
+                for (let x = gx * cell; x < (gx + 1) * cell; x++) {
+                  const val = gray[y * SIZE + x];
+                  sum += val;
+                  sumSq += val * val;
+                  count++;
+                }
+              }
+
+              const mean = sum / count;
+              const variance = (sumSq / count) - (mean * mean);
+              // Store both brightness (mean) and texture complexity (variance)
+              gridData.push({ m: mean, v: Math.sqrt(variance) });
             }
           }
-          // Right Eye Search (Top-Right quadrant)
-          for (let y = 10; y < SIZE / 2; y++) {
-            for (let x = SIZE / 2; x < SIZE - 10; x++) {
-              const val = gray[y * SIZE + x];
-              if (val < rightEye.val) rightEye = { x, y, val };
-            }
-          }
-          // Mouth Search (Bottom Center)
-          for (let y = SIZE / 2 + 5; y < SIZE - 10; y++) {
-            for (let x = SIZE / 4; x < SIZE * 0.75; x++) {
-              const val = gray[y * SIZE + x];
-              if (val < mouth.val) mouth = { x, y, val };
-            }
-          }
-
-          // Calculate Triangle Distances
-          const dLeftRight = Math.sqrt(Math.pow(rightEye.x - leftEye.x, 2) + Math.pow(rightEye.y - leftEye.y, 2));
-          const dLeftMouth = Math.sqrt(Math.pow(mouth.x - leftEye.x, 2) + Math.pow(mouth.y - leftEye.y, 2));
-          const dRightMouth = Math.sqrt(Math.pow(mouth.x - rightEye.x, 2) + Math.pow(mouth.y - rightEye.y, 2));
-
-          // Ratios (invariant to scale/distance) [Base: Eye Distance]
-          return {
-            r1: dLeftMouth / (dLeftRight || 1),
-            r2: dRightMouth / (dLeftRight || 1),
-            aspect: dLeftRight / (dLeftMouth + dRightMouth || 1)
-          };
+          return gridData;
         };
 
-        const geom1 = getFacialGeometry(eq1);
-        const geom2 = getFacialGeometry(eq2);
+        const grid1 = getGridStructure(eq1);
+        const grid2 = getGridStructure(eq2);
 
-        // Strict Geometry Difference
-        const geoDiff = Math.abs(geom1.r1 - geom2.r1) + Math.abs(geom1.r2 - geom2.r2) + Math.abs(geom1.aspect - geom2.aspect);
-        const geometrySimilarity = Math.max(0, 1 - (geoDiff * 3)); // High penalty for structure mismatch
+        // Compare Grids
+        let gridMatchScore = 0;
+        for (let i = 0; i < grid1.length; i++) {
+          const g1 = grid1[i];
+          const g2 = grid2[i];
+
+          // Texture similarity (Are these both smooth skin? Or both eyes/edges?)
+          const varDiff = Math.abs(g1.v - g2.v) / (Math.max(g1.v, g2.v) + 1);
+          // Brightness similarity (normalized)
+          const meanDiff = Math.abs(g1.m - g2.m) / 255;
+
+          // Match if both texture and brightness are close
+          const score = (1 - varDiff) * 0.7 + (1 - meanDiff) * 0.3;
+          gridMatchScore += Math.max(0, score);
+        }
+        const gridSimilarity = gridMatchScore / grid1.length;
 
         // Final score combining all methods
-        // HOG (Structure) + Geometry (Features) + Pattern (Lighting)
         const finalScore = (
-          hogSimilarity * 0.40 +       // 40% HOG features (General Shape)
-          geometrySimilarity * 0.40 +  // 40% Geometric Triangulation (Identity / Glasses Proof)
-          patternSimilarity * 0.20     // 20% Zone patterns (Texture)
+          hogSimilarity * 0.40 +       // 40% HOG features (Overall Shape)
+          gridSimilarity * 0.40 +      // 40% Grid Structure (Texture/Feature Locations)
+          patternSimilarity * 0.20     // 20% Zone patterns (Broad Lighting)
         );
 
         resolve(finalScore);
