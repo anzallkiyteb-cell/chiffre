@@ -1286,22 +1286,29 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             });
             return;
         }
+
+        // Helper to ensure values are never empty strings
+        const ensureValue = (val: string | null | undefined) => {
+            if (val === '' || val === null || val === undefined) return '0';
+            return val;
+        };
+
         try {
             await saveChiffre({
                 variables: {
                     date,
-                    recette_de_caisse: recetteCaisse,
+                    recette_de_caisse: ensureValue(recetteCaisse),
                     total_diponce: totalExpenses.toString(),
                     diponce: JSON.stringify(expenses),
                     recette_net: recetteNett.toString(),
-                    tpe,
-                    tpe2,
-                    cheque_bancaire: cheque,
-                    espaces: especes,
-                    tickets_restaurant: ticketsRestaurant,
-                    extra,
-                    primes,
-                    offres,
+                    tpe: ensureValue(tpe),
+                    tpe2: ensureValue(tpe2),
+                    cheque_bancaire: ensureValue(cheque),
+                    espaces: ensureValue(especes),
+                    tickets_restaurant: ensureValue(ticketsRestaurant),
+                    extra: ensureValue(extra),
+                    primes: ensureValue(primes),
+                    offres: ensureValue(offres),
                     offres_data: JSON.stringify(offresList),
                     caisse_photo: caissePhoto,
                     diponce_divers: JSON.stringify(expensesDivers),
@@ -1562,6 +1569,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                     disabled={isLocked}
                                                     onWheel={(e) => e.currentTarget.blur()}
                                                     onFocus={(e) => { if (recetteCaisse === '0') setRecetteCaisse(''); }}
+                                                    onBlur={(e) => { if (e.target.value === '' || e.target.value === null) setRecetteCaisse('0'); }}
                                                     onChange={(e) => { setRecetteCaisse(e.target.value); setHasInteracted(true); }}
                                                     className={`text-6xl md:text-7xl lg:text-8xl font-black bg-transparent text-[#4a3426] outline-none placeholder-[#e6dace] text-center md:text-right w-full md:w-auto min-w-[150px] ${isLocked ? 'cursor-not-allowed opacity-50 pointer-events-none' : ''}`}
                                                     placeholder="0"
@@ -2640,7 +2648,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                             value={m.val ?? ''}
                                                             onWheel={(e) => e.currentTarget.blur()}
                                                             onFocus={(e) => { if (m.val === '0') m.set(''); }}
-                                                            onChange={(e) => m.set(e.target.value)}
+                                                            onBlur={(e) => { if (e.target.value === '' || e.target.value === null) m.set('0'); }}
+                                                            onChange={(e) => { m.set(e.target.value); setHasInteracted(true); }}
                                                             className={`w-full h-20 rounded-2xl pl-11 pr-3 font-black text-2xl md:text-3xl text-white outline-none transition-all shadow-inner ${isLocked ? 'bg-white/20 border-white/30 cursor-not-allowed' : 'bg-white/10 border border-white/10 focus:bg-white/20 focus:border-white/40'}`}
                                                         />
                                                     )}
@@ -2669,7 +2678,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                             value={m.val ?? ''}
                                                             onWheel={(e) => e.currentTarget.blur()}
                                                             onFocus={(e) => { if (m.val === '0') m.set(''); }}
-                                                            onChange={(e) => m.set(e.target.value)}
+                                                            onBlur={(e) => { if (e.target.value === '' || e.target.value === null) m.set('0'); }}
+                                                            onChange={(e) => { m.set(e.target.value); setHasInteracted(true); }}
                                                             className={`w-full h-20 rounded-2xl pl-11 pr-3 font-black text-2xl md:text-3xl text-white outline-none transition-all shadow-inner ${(m.label === 'Espèces' || isLocked) ? 'bg-white/20 border-white/30 cursor-not-allowed' : 'bg-white/10 border border-white/10 focus:bg-white/20 focus:border-white/40'}`}
                                                         />
                                                     )}
