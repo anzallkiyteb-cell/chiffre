@@ -337,50 +337,251 @@ export default function Home() {
 
   const getDeviceInfo = () => {
     const ua = navigator.userAgent;
+    const platform = (navigator as any).userAgentData?.platform || navigator.platform || '';
 
-    // Android Detection (Model extraction)
+    // iOS Detection - Use screen size to estimate iPhone model
+    if (/iphone/i.test(ua)) {
+      const screenHeight = window.screen.height;
+      const screenWidth = window.screen.width;
+      const pixelRatio = window.devicePixelRatio || 1;
+      const physicalHeight = Math.max(screenHeight, screenWidth) * pixelRatio;
+      const physicalWidth = Math.min(screenHeight, screenWidth) * pixelRatio;
+
+      // iPhone model detection based on screen resolution
+      // iPhone 16 Pro Max: 2868 x 1320
+      if (physicalHeight >= 2800 && physicalWidth >= 1290) return 'iPhone 16 Pro Max';
+      // iPhone 16 Pro: 2622 x 1206
+      if (physicalHeight >= 2600 && physicalWidth >= 1200) return 'iPhone 16 Pro';
+      // iPhone 16 Plus / 15 Plus / 14 Plus: 2796 x 1290
+      if (physicalHeight >= 2750 && physicalWidth >= 1280) return 'iPhone 16 Plus';
+      // iPhone 16 / 15 / 14: 2556 x 1179
+      if (physicalHeight >= 2500 && physicalWidth >= 1170) return 'iPhone 16';
+      // iPhone 15 Pro Max / 14 Pro Max: 2796 x 1290
+      if (physicalHeight >= 2780 && physicalWidth >= 1280) return 'iPhone 15 Pro Max';
+      // iPhone 15 Pro / 14 Pro: 2556 x 1179
+      if (physicalHeight >= 2550 && physicalWidth >= 1170) return 'iPhone 15 Pro';
+      // iPhone 13 Pro Max / 12 Pro Max: 2778 x 1284
+      if (physicalHeight >= 2770 && physicalWidth >= 1280) return 'iPhone 13 Pro Max';
+      // iPhone 13 / 13 Pro / 12 / 12 Pro: 2532 x 1170
+      if (physicalHeight >= 2500 && physicalWidth >= 1160) return 'iPhone 13';
+      // iPhone 13 mini / 12 mini: 2340 x 1080
+      if (physicalHeight >= 2300 && physicalWidth >= 1070) return 'iPhone 13 Mini';
+      // iPhone 11 Pro Max / XS Max: 2688 x 1242
+      if (physicalHeight >= 2680 && physicalWidth >= 1240) return 'iPhone 11 Pro Max';
+      // iPhone 11 / XR: 1792 x 828
+      if (physicalHeight >= 1790 && physicalWidth >= 820 && physicalHeight < 2000) return 'iPhone 11';
+      // iPhone 11 Pro / X / XS: 2436 x 1125
+      if (physicalHeight >= 2400 && physicalWidth >= 1120) return 'iPhone 11 Pro';
+      // iPhone 8 Plus / 7 Plus / 6s Plus: 1920 x 1080
+      if (physicalHeight >= 1900 && physicalWidth >= 1070 && physicalHeight < 2000) return 'iPhone 8 Plus';
+      // iPhone 8 / 7 / 6s / SE (2nd/3rd): 1334 x 750
+      if (physicalHeight >= 1330 && physicalWidth >= 740 && physicalHeight < 1400) return 'iPhone SE';
+      // iPhone SE (1st): 1136 x 640
+      if (physicalHeight >= 1130 && physicalWidth >= 630 && physicalHeight < 1200) return 'iPhone SE (1st)';
+
+      return 'iPhone';
+    }
+
+    // iPad Detection
+    if (/ipad/i.test(ua) || (platform === 'MacIntel' && navigator.maxTouchPoints > 1)) {
+      const screenHeight = Math.max(window.screen.height, window.screen.width);
+      const pixelRatio = window.devicePixelRatio || 1;
+      const physicalSize = screenHeight * pixelRatio;
+
+      if (physicalSize >= 2732) return 'iPad Pro 12.9"';
+      if (physicalSize >= 2388) return 'iPad Pro 11"';
+      if (physicalSize >= 2360) return 'iPad Air';
+      if (physicalSize >= 2160) return 'iPad Mini';
+      return 'iPad';
+    }
+
+    // Android Detection with model extraction
     if (/android/i.test(ua)) {
-      const match = ua.match(/Android\s+[^;]+;\s+([^);]+)/i);
-      if (match && match[1]) {
-        const model = match[1].trim();
-        if (!/mobile|tablet/i.test(model)) return `Android (${model})`;
+      // Try to extract model from User-Agent
+      // Format: Android X.X; MODEL Build/XXX or Android X.X; MODEL)
+      let model = '';
+
+      // Samsung devices
+      if (/SM-S9/i.test(ua)) {
+        if (/SM-S928/i.test(ua)) return 'Samsung Galaxy S24 Ultra';
+        if (/SM-S926/i.test(ua)) return 'Samsung Galaxy S24+';
+        if (/SM-S921/i.test(ua)) return 'Samsung Galaxy S24';
+        if (/SM-S918/i.test(ua)) return 'Samsung Galaxy S23 Ultra';
+        if (/SM-S916/i.test(ua)) return 'Samsung Galaxy S23+';
+        if (/SM-S911/i.test(ua)) return 'Samsung Galaxy S23';
+        if (/SM-S908/i.test(ua)) return 'Samsung Galaxy S22 Ultra';
+        if (/SM-S906/i.test(ua)) return 'Samsung Galaxy S22+';
+        if (/SM-S901/i.test(ua)) return 'Samsung Galaxy S22';
       }
-      return 'Android Device';
+      if (/SM-G99/i.test(ua)) {
+        if (/SM-G998/i.test(ua)) return 'Samsung Galaxy S21 Ultra';
+        if (/SM-G996/i.test(ua)) return 'Samsung Galaxy S21+';
+        if (/SM-G991/i.test(ua)) return 'Samsung Galaxy S21';
+      }
+      if (/SM-F9/i.test(ua)) {
+        if (/SM-F956/i.test(ua)) return 'Samsung Galaxy Z Fold 6';
+        if (/SM-F946/i.test(ua)) return 'Samsung Galaxy Z Fold 5';
+        if (/SM-F936/i.test(ua)) return 'Samsung Galaxy Z Fold 4';
+        if (/SM-F731/i.test(ua)) return 'Samsung Galaxy Z Flip 5';
+        if (/SM-F721/i.test(ua)) return 'Samsung Galaxy Z Flip 4';
+      }
+      if (/SM-A/i.test(ua)) {
+        if (/SM-A556/i.test(ua)) return 'Samsung Galaxy A55';
+        if (/SM-A546/i.test(ua)) return 'Samsung Galaxy A54';
+        if (/SM-A536/i.test(ua)) return 'Samsung Galaxy A53';
+        if (/SM-A346/i.test(ua)) return 'Samsung Galaxy A34';
+        if (/SM-A256/i.test(ua)) return 'Samsung Galaxy A25';
+        if (/SM-A156/i.test(ua)) return 'Samsung Galaxy A15';
+      }
+
+      // Xiaomi/Redmi/POCO
+      if (/xiaomi|redmi|poco/i.test(ua)) {
+        const match = ua.match(/(Xiaomi|Redmi|POCO)[^;)]+/i);
+        if (match) return match[0].trim();
+      }
+
+      // Google Pixel
+      if (/pixel/i.test(ua)) {
+        if (/Pixel 9 Pro XL/i.test(ua)) return 'Google Pixel 9 Pro XL';
+        if (/Pixel 9 Pro/i.test(ua)) return 'Google Pixel 9 Pro';
+        if (/Pixel 9/i.test(ua)) return 'Google Pixel 9';
+        if (/Pixel 8 Pro/i.test(ua)) return 'Google Pixel 8 Pro';
+        if (/Pixel 8a/i.test(ua)) return 'Google Pixel 8a';
+        if (/Pixel 8/i.test(ua)) return 'Google Pixel 8';
+        if (/Pixel 7 Pro/i.test(ua)) return 'Google Pixel 7 Pro';
+        if (/Pixel 7a/i.test(ua)) return 'Google Pixel 7a';
+        if (/Pixel 7/i.test(ua)) return 'Google Pixel 7';
+        if (/Pixel 6 Pro/i.test(ua)) return 'Google Pixel 6 Pro';
+        if (/Pixel 6a/i.test(ua)) return 'Google Pixel 6a';
+        if (/Pixel 6/i.test(ua)) return 'Google Pixel 6';
+        return 'Google Pixel';
+      }
+
+      // OnePlus
+      if (/oneplus/i.test(ua)) {
+        const match = ua.match(/OnePlus[^;)]*/i);
+        if (match) return match[0].trim().replace(/OnePlus\s*/i, 'OnePlus ');
+      }
+
+      // Huawei
+      if (/huawei|honor/i.test(ua)) {
+        const match = ua.match(/(HUAWEI|HONOR)[^;)]*/i);
+        if (match) return match[0].trim();
+      }
+
+      // OPPO
+      if (/oppo/i.test(ua)) {
+        const match = ua.match(/OPPO[^;)]*/i);
+        if (match) return match[0].trim();
+      }
+
+      // Vivo
+      if (/vivo/i.test(ua)) {
+        const match = ua.match(/vivo[^;)]*/i);
+        if (match) return match[0].trim();
+      }
+
+      // Generic Android model extraction
+      const genericMatch = ua.match(/;\s*([^;)]+)\s*Build\//i) || ua.match(/;\s*([^;)]+)\s*\)/i);
+      if (genericMatch && genericMatch[1]) {
+        model = genericMatch[1].trim();
+        if (model && !/^(Linux|U|Mobile|wv)$/i.test(model)) {
+          return `Android (${model})`;
+        }
+      }
+
+      return 'Android';
     }
 
-    // iOS Detection
-    if (/iphone/i.test(ua)) return 'Apple iPhone';
-    if (/ipad/i.test(ua)) return 'Apple iPad';
-
-    // Macintosh Detection
+    // Desktop Detection
+    // Macintosh
     if (/macintosh/i.test(ua)) {
-      const match = ua.match(/OS X\s+([^);]+)/i);
-      if (match && match[1]) return `Mac OS (${match[1].replace(/_/g, '.')})`;
-      return 'Apple Mac';
+      // Check if it's actually an iPad with desktop mode
+      if (navigator.maxTouchPoints > 1) return 'iPad (Desktop Mode)';
+
+      const match = ua.match(/Mac OS X\s+([0-9_]+)/i);
+      if (match) {
+        const version = match[1].replace(/_/g, '.');
+        const majorVersion = parseInt(version.split('.')[0]);
+        if (majorVersion >= 14) return 'Mac (Sonoma)';
+        if (majorVersion >= 13) return 'Mac (Ventura)';
+        if (majorVersion >= 12) return 'Mac (Monterey)';
+        if (majorVersion >= 11) return 'Mac (Big Sur)';
+        return `Mac (OS ${version})`;
+      }
+      return 'Mac';
     }
 
-    // Windows Detection
+    // Windows Detection with version
     if (/windows/i.test(ua)) {
-      if (/nt 10.0/i.test(ua)) return 'Windows 10/11';
-      if (/nt 6.3/i.test(ua)) return 'Windows 8.1';
-      if (/nt 6.2/i.test(ua)) return 'Windows 8';
-      if (/nt 6.1/i.test(ua)) return 'Windows 7';
-      return 'Windows PC';
+      if (/Windows NT 10.0/i.test(ua)) {
+        // Windows 11 detection (Chrome 93+ adds build number)
+        if (/Windows NT 10.0.*Win64/i.test(ua) && parseInt((navigator as any).userAgentData?.platformVersion?.split('.')[0] || '0') >= 13) {
+          return 'Windows 11';
+        }
+        return 'Windows 10';
+      }
+      if (/Windows NT 6.3/i.test(ua)) return 'Windows 8.1';
+      if (/Windows NT 6.2/i.test(ua)) return 'Windows 8';
+      if (/Windows NT 6.1/i.test(ua)) return 'Windows 7';
+      if (/Windows NT 6.0/i.test(ua)) return 'Windows Vista';
+      if (/Windows NT 5.1/i.test(ua)) return 'Windows XP';
+      return 'Windows';
     }
 
-    if (/linux/i.test(ua)) return 'Linux System';
-    return 'Poste de travail';
+    // Linux Detection
+    if (/linux/i.test(ua)) {
+      if (/ubuntu/i.test(ua)) return 'Ubuntu Linux';
+      if (/fedora/i.test(ua)) return 'Fedora Linux';
+      if (/debian/i.test(ua)) return 'Debian Linux';
+      if (/arch/i.test(ua)) return 'Arch Linux';
+      if (/chromeos|cros/i.test(ua)) return 'ChromeOS';
+      return 'Linux';
+    }
+
+    return 'Appareil inconnu';
   };
 
   const getBrowserInfo = () => {
     const ua = navigator.userAgent;
-    if (ua.includes('Firefox')) return 'Firefox';
-    if (ua.includes('SamsungBrowser')) return 'Samsung Browser';
-    if (ua.includes('Opera') || ua.includes('OPR')) return 'Opera';
-    if (ua.includes('Edge')) return 'Edge';
-    if (ua.includes('Chrome')) return 'Chrome';
-    if (ua.includes('Safari')) return 'Safari';
-    return 'Unknown Browser';
+
+    // Browser version extraction helper
+    const getVersion = (regex: RegExp) => {
+      const match = ua.match(regex);
+      return match ? match[1].split('.')[0] : '';
+    };
+
+    // Check browsers in order of specificity
+    if (/SamsungBrowser/i.test(ua)) {
+      const v = getVersion(/SamsungBrowser\/(\d+)/i);
+      return v ? `Samsung Browser ${v}` : 'Samsung Browser';
+    }
+    if (/OPR|Opera/i.test(ua)) {
+      const v = getVersion(/(?:OPR|Opera)\/(\d+)/i);
+      return v ? `Opera ${v}` : 'Opera';
+    }
+    if (/Edg/i.test(ua)) {
+      const v = getVersion(/Edg\/(\d+)/i);
+      return v ? `Edge ${v}` : 'Edge';
+    }
+    if (/Firefox/i.test(ua)) {
+      const v = getVersion(/Firefox\/(\d+)/i);
+      return v ? `Firefox ${v}` : 'Firefox';
+    }
+    if (/Chrome/i.test(ua) && !/Chromium/i.test(ua)) {
+      const v = getVersion(/Chrome\/(\d+)/i);
+      return v ? `Chrome ${v}` : 'Chrome';
+    }
+    if (/Safari/i.test(ua) && !/Chrome/i.test(ua)) {
+      const v = getVersion(/Version\/(\d+)/i);
+      return v ? `Safari ${v}` : 'Safari';
+    }
+    if (/Chromium/i.test(ua)) {
+      const v = getVersion(/Chromium\/(\d+)/i);
+      return v ? `Chromium ${v}` : 'Chromium';
+    }
+
+    return 'Navigateur';
   };
 
   // Security check effect
