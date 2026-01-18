@@ -236,8 +236,8 @@ function FaceIDLoginModal({ user, onClose, onSuccess }: any) {
                 <h3 className="text-xl font-black text-[#4a3426] uppercase italic tracking-tighter">
                   {status === 'loading' ? 'Initialisation...' :
                     status === 'success' ? 'Accès Autorisé' :
-                    status === 'error' ? 'Échec' :
-                    status === 'locked' ? 'Bloqué' : 'Scan IA'}
+                      status === 'error' ? 'Échec' :
+                        status === 'locked' ? 'Bloqué' : 'Scan IA'}
                 </h3>
               </div>
               <p className="text-[#8c8279] font-black text-[10px] uppercase tracking-[0.2em] opacity-50">Expertise Bey Biometrics</p>
@@ -253,12 +253,12 @@ function FaceIDLoginModal({ user, onClose, onSuccess }: any) {
                 <p className={`text-[10px] font-black uppercase tracking-widest ${status === 'error' || status === 'locked' ? 'text-red-500' : 'text-[#4a3426] animate-pulse'}`}>
                   {status === 'loading' ? statusText || 'Chargement...' :
                     status === 'success' ? 'Identité confirmée' :
-                    status === 'locked' ? 'ACCÈS REFUSÉ - COMPTE BLOQUÉ' :
-                      status === 'error' ? `Échec - Tentative ${failCount}/3` :
-                        status === 'scanning' ? statusText || 'Analyse en cours...' :
-                          scanStep === 'align' ? 'Alignement du visage...' :
-                            scanStep === 'depth' ? 'Analyse IA...' :
-                              'Reconnaissance faciale...'}
+                      status === 'locked' ? 'ACCÈS REFUSÉ - COMPTE BLOQUÉ' :
+                        status === 'error' ? `Échec - Tentative ${failCount}/3` :
+                          status === 'scanning' ? statusText || 'Analyse en cours...' :
+                            scanStep === 'align' ? 'Alignement du visage...' :
+                              scanStep === 'depth' ? 'Analyse IA...' :
+                                'Reconnaissance faciale...'}
                 </p>
               </div>
             </div>
@@ -612,18 +612,56 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [user]); // Re-run if user state changes
 
-  // Tab close disconnect
+  // Auto-disconnect logic (Minimize & Inactivity)
   useEffect(() => {
-    const handleTabClose = () => {
-      if (user?.username) {
-        const query = `mutation { disconnectUser(username: "${user.username}") }`;
-        const blob = new Blob([JSON.stringify({ query })], { type: 'application/json' });
-        navigator.sendBeacon('/api/graphql', blob);
+    if (!user?.username) return;
+
+    // 1. Disconnect on minimize/tab switch
+    const handleVisibilityChange = () => {
+      // If document becomes hidden, disconnect immediately
+      if (document.visibilityState === 'hidden') {
+        console.log("Window hidden/minimized. Auto-disconnecting.");
+        handleLogout();
       }
     };
-    window.addEventListener('beforeunload', handleTabClose);
-    return () => window.removeEventListener('beforeunload', handleTabClose);
+
+    // 2. Disconnect on inactivity (3 minutes)
+    let inactivityTimer: NodeJS.Timeout;
+    const DISCONNECT_TIME = 3 * 60 * 1000; // 3 minutes
+
+    const resetInactivityTimer = () => {
+      clearTimeout(inactivityTimer);
+      inactivityTimer = setTimeout(() => {
+        console.log("User inactive for 3 mins. Auto-disconnecting.");
+        handleLogout();
+      }, DISCONNECT_TIME);
+    };
+
+    // Initialize timer
+    resetInactivityTimer();
+
+    // Event listeners
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Activity listeners
+    window.addEventListener('mousemove', resetInactivityTimer);
+    window.addEventListener('keydown', resetInactivityTimer);
+    window.addEventListener('click', resetInactivityTimer);
+    window.addEventListener('scroll', resetInactivityTimer);
+    window.addEventListener('touchstart', resetInactivityTimer); // Mobile support
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+
+      clearTimeout(inactivityTimer);
+      window.removeEventListener('mousemove', resetInactivityTimer);
+      window.removeEventListener('keydown', resetInactivityTimer);
+      window.removeEventListener('click', resetInactivityTimer);
+      window.removeEventListener('scroll', resetInactivityTimer);
+      window.removeEventListener('touchstart', resetInactivityTimer);
+    };
   }, [user]);
+
 
   // Check localStorage on mount
   useEffect(() => {
