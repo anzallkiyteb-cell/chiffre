@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useQuery, useMutation, gql } from '@apollo/client';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
@@ -922,11 +922,15 @@ export default function PaiementsPage() {
             { label: 'Fournisseurs', value: expenseDetails.fournisseurs.reduce((a: number, b: any) => a + b.amount, 0), color: '#ef4444' }, // Red
             { label: 'Divers', value: expenseDetails.divers.reduce((a: number, b: any) => a + b.amount, 0), color: '#f59e0b' },      // Amber
             { label: 'Administratif', value: expenseDetails.administratif.reduce((a: number, b: any) => a + b.amount, 0), color: '#10b981' }, // Emerald
-            { label: 'Avances', value: expenseDetails.avances.reduce((a: number, b: any) => a + b.amount, 0), color: '#6366f1' },     // Indigo
+            {
+                label: 'Salaires + Avances',
+                value: expenseDetails.avances.reduce((a: number, b: any) => a + b.amount, 0) +
+                    expenseDetails.remainders.reduce((a: number, b: any) => a + b.amount, 0),
+                color: '#6366f1'
+            },     // Indigo (Merged Avances + Remainders)
             { label: 'Doublage', value: expenseDetails.doublages.reduce((a: number, b: any) => a + b.amount, 0), color: '#8b5cf6' },  // Violet
             { label: 'Extras', value: expenseDetails.extras.reduce((a: number, b: any) => a + b.amount, 0), color: '#ec4899' },      // Pink
-            { label: 'Primes', value: expenseDetails.primes.reduce((a: number, b: any) => a + b.amount, 0), color: '#06b6d4' },      // Cyan
-            { label: 'Employés', value: expenseDetails.remainders.reduce((a: number, b: any) => a + b.amount, 0), color: '#f97316' }  // Orange
+            { label: 'Primes', value: expenseDetails.primes.reduce((a: number, b: any) => a + b.amount, 0), color: '#06b6d4' }       // Cyan
         ];
 
         const total = categories.reduce((acc, cat) => acc + cat.value, 0) || 1;
@@ -954,6 +958,69 @@ export default function PaiementsPage() {
             setActiveSegment(null);
         }
     }, [showExpensesDetails, chartData, activeSegment]);
+
+    // Selection & Long Press Logic for Expenses Modal
+    const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
+    const longPressTimer = useRef<any>(null);
+    const isLongPress = useRef(false);
+
+    const startPress = (idx: number) => {
+        isLongPress.current = false;
+        longPressTimer.current = setTimeout(() => {
+            setSelectedCategories(prev => prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx]);
+        }, 500);
+    };
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                setSelectedCategories([]);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
+
+    const cancelPress = () => {
+        if (longPressTimer.current) {
+            clearTimeout(longPressTimer.current);
+            longPressTimer.current = null;
+        }
+    };
+
+    const selectedTotal = selectedCategories.reduce((acc, idx) => {
+        const cats = [
+            { items: expenseDetails.fournisseurs },
+            { items: expenseDetails.avances },
+            { items: expenseDetails.primes },
+            { items: expenseDetails.divers },
+            { items: expenseDetails.doublages },
+            { items: expenseDetails.remainders },
+            { items: expenseDetails.administratif },
+            { items: expenseDetails.extras },
+        ];
+        const target = cats[idx];
+        return acc + (target?.items || []).reduce((sum: number, item: any) => sum + (item.amount || 0), 0);
+    }, 0);
+
+    const handleCardClick = (idx: number, cat: any, labelMap: any, hasItems: boolean) => {
+        if (isLongPress.current) return; // Ignore click if it was a long press
+
+        // If we are in "Selection Mode" (some items selected), simple click toggles selection instead of expanding
+        if (selectedCategories.length > 0) {
+            setSelectedCategories(prev => prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx]);
+            return;
+        }
+
+        // Normal Behavior
+        const seg = chartData.find(s => s.label === labelMap[cat.title]);
+        if (seg) setActiveSegment(seg);
+
+        if (!hasItems) return;
+        setExpandedCategories(prev =>
+            (prev || []).includes(idx) ? (prev || []).filter((i: number) => i !== idx) : [...(prev || []), idx]
+        );
+    };
 
     const handleBankSubmit = async () => {
         if (!bankAmount || !bankDate) return;
@@ -3044,7 +3111,23 @@ export default function PaiementsPage() {
                                 <div className="p-12 pb-10 flex items-center justify-between">
                                     <div className="flex-1 flex flex-col justify-center">
                                         <h2 className="text-4xl font-black text-[#4a3426] tracking-tighter leading-none mb-2">Détails des Dépenses</h2>
-                                        <p className="text-[#c69f6e] font-black text-[9px] uppercase tracking-[0.4em] mb-6">Récapitulatif financier complet</p>
+
+                                        {selectedCategories.length > 0 ? (
+                                            <div className="flex items-center gap-4 mb-6 animate-in slide-in-from-left-5 fade-in duration-300">
+                                                <div className="flex items-baseline gap-2 bg-[#2d6a4f]/10 px-4 py-2 rounded-2xl border border-[#2d6a4f]/20">
+                                                    <span className="text-[10px] font-black text-[#2d6a4f] uppercase tracking-widest">SOMME :</span>
+                                                    <span className="text-2xl font-black text-[#2d6a4f] tracking-tighter leading-none">{maskAmount(selectedTotal)} <span className="text-xs ml-0.5 opacity-60">DT</span></span>
+                                                </div>
+                                                <button
+                                                    onClick={() => setSelectedCategories([])}
+                                                    className="flex items-center gap-2 px-3 py-1.5 bg-[#e6dace]/20 hover:bg-[#e6dace]/40 border border-[#e6dace] rounded-xl text-[10px] font-black text-[#8c8279] uppercase tracking-wider transition-colors"
+                                                >
+                                                    <X size={12} /> ECHAP
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <p className="text-[#c69f6e] font-black text-[9px] uppercase tracking-[0.4em] mb-6">Récapitulatif financier complet</p>
+                                        )}
 
                                         {/* Dynamic Legend */}
                                         <div className="grid grid-cols-2 gap-x-6 gap-y-2 mt-2">
@@ -3157,7 +3240,19 @@ export default function PaiementsPage() {
                                                 })}
                                             </svg>
                                             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center px-4">
-                                                {activeSegment ? (
+                                                {selectedCategories.length > 0 ? (
+                                                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.1 }}>
+                                                        <span className="text-4xl font-black text-[#2d6a4f] leading-none block mb-1">
+                                                            {maskAmount(selectedTotal, 0)}
+                                                        </span>
+                                                        <span className="text-[9px] font-black text-[#c69f6e] uppercase tracking-[0.2em] block mb-1">
+                                                            SÉLECTION
+                                                        </span>
+                                                        <span className="text-[9px] font-black text-[#4a3426]/40 uppercase tracking-[0.1em] block">
+                                                            {selectedCategories.length} Catégories
+                                                        </span>
+                                                    </motion.div>
+                                                ) : activeSegment ? (
                                                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.1 }}>
                                                         <span className="text-4xl font-black text-[#4a3426] leading-none block mb-1">
                                                             {hideAmounts ? '***' : Math.round(activeSegment.percentage * 100) + '%'}
@@ -3196,45 +3291,40 @@ export default function PaiementsPage() {
                                             { title: 'PRIMES', subtitle: 'RÉCOMPENSES & BONUS', icon: Award, color: 'text-[#2d6a4f]', iconBg: 'bg-[#2d6a4f]/5', items: expenseDetails.primes },
                                             { title: 'DÉPENSES DIVERS', subtitle: 'FRAIS EXCEPTIONNELS', icon: Sparkles, color: 'text-[#c69f6e]', iconBg: 'bg-[#c69f6e]/5', items: expenseDetails.divers },
                                             { title: 'DOUBLAGE', subtitle: 'HEURES SUPPLÉMENTAIRES', icon: TrendingUp, color: 'text-[#4a3426]', iconBg: 'bg-[#4a3426]/5', items: expenseDetails.doublages },
-                                            { title: 'TOUS EMPLOYÉS', subtitle: 'SALAIRES EN ATTENTE', icon: Banknote, color: 'text-red-500', iconBg: 'bg-red-50', items: expenseDetails.remainders, badge: 'EN ATTENTE' },
+                                            { title: 'RESTES SALAIRES', subtitle: 'SALAIRES EN ATTENTE', icon: Banknote, color: 'text-red-500', iconBg: 'bg-red-50', items: expenseDetails.remainders, badge: 'EN ATTENTE' },
                                             { title: 'DÉPENSES ADMINISTRATIF', subtitle: 'LOYERS, FACTURES & BUREAUX', icon: Layout, color: 'text-purple-500', iconBg: 'bg-purple-50', items: expenseDetails.administratif },
                                             { title: 'EXTRA', subtitle: "MAIN D'ŒUVRE OCCASIONNELLE", icon: Zap, color: 'text-[#c69f6e]', iconBg: 'bg-[#c69f6e]/5', items: expenseDetails.extras },
                                         ].map((cat, idx) => {
                                             const total = (cat.items || []).reduce((sum: number, item: any) => sum + (item.amount || 0), 0);
-                                            // Always render all categories to maintain the 3-column vertical layout requested by user
-
                                             const labelMap: Record<string, string> = {
                                                 'DÉPENSES FOURNISSEURS': 'Fournisseurs',
-                                                'ACCOMPTE': 'Avances',
+                                                'ACCOMPTE': 'Salaires + Avances',
                                                 'PRIMES': 'Primes',
                                                 'DÉPENSES DIVERS': 'Divers',
                                                 'DOUBLAGE': 'Doublage',
-                                                'TOUS EMPLOYÉS': 'Employés',
+                                                'RESTES SALAIRES': 'Salaires + Avances',
                                                 'DÉPENSES ADMINISTRATIF': 'Administratif',
                                                 'EXTRA': 'Extras'
                                             };
                                             const isActive = activeSegment?.label === labelMap[cat.title];
                                             const isExpanded = expandedCategories.includes(idx);
+                                            const isSelected = selectedCategories.includes(idx);
                                             const hasItems = (cat.items || []).length > 0;
 
                                             return (
                                                 <div
                                                     key={idx}
-                                                    className={`group bg-white rounded-[2.5rem] border transition-all duration-300 ${(isExpanded || isActive) ? 'border-[#c69f6e] ring-4 ring-[#c69f6e]/5 shadow-xl' : 'border-[#e6dace]/20 hover:border-[#c69f6e]/30 shadow-sm shadow-[#4a3426]/5'} ${isActive ? 'scale-[1.02]' : ''}`}
+                                                    className={`group bg-white rounded-[2.5rem] border transition-all duration-300 ${isSelected ? 'border-[#2d6a4f] ring-4 ring-[#2d6a4f]/10 shadow-xl bg-[#2d6a4f]/5' : (isExpanded || isActive) ? 'border-[#c69f6e] ring-4 ring-[#c69f6e]/5 shadow-xl' : 'border-[#e6dace]/20 hover:border-[#c69f6e]/30 shadow-sm shadow-[#4a3426]/5'} ${isActive || isSelected ? 'scale-[1.02]' : ''}`}
                                                 >
                                                     {/* Category Header Card */}
                                                     <div
-                                                        onClick={() => {
-                                                            // Highlight in chart
-                                                            const seg = chartData.find(s => s.label === labelMap[cat.title]);
-                                                            if (seg) setActiveSegment(seg);
-
-                                                            if (!hasItems) return;
-                                                            setExpandedCategories(prev =>
-                                                                (prev || []).includes(idx) ? (prev || []).filter((i: number) => i !== idx) : [...(prev || []), idx]
-                                                            );
-                                                        }}
-                                                        className={`p-6 flex items-center justify-between cursor-pointer select-none rounded-[2.5rem] transition-colors ${!hasItems ? 'cursor-default' : 'hover:bg-[#fcfaf8]'}`}
+                                                        onMouseDown={() => startPress(idx)}
+                                                        onTouchStart={() => startPress(idx)}
+                                                        onMouseUp={cancelPress}
+                                                        onMouseLeave={cancelPress}
+                                                        onTouchEnd={cancelPress}
+                                                        onClick={() => handleCardClick(idx, cat, labelMap, hasItems)}
+                                                        className={`p-6 flex items-center justify-between cursor-pointer select-none rounded-[2.5rem] transition-colors ${!hasItems ? 'cursor-default' : ''} ${isSelected ? 'bg-white/50' : 'hover:bg-[#fcfaf8]'}`}
                                                     >
                                                         <div className="flex items-center gap-5">
                                                             <div className={`w-14 h-14 rounded-2xl ${cat.iconBg} flex items-center justify-center ${cat.color} group-hover:scale-110 transition-transform`}>
@@ -3243,6 +3333,7 @@ export default function PaiementsPage() {
                                                             <div>
                                                                 <div className="flex items-center gap-2">
                                                                     <p className="text-[11px] font-black text-[#4a3426] uppercase tracking-tight leading-none mb-1.5">{cat.title}</p>
+                                                                    {isSelected && <CheckCircle2 size={14} className="text-[#2d6a4f] mb-1.5 animate-in fade-in zoom-in duration-300" />}
                                                                     {cat.badge && (
                                                                         <span className="text-[8px] font-black text-red-500 uppercase tracking-tighter bg-red-50 border border-red-100 px-1.5 py-0.5 rounded ml-1">{cat.badge}</span>
                                                                     )}
@@ -3256,8 +3347,8 @@ export default function PaiementsPage() {
                                                                 <p className="text-[10px] font-black text-[#c69f6e] uppercase tracking-widest opacity-60">DT</p>
                                                             </div>
                                                             {hasItems && (
-                                                                <div className={`text-[#c69f6e] transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
-                                                                    <ChevronDown size={20} />
+                                                                <div className={`w-8 h-8 rounded-full border flex items-center justify-center transition-all duration-300 ${isExpanded ? 'bg-[#c69f6e] border-[#c69f6e] text-white rotate-180' : 'bg-white border-[#e6dace] text-[#8c8279] group-hover:border-[#c69f6e]'}`}>
+                                                                    <ChevronDown size={16} strokeWidth={3} />
                                                                 </div>
                                                             )}
                                                         </div>

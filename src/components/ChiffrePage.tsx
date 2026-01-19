@@ -371,7 +371,7 @@ const EntryModal = ({ isOpen, onClose, onSubmit, type, employees = [], initialDa
                         <button
                             disabled={!search || !amount || parseFloat(amount) <= 0 || !employees.some((e: any) => e.name === search)}
                             onClick={() => {
-                                onSubmit(type, search, amount, nbJours);
+                                onSubmit(type, search, amount, nbJours, initialData?.id);
                                 onClose();
                             }}
                             className="w-full h-14 bg-[#4a3426] text-white rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-lg shadow-[#4a3426]/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-40 disabled:grayscale disabled:scale-100"
@@ -1046,9 +1046,18 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         setExpensesDivers([...expensesDivers, { designation: designation || '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces', doc_type: 'BL' }]);
     };
 
-    const handleEntrySubmit = async (type: string, username: string, amount: string, nbJours?: string) => {
+    const handleEntrySubmit = async (type: string, username: string, amount: string, nbJours?: string, id?: number) => {
         if (isLocked) return;
         try {
+            // If ID is present, delete the old entry first (Simulate Update)
+            if (id) {
+                if (type === 'avance') await deleteAvance({ variables: { id } });
+                if (type === 'doublage') await deleteDoublage({ variables: { id } });
+                if (type === 'extra') await deleteExtra({ variables: { id } });
+                if (type === 'prime') await deletePrime({ variables: { id } });
+                if (type === 'restes_salaires') await deleteRestesSalaires({ variables: { id } });
+            }
+
             // New employees are now added only via the dedicated "Ajouter Employé" button
             // So we don't upsert here anymore to maintain a clean directory
 
@@ -1059,11 +1068,11 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             if (type === 'restes_salaires') await addRestesSalaires({ variables: { username, amount: parseFloat(amount), nb_jours: nbJours ? parseFloat(nbJours) : 0, date } });
 
             refetchChiffre();
-            setToast({ msg: 'Ajouté avec succès', type: 'success' });
+            setToast({ msg: id ? 'Mis à jour avec succès' : 'Ajouté avec succès', type: 'success' });
             setTimeout(() => setToast(null), 3000);
         } catch (e) {
             console.error(e);
-            setToast({ msg: 'Erreur lors de l’ajout', type: 'error' });
+            setToast({ msg: 'Erreur lors de l’opération', type: 'error' });
             setTimeout(() => setToast(null), 3000);
         }
     };
