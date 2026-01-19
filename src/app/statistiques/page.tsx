@@ -154,7 +154,7 @@ export default function StatistiquesPage() {
             return raw.map((d: any) => {
                 const riadhAmt = riadhByDate[d.date] || 0;
                 return {
-                    name: new Date(d.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
+                    name: new Date(d.date).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }),
                     fullDate: d.date,
                     recette: parseFloat(d.recette_de_caisse) || 0,
                     depenses: (parseFloat(d.total_diponce) || 0) + riadhAmt,
@@ -282,7 +282,7 @@ export default function StatistiquesPage() {
                 }));
 
                 return {
-                    name: new Date(d.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
+                    name: new Date(d.date).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }),
                     total: dayAdvances,
                     details: details,
                     type: 'Journalier'
@@ -410,7 +410,7 @@ export default function StatistiquesPage() {
             if (!aggregated[key]) {
                 aggregated[key] = {
                     name: aggregation === 'day'
-                        ? new Date(d.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+                        ? new Date(d.date).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
                         : new Date(d.date).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
                     total: 0
                 };
@@ -501,20 +501,39 @@ export default function StatistiquesPage() {
 
         // Generate dynamic unique colors for each supplier
         const colorMap: Record<string, string> = {};
+
+        // Use a fixed set of highly distinct, premium base hues (avoiding reds/oranges)
+        const baseHues = [
+            210, // Deep Blue
+            145, // Emerald Green
+            45,  // Golden Yellow
+            280, // Rich Purple
+            175, // Professional Teal
+            315, // Soft Magenta
+            85,  // Lime Green
+            195, // Bright Cyan
+            255, // Royal Indigo
+            120, // Forest Green
+            225, // Sky Blue
+            295, // Amethyst
+            160, // Mint
+            35,  // Warm Amber
+            200, // Steel Blue
+            130, // Leaf Green
+        ];
+
         orderedSuppliers.forEach((name, idx) => {
-            // Use golden angle to spread theoretical hues
-            const goldenAngle = 137.508;
-            const rawHue = (idx * goldenAngle) % 360;
+            const h = baseHues[idx % baseHues.length];
 
-            // Map hues strictly into non-red range [60, 320]
-            const hue = 60 + (rawHue % 260);
+            // For items past the first 16, create distinct "shades" by varying saturation/lightness
+            const cycle = Math.floor(idx / baseHues.length);
 
-            // Vary saturation and lightness aggressively in staggered steps
-            // This creates 12 distinct style profiles per hue zone
-            const s = 40 + (idx % 3) * 25; // 40%, 65%, 90%
-            const l = 30 + (idx % 4) * 12; // 30%, 42%, 54%, 66%
+            // Saturation patterns: Vibrant -> Muted -> Deep
+            const s = [85, 60, 75][cycle % 3];
+            // Lightness patterns: Balanced -> Deep -> Light -> Rich
+            const l = [48, 32, 65, 25][cycle % 4];
 
-            colorMap[name] = `hsl(${hue}, ${s}%, ${l}%)`;
+            colorMap[name] = `hsl(${h}, ${s}%, ${l}%)`;
         });
 
         return { data: Object.values(aggregated), suppliers: orderedSuppliers, categoryGroups, colorMap };
@@ -996,15 +1015,15 @@ export default function StatistiquesPage() {
                             <table className="w-full text-left">
                                 <thead className="bg-[#fcfaf8] border-b border-[#e6dace]">
                                     <tr>
-                                        <th className="px-8 py-5 text-xs font-black text-[#8c8279] uppercase tracking-widest">Période</th>
-                                        <th className="px-8 py-5 text-xs font-black text-[#8c8279] uppercase tracking-widest text-right">Recette</th>
-                                        <th className="px-8 py-5 text-xs font-black text-[#8c8279] uppercase tracking-widest text-right">Dépenses</th>
-                                        <th className="px-8 py-5 text-xs font-black text-[#8c8279] uppercase tracking-widest text-right">Net</th>
-                                        <th className="px-8 py-5 text-xs font-black text-[#8c8279] uppercase tracking-widest text-right">Espèces</th>
-                                        <th className="px-8 py-5 text-xs font-black text-[#8c8279] uppercase tracking-widest text-right">Chèque</th>
-                                        <th className="px-8 py-5 text-xs font-black text-[#8c8279] uppercase tracking-widest text-right">TPE (Carte)</th>
-                                        <th className="px-8 py-5 text-xs font-black text-[#8c8279] uppercase tracking-widest text-right">T. Restau</th>
-                                        <th className="px-8 py-5 text-xs font-black text-[#8c8279] uppercase tracking-widest text-right text-[#c69f6e]">Rentabilité</th>
+                                        <th className="px-2 md:px-4 xl:px-8 py-4 md:py-5 text-[10px] md:text-xs font-black text-[#8c8279] uppercase tracking-widest">Période</th>
+                                        <th className="px-2 md:px-4 xl:px-8 py-4 md:py-5 text-[10px] md:text-xs font-black text-[#8c8279] uppercase tracking-widest text-right">Recette</th>
+                                        <th className="px-2 md:px-4 xl:px-8 py-4 md:py-5 text-[10px] md:text-xs font-black text-[#8c8279] uppercase tracking-widest text-right">Dépenses</th>
+                                        <th className="px-2 md:px-4 xl:px-8 py-4 md:py-5 text-[10px] md:text-xs font-black text-[#8c8279] uppercase tracking-widest text-right">Net</th>
+                                        <th className="px-2 md:px-4 xl:px-8 py-4 md:py-5 text-[10px] md:text-xs font-black text-[#8c8279] uppercase tracking-widest text-right">Espèces</th>
+                                        <th className="px-2 md:px-4 xl:px-8 py-4 md:py-5 text-[10px] md:text-xs font-black text-[#8c8279] uppercase tracking-widest text-right">Chèque</th>
+                                        <th className="px-2 md:px-4 xl:px-8 py-4 md:py-5 text-[10px] md:text-xs font-black text-[#8c8279] uppercase tracking-widest text-right">TPE (Carte)</th>
+                                        <th className="px-2 md:px-4 xl:px-8 py-4 md:py-5 text-[10px] md:text-xs font-black text-[#8c8279] uppercase tracking-widest text-right">T. Restau</th>
+                                        <th className="px-2 md:px-4 xl:px-8 py-4 md:py-5 text-[10px] md:text-xs font-black text-[#8c8279] uppercase tracking-widest text-right text-[#c69f6e]">Rentabilité</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -1012,15 +1031,15 @@ export default function StatistiquesPage() {
                                         const margin = (d.net / (d.recette || 1)) * 100;
                                         return (
                                             <tr key={i} className="border-b border-[#f4ece4] hover:bg-[#fcfaf8] transition-colors">
-                                                <td className="px-8 py-5 font-bold text-[#4a3426]">{d.name}</td>
-                                                <td className="px-8 py-5 font-bold text-right">{d.recette.toLocaleString()}</td>
-                                                <td className="px-8 py-5 font-bold text-right text-red-500">{d.depenses.toLocaleString()}</td>
-                                                <td className="px-8 py-5 font-black text-right text-green-700">{d.net.toLocaleString()}</td>
-                                                <td className="px-8 py-5 font-bold text-right opacity-60">{d.especes.toLocaleString()}</td>
-                                                <td className="px-8 py-5 font-bold text-right opacity-60">{d.cheque.toLocaleString()}</td>
-                                                <td className="px-8 py-5 font-bold text-right opacity-60">{d.tpe.toLocaleString()}</td>
-                                                <td className="px-8 py-5 font-bold text-right opacity-60">{d.tickets.toLocaleString()}</td>
-                                                <td className="px-8 py-5 text-right">
+                                                <td className="px-2 md:px-4 xl:px-8 py-4 md:py-5 text-[10px] md:text-xs font-bold text-[#4a3426]">{d.name}</td>
+                                                <td className="px-2 md:px-4 xl:px-8 py-4 md:py-5 text-[10px] md:text-xs font-bold text-right">{d.recette.toLocaleString()}</td>
+                                                <td className="px-2 md:px-4 xl:px-8 py-4 md:py-5 text-[10px] md:text-xs font-bold text-right text-red-500">{d.depenses.toLocaleString()}</td>
+                                                <td className="px-2 md:px-4 xl:px-8 py-4 md:py-5 text-[10px] md:text-xs font-black text-right text-green-700">{d.net.toLocaleString()}</td>
+                                                <td className="px-2 md:px-4 xl:px-8 py-4 md:py-5 text-[10px] md:text-xs font-bold text-right opacity-60">{d.especes.toLocaleString()}</td>
+                                                <td className="px-2 md:px-4 xl:px-8 py-4 md:py-5 text-[10px] md:text-xs font-bold text-right opacity-60">{d.cheque.toLocaleString()}</td>
+                                                <td className="px-2 md:px-4 xl:px-8 py-4 md:py-5 text-[10px] md:text-xs font-bold text-right opacity-60">{d.tpe.toLocaleString()}</td>
+                                                <td className="px-2 md:px-4 xl:px-8 py-4 md:py-5 text-[10px] md:text-xs font-bold text-right opacity-60">{d.tickets.toLocaleString()}</td>
+                                                <td className="px-2 md:px-4 xl:px-8 py-4 md:py-5 text-right">
                                                     <span className={`px-3 py-1 rounded-full text-[10px] font-black ${margin > 50 ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
                                                         {margin.toFixed(1)}%
                                                     </span>
