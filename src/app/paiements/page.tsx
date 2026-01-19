@@ -1642,7 +1642,14 @@ export default function PaiementsPage() {
                                 <div className="flex items-center gap-2 text-white/90 mb-2 uppercase text-[10px] font-bold tracking-widest">
                                     <Coins size={14} /> Total Cash
                                 </div>
-                                <h3 className="text-4xl font-black tracking-tighter">{maskAmount(computedStats.cash - (showExpForm && expMethod === 'Espèces' ? (parseFloat(expAmount) || 0) : 0))}</h3>
+                                <h3 className="text-4xl font-black tracking-tighter">
+                                    {maskAmount(
+                                        computedStats.cash
+                                        - (showExpForm && expMethod === 'Espèces' ? (parseFloat(expAmount) || 0) : 0)
+                                        - (showPayModal && paymentDetails.method === 'Espèces' ? (parseFloat(showPayModal.amount) || 0) : 0)
+                                        - (showPayModal ? 100000 : 0)
+                                    )}
+                                </h3>
                                 <span className="text-sm font-bold opacity-70">DT</span>
                             </div>
                             <div className="absolute right-4 bottom-2 opacity-10 group-hover:scale-110 transition-transform duration-500 text-white">
@@ -1660,7 +1667,11 @@ export default function PaiementsPage() {
                                     <CreditCard size={14} /> Bancaire (TPE + Vers. + Chèques)
                                 </div>
                                 <h3 className="text-4xl font-black tracking-tighter">
-                                    {maskAmount(computedStats.tpe + (data?.getPaymentStats?.totalBankDeposits || 0) + computedStats.cheque - computedStats.bankExpenses - (showExpForm && ['Chèque', 'TPE (Carte)'].includes(expMethod) ? (parseFloat(expAmount) || 0) : 0))}
+                                    {maskAmount(
+                                        computedStats.tpe + (data?.getPaymentStats?.totalBankDeposits || 0) + computedStats.cheque - computedStats.bankExpenses
+                                        - (showExpForm && ['Chèque', 'TPE (Carte)'].includes(expMethod) ? (parseFloat(expAmount) || 0) : 0)
+                                        - (showPayModal && ['Chèque', 'Virement'].includes(paymentDetails.method) ? parseFloat(showPayModal.amount || 0) : 0)
+                                    )}
                                 </h3>
                                 <span className="text-sm font-bold opacity-70">DT</span>
                             </div>
@@ -1679,7 +1690,11 @@ export default function PaiementsPage() {
                                     <Ticket size={14} /> Ticket Restaurant
                                 </div>
                                 <h3 className="text-4xl font-black tracking-tighter">
-                                    {maskAmount(computedStats.tickets - (showExpForm && expMethod === 'Ticket Restaurant' ? (parseFloat(expAmount) || 0) : 0))}
+                                    {maskAmount(
+                                        computedStats.tickets
+                                        - (showExpForm && expMethod === 'Ticket Restaurant' ? (parseFloat(expAmount) || 0) : 0)
+                                        - (showPayModal && paymentDetails.method === 'Ticket Restaurant' ? parseFloat(showPayModal.amount || 0) : 0)
+                                    )}
                                 </h3>
                                 <span className="text-sm font-bold opacity-70">DT</span>
                             </div>
@@ -2835,6 +2850,61 @@ export default function PaiementsPage() {
                                             ))}
                                         </div>
                                     </div>
+
+                                    {/* Balance Preview */}
+                                    <AnimatePresence>
+                                        {showPayModal && (paymentDetails.method === 'Espèces' || paymentDetails.method === 'Ticket Restaurant' || ['Chèque', 'Virement'].includes(paymentDetails.method)) && (
+                                            <motion.div
+                                                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                exit={{ opacity: 0, scale: 0.9, y: 10 }}
+                                                className="space-y-2"
+                                            >
+                                                {paymentDetails.method === 'Espèces' && (
+                                                    <div className="bg-[#f59e0b] p-4 rounded-2xl shadow-lg relative overflow-hidden text-white h-28 flex flex-col justify-center">
+                                                        <div className="relative z-10">
+                                                            <div className="flex items-center gap-2 text-white/90 mb-1 uppercase text-[10px] font-bold tracking-widest">
+                                                                <Coins size={14} /> Total Cash (Après Paiement)
+                                                            </div>
+                                                            <h3 className="text-3xl font-black tracking-tighter">
+                                                                {maskAmount(computedStats.cash - parseFloat(showPayModal.amount || 0))}
+                                                            </h3>
+                                                            <span className="text-sm font-bold opacity-70">DT</span>
+                                                        </div>
+                                                        <div className="absolute right-4 bottom-[-10%] opacity-10 text-white"><Coins size={80} /></div>
+                                                    </div>
+                                                )}
+                                                {['Chèque', 'Virement'].includes(paymentDetails.method) && (
+                                                    <div className="bg-[#3b82f6] p-4 rounded-2xl shadow-lg relative overflow-hidden text-white h-28 flex flex-col justify-center">
+                                                        <div className="relative z-10">
+                                                            <div className="flex items-center gap-2 text-white/90 mb-1 uppercase text-[10px] font-bold tracking-widest">
+                                                                <CreditCard size={14} /> Bancaire (Après Paiement)
+                                                            </div>
+                                                            <h3 className="text-3xl font-black tracking-tighter">
+                                                                {maskAmount(computedStats.tpe + (data?.getPaymentStats?.totalBankDeposits || 0) + computedStats.cheque - computedStats.bankExpenses - parseFloat(showPayModal.amount || 0))}
+                                                            </h3>
+                                                            <span className="text-sm font-bold opacity-70">DT</span>
+                                                        </div>
+                                                        <div className="absolute right-4 bottom-[-10%] opacity-10 text-white"><CreditCard size={80} /></div>
+                                                    </div>
+                                                )}
+                                                {paymentDetails.method === 'Ticket Restaurant' && (
+                                                    <div className="bg-[#8b5cf6] p-4 rounded-2xl shadow-lg relative overflow-hidden text-white h-28 flex flex-col justify-center">
+                                                        <div className="relative z-10">
+                                                            <div className="flex items-center gap-2 text-white/90 mb-1 uppercase text-[10px] font-bold tracking-widest">
+                                                                <Ticket size={14} /> Ticket Restaurant (Après Paiement)
+                                                            </div>
+                                                            <h3 className="text-3xl font-black tracking-tighter">
+                                                                {maskAmount(computedStats.tickets - parseFloat(showPayModal.amount || 0))}
+                                                            </h3>
+                                                            <span className="text-sm font-bold opacity-70">DT</span>
+                                                        </div>
+                                                        <div className="absolute right-4 bottom-[-10%] opacity-10 text-white"><Ticket size={80} /></div>
+                                                    </div>
+                                                )}
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
 
                                     <div>
                                         <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8c8279] mb-1 block ml-1">Date de paiement</label>
