@@ -430,9 +430,12 @@ export default function PaiementsPage() {
     const [showHistoryModal, setShowHistoryModal] = useState(false);
     const [showExpensesDetails, setShowExpensesDetails] = useState(false);
     const [expandedCategories, setExpandedCategories] = useState<number[]>([]);
+    const [payerType, setPayerType] = useState<'all' | 'caisse' | 'riadh'>('all');
     const [historySearch, setHistorySearch] = useState('');
     const [historyDateRange, setHistoryDateRange] = useState({ start: '', end: '' });
     const [selectedEmployeeDetails, setSelectedEmployeeDetails] = useState<{ name: string, category: string, subtitle: string, total: number, items: any[] } | null>(null);
+    const [activeSegment, setActiveSegment] = useState<any>(null);
+    const [activeCAProfitSegment, setActiveCAProfitSegment] = useState<'expenses' | 'reste' | null>(null);
 
     const { data: historyData, refetch: refetchHistory } = useQuery(GET_INVOICES, {
         variables: { payer: 'riadh', startDate: '', endDate: '' },
@@ -568,9 +571,21 @@ export default function PaiementsPage() {
     }, [activeFilter, month, dateRange]);
 
     const computedStats = useMemo(() => {
-        const source = data?.getChiffresByRange || [];
-        const riadhExpenses = (data?.getInvoices || []).filter((inv: any) => inv.status === 'paid' && inv.payer === 'riadh');
+        const source = (payerType === 'riadh') ? [] : (data?.getChiffresByRange || []);
+        const allInvoices = (data?.getInvoices || []);
+        const riadhInvoicesRaw = allInvoices.filter((inv: any) => inv.status === 'paid' && inv.payer === 'riadh');
+        const riadhExpenses = (payerType === 'caisse') ? [] : riadhInvoicesRaw;
         const riadhTotal = riadhExpenses.reduce((acc: number, inv: any) => acc + safeParse(inv.amount), 0);
+
+        // Calculate expenses paid specifically by Bank methods (Check or TPE)
+        const bankExpenses = allInvoices
+            .filter((inv: any) => inv.status === 'paid' && (inv.payment_method === 'Chèque' || inv.payment_method === 'TPE (Carte)'))
+            .filter((inv: any) => {
+                if (payerType === 'all') return true;
+                if (payerType === 'riadh') return inv.payer === 'riadh';
+                return inv.payer !== 'riadh'; // caisse
+            })
+            .reduce((acc: number, inv: any) => acc + safeParse(inv.amount), 0);
 
         const aggregated = source.reduce((acc: any, curr: any) => ({
             chiffreAffaire: acc.chiffreAffaire + safeParse(curr.recette_de_caisse),
@@ -582,38 +597,35 @@ export default function PaiementsPage() {
             expenses: acc.expenses + safeParse(curr.total_diponce)
         }), { chiffreAffaire: 0, reste: 0, cash: 0, tpe: 0, cheque: 0, tickets: 0, expenses: 0 });
 
-        const pendingRemaindersTotal = (data?.getSalaryRemainders || []).reduce((acc: number, r: any) => acc + safeParse(r.amount), 0);
-        const bankDepositsTotal = (data?.getBankDeposits || []).reduce((acc: number, d: any) => acc + safeParse(d.amount), 0);
+        const pendingRemaindersTotal = (payerType === 'riadh') ? 0 : (data?.getSalaryRemainders || []).reduce((acc: number, r: any) => acc + safeParse(r.amount), 0);
+        const bankDepositsTotal = (payerType === 'riadh') ? 0 : (data?.getBankDeposits || []).reduce((acc: number, d: any) => acc + safeParse(d.amount), 0);
 
         // Base Cash (Available from Sales/Espaces only, before transfers)
-        // If we have aggregated data (source), use it. otherwise reconstruct from backend stats (which is TotalCash + BankDeposits)
         const totalEspaces = aggregated.chiffreAffaire > 0
             ? aggregated.cash
-            : (safeParse(data?.getPaymentStats?.totalCash) + safeParse(data?.getPaymentStats?.totalBankDeposits));
+            : (payerType === 'riadh' ? 0 : (safeParse(data?.getPaymentStats?.totalCash) + safeParse(data?.getPaymentStats?.totalBankDeposits)));
 
-        // Add Riadh's expenses (excluded from backend daily totals) to aggregated totals for this page only
-        // Also add Pending Remainders to Total Expenses
-        const finalExpenses = (aggregated.expenses || safeParse(data?.getPaymentStats?.totalExpenses)) + riadhTotal + pendingRemaindersTotal;
+        // Add Riadh's expenses and Pending Remainders
+        const finalExpenses = (aggregated.expenses || (payerType === 'riadh' ? 0 : safeParse(data?.getPaymentStats?.totalExpenses))) + riadhTotal + pendingRemaindersTotal;
 
-        // Subtract Riadh's expenses AND Pending Remainders from Net Revenue
-        const finalReste = (aggregated.reste || safeParse(data?.getPaymentStats?.totalRecetteNette)) - riadhTotal - pendingRemaindersTotal;
+        // Final Reste (Net Revenue/Profit)
+        const baseReste = (payerType === 'riadh') ? 0 : (aggregated.reste || safeParse(data?.getPaymentStats?.totalRecetteNette));
+        const finalReste = baseReste - riadhTotal - pendingRemaindersTotal;
 
         // Final Cash = (Total Espaces) - (Net Bank Transfers) - (Pending Salary Remainders)
-        // Note: bankDepositsTotal is positive for deposits, negative for withdrawals.
-        // Deposit (Positive): Cash decreases (- 100)
-        // Withdrawal (Negative): Cash increases (- -100 = +100)
         const finalCash = totalEspaces - bankDepositsTotal - pendingRemaindersTotal;
 
         return {
-            chiffreAffaire: aggregated.chiffreAffaire || safeParse(data?.getPaymentStats?.totalRecetteCaisse),
+            chiffreAffaire: (payerType === 'riadh') ? 0 : (aggregated.chiffreAffaire || safeParse(data?.getPaymentStats?.totalRecetteCaisse)),
             reste: finalReste,
             cash: finalCash,
-            tpe: aggregated.tpe || safeParse(data?.getPaymentStats?.totalTPE),
-            cheque: aggregated.cheque || safeParse(data?.getPaymentStats?.totalCheque),
-            tickets: aggregated.tickets || safeParse(data?.getPaymentStats?.totalTicketsRestaurant),
-            expenses: finalExpenses
+            tpe: (payerType === 'riadh') ? 0 : (aggregated.tpe || safeParse(data?.getPaymentStats?.totalTPE)),
+            cheque: (payerType === 'riadh') ? 0 : (aggregated.cheque || safeParse(data?.getPaymentStats?.totalCheque)),
+            tickets: (payerType === 'riadh') ? 0 : (aggregated.tickets || safeParse(data?.getPaymentStats?.totalTicketsRestaurant)),
+            expenses: finalExpenses,
+            bankExpenses // Added to subtract from Bancaire total
         };
-    }, [data]);
+    }, [data, payerType]);
 
     const setThisWeek = () => {
         const now = new Date();
@@ -684,8 +696,8 @@ export default function PaiementsPage() {
     };
 
     const expenseDetails = useMemo(() => {
-        const sourceData = data?.getChiffresByRange || [];
-        if (!sourceData || sourceData.length === 0) return {
+        const sourceData = (payerType === 'riadh') ? [] : (data?.getChiffresByRange || []);
+        if (!data) return {
             fournisseurs: [], divers: [], administratif: [],
             avances: [], doublages: [], extras: [], primes: [], restesSalaires: [], remainders: []
         };
@@ -724,18 +736,20 @@ export default function PaiementsPage() {
         }, { ...base });
 
         // Add Pending Salary Remainders (from Restes Salaires module)
-        const pendingRemainders = data?.getSalaryRemainders || [];
-        pendingRemainders.forEach((r: any) => {
-            agg.restesSalaires.push({
-                username: r.employee_name,
-                montant: r.amount,
-                date: r.updated_at || new Date().toISOString(),
-                isPending: true
+        if (payerType !== 'riadh') {
+            const pendingRemainders = data?.getSalaryRemainders || [];
+            pendingRemainders.forEach((r: any) => {
+                agg.restesSalaires.push({
+                    username: r.employee_name,
+                    montant: r.amount,
+                    date: r.updated_at || new Date().toISOString(),
+                    isPending: true
+                });
             });
-        });
+        }
 
-        // Add Riadh's paid invoices (excluded from backend daily merge)
-        const riadhInvoices = (data?.getInvoices || []).filter((inv: any) => inv.status === 'paid' && inv.payer === 'riadh');
+        // Add Riadh's paid invoices
+        const riadhInvoices = (payerType === 'caisse') ? [] : (data?.getInvoices || []).filter((inv: any) => inv.status === 'paid' && inv.payer === 'riadh');
         riadhInvoices.forEach((inv: any) => {
             let invPhotos = [];
             try {
@@ -816,7 +830,7 @@ export default function PaiementsPage() {
             primes: groupingFunction(aggParsed.primes, 'username', 'montant'),
             remainders: groupingFunction(aggParsed.restesSalaires, 'username', 'montant')
         };
-    }, [data]);
+    }, [data, payerType]);
 
     const totals = useMemo(() => {
         const dep = expenseDetails.fournisseurs.reduce((a: number, b: any) => a + b.amount, 0) +
@@ -834,6 +848,29 @@ export default function PaiementsPage() {
             salaries: sal,
             global: dep + sal
         };
+    }, [expenseDetails]);
+
+    const chartData = useMemo(() => {
+        const categories = [
+            { label: 'Fournisseurs', value: expenseDetails.fournisseurs.reduce((a: number, b: any) => a + b.amount, 0), color: '#ef4444' }, // Red
+            { label: 'Divers', value: expenseDetails.divers.reduce((a: number, b: any) => a + b.amount, 0), color: '#f59e0b' },      // Amber
+            { label: 'Administratif', value: expenseDetails.administratif.reduce((a: number, b: any) => a + b.amount, 0), color: '#10b981' }, // Emerald
+            { label: 'Avances', value: expenseDetails.avances.reduce((a: number, b: any) => a + b.amount, 0), color: '#6366f1' },     // Indigo
+            { label: 'Doublage', value: expenseDetails.doublages.reduce((a: number, b: any) => a + b.amount, 0), color: '#8b5cf6' },  // Violet
+            { label: 'Extras', value: expenseDetails.extras.reduce((a: number, b: any) => a + b.amount, 0), color: '#ec4899' },      // Pink
+            { label: 'Primes', value: expenseDetails.primes.reduce((a: number, b: any) => a + b.amount, 0), color: '#06b6d4' },      // Cyan
+            { label: 'Employés', value: expenseDetails.remainders.reduce((a: number, b: any) => a + b.amount, 0), color: '#f97316' }  // Orange
+        ];
+
+        const total = categories.reduce((acc, cat) => acc + cat.value, 0) || 1;
+        let cumulativeValue = 0;
+
+        return categories.map(cat => {
+            const percentage = (cat.value / total);
+            const startOffset = (cumulativeValue / total);
+            cumulativeValue += cat.value;
+            return { ...cat, percentage, startOffset };
+        }).filter(c => c.value > 0);
     }, [expenseDetails]);
 
     const handleBankSubmit = async () => {
@@ -1041,6 +1078,23 @@ export default function PaiementsPage() {
                             </button>
                         </div>
 
+                        {/* SOURCE FILTER: Payer Par */}
+                        <div className="flex bg-white rounded-2xl p-1 border border-[#e6dace] shadow-sm w-full md:w-auto">
+                            {[
+                                { id: 'all', label: 'Tout' },
+                                { id: 'caisse', label: 'Caisse' },
+                                { id: 'riadh', label: 'Riadh' }
+                            ].map((p) => (
+                                <button
+                                    key={p.id}
+                                    onClick={() => setPayerType(p.id as any)}
+                                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${payerType === p.id ? 'bg-[#c69f6e] text-white shadow-md' : 'text-[#8c8279] hover:bg-gray-50'}`}
+                                >
+                                    {p.label}
+                                </button>
+                            ))}
+                        </div>
+
                         <div className="flex items-center gap-3 bg-white rounded-3xl p-1.5 border border-[#e6dace] shadow-sm">
                             <PremiumDatePicker
                                 label="Début"
@@ -1122,62 +1176,168 @@ export default function PaiementsPage() {
 
                 <main className="max-w-7xl mx-auto px-4 md:px-8 mt-8 space-y-8">
                     {/* Financial Summary Grid - 3 Columns */}
-                    <div className="space-y-4">
+                    <div className="flex flex-col gap-4 mb-12">
                         {/* 1. Chiffre d'Affaire */}
                         <motion.div
-                            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0 }}
-                            className="bg-[#3eb37c] p-10 rounded-[2.5rem] shadow-sm relative overflow-hidden group hover:scale-[1.005] transition-all text-white h-56 flex flex-col justify-center"
+                            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+                            className="bg-[#56b350] p-10 rounded-[2.5rem] shadow-lg relative overflow-hidden group hover:scale-[1.005] transition-all text-white h-52 flex flex-col justify-center cursor-default"
                         >
-                            <div className="relative z-10">
-                                <div className="flex items-center gap-3 text-white/90 mb-4 uppercase text-[11px] font-bold tracking-[0.2em]">
-                                    <FileText size={18} /> Chiffre d'Affaire
+                            <div className="relative z-10 flex items-center justify-between gap-8">
+                                <div>
+                                    <div className="flex items-center gap-3 text-white/90 mb-4 uppercase text-[11px] font-bold tracking-[0.2em]">
+                                        <FileText size={18} /> Chiffre d'Affaire
+                                    </div>
+                                    <h3 className="text-7xl font-black tracking-tighter mb-2">
+                                        {computedStats.chiffreAffaire.toLocaleString('fr-FR', { minimumFractionDigits: 3 }).replace(/\s/g, ',')}
+                                    </h3>
+                                    <span className="text-xl font-bold opacity-80 block uppercase tracking-widest">DT</span>
                                 </div>
-                                <h3 className="text-6xl font-black tracking-tighter mb-2">
-                                    {computedStats.chiffreAffaire.toLocaleString('fr-FR', { minimumFractionDigits: 3 }).replace(/\s/g, ',')}
-                                </h3>
-                                <span className="text-xl font-bold opacity-80 block">DT</span>
+
+                                <div className="hidden lg:flex items-center gap-6 bg-white/10 backdrop-blur-md rounded-[2.5rem] p-6 pr-10 border border-white/20">
+                                    <div className="relative w-28 h-28 flex-shrink-0">
+                                        <svg className="w-full h-full -rotate-90 overflow-visible" viewBox="0 0 100 100">
+                                            {/* Border/Background circle */}
+                                            <circle cx="50" cy="50" r="40" stroke="rgba(255,255,255,0.1)" strokeWidth="12" fill="transparent" />
+
+                                            {(() => {
+                                                const total = computedStats.chiffreAffaire || 1;
+                                                const expPerc = (computedStats.expenses / total) * 100;
+                                                const restePerc = (computedStats.reste / total) * 100;
+                                                const circum = 2 * Math.PI * 40;
+
+                                                // Exp segment (Red)
+                                                const expDash = (expPerc / 100) * circum - (expPerc > 0 ? 2 : 0);
+
+                                                // Reste segment (Blue)
+                                                const resteDash = (restePerc / 100) * circum - (restePerc > 0 ? 2 : 0);
+
+                                                return (
+                                                    <>
+                                                        {expPerc > 0 && (
+                                                            <motion.circle
+                                                                cx="50" cy="50" r="40"
+                                                                stroke="#ef4444"
+                                                                strokeWidth={activeCAProfitSegment === 'expenses' ? 16 : 12}
+                                                                fill="transparent"
+                                                                strokeDasharray={`${Math.max(0, expDash)} ${circum}`}
+                                                                initial={{ strokeDashoffset: circum }}
+                                                                animate={{ strokeDashoffset: 0, scale: activeCAProfitSegment === 'expenses' ? 1.1 : 1 }}
+                                                                transition={{ duration: 1, ease: "easeOut" }}
+                                                                strokeLinecap="round"
+                                                                style={{ cursor: 'pointer', transformOrigin: 'center' }}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setActiveCAProfitSegment(activeCAProfitSegment === 'expenses' ? null : 'expenses');
+                                                                }}
+                                                            />
+                                                        )}
+                                                        {restePerc > 0 && (
+                                                            <motion.circle
+                                                                cx="50" cy="50" r="40"
+                                                                stroke="#0154A2"
+                                                                strokeWidth={activeCAProfitSegment === 'reste' ? 16 : 12}
+                                                                fill="transparent"
+                                                                strokeDasharray={`${Math.max(0, resteDash)} ${circum}`}
+                                                                initial={{ strokeDashoffset: circum }}
+                                                                animate={{
+                                                                    strokeDashoffset: - (expPerc / 100) * circum,
+                                                                    scale: activeCAProfitSegment === 'reste' ? 1.1 : 1
+                                                                }}
+                                                                transition={{ duration: 1, ease: "easeOut", delay: 0.2 }}
+                                                                strokeLinecap="round"
+                                                                style={{ cursor: 'pointer', transformOrigin: 'center' }}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setActiveCAProfitSegment(activeCAProfitSegment === 'reste' ? null : 'reste');
+                                                                }}
+                                                            />
+                                                        )}
+                                                    </>
+                                                );
+                                            })()}
+                                        </svg>
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
+                                            <span className="text-[10px] font-black opacity-60 uppercase mb-[-2px]">
+                                                {activeCAProfitSegment === 'expenses' ? 'Exp.' : 'Rent.'}
+                                            </span>
+                                            <span className="text-xl font-black">
+                                                {(() => {
+                                                    const total = computedStats.chiffreAffaire || 1;
+                                                    if (activeCAProfitSegment === 'expenses') return Math.round((computedStats.expenses / total) * 100) + '%';
+                                                    return Math.round((computedStats.reste / total) * 100) + '%';
+                                                })()}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-col gap-2">
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setActiveCAProfitSegment(activeCAProfitSegment === 'expenses' ? null : 'expenses');
+                                            }}
+                                            className={`flex items-center gap-2 transition-all ${activeCAProfitSegment === 'expenses' ? 'scale-110 translate-x-1' : 'opacity-80'}`}
+                                        >
+                                            <div className="w-2.5 h-2.5 rounded-full bg-[#ef4444] shadow-[0_0_10px_rgba(239,68,68,0.3)]" />
+                                            <span className={`text-[10px] font-black uppercase tracking-widest ${activeCAProfitSegment === 'expenses' ? 'text-[#ef4444]' : 'text-white'}`}>
+                                                Dépenses: {computedStats.chiffreAffaire > 0 ? Math.round((computedStats.expenses / computedStats.chiffreAffaire) * 100) : 0}%
+                                            </span>
+                                        </button>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setActiveCAProfitSegment(activeCAProfitSegment === 'reste' ? null : 'reste');
+                                            }}
+                                            className={`flex items-center gap-2 transition-all ${activeCAProfitSegment === 'reste' ? 'scale-110 translate-x-1' : 'opacity-80'}`}
+                                        >
+                                            <div className="w-2.5 h-2.5 rounded-full bg-[#0154A2] shadow-[0_0_10px_rgba(1,84,162,0.3)]" />
+                                            <span className={`text-[10px] font-black uppercase tracking-widest ${activeCAProfitSegment === 'reste' ? 'text-[#0154A2]' : 'text-white'}`}>
+                                                Reste: {computedStats.chiffreAffaire > 0 ? Math.round((computedStats.reste / computedStats.chiffreAffaire) * 100) : 0}%
+                                            </span>
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
-                            <div className="absolute right-8 bottom-0 opacity-10 group-hover:scale-110 transition-transform duration-500 text-white">
-                                <Wallet size={160} />
+                            <div className="absolute right-8 bottom-[-20%] opacity-15 group-hover:scale-110 transition-transform duration-500 text-white">
+                                <Wallet size={240} />
                             </div>
                         </motion.div>
 
-                        {/* 2. Total Dépenses (This now shows the TOTAL Global) */}
+                        {/* 2. Total Dépenses - RED */}
                         <motion.div
                             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
                             onClick={() => setShowExpensesDetails(true)}
-                            className="bg-[#4b5563] p-10 rounded-[2.5rem] shadow-sm relative overflow-hidden group hover:scale-[1.005] transition-all text-white h-56 flex flex-col justify-center cursor-pointer"
+                            className="bg-[#ef4444] p-10 rounded-[2.5rem] shadow-lg relative overflow-hidden group hover:scale-[1.005] transition-all text-white h-52 flex flex-col justify-center cursor-pointer"
                         >
                             <div className="relative z-10">
                                 <div className="flex items-center gap-3 text-white/90 mb-4 uppercase text-[11px] font-bold tracking-[0.2em]">
                                     <Banknote size={18} /> Total Dépenses
                                 </div>
-                                <h3 className="text-6xl font-black tracking-tighter mb-2">
+                                <h3 className="text-7xl font-black tracking-tighter mb-2">
                                     {computedStats.expenses.toLocaleString('fr-FR', { minimumFractionDigits: 3 }).replace(/\s/g, ',')}
                                 </h3>
-                                <span className="text-xl font-bold opacity-80 block">DT</span>
+                                <span className="text-xl font-bold opacity-80 block uppercase tracking-widest">DT</span>
                             </div>
-                            <div className="absolute right-8 bottom-0 opacity-10 group-hover:scale-110 transition-transform duration-500 text-white">
-                                <Banknote size={160} />
+                            <div className="absolute right-8 bottom-[-20%] opacity-15 group-hover:scale-110 transition-transform duration-500 text-white">
+                                <Banknote size={240} />
                             </div>
                         </motion.div>
 
                         {/* 3. Reste */}
                         <motion.div
                             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-                            className="bg-[#56b350] p-10 rounded-[2.5rem] shadow-sm relative overflow-hidden group hover:scale-[1.005] transition-all text-white h-56 flex flex-col justify-center"
+                            className="bg-[#0154A2] p-10 rounded-[2.5rem] shadow-lg relative overflow-hidden group hover:scale-[1.005] transition-all text-white h-52 flex flex-col justify-center cursor-default"
                         >
                             <div className="relative z-10">
                                 <div className="flex items-center gap-3 text-white/90 mb-4 uppercase text-[11px] font-bold tracking-[0.2em]">
                                     <TrendingUp size={18} /> Reste
                                 </div>
-                                <h3 className="text-6xl font-black tracking-tighter mb-2">
+                                <h3 className="text-7xl font-black tracking-tighter mb-2">
                                     {computedStats.reste.toLocaleString('fr-FR', { minimumFractionDigits: 3 }).replace(/\s/g, ',')}
                                 </h3>
-                                <span className="text-xl font-bold opacity-80 block">DT</span>
+                                <span className="text-xl font-bold opacity-80 block uppercase tracking-widest">DT</span>
                             </div>
-                            <div className="absolute right-8 bottom-0 opacity-10 group-hover:scale-110 transition-transform duration-500 text-white">
-                                <TrendingUp size={160} />
+                            <div className="absolute right-8 bottom-[-20%] opacity-15 group-hover:scale-110 transition-transform duration-500 text-white">
+                                <TrendingUp size={240} />
                             </div>
                         </motion.div>
                     </div>
@@ -1211,7 +1371,7 @@ export default function PaiementsPage() {
                                     <CreditCard size={14} /> Bancaire (TPE + Vers. + Chèques)
                                 </div>
                                 <h3 className="text-4xl font-black tracking-tighter">
-                                    {(computedStats.tpe + (data?.getPaymentStats?.totalBankDeposits || 0) + computedStats.cheque).toLocaleString('fr-FR', { minimumFractionDigits: 3 }).replace(/\s/g, ',')}
+                                    {(computedStats.tpe + (data?.getPaymentStats?.totalBankDeposits || 0) + computedStats.cheque - computedStats.bankExpenses).toLocaleString('fr-FR', { minimumFractionDigits: 3 }).replace(/\s/g, ',')}
                                 </h3>
                                 <span className="text-sm font-bold opacity-70">DT</span>
                             </div>
@@ -1507,7 +1667,7 @@ export default function PaiementsPage() {
                                                 : 'bg-red-50 text-red-500 hover:bg-red-100'
                                                 }`}
                                         >
-                                            {showBankForm && bankTransactionType === 'withdraw' ? 'Fermer' : 'Retirer Cash'}
+                                            {showBankForm && bankTransactionType === 'withdraw' ? 'Fermer' : 'Retrait de banque'}
                                         </button>
                                     </div>
                                 </div>
@@ -2518,22 +2678,138 @@ export default function PaiementsPage() {
                             >
                                 {/* Modal Header */}
                                 <div className="p-12 pb-10 flex items-center justify-between">
-                                    <div className="flex-1">
-                                        <h2 className="text-5xl font-black text-[#4a3426] tracking-tighter leading-none mb-2">Détails des Dépenses</h2>
-                                        <p className="text-[#c69f6e] font-black text-xs uppercase tracking-[0.4em]">Récapitulatif financier complet</p>
-                                    </div>
+                                    <div className="flex-1 flex flex-col justify-center">
+                                        <h2 className="text-4xl font-black text-[#4a3426] tracking-tighter leading-none mb-2">Détails des Dépenses</h2>
+                                        <p className="text-[#c69f6e] font-black text-[9px] uppercase tracking-[0.4em] mb-6">Récapitulatif financier complet</p>
 
-                                    <div className="flex flex-col items-center flex-1">
-                                        <p className="text-[10px] font-black text-[#8c8279] uppercase tracking-widest leading-none mb-3 opacity-60">Total Global</p>
-                                        <div className="flex items-baseline gap-2">
-                                            <p className="text-6xl font-black text-[#4a3426] tracking-tighter">
-                                                {totals.global.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
-                                            </p>
-                                            <span className="text-xl font-black text-[#c69f6e]">DT</span>
+                                        {/* Dynamic Legend */}
+                                        <div className="grid grid-cols-2 gap-x-6 gap-y-2 mt-2">
+                                            {chartData.map((cat, i) => (
+                                                <div
+                                                    key={i}
+                                                    className="flex items-center gap-2 group cursor-pointer"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setActiveSegment(activeSegment?.label === cat.label ? null : cat);
+                                                    }}
+                                                >
+                                                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cat.color }} />
+                                                    <span className={`text-[9px] font-black uppercase tracking-wider transition-colors ${activeSegment?.label === cat.label ? 'text-[#4a3426]' : 'text-[#8c8279]/60 hover:text-[#8c8279]'}`}>
+                                                        {cat.label}
+                                                    </span>
+                                                </div>
+                                            ))}
                                         </div>
                                     </div>
 
-                                    <div className="flex-1 flex justify-end">
+                                    <div className="flex-[2] grid grid-cols-3 gap-3 px-4">
+                                        {/* 1. Chiffre d'Affaire */}
+                                        <div className="bg-[#56b350] p-5 rounded-3xl shadow-md relative overflow-hidden text-white flex flex-col justify-center min-h-[110px]">
+                                            <div className="relative z-10">
+                                                <div className="flex items-center gap-2 text-white/90 mb-1 uppercase text-[8px] font-bold tracking-[0.2em]">
+                                                    <FileText size={12} /> CA
+                                                </div>
+                                                <div className="flex items-baseline gap-1">
+                                                    <h3 className="text-2xl font-black tracking-tighter">
+                                                        {computedStats.chiffreAffaire.toLocaleString('fr-FR', { minimumFractionDigits: 0 }).replace(/\s/g, ' ')}
+                                                    </h3>
+                                                    <span className="text-[10px] font-bold opacity-80 uppercase">DT</span>
+                                                </div>
+                                            </div>
+                                            <Wallet size={80} className="absolute right-[-10%] bottom-[-20%] opacity-20 text-white" />
+                                        </div>
+
+                                        {/* 2. Total Dépenses - RED (CENTER) */}
+                                        <div className="bg-[#ef4444] p-5 rounded-3xl shadow-md relative overflow-hidden text-white flex flex-col justify-center min-h-[110px]">
+                                            <div className="relative z-10">
+                                                <div className="flex items-center gap-2 text-white/90 mb-1 uppercase text-[8px] font-bold tracking-[0.2em]">
+                                                    <Banknote size={12} /> DÉPENSES
+                                                </div>
+                                                <div className="flex items-baseline gap-1">
+                                                    <h3 className="text-2xl font-black tracking-tighter">
+                                                        {totals.global.toLocaleString('fr-FR', { minimumFractionDigits: 0 }).replace(/\s/g, ' ')}
+                                                    </h3>
+                                                    <span className="text-[10px] font-bold opacity-80 uppercase">DT</span>
+                                                </div>
+                                            </div>
+                                            <Banknote size={80} className="absolute right-[-10%] bottom-[-20%] opacity-20 text-white" />
+                                        </div>
+
+                                        {/* 3. Reste */}
+                                        <div className="bg-[#0154A2] p-5 rounded-3xl shadow-md relative overflow-hidden text-white flex flex-col justify-center min-h-[110px]">
+                                            <div className="relative z-10">
+                                                <div className="flex items-center gap-2 text-white/90 mb-1 uppercase text-[8px] font-bold tracking-[0.2em]">
+                                                    <TrendingUp size={12} /> RESTE
+                                                </div>
+                                                <div className="flex items-baseline gap-1">
+                                                    <h3 className="text-2xl font-black tracking-tighter">
+                                                        {computedStats.reste.toLocaleString('fr-FR', { minimumFractionDigits: 0 }).replace(/\s/g, ' ')}
+                                                    </h3>
+                                                    <span className="text-[10px] font-bold opacity-80 uppercase">DT</span>
+                                                </div>
+                                            </div>
+                                            <TrendingUp size={80} className="absolute right-[-10%] bottom-[-20%] opacity-20 text-white" />
+                                        </div>
+                                    </div>
+
+                                    <div className="flex-1 flex items-center justify-end gap-6">
+                                        {/* MEGA-POWERFUL High-Performance Donut Chart - CLICK INTERACTION */}
+                                        <div className="relative w-64 h-64 flex-shrink-0 group">
+                                            <svg
+                                                className="w-full h-full -rotate-90 overflow-visible"
+                                                viewBox="0 0 100 100"
+                                                onClick={() => setActiveSegment(null)}
+                                            >
+                                                <circle cx="50" cy="50" r="38" stroke="#f3f0ec" strokeWidth="6" fill="transparent" style={{ cursor: 'pointer' }} />
+                                                {chartData.map((segment, i) => (
+                                                    <motion.circle
+                                                        key={i}
+                                                        cx="50" cy="50" r="38"
+                                                        stroke={segment.color}
+                                                        strokeWidth={activeSegment?.label === segment.label ? 12 : 8}
+                                                        fill="transparent"
+                                                        strokeDasharray={238.76}
+                                                        initial={{ strokeDashoffset: 238.76 }}
+                                                        animate={{
+                                                            strokeDashoffset: 238.76 * (1 - segment.percentage),
+                                                            scale: activeSegment?.label === segment.label ? 1.05 : 1
+                                                        }}
+                                                        style={{
+                                                            rotate: `${segment.startOffset * 360}deg`,
+                                                            transformOrigin: 'center',
+                                                            cursor: 'pointer'
+                                                        }}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setActiveSegment(activeSegment?.label === segment.label ? null : segment);
+                                                        }}
+                                                        transition={{ duration: 0.25, ease: "easeOut" }}
+                                                        strokeLinecap="round"
+                                                    />
+                                                ))}
+                                            </svg>
+                                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center px-4">
+                                                {activeSegment ? (
+                                                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.1 }}>
+                                                        <span className="text-4xl font-black text-[#4a3426] leading-none block mb-1">
+                                                            {Math.round(activeSegment.percentage * 100)}%
+                                                        </span>
+                                                        <span className="text-[9px] font-black text-[#c69f6e] uppercase tracking-[0.2em] block mb-1">
+                                                            {activeSegment.label}
+                                                        </span>
+                                                        <span className="text-[11px] font-black text-[#4a3426]/60 block">
+                                                            {activeSegment.value.toLocaleString('fr-FR')} DT
+                                                        </span>
+                                                    </motion.div>
+                                                ) : (
+                                                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                                                        <span className="text-[16px] font-black text-[#4a3426] leading-none block mb-1">DÉPENSES</span>
+                                                        <span className="text-[9px] font-black text-[#c69f6e] uppercase tracking-[0.4em] block">TOTALES</span>
+                                                    </motion.div>
+                                                )}
+                                            </div>
+                                        </div>
+
                                         <button
                                             onClick={() => setShowExpensesDetails(false)}
                                             className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-[#8c8279] hover:bg-red-50 hover:text-red-500 transition-all border border-[#e6dace]/30 shadow-sm"
@@ -2547,18 +2823,17 @@ export default function PaiementsPage() {
                                 <div className="flex-1 overflow-y-auto px-12 pb-12 custom-scrollbar no-scrollbar">
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
                                         {[
-                                            { title: 'DÉPENSES FOURNISSEURS', subtitle: 'MARCHANDISES & SERVICES', icon: Truck, color: 'text-[#4a3426]', iconBg: 'bg-[#4a3426]/5', items: expenseDetails.fournisseurs },
-                                            { title: 'DÉPENSES DIVERS', subtitle: 'FRAIS EXCEPTIONNELS', icon: Sparkles, color: 'text-[#c69f6e]', iconBg: 'bg-[#c69f6e]/5', items: expenseDetails.divers },
-                                            { title: 'DÉPENSES ADMINISTRATIF', subtitle: 'LOYERS, FACTURES & BUREAUX', icon: Layout, color: 'text-[#4a3426]', iconBg: 'bg-[#4a3426]/5', items: expenseDetails.administratif },
+                                            { title: 'DÉPENSES FOURNISSEURS', subtitle: 'MARCHANDISES & SERVICES', icon: Truck, color: 'text-red-500', iconBg: 'bg-red-50', items: expenseDetails.fournisseurs },
                                             { title: 'ACCOMPTE', subtitle: 'AVANCES SUR SALAIRES', icon: Calculator, color: 'text-[#a89284]', iconBg: 'bg-[#a89284]/5', items: expenseDetails.avances },
+                                            { title: 'PRIMES', subtitle: 'RÉCOMPENSES & BONUS', icon: Award, color: 'text-[#2d6a4f]', iconBg: 'bg-[#2d6a4f]/5', items: expenseDetails.primes },
+                                            { title: 'DÉPENSES DIVERS', subtitle: 'FRAIS EXCEPTIONNELS', icon: Sparkles, color: 'text-[#c69f6e]', iconBg: 'bg-[#c69f6e]/5', items: expenseDetails.divers },
                                             { title: 'DOUBLAGE', subtitle: 'HEURES SUPPLÉMENTAIRES', icon: TrendingUp, color: 'text-[#4a3426]', iconBg: 'bg-[#4a3426]/5', items: expenseDetails.doublages },
+                                            { title: 'TOUS EMPLOYÉS', subtitle: 'SALAIRES EN ATTENTE', icon: Banknote, color: 'text-red-500', iconBg: 'bg-red-50', items: expenseDetails.remainders, badge: 'EN ATTENTE' },
+                                            { title: 'DÉPENSES ADMINISTRATIF', subtitle: 'LOYERS, FACTURES & BUREAUX', icon: Layout, color: 'text-[#4a3426]', iconBg: 'bg-[#4a3426]/5', items: expenseDetails.administratif },
                                             { title: 'EXTRA', subtitle: "MAIN D'ŒUVRE OCCASIONNELLE", icon: Zap, color: 'text-[#c69f6e]', iconBg: 'bg-[#c69f6e]/5', items: expenseDetails.extras },
-                                            { title: 'PRIMES', subtitle: 'RÉCOMPENSES & BONUS', icon: Sparkles, color: 'text-[#2d6a4f]', iconBg: 'bg-[#2d6a4f]/5', items: expenseDetails.primes },
-                                            { title: 'TOUS EMPLOYÉS', subtitle: 'SALAIRES EN ATTENTE', icon: Banknote, color: 'text-red-500', iconBg: 'bg-red-50', items: expenseDetails.remainders, badge: 'EN ATTENTE' }
                                         ].map((cat, idx) => {
                                             const total = (cat.items || []).reduce((sum: number, item: any) => sum + (item.amount || 0), 0);
-                                            // Handle cases where total might be zero but category should be shown (like TOUS EMPLOYÉS)
-                                            if (total === 0 && cat.title !== 'TOUS EMPLOYÉS') return null;
+                                            // Always render all categories to maintain the 3-column vertical layout requested by user
 
                                             const isExpanded = expandedCategories.includes(idx);
                                             const hasItems = (cat.items || []).length > 0;

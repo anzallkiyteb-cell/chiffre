@@ -982,32 +982,58 @@ export default function FacturationPage() {
                             {/* Area for Paid Invoices */}
                             {(statusFilter === 'all' || statusFilter === 'paid') && (
                                 <section>
-                                    <div className="flex items-center gap-3 mb-6">
-                                        <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center text-green-700">
-                                            <CheckCircle2 size={22} />
+                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center text-green-700">
+                                                <CheckCircle2 size={22} />
+                                            </div>
+                                            <h2 className="text-xl font-black text-[#4a3426] uppercase tracking-tight">Historique des Paiements</h2>
+                                            <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full font-black text-sm border border-green-200">
+                                                {filteredInvoices.filter((inv: any) => inv.status === 'paid').length}
+                                            </span>
                                         </div>
-                                        <h2 className="text-xl font-black text-[#4a3426] uppercase tracking-tight">Historique des Paiements</h2>
-                                        <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full font-black text-sm border border-green-200">
-                                            {filteredInvoices.filter((inv: any) => inv.status === 'paid').length}
-                                        </span>
 
-                                        <div className="flex bg-white/50 p-1 rounded-xl border border-green-200 ml-auto gap-1">
-                                            {[
-                                                { id: 'all', label: 'Tous' },
-                                                { id: 'admin', label: 'Admin' },
-                                                { id: 'caissier', label: 'Caissier' }
-                                            ].map(r => (
-                                                <button
-                                                    key={r.id}
-                                                    onClick={() => setPayerRoleFilter(r.id as any)}
-                                                    className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${payerRoleFilter === r.id
-                                                        ? 'bg-[#2d6a4f] text-white shadow-sm'
-                                                        : 'text-green-700/60 hover:text-green-700 hover:bg-green-50'
-                                                        }`}
-                                                >
-                                                    {r.label}
-                                                </button>
-                                            ))}
+                                        <div className="flex flex-wrap items-center gap-3">
+                                            {/* Category Filter (Dual location for convenience) */}
+                                            <div className="inline-flex bg-white/50 backdrop-blur-sm p-1.5 rounded-3xl border border-[#e6dace] shadow-sm">
+                                                {[
+                                                    { id: 'all', label: 'Tous', icon: <LayoutGrid size={14} /> },
+                                                    { id: 'fournisseur', label: 'Fournisseur', icon: <Package size={14} /> },
+                                                    { id: 'divers', label: 'Divers', icon: <Receipt size={14} /> }
+                                                ].map(cat => (
+                                                    <button
+                                                        key={cat.id}
+                                                        onClick={() => setCategoryFilter(cat.id as any)}
+                                                        className={`flex items-center gap-2 px-6 py-2.5 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${categoryFilter === cat.id
+                                                            ? 'bg-[#4a3426] text-white shadow-lg'
+                                                            : 'text-[#8c8279] hover:text-[#4a3426] hover:bg-white'
+                                                            }`}
+                                                    >
+                                                        {cat.icon}
+                                                        {cat.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+
+                                            {/* Payer Role Filter */}
+                                            <div className="flex bg-white/50 p-1 rounded-2xl border border-green-200 gap-1">
+                                                {[
+                                                    { id: 'all', label: 'Tous' },
+                                                    { id: 'admin', label: 'Admin' },
+                                                    { id: 'caissier', label: 'Caisse' }
+                                                ].map(r => (
+                                                    <button
+                                                        key={r.id}
+                                                        onClick={() => setPayerRoleFilter(r.id as any)}
+                                                        className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${payerRoleFilter === r.id
+                                                            ? 'bg-[#2d6a4f] text-white shadow-sm'
+                                                            : 'text-green-700/60 hover:text-green-700 hover:bg-green-50'
+                                                            }`}
+                                                    >
+                                                        {r.label}
+                                                    </button>
+                                                ))}
+                                            </div>
                                         </div>
                                     </div>
 
