@@ -409,7 +409,7 @@ export const resolvers = {
 
             const paidDateFilter = filterBy === 'date' ? dateFilter : dateFilter.replace('date', 'paid_date');
 
-            const [netRes, invoicesRes, unpaidInvoicesRes, tpeRes, chequeRes, cashRes, bankRes, caisseRes, expRes, ticketRes, riadhRes, restesSalairesRes, offresRes] = await Promise.all([
+            const [netRes, invoicesRes, unpaidInvoicesRes, tpeRes, chequeRes, cashRes, bankRes, caisseRes, expRes, ticketRes, riadhRes, restesSalairesRes, offresRes, cashExpRes, ticketExpRes] = await Promise.all([
                 query(`SELECT SUM(CAST(NULLIF(REPLACE(recette_net, ',', '.'), '') AS NUMERIC)) as total FROM chiffres WHERE date ${dateFilter}`, params),
                 query(`SELECT SUM(CAST(NULLIF(REPLACE(amount, ',', '.'), '') AS NUMERIC)) as total FROM invoices WHERE status = 'paid' AND (payer IS NULL OR payer != 'riadh') AND ${filterBy === 'date' ? 'date' : 'paid_date'} ${paidDateFilter}`, params),
                 query(`SELECT SUM(CAST(NULLIF(REPLACE(amount, ',', '.'), '') AS NUMERIC)) as total FROM invoices WHERE status = 'unpaid' AND date ${dateFilter}`, params),
@@ -422,11 +422,17 @@ export const resolvers = {
                 query(`SELECT SUM(CAST(NULLIF(REPLACE(tickets_restaurant, ',', '.'), '') AS NUMERIC)) as total FROM chiffres WHERE date ${dateFilter}`, params),
                 query(`SELECT SUM(CAST(NULLIF(REPLACE(amount, ',', '.'), '') AS NUMERIC)) as total FROM invoices WHERE status = 'paid' AND payer = 'riadh' AND ${filterBy === 'date' ? 'date' : 'paid_date'} ${paidDateFilter}`, params),
                 query(`SELECT SUM(montant) as total FROM restes_salaires_daily WHERE date::text ${dateFilter}`, params),
-                query(`SELECT SUM(CAST(NULLIF(REPLACE(offres, ',', '.'), '') AS NUMERIC)) as total FROM chiffres WHERE date ${dateFilter}`, params)
+                query(`SELECT SUM(CAST(NULLIF(REPLACE(offres, ',', '.'), '') AS NUMERIC)) as total FROM chiffres WHERE date ${dateFilter}`, params),
+                // Only subtract expenses that are NOT from daily sheets (to avoid double deduction since 'espaces' is already net of daily sheet expenses)
+                // We remove the (payer != 'riadh') filter because any expense paid from cash/tickets should reduce the physical balance.
+                query(`SELECT SUM(CAST(NULLIF(REPLACE(amount, ',', '.'), '') AS NUMERIC)) as total FROM invoices WHERE status = 'paid' AND payment_method = 'Espèces' AND origin != 'daily_sheet' AND ${filterBy === 'date' ? 'date' : 'paid_date'} ${paidDateFilter}`, params),
+                query(`SELECT SUM(CAST(NULLIF(REPLACE(amount, ',', '.'), '') AS NUMERIC)) as total FROM invoices WHERE status = 'paid' AND payment_method = 'Ticket Restaurant' AND origin != 'daily_sheet' AND ${filterBy === 'date' ? 'date' : 'paid_date'} ${paidDateFilter}`, params)
             ]);
 
             const tBankDeposits = parseFloat(bankRes.rows[0]?.total || '0');
             const tCash = parseFloat(cashRes.rows[0]?.total || '0');
+            const tCashExp = parseFloat(cashExpRes.rows[0]?.total || '0');
+            const tTicketExp = parseFloat(ticketExpRes.rows[0]?.total || '0');
 
             return {
                 totalRecetteNette: parseFloat(netRes.rows[0]?.total || '0'),
@@ -434,11 +440,11 @@ export const resolvers = {
                 totalUnpaidInvoices: parseFloat(unpaidInvoicesRes.rows[0]?.total || '0'),
                 totalTPE: parseFloat(tpeRes.rows[0]?.total || '0'),
                 totalCheque: parseFloat(chequeRes.rows[0]?.total || '0'),
-                totalCash: tCash - tBankDeposits,
+                totalCash: tCash - tCashExp, // Removed bank deposits subtraction as espaces is already a net adjustment
                 totalBankDeposits: tBankDeposits,
                 totalRecetteCaisse: parseFloat(caisseRes.rows[0]?.total || '0'),
                 totalExpenses: parseFloat(expRes.rows[0]?.total || '0'),
-                totalTicketsRestaurant: parseFloat(ticketRes.rows[0]?.total || '0'),
+                totalTicketsRestaurant: parseFloat(ticketRes.rows[0]?.total || '0') - tTicketExp,
                 totalRiadhExpenses: parseFloat(riadhRes.rows[0]?.total || '0'),
                 totalRestesSalaires: parseFloat(restesSalairesRes.rows[0]?.total || '0'),
                 totalOffres: parseFloat(offresRes.rows[0]?.total || '0')
@@ -712,8 +718,8 @@ export const resolvers = {
                 for (const d of fullDiponceList) {
                     if (!d.isFromFacturation && d.supplier && parseFloat(d.amount) > 0) {
                         await query(
-                            `INSERT INTO invoices (supplier_name, amount, date, photo_url, photos, photo_cheque_url, photo_verso_url, status, payment_method, paid_date, payer, category, doc_type, doc_number)
-                             VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, 'paid', $8, $9, $10, 'fournisseur', $11, $12)`,
+                            `INSERT INTO invoices (supplier_name, amount, date, photo_url, photos, photo_cheque_url, photo_verso_url, status, payment_method, paid_date, payer, category, doc_type, doc_number, origin)
+                             VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, 'paid', $8, $9, $10, 'fournisseur', $11, $12, 'daily_sheet')`,
                             [d.supplier, d.amount, date, d.photo_url || null, JSON.stringify(d.invoices || []), d.photo_cheque || null, d.photo_verso || null, d.paymentMethod || 'Espèces', date, payerRole, d.doc_type || 'BL', d.doc_number || null]
                         );
                     } else if (d.isFromFacturation && d.invoiceId) {
@@ -734,8 +740,8 @@ export const resolvers = {
                 for (const d of fullDiversList) {
                     if (!d.isFromFacturation && d.designation && parseFloat(d.amount) > 0) {
                         await query(
-                            `INSERT INTO invoices (supplier_name, amount, date, photos, status, payment_method, paid_date, payer, category, doc_type)
-                             VALUES ($1, $2, $3, $4::jsonb, 'paid', $5, $6, $7, 'divers', $8)`,
+                            `INSERT INTO invoices (supplier_name, amount, date, photos, status, payment_method, paid_date, payer, category, doc_type, origin)
+                             VALUES ($1, $2, $3, $4::jsonb, 'paid', $5, $6, $7, 'divers', $8, 'daily_sheet')`,
                             [d.designation, d.amount, date, JSON.stringify(d.invoices || []), d.paymentMethod || 'Espèces', date, payerRole, d.doc_type || 'BL']
                         );
                     } else if (d.isFromFacturation && d.invoiceId) {

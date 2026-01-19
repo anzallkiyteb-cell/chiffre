@@ -635,14 +635,16 @@ export default function PaiementsPage() {
         const riadhExpenses = (payerType === 'caisse') ? [] : riadhInvoicesRaw;
         const riadhTotal = riadhExpenses.reduce((acc: number, inv: any) => acc + safeParse(inv.amount), 0);
 
-        // Calculate expenses paid specifically by Bank methods (Check or TPE)
         const bankExpenses = allInvoices
-            .filter((inv: any) => inv.status === 'paid' && (inv.payment_method === 'Chèque' || inv.payment_method === 'TPE (Carte)'))
-            .filter((inv: any) => {
-                if (payerType === 'all') return true;
-                if (payerType === 'riadh') return inv.payer === 'riadh';
-                return inv.payer !== 'riadh'; // caisse
-            })
+            .filter((inv: any) => inv.status === 'paid' && (inv.payment_method === 'Chèque' || inv.payment_method === 'TPE (Carte)' || inv.payment_method === 'Virement'))
+            .reduce((acc: number, inv: any) => acc + safeParse(inv.amount), 0);
+
+        const cashExpenses = allInvoices
+            .filter((inv: any) => inv.status === 'paid' && inv.payment_method === 'Espèces' && (inv.origin !== 'daily_sheet'))
+            .reduce((acc: number, inv: any) => acc + safeParse(inv.amount), 0);
+
+        const ticketsExpenses = allInvoices
+            .filter((inv: any) => inv.status === 'paid' && inv.payment_method === 'Ticket Restaurant' && (inv.origin !== 'daily_sheet'))
             .reduce((acc: number, inv: any) => acc + safeParse(inv.amount), 0);
 
         const aggregated = source.reduce((acc: any, curr: any) => ({
@@ -658,10 +660,11 @@ export default function PaiementsPage() {
         const pendingRemaindersTotal = (payerType === 'riadh') ? 0 : (data?.getSalaryRemainders || []).reduce((acc: number, r: any) => acc + safeParse(r.amount), 0);
         const bankDepositsTotal = (payerType === 'riadh') ? 0 : (data?.getBankDeposits || []).reduce((acc: number, d: any) => acc + safeParse(d.amount), 0);
 
-        // Base Cash (Available from Sales/Espaces only, before transfers)
+        // Base Cash (Available from Sales/Espaces only)
+        // Note: backend data?.getPaymentStats?.totalCash is now (sum of espaces - directCashExpenses)
         const totalEspaces = aggregated.chiffreAffaire > 0
             ? aggregated.cash
-            : (payerType === 'riadh' ? 0 : (safeParse(data?.getPaymentStats?.totalCash) + safeParse(data?.getPaymentStats?.totalBankDeposits)));
+            : (payerType === 'riadh' ? 0 : (safeParse(data?.getPaymentStats?.totalCash) + cashExpenses));
 
         // Add Riadh's expenses and Pending Remainders
         const finalExpenses = (aggregated.expenses || (payerType === 'riadh' ? 0 : safeParse(data?.getPaymentStats?.totalExpenses))) + riadhTotal + pendingRemaindersTotal;
@@ -670,20 +673,59 @@ export default function PaiementsPage() {
         const baseReste = (payerType === 'riadh') ? 0 : (aggregated.reste || safeParse(data?.getPaymentStats?.totalRecetteNette));
         const finalReste = baseReste - riadhTotal - pendingRemaindersTotal;
 
-        // Final Cash = (Total Espaces) - (Net Bank Transfers) - (Pending Salary Remainders)
-        const finalCash = totalEspaces - bankDepositsTotal - pendingRemaindersTotal;
+        // Final Cash = (Total Espaces) - (Pending Salary Remainders) - (Cash Expenses)
+        const finalCash = totalEspaces - pendingRemaindersTotal - cashExpenses;
+
+        // Final Tickets = (Gross Tickets) - (Ticket Expenses)
+        const grossTickets = aggregated.chiffreAffaire > 0
+            ? aggregated.tickets
+            : (payerType === 'riadh' ? 0 : (safeParse(data?.getPaymentStats?.totalTicketsRestaurant) + ticketsExpenses));
+        const finalTickets = grossTickets - ticketsExpenses;
+
+        // Apply previews if forms are open
+        let previewExpenses = finalExpenses;
+        let previewReste = finalReste;
+        let previewCash = finalCash;
+        let previewTpe = (payerType === 'riadh') ? 0 : (aggregated.tpe || safeParse(data?.getPaymentStats?.totalTPE));
+        let previewCheque = (payerType === 'riadh') ? 0 : (aggregated.cheque || safeParse(data?.getPaymentStats?.totalCheque));
+        let previewTickets = (payerType === 'riadh') ? 0 : (finalTickets);
+
+        // Expense Form Preview
+        if (showExpForm && (parseFloat(expAmount) || 0) > 0) {
+            const amount = parseFloat(expAmount) || 0;
+            previewExpenses += amount;
+            previewReste -= amount;
+            if (expMethod === 'Espèces') previewCash -= amount;
+            else if (['Chèque', 'TPE (Carte)'].includes(expMethod)) previewCheque -= amount;
+            else if (expMethod === 'Ticket Restaurant') previewTickets -= amount;
+        }
+
+        // Payment Modal Preview
+        if (showPayModal && (parseFloat(showPayModal.amount) || 0) > 0) {
+            const amount = parseFloat(showPayModal.amount) || 0;
+            previewExpenses += amount;
+            previewReste -= amount;
+            // Force deduction based on current selected method
+            const currentMethod = paymentDetails.method;
+            if (currentMethod === 'Espèces') previewCash -= amount;
+            else if (['Chèque', 'Virement'].includes(currentMethod)) previewCheque -= amount;
+            else if (currentMethod === 'Ticket Restaurant') previewTickets -= amount;
+        }
+
+        const finalBancaire = previewTpe + bankDepositsTotal + previewCheque - bankExpenses;
 
         return {
             chiffreAffaire: (payerType === 'riadh') ? 0 : (aggregated.chiffreAffaire || safeParse(data?.getPaymentStats?.totalRecetteCaisse)),
-            reste: finalReste,
-            cash: finalCash,
-            tpe: (payerType === 'riadh') ? 0 : (aggregated.tpe || safeParse(data?.getPaymentStats?.totalTPE)),
-            cheque: (payerType === 'riadh') ? 0 : (aggregated.cheque || safeParse(data?.getPaymentStats?.totalCheque)),
-            tickets: (payerType === 'riadh') ? 0 : (aggregated.tickets || safeParse(data?.getPaymentStats?.totalTicketsRestaurant)),
-            expenses: finalExpenses,
-            bankExpenses // Added to subtract from Bancaire total
+            reste: previewReste,
+            cash: previewCash,
+            tpe: previewTpe,
+            cheque: previewCheque,
+            tickets: previewTickets,
+            expenses: previewExpenses,
+            bancaire: finalBancaire,
+            bankExpenses
         };
-    }, [data, payerType]);
+    }, [data, payerType, showExpForm, expAmount, expMethod, showPayModal, paymentDetails]);
 
     const setThisWeek = () => {
         const now = new Date();
@@ -1205,7 +1247,7 @@ export default function PaiementsPage() {
             setExpPhotoCheque('');
             setExpPhotoVerso('');
             setExpInvoiceNumber('');
-            setExpCategory('');
+            setExpCategory('Fournisseur');
             setShowExpForm(false);
             refetch();
             refetchHistory();
@@ -1631,8 +1673,8 @@ export default function PaiementsPage() {
                         </motion.div>
                     </div>
 
-                    {/* Secondary Stats Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Main Stats Grid with reactive key for immediate updates */}
+                    <div key={`stats-${showPayModal?.id || 'none'}-${paymentDetails.method}-${showExpForm}-${expAmount}-${expMethod}`} className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {/* 4. Total Cash */}
                         <motion.div
                             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
@@ -1643,12 +1685,7 @@ export default function PaiementsPage() {
                                     <Coins size={14} /> Total Cash
                                 </div>
                                 <h3 className="text-4xl font-black tracking-tighter">
-                                    {maskAmount(
-                                        computedStats.cash
-                                        - (showExpForm && expMethod === 'Espèces' ? (parseFloat(expAmount) || 0) : 0)
-                                        - (showPayModal && paymentDetails.method === 'Espèces' ? (parseFloat(showPayModal.amount) || 0) : 0)
-                                        - (showPayModal ? 100000 : 0)
-                                    )}
+                                    {maskAmount(computedStats.cash)}
                                 </h3>
                                 <span className="text-sm font-bold opacity-70">DT</span>
                             </div>
@@ -1667,11 +1704,7 @@ export default function PaiementsPage() {
                                     <CreditCard size={14} /> Bancaire (TPE + Vers. + Chèques)
                                 </div>
                                 <h3 className="text-4xl font-black tracking-tighter">
-                                    {maskAmount(
-                                        computedStats.tpe + (data?.getPaymentStats?.totalBankDeposits || 0) + computedStats.cheque - computedStats.bankExpenses
-                                        - (showExpForm && ['Chèque', 'TPE (Carte)'].includes(expMethod) ? (parseFloat(expAmount) || 0) : 0)
-                                        - (showPayModal && ['Chèque', 'Virement'].includes(paymentDetails.method) ? parseFloat(showPayModal.amount || 0) : 0)
-                                    )}
+                                    {maskAmount(computedStats.bancaire)}
                                 </h3>
                                 <span className="text-sm font-bold opacity-70">DT</span>
                             </div>
@@ -1690,11 +1723,7 @@ export default function PaiementsPage() {
                                     <Ticket size={14} /> Ticket Restaurant
                                 </div>
                                 <h3 className="text-4xl font-black tracking-tighter">
-                                    {maskAmount(
-                                        computedStats.tickets
-                                        - (showExpForm && expMethod === 'Ticket Restaurant' ? (parseFloat(expAmount) || 0) : 0)
-                                        - (showPayModal && paymentDetails.method === 'Ticket Restaurant' ? parseFloat(showPayModal.amount || 0) : 0)
-                                    )}
+                                    {maskAmount(computedStats.tickets)}
                                 </h3>
                                 <span className="text-sm font-bold opacity-70">DT</span>
                             </div>
@@ -1795,7 +1824,7 @@ export default function PaiementsPage() {
                                                             <Coins size={14} /> Total Cash (Prévision)
                                                         </div>
                                                         <h3 className="text-4xl font-black tracking-tighter">
-                                                            {maskAmount(computedStats.cash - (parseFloat(expAmount) || 0))}
+                                                            {maskAmount(computedStats.cash)}
                                                         </h3>
                                                         <span className="text-sm font-bold opacity-70">DT</span>
                                                     </div>
@@ -1809,7 +1838,7 @@ export default function PaiementsPage() {
                                                             <Ticket size={14} /> Ticket Restaurant (Prévision)
                                                         </div>
                                                         <h3 className="text-4xl font-black tracking-tighter">
-                                                            {maskAmount(computedStats.tickets - (parseFloat(expAmount) || 0))}
+                                                            {maskAmount(computedStats.tickets)}
                                                         </h3>
                                                         <span className="text-sm font-bold opacity-70">DT</span>
                                                     </div>
@@ -1823,7 +1852,7 @@ export default function PaiementsPage() {
                                                             <CreditCard size={14} /> Bancaire (Prévision)
                                                         </div>
                                                         <h3 className="text-4xl font-black tracking-tighter">
-                                                            {maskAmount((computedStats.tpe + (data?.getPaymentStats?.totalBankDeposits || 0) + computedStats.cheque - computedStats.bankExpenses) - (parseFloat(expAmount) || 0))}
+                                                            {maskAmount(computedStats.bancaire)}
                                                         </h3>
                                                         <span className="text-sm font-bold opacity-70">DT</span>
                                                     </div>
@@ -2867,7 +2896,7 @@ export default function PaiementsPage() {
                                                                 <Coins size={14} /> Total Cash (Après Paiement)
                                                             </div>
                                                             <h3 className="text-3xl font-black tracking-tighter">
-                                                                {maskAmount(computedStats.cash - parseFloat(showPayModal.amount || 0))}
+                                                                {maskAmount(computedStats.cash)}
                                                             </h3>
                                                             <span className="text-sm font-bold opacity-70">DT</span>
                                                         </div>
@@ -2881,7 +2910,7 @@ export default function PaiementsPage() {
                                                                 <CreditCard size={14} /> Bancaire (Après Paiement)
                                                             </div>
                                                             <h3 className="text-3xl font-black tracking-tighter">
-                                                                {maskAmount(computedStats.tpe + (data?.getPaymentStats?.totalBankDeposits || 0) + computedStats.cheque - computedStats.bankExpenses - parseFloat(showPayModal.amount || 0))}
+                                                                {maskAmount(computedStats.bancaire)}
                                                             </h3>
                                                             <span className="text-sm font-bold opacity-70">DT</span>
                                                         </div>
@@ -2895,7 +2924,7 @@ export default function PaiementsPage() {
                                                                 <Ticket size={14} /> Ticket Restaurant (Après Paiement)
                                                             </div>
                                                             <h3 className="text-3xl font-black tracking-tighter">
-                                                                {maskAmount(computedStats.tickets - parseFloat(showPayModal.amount || 0))}
+                                                                {maskAmount(computedStats.tickets)}
                                                             </h3>
                                                             <span className="text-sm font-bold opacity-70">DT</span>
                                                         </div>
