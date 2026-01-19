@@ -3112,22 +3112,7 @@ export default function PaiementsPage() {
                                     <div className="flex-1 flex flex-col justify-center">
                                         <h2 className="text-4xl font-black text-[#4a3426] tracking-tighter leading-none mb-2">Détails des Dépenses</h2>
 
-                                        {selectedCategories.length > 0 ? (
-                                            <div className="flex items-center gap-4 mb-6 animate-in slide-in-from-left-5 fade-in duration-300">
-                                                <div className="flex items-baseline gap-2 bg-[#2d6a4f]/10 px-4 py-2 rounded-2xl border border-[#2d6a4f]/20">
-                                                    <span className="text-[10px] font-black text-[#2d6a4f] uppercase tracking-widest">SOMME :</span>
-                                                    <span className="text-2xl font-black text-[#2d6a4f] tracking-tighter leading-none">{maskAmount(selectedTotal)} <span className="text-xs ml-0.5 opacity-60">DT</span></span>
-                                                </div>
-                                                <button
-                                                    onClick={() => setSelectedCategories([])}
-                                                    className="flex items-center gap-2 px-3 py-1.5 bg-[#e6dace]/20 hover:bg-[#e6dace]/40 border border-[#e6dace] rounded-xl text-[10px] font-black text-[#8c8279] uppercase tracking-wider transition-colors"
-                                                >
-                                                    <X size={12} /> ECHAP
-                                                </button>
-                                            </div>
-                                        ) : (
-                                            <p className="text-[#c69f6e] font-black text-[9px] uppercase tracking-[0.4em] mb-6">Récapitulatif financier complet</p>
-                                        )}
+                                        <p className="text-[#c69f6e] font-black text-[9px] uppercase tracking-[0.4em] mb-6">Récapitulatif financier complet</p>
 
                                         {/* Dynamic Legend */}
                                         <div className="grid grid-cols-2 gap-x-6 gap-y-2 mt-2">
@@ -3197,6 +3182,35 @@ export default function PaiementsPage() {
                                             </div>
                                             <TrendingUp size={80} className="absolute right-[-10%] bottom-[-20%] opacity-20 text-white" />
                                         </div>
+
+                                        {/* Dynamic Sum Selection Display */}
+                                        <AnimatePresence>
+                                            {selectedCategories.length > 0 && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, height: 0, scale: 0.95 }}
+                                                    animate={{ opacity: 1, height: 'auto', scale: 1 }}
+                                                    exit={{ opacity: 0, height: 0, scale: 0.95 }}
+                                                    className="col-span-3 mt-1"
+                                                >
+                                                    <div className="bg-[#fcfaf8] border border-[#e6dace] rounded-3xl p-3 flex items-center justify-between shadow-sm">
+                                                        <div className="flex items-center gap-4 pl-2">
+                                                            <span className="text-[10px] font-black text-[#2d6a4f] uppercase tracking-widest bg-[#2d6a4f]/10 px-3 py-1.5 rounded-xl">SOMME :</span>
+                                                            <div className="flex items-baseline gap-1">
+                                                                <span className="text-3xl font-black text-[#2d6a4f] tracking-tighter leading-none">{maskAmount(selectedTotal)}</span>
+                                                                <span className="text-xs font-bold text-[#2d6a4f]/60 uppercase">DT</span>
+                                                            </div>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => setSelectedCategories([])}
+                                                            className="flex items-center gap-2 px-4 py-2.5 bg-[#e6dace]/20 hover:bg-[#e6dace]/40 hover:text-red-500 border border-[#e6dace] hover:border-red-200 rounded-2xl text-[10px] font-black text-[#8c8279] uppercase tracking-wider transition-all active:scale-95 group"
+                                                        >
+                                                            <X size={14} className="group-hover:rotate-90 transition-transform" />
+                                                            ECHAP
+                                                        </button>
+                                                    </div>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
                                     </div>
 
                                     <div className="flex-1 flex items-center justify-end gap-6">
