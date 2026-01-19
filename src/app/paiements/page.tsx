@@ -538,7 +538,6 @@ export default function PaiementsPage() {
     const { data: historyData, refetch: refetchHistory } = useQuery(GET_INVOICES, {
         variables: { payer: 'riadh', startDate: '', endDate: '' },
         pollInterval: 5000,
-        skip: !showHistoryModal
     });
 
     const [execPayInvoice] = useMutation(PAY_INVOICE);
@@ -1845,10 +1844,17 @@ export default function PaiementsPage() {
                                                         setShowHistoryModal(true);
                                                         refetchHistory();
                                                     }}
-                                                    className="w-full text-[10px] font-black uppercase tracking-widest bg-[#f4ece4] border border-[#e6dace] text-[#c69f6e] py-1.5 rounded-lg hover:bg-[#ebdccf] transition-all flex items-center justify-center gap-2 shadow-sm"
+                                                    className="w-full h-18 py-5 text-[16px] font-black uppercase tracking-[0.2em] bg-[#f4ece4] border-2 border-[#e6dace] text-[#c69f6e] rounded-2xl hover:bg-[#ebdccf] transition-all flex items-center justify-center gap-5 shadow-xl group active:scale-[0.98]"
                                                 >
-                                                    <Clock size={12} />
-                                                    <span>Historique Riadh</span>
+                                                    <Clock size={24} strokeWidth={3} />
+                                                    <span className="flex items-center gap-4">
+                                                        Historique Riadh
+                                                        {(historyData?.getInvoices?.filter((inv: any) => inv.payer === 'riadh').length || 0) > 0 && (
+                                                            <span className="bg-[#c69f6e] text-white px-4 py-1.5 rounded-full text-[14px] font-black min-w-[36px] shadow-lg shadow-[#c69f6e]/30 border-2 border-white/30">
+                                                                {historyData?.getInvoices?.filter((inv: any) => inv.payer === 'riadh').length}
+                                                            </span>
+                                                        )}
+                                                    </span>
                                                 </button>
                                             </div>
                                         )}
@@ -3071,6 +3077,9 @@ export default function PaiementsPage() {
                                                 <Clock size={22} />
                                             </div>
                                             Historique Dépenses (Riadh)
+                                            <span className="bg-[#ef4444] text-white px-3 py-1 rounded-xl text-sm font-black shadow-lg shadow-red-500/20">
+                                                {historyData?.getInvoices?.filter((inv: any) => inv.payer === 'riadh').length || 0}
+                                            </span>
                                         </h2>
                                         <button onClick={() => setShowHistoryModal(false)} className="w-10 h-10 rounded-full hover:bg-[#fcfaf8] flex items-center justify-center text-[#8c8279] transition-colors">
                                             <ChevronRight size={24} className="rotate-90" />
