@@ -764,6 +764,9 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     const [showDiversDropdown, setShowDiversDropdown] = useState<number | null>(null);
     const [showEntryModal, setShowEntryModal] = useState<any>(null); // { type: 'avance' | 'doublage' | 'extra' | 'prime', data: any }
     const [showEmployeeList, setShowEmployeeList] = useState(false);
+    const [isAddingEmployee, setIsAddingEmployee] = useState(false);
+    const [newEmpName, setNewEmpName] = useState('');
+    const [newEmpDept, setNewEmpDept] = useState('');
     const [showHistoryModal, setShowHistoryModal] = useState<any>(null); // { type: 'avance' | 'doublage' | 'extra' | 'prime' }
     const [employeeSearch, setEmployeeSearch] = useState('');
     const [employeeDepartment, setEmployeeDepartment] = useState('');
@@ -3304,12 +3307,125 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                         >
                             <div className="p-8 space-y-6">
                                 <div className="flex justify-between items-center">
-                                    <h3 className="text-xl font-black text-[#4a3426] uppercase tracking-tighter">Annuaire Employés</h3>
+                                    <div className="flex items-center gap-4">
+                                        <h3 className="text-xl font-black text-[#4a3426] uppercase tracking-tighter">Annuaire Employés</h3>
+                                        <button
+                                            onClick={() => {
+                                                setIsAddingEmployee(!isAddingEmployee);
+                                                setNewEmpName('');
+                                                setNewEmpDept('');
+                                            }}
+                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${isAddingEmployee ? 'bg-[#4a3426] text-white' : 'bg-[#f4ece4] text-[#c69f6e] hover:bg-[#ece6df]'}`}
+                                        >
+                                            {isAddingEmployee ? <X size={14} /> : <Plus size={14} />}
+                                            {isAddingEmployee ? 'Annuler' : 'Nouveau'}
+                                        </button>
+                                    </div>
                                     <button onClick={() => setShowEmployeeList(false)} className="p-2 hover:bg-[#f9f6f2] rounded-xl transition-colors text-[#bba282]"><X size={20} /></button>
                                 </div>
 
-                                <div className="space-y-3 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
-                                    {employeesData?.getEmployees?.map((emp: any) => (
+                                {isAddingEmployee && (
+                                    <motion.div
+                                        initial={{ height: 0, opacity: 0 }}
+                                        animate={{ height: 'auto', opacity: 1 }}
+                                        className="bg-[#fcfaf8] border border-[#e6dace] rounded-3xl p-6 space-y-4"
+                                    >
+                                        <div className="space-y-4">
+                                            <div className="relative">
+                                                <label className="text-[10px] font-black text-[#bba282] uppercase tracking-[0.2em] mb-2 block ml-1">Nom de l'Employé</label>
+                                                <input
+                                                    type="text"
+                                                    value={newEmpName}
+                                                    onChange={(e) => setNewEmpName(e.target.value)}
+                                                    placeholder="Prénom Nom..."
+                                                    className={`w-full h-12 bg-white border ${employeesData?.getEmployees?.some((emp: any) => emp.name.toLowerCase() === newEmpName.trim().toLowerCase()) ? 'border-red-400' : 'border-[#e6dace]'} rounded-2xl px-4 font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all`}
+                                                />
+                                                {newEmpName.trim() && employeesData?.getEmployees?.some((emp: any) => emp.name.toLowerCase() === newEmpName.trim().toLowerCase()) && (
+                                                    <p className="text-[9px] font-black text-red-500 uppercase mt-2 ml-1 flex items-center gap-1">
+                                                        <AlertCircle size={10} /> Cet employé existe déjà
+                                                    </p>
+                                                )}
+                                            </div>
+
+                                            <div className="relative">
+                                                <label className="text-[10px] font-black text-[#bba282] uppercase tracking-[0.2em] mb-2 block ml-1">Département</label>
+                                                <input
+                                                    type="text"
+                                                    value={newEmpDept}
+                                                    onChange={(e) => setNewEmpDept(e.target.value)}
+                                                    placeholder="Cuisine, Salle, etc..."
+                                                    className={`w-full h-12 bg-white border ${employeesData?.getEmployees?.some((emp: any) => emp.department?.toLowerCase() === newEmpDept.trim().toLowerCase()) ? 'border-[#c69f6e]' : 'border-[#e6dace]'} rounded-2xl px-4 font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all`}
+                                                />
+                                                {newEmpDept.trim() && employeesData?.getEmployees?.some((emp: any) => emp.department?.toLowerCase() === newEmpDept.trim().toLowerCase()) && (
+                                                    <p className="text-[9px] font-black text-[#c69f6e] uppercase mt-2 ml-1 flex items-center gap-1">
+                                                        <Check size={10} /> Département existant (Redondance évitée)
+                                                    </p>
+                                                )}
+
+                                                <div className="flex flex-wrap gap-2 mt-3">
+                                                    {Array.from(new Set(employeesData?.getEmployees?.map((e: any) => e.department).filter(Boolean))).map((dept: any) => (
+                                                        <button
+                                                            key={dept}
+                                                            onClick={() => setNewEmpDept(dept)}
+                                                            className={`text-[9px] font-black uppercase px-2 py-1 rounded-lg border transition-all ${newEmpDept === dept ? 'bg-[#c69f6e] text-white border-[#c69f6e]' : 'bg-white text-[#8c8279] border-[#e6dace] hover:border-[#c69f6e]'}`}
+                                                        >
+                                                            {dept}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            disabled={!newEmpName.trim() || employeesData?.getEmployees?.some((emp: any) => emp.name.toLowerCase() === newEmpName.trim().toLowerCase())}
+                                            onClick={async () => {
+                                                try {
+                                                    await upsertEmployee({
+                                                        variables: {
+                                                            name: newEmpName.trim(),
+                                                            department: newEmpDept.trim() || null
+                                                        }
+                                                    });
+                                                    setNewEmpName('');
+                                                    setNewEmpDept('');
+                                                    setIsAddingEmployee(false);
+                                                    refetchEmployees();
+                                                    MySwal.fire({
+                                                        icon: 'success',
+                                                        title: 'Ajouté !',
+                                                        text: 'L\'employé a été ajouté avec succès.',
+                                                        timer: 1500,
+                                                        showConfirmButton: false,
+                                                        background: '#fff',
+                                                        customClass: { title: 'text-lg font-black uppercase text-[#4a3426]' }
+                                                    });
+                                                } catch (e) {
+                                                    console.error(e);
+                                                }
+                                            }}
+                                            className="w-full h-12 bg-[#4a3426] text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg shadow-[#4a3426]/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-40 disabled:scale-100"
+                                        >
+                                            Ajouter l'employé
+                                        </button>
+                                    </motion.div>
+                                )}
+
+                                <div className="relative">
+                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[#bba282]"><Search size={16} /></div>
+                                    <input
+                                        type="text"
+                                        placeholder="Filtrer la liste..."
+                                        value={employeeSearch}
+                                        onChange={(e) => setEmployeeSearch(e.target.value)}
+                                        className="w-full h-10 bg-[#fcfaf8] border border-[#e6dace] rounded-xl pl-10 pr-4 text-xs font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all"
+                                    />
+                                </div>
+
+                                <div className="space-y-3 max-h-[45vh] overflow-y-auto custom-scrollbar pr-2">
+                                    {employeesData?.getEmployees?.filter((e: any) =>
+                                        e.name.toLowerCase().includes(employeeSearch.toLowerCase()) ||
+                                        (e.department && e.department.toLowerCase().includes(employeeSearch.toLowerCase()))
+                                    ).map((emp: any) => (
                                         <div key={emp.id} className="flex justify-between items-center p-4 bg-[#fcfaf8] rounded-2xl border border-[#e6dace]/30 group hover:border-[#c69f6e]/30 transition-all">
                                             <div className="flex items-center gap-2">
                                                 <span className="font-bold text-[#4a3426]">{emp.name}</span>

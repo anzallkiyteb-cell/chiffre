@@ -194,6 +194,7 @@ const GET_PAYMENT_DATA = gql`
       recette_net
       total_diponce
       tpe
+      tpe2
       espaces
       cheque_bancaire
       tickets_restaurant
@@ -598,7 +599,7 @@ export default function PaiementsPage() {
             chiffreAffaire: acc.chiffreAffaire + safeParse(curr.recette_de_caisse),
             reste: acc.reste + safeParse(curr.recette_net),
             cash: acc.cash + safeParse(curr.espaces),
-            tpe: acc.tpe + safeParse(curr.tpe),
+            tpe: acc.tpe + safeParse(curr.tpe) + safeParse(curr.tpe2),
             cheque: acc.cheque + safeParse(curr.cheque_bancaire),
             tickets: acc.tickets + safeParse(curr.tickets_restaurant),
             expenses: acc.expenses + safeParse(curr.total_diponce)
@@ -1058,15 +1059,13 @@ export default function PaiementsPage() {
             <Sidebar role={user.role} />
 
             <div className="flex-1 min-w-0 pb-24 lg:pb-0">
-                <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-[#e6dace] py-6 px-4 md:px-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    <div className="flex items-center gap-6">
-                        <div>
-                            <h1 className="text-xl md:text-2xl font-black text-[#4a3426] tracking-tight">Finances & Trésorerie</h1>
-                            <p className="text-[10px] md:text-xs text-[#8c8279] font-bold uppercase tracking-widest mt-1">Vision Globale & Flux Bancaires</p>
-                        </div>
+                <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-[#e6dace] py-6 px-4 md:px-8 flex flex-col md:flex-row items-center gap-6">
+                    <div className="flex-shrink-0">
+                        <h1 className="text-xl md:text-2xl font-black text-[#4a3426] tracking-tight">Finances & Trésorerie</h1>
+
                     </div>
 
-                    <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto">
+                    <div className="flex-1 flex flex-col md:flex-row items-center justify-center gap-3 w-full">
                         <div className="flex bg-white rounded-2xl p-1 border border-[#e6dace] shadow-sm w-full md:w-auto">
                             <button
                                 onClick={() => {
@@ -1108,81 +1107,83 @@ export default function PaiementsPage() {
                             ))}
                         </div>
 
-                        <div className="flex items-center gap-3 bg-white rounded-3xl p-1.5 border border-[#e6dace] shadow-sm">
-                            <PremiumDatePicker
-                                label="Début"
-                                value={dateRange.start}
-                                onChange={(val) => handleCustomDateChange('start', val)}
-                            />
-                            <span className="text-[#c69f6e] font-black text-[12px] opacity-30">→</span>
-                            <PremiumDatePicker
-                                label="Fin"
-                                value={dateRange.end}
-                                onChange={(val) => handleCustomDateChange('end', val)}
-                                align="right"
-                            />
-                        </div>
+                        <div className="flex flex-col gap-2 w-full md:w-auto">
+                            <div className="relative">
+                                <button
+                                    onClick={() => setShowMonthPicker(!showMonthPicker)}
+                                    className={`bg-white border border-[#e6dace] rounded-2xl h-11 px-6 flex items-center justify-center gap-3 hover:border-[#c69f6e] transition-all group w-full ${activeFilter === 'month' ? 'ring-2 ring-[#c69f6e]/20' : ''}`}
+                                >
+                                    <Calendar size={18} className="text-[#c69f6e]" />
+                                    <span className="font-black text-[#4a3426] uppercase text-[11px] tracking-widest text-center">
+                                        {month ? `${months[parseInt(month.split('-')[1]) - 1]} ${month.split('-')[0]}` : 'Sélectionner Mois'}
+                                    </span>
+                                </button>
 
-                        <div className="relative">
-                            <button
-                                onClick={() => setShowMonthPicker(!showMonthPicker)}
-                                className={`bg-white border border-[#e6dace] rounded-2xl h-11 px-6 flex items-center gap-3 hover:border-[#c69f6e] transition-all group w-full md:w-auto justify-between md:justify-start ${activeFilter === 'month' ? 'ring-2 ring-[#c69f6e]/20' : ''}`}
-                            >
-                                <Calendar size={18} className="text-[#c69f6e]" />
-                                <span className="font-black text-[#4a3426] uppercase text-[11px] tracking-widest">
-                                    {month ? `${months[parseInt(month.split('-')[1]) - 1]} ${month.split('-')[0]}` : 'Sélectionner Mois'}
-                                </span>
-                            </button>
+                                <AnimatePresence>
+                                    {showMonthPicker && (
+                                        <>
+                                            <div className="fixed inset-0 z-40" onClick={() => setShowMonthPicker(false)} />
+                                            <motion.div
+                                                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                                                className="absolute top-full right-0 mt-3 w-72 bg-white rounded-[2rem] shadow-2xl border border-[#e6dace] p-6 z-50 overflow-hidden"
+                                            >
+                                                <div className="flex justify-between items-center mb-6 px-2">
+                                                    <button
+                                                        onClick={() => setPickerYear(v => v - 1)}
+                                                        className="p-2 hover:bg-[#fcfaf8] rounded-xl text-[#8c8279] transition-colors"
+                                                    >
+                                                        <ChevronLeft size={20} />
+                                                    </button>
+                                                    <span className="text-xl font-black text-[#4a3426] tracking-tighter">{pickerYear}</span>
+                                                    <button
+                                                        onClick={() => setPickerYear(v => v + 1)}
+                                                        className="p-2 hover:bg-[#fcfaf8] rounded-xl text-[#8c8279] transition-colors"
+                                                    >
+                                                        <ChevronRight size={20} />
+                                                    </button>
+                                                </div>
 
-                            <AnimatePresence>
-                                {showMonthPicker && (
-                                    <>
-                                        <div className="fixed inset-0 z-40" onClick={() => setShowMonthPicker(false)} />
-                                        <motion.div
-                                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                                            exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                                            className="absolute top-full right-0 mt-3 w-72 bg-white rounded-[2rem] shadow-2xl border border-[#e6dace] p-6 z-50 overflow-hidden"
-                                        >
-                                            <div className="flex justify-between items-center mb-6 px-2">
-                                                <button
-                                                    onClick={() => setPickerYear(v => v - 1)}
-                                                    className="p-2 hover:bg-[#fcfaf8] rounded-xl text-[#8c8279] transition-colors"
-                                                >
-                                                    <ChevronLeft size={20} />
-                                                </button>
-                                                <span className="text-xl font-black text-[#4a3426] tracking-tighter">{pickerYear}</span>
-                                                <button
-                                                    onClick={() => setPickerYear(v => v + 1)}
-                                                    className="p-2 hover:bg-[#fcfaf8] rounded-xl text-[#8c8279] transition-colors"
-                                                >
-                                                    <ChevronRight size={20} />
-                                                </button>
-                                            </div>
+                                                <div className="grid grid-cols-3 gap-2">
+                                                    {months.map((m, i) => {
+                                                        const currentMonth = `${pickerYear}-${String(i + 1).padStart(2, '0')}`;
+                                                        const isActive = month === currentMonth;
+                                                        return (
+                                                            <button
+                                                                key={m}
+                                                                onClick={() => {
+                                                                    setMonth(currentMonth);
+                                                                    setActiveFilter('month');
+                                                                    setShowMonthPicker(false);
+                                                                }}
+                                                                className={`h-10 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all ${isActive ? 'bg-[#c69f6e] text-white shadow-lg shadow-[#c69f6e]/20' : 'text-[#8c8279] hover:bg-[#fcfaf8] hover:text-[#4a3426] border border-transparent hover:border-[#e6dace]'}`}
+                                                            >
+                                                                {m.substring(0, 3)}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </motion.div>
+                                        </>
+                                    )}
+                                </AnimatePresence>
+                            </div>
 
-                                            <div className="grid grid-cols-3 gap-2">
-                                                {months.map((m, i) => {
-                                                    const currentMonth = `${pickerYear}-${String(i + 1).padStart(2, '0')}`;
-                                                    const isActive = month === currentMonth;
-                                                    return (
-                                                        <button
-                                                            key={m}
-                                                            onClick={() => {
-                                                                setMonth(currentMonth);
-                                                                setActiveFilter('month');
-                                                                setShowMonthPicker(false);
-                                                            }}
-                                                            className={`h-10 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all ${isActive ? 'bg-[#c69f6e] text-white shadow-lg shadow-[#c69f6e]/20' : 'text-[#8c8279] hover:bg-[#fcfaf8] hover:text-[#4a3426] border border-transparent hover:border-[#e6dace]'}`}
-                                                        >
-                                                            {m.substring(0, 3)}
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        </motion.div>
-                                    </>
-                                )}
-                            </AnimatePresence>
+                            <div className="flex items-center gap-3 bg-white rounded-3xl p-1.5 border border-[#e6dace] shadow-sm">
+                                <PremiumDatePicker
+                                    label="Début"
+                                    value={dateRange.start}
+                                    onChange={(val) => handleCustomDateChange('start', val)}
+                                />
+                                <span className="text-[#c69f6e] font-black text-[12px] opacity-30">→</span>
+                                <PremiumDatePicker
+                                    label="Fin"
+                                    value={dateRange.end}
+                                    onChange={(val) => handleCustomDateChange('end', val)}
+                                    align="right"
+                                />
+                            </div>
                         </div>
                     </div>
                 </header>

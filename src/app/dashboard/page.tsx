@@ -132,6 +132,7 @@ const GET_CHIFFRES_MONTHLY = gql`
       diponce
       recette_net
       tpe
+      tpe2
       cheque_bancaire
       espaces
       tickets_restaurant
@@ -249,7 +250,7 @@ export default function DashboardPage() {
                 recette_de_caisse: acc.recette_de_caisse + parseFloat(curr.recette_de_caisse || '0'),
                 total_diponce: acc.total_diponce + parseFloat(curr.total_diponce || '0'),
                 recette_net: acc.recette_net + parseFloat(curr.recette_net || '0'),
-                tpe: acc.tpe + parseFloat(curr.tpe || '0'),
+                tpe: acc.tpe + parseFloat(curr.tpe || '0') + parseFloat(curr.tpe2 || '0'),
                 cheque_bancaire: acc.cheque_bancaire + parseFloat(curr.cheque_bancaire || '0'),
                 espaces: acc.espaces + parseFloat(curr.espaces || '0'),
                 tickets_restaurant: acc.tickets_restaurant + parseFloat(curr.tickets_restaurant || '0'),

@@ -217,24 +217,51 @@ export default function StatistiquesPage() {
     const supplierData = useMemo(() => {
         if (!data?.getChiffresByRange) return [];
         const res: Record<string, number> = {};
+        const excluded = ['RIADH', 'MALIKA', 'SALAIRES'];
 
         const processItems = (items: any[]) => {
             items.forEach(e => {
                 const name = e.supplier || e.designation || e.name || 'Divers';
-                res[name] = (res[name] || 0) + (parseFloat(e.amount) || 0);
+                if (!excluded.includes(name.toUpperCase())) {
+                    res[name] = (res[name] || 0) + (parseFloat(e.amount) || 0);
+                }
             });
         };
 
         data.getChiffresByRange.forEach((d: any) => {
             processItems(JSON.parse(d.diponce || '[]'));
-            processItems(JSON.parse(d.diponce_divers || '[]'));
-            processItems(JSON.parse(d.diponce_admin || '[]'));
         });
 
         // Add Riadh's invoices
         (data.getInvoices || []).forEach((inv: any) => {
             const name = inv.supplier_name || 'Riadh Exp';
-            res[name] = (res[name] || 0) + (parseFloat(inv.amount) || 0);
+            if (!excluded.includes(name.toUpperCase()) && name !== 'Riadh Exp') {
+                res[name] = (res[name] || 0) + (parseFloat(inv.amount) || 0);
+            }
+        });
+
+        return Object.entries(res).map(([name, value]) => ({ name, value }))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 8);
+    }, [data]);
+
+    const diversData = useMemo(() => {
+        if (!data?.getChiffresByRange) return [];
+        const res: Record<string, number> = {};
+        const excluded = ['RIADH', 'MALIKA', 'SALAIRES'];
+
+        const processItems = (items: any[]) => {
+            items.forEach(e => {
+                const name = e.designation || e.name || e.supplier || 'Divers';
+                if (!excluded.includes(name.toUpperCase())) {
+                    res[name] = (res[name] || 0) + (parseFloat(e.amount) || 0);
+                }
+            });
+        };
+
+        data.getChiffresByRange.forEach((d: any) => {
+            processItems(JSON.parse(d.diponce_divers || '[]'));
+            processItems(JSON.parse(d.diponce_admin || '[]'));
         });
 
         return Object.entries(res).map(([name, value]) => ({ name, value }))
@@ -328,10 +355,8 @@ export default function StatistiquesPage() {
             categoryTotals[name] = (categoryTotals[name] || 0) + (parseFloat(inv.amount) || 0);
         });
 
-        // Get top 12 contributors to simplify visuals while keeping data
-        const topCategories = Object.entries(categoryTotals)
+        const allSuppliers = Object.entries(categoryTotals)
             .sort((a, b) => b[1] - a[1])
-            .slice(0, 12)
             .map(c => c[0]);
 
         const aggregated: Record<string, any> = {};
@@ -342,9 +367,8 @@ export default function StatistiquesPage() {
                     name: aggregation === 'day'
                         ? new Date(d.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
                         : new Date(d.date).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
-                    Autres: 0,
                 };
-                topCategories.forEach(c => aggregated[key][c] = 0);
+                allSuppliers.forEach(c => aggregated[key][c] = 0);
             }
 
             const allDayItems = [
@@ -356,11 +380,7 @@ export default function StatistiquesPage() {
             allDayItems.forEach(e => {
                 const name = e.supplier || e.designation || e.name || 'Divers';
                 const amt = parseFloat(e.amount) || 0;
-                if (topCategories.includes(name)) {
-                    aggregated[key][name] += amt;
-                } else {
-                    aggregated[key].Autres += amt;
-                }
+                aggregated[key][name] += amt;
             });
         });
 
@@ -369,18 +389,13 @@ export default function StatistiquesPage() {
             if (!dStr) return;
             const key = aggregation === 'day' ? dStr : dStr.substring(0, 7);
             if (!aggregated[key]) return;
-
             const name = inv.supplier_name || 'Riadh Exp';
             const amt = parseFloat(inv.amount) || 0;
-            if (topCategories.includes(name)) {
-                aggregated[key][name] += amt;
-            } else {
-                aggregated[key].Autres += amt;
-            }
+            aggregated[key][name] += amt;
         });
 
-        return { data: Object.values(aggregated), suppliers: topCategories };
-    }, [data, aggregation, selectedSupplier]);
+        return { data: Object.values(aggregated), suppliers: allSuppliers };
+    }, [data, aggregation]);
 
     const supplierColors = [
         '#c69f6e', '#2d6a4f', '#ef4444', '#3b82f6', '#8b5cf6',
@@ -560,7 +575,7 @@ export default function StatistiquesPage() {
                         </div>
                     </div>
 
-                    {/* Multi-charts Row */}
+                    {/* Multi-charts Row: Suppliers & Divers */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         {/* Suppliers Breakdown */}
                         <div className="bg-white p-4 md:p-8 rounded-[2rem] md:rounded-[2.5rem] luxury-shadow border border-[#e6dace]/50">
@@ -584,6 +599,102 @@ export default function StatistiquesPage() {
                             </div>
                         </div>
 
+                        {/* Divers Breakdown */}
+                        <div className="bg-white p-4 md:p-8 rounded-[2rem] md:rounded-[2.5rem] luxury-shadow border border-[#e6dace]/50">
+                            <h3 className="text-xl font-bold text-[#4a3426] mb-8 flex items-center gap-2">
+                                <Coins className="text-[#c69f6e]" /> Top Dépenses Divers
+                            </h3>
+                            <div className="h-[300px] w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={diversData} layout="vertical" margin={{ left: 10, right: 30 }}>
+                                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f0e6dd" />
+                                        <XAxis type="number" hide />
+                                        <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} width={120} tick={{ fill: '#4a3426', fontSize: 11, fontWeight: 700 }} />
+                                        <RechartsTooltip cursor={{ fill: '#f8f5f2', radius: 10 }} contentStyle={{ borderRadius: '15px', border: 'none', boxShadow: '0 10px 20px rgba(0,0,0,0.1)' }} />
+                                        <Bar dataKey="value" name="Dépenses (DT)" fill="#4a3426" radius={[0, 10, 10, 0]} barSize={20}>
+                                            {diversData.map((_, index) => (
+                                                <Cell key={index} fill={index === 0 ? '#c69f6e' : '#4a3426'} />
+                                            ))}
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Monthly Charges & Payment Types Chart */}
+                    <div className="bg-white p-4 md:p-8 rounded-[2rem] md:rounded-[2.5rem] luxury-shadow border border-[#e6dace]/50">
+                        <div className="mb-8">
+                            <h3 className="text-xl font-bold text-[#4a3426] flex items-center gap-2">
+                                <TrendingDown className="text-red-500" /> Analyse des Dépenses & Charges
+                            </h3>
+                            <p className="text-xs text-[#8c8279] mt-1">Évolution {aggregation === 'day' ? 'journalière' : 'mensuelle'} des charges par fournisseur</p>
+                        </div>
+                        <div className="h-[350px] md:h-[500px] w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={aggregatedExpensesDetailed.data}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0e6dd" />
+                                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#8c8279', fontSize: 11 }} interval={aggregation === 'day' ? (aggregatedExpensesDetailed.data.length > 15 ? 2 : 0) : 0} />
+                                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#8c8279', fontSize: 11 }} />
+                                    <RechartsTooltip
+                                        wrapperStyle={{ pointerEvents: 'auto' }}
+                                        content={({ active, payload, label }) => {
+                                            if (active && payload && payload.length) {
+                                                const sortedPayload = [...payload]
+                                                    .filter(p => (parseFloat(p.value as string) || 0) > 0)
+                                                    .sort((a, b) => (b.value as number) - (a.value as number));
+
+                                                if (sortedPayload.length === 0) return null;
+
+                                                return (
+                                                    <div className="bg-white p-4 rounded-2xl shadow-2xl border border-[#e6dace] max-h-[400px] overflow-y-auto custom-scrollbar min-w-[200px]">
+                                                        <p className="text-[10px] font-black text-[#8c8279] uppercase tracking-widest mb-3 pb-2 border-b border-[#f4ece4]">{label}</p>
+                                                        <div className="space-y-2">
+                                                            {sortedPayload.map((entry, index) => (
+                                                                <div key={index} className="flex justify-between items-center gap-4">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }}></div>
+                                                                        <span className="text-[11px] font-bold text-[#4a3426] truncate max-w-[150px]">{entry.name}</span>
+                                                                    </div>
+                                                                    <span className="text-[11px] font-black text-[#c69f6e]">
+                                                                        {parseFloat(entry.value as string).toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                                                    </span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                        <div className="mt-3 pt-2 border-t border-[#f4ece4] flex justify-between">
+                                                            <span className="text-[10px] font-black text-[#4a3426] uppercase">Total</span>
+                                                            <span className="text-[10px] font-black text-[#4a3426]">
+                                                                {sortedPayload.reduce((acc, curr) => acc + (curr.value as number), 0).toLocaleString('fr-FR', { minimumFractionDigits: 3 })} DT
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            }
+                                            return null;
+                                        }}
+                                    />
+                                    <Legend
+                                        iconType="circle"
+                                        wrapperStyle={{
+                                            paddingTop: '30px',
+                                            maxHeight: '100px',
+                                            overflowY: 'auto',
+                                            fontSize: '10px',
+                                            fontWeight: 'bold',
+                                            textTransform: 'uppercase'
+                                        }}
+                                    />
+                                    {aggregatedExpensesDetailed.suppliers.map((s: string, idx: number) => (
+                                        <Bar key={s} dataKey={s} stackId="a" fill={supplierColors[idx % supplierColors.length]} barSize={aggregation === 'day' ? 20 : 40} />
+                                    ))}
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+
+                    {/* Row: Encaissements & Salaries */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         {/* Payment Methods Breakdown */}
                         <div className="bg-white p-4 md:p-8 rounded-[2rem] md:rounded-[2.5rem] luxury-shadow border border-[#e6dace]/50">
                             <h3 className="text-xl font-bold text-[#4a3426] mb-8 flex items-center gap-2">
@@ -620,65 +731,30 @@ export default function StatistiquesPage() {
                                 </ResponsiveContainer>
                             </div>
                         </div>
-                    </div>
 
-                    {/* Monthly Charges & Payment Types Chart */}
-                    <div className="bg-white p-4 md:p-8 rounded-[2rem] md:rounded-[2.5rem] luxury-shadow border border-[#e6dace]/50">
-                        <div className="mb-8">
-                            <h3 className="text-xl font-bold text-[#4a3426] flex items-center gap-2">
-                                <TrendingDown className="text-red-500" /> Analyse des Dépenses & Charges
-                            </h3>
-                            <p className="text-xs text-[#8c8279] mt-1">Évolution {aggregation === 'day' ? 'journalière' : 'mensuelle'} des charges par fournisseur</p>
-                        </div>
-                        <div className="h-[350px] md:h-[500px] w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={aggregatedExpensesDetailed.data}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0e6dd" />
-                                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#8c8279', fontSize: 11 }} interval={aggregation === 'day' ? (aggregatedExpensesDetailed.data.length > 15 ? 2 : 0) : 0} />
-                                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#8c8279', fontSize: 11 }} />
-                                    <RechartsTooltip
-                                        formatter={(val: any) => `${parseFloat(val).toFixed(3)} DT`}
-                                        contentStyle={{ backgroundColor: '#fff', borderRadius: '15px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }}
-                                    />
-                                    <Legend iconType="circle" />
-                                    {aggregatedExpensesDetailed.suppliers.map((s, idx) => (
-                                        <Bar key={s} dataKey={s} stackId="a" fill={supplierColors[idx % supplierColors.length]} barSize={aggregation === 'day' ? 20 : 40} />
-                                    ))}
-                                    <Bar dataKey="Autres" stackId="a" name="Autres Fournisseurs" fill={supplierColors[5]} radius={[5, 5, 0, 0]} barSize={aggregation === 'day' ? 20 : 40} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </div>
-
-                    {/* Salary Evolution Chart */}
-                    <div className="bg-white p-4 md:p-8 rounded-[2rem] md:rounded-[2.5rem] luxury-shadow border border-[#e6dace]/50">
-                        <div className="mb-8">
-                            <h3 className="text-xl font-bold text-[#4a3426] flex items-center gap-2">
-                                <Users className="text-[#c69f6e]" /> Evolution des Salaires
-                            </h3>
-                            <p className="text-xs text-[#8c8279] mt-1">Somme mensuelle des salaires payés (confirmés)</p>
-                        </div>
-                        <div className="h-[300px] w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={laborData}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0e6dd" />
-                                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#8c8279', fontSize: 11 }} />
-                                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#8c8279', fontSize: 11 }} />
-                                    <RechartsTooltip
-                                        formatter={(val: any) => `${parseFloat(val).toLocaleString('fr-FR', { minimumFractionDigits: 3 })} DT`}
-                                        contentStyle={{ backgroundColor: '#fff', borderRadius: '15px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }}
-                                    />
-                                    <Line
-                                        type="monotone"
-                                        dataKey="total"
-                                        name="Coût Main d'Oeuvre"
-                                        stroke="#2d6a4f"
-                                        strokeWidth={4}
-                                        dot={{ r: 6, fill: '#2d6a4f', strokeWidth: 3, stroke: '#fff' }}
-                                        activeDot={{ r: 8, strokeWidth: 0 }}
-                                    />
-                                </LineChart>
-                            </ResponsiveContainer>
+                        {/* Salary Evolution Chart */}
+                        <div className="bg-white p-4 md:p-8 rounded-[2rem] md:rounded-[2.5rem] luxury-shadow border border-[#e6dace]/50">
+                            <div className="mb-8">
+                                <h3 className="text-xl font-bold text-[#4a3426] flex items-center gap-2">
+                                    <Users className="text-[#c69f6e]" /> Evolution des Salaires
+                                </h3>
+                                <p className="text-xs text-[#8c8279] mt-1">Somme mensuelle des salaires payés (confirmés)</p>
+                            </div>
+                            <div className="h-[300px] w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <ComposedChart data={laborData}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0e6dd" />
+                                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#8c8279', fontSize: 11 }} />
+                                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#8c8279', fontSize: 11 }} />
+                                        <RechartsTooltip
+                                            formatter={(val: any) => `${parseFloat(val).toLocaleString('fr-FR', { minimumFractionDigits: 3 })} DT`}
+                                            contentStyle={{ backgroundColor: '#fff', borderRadius: '15px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }}
+                                        />
+                                        <Bar dataKey="total" name="Coût Main d'Oeuvre" fill="#2d6a4f" radius={[10, 10, 0, 0]} barSize={40} />
+                                        <Line type="monotone" dataKey="total" stroke="#c69f6e" strokeWidth={3} dot={{ r: 4 }} />
+                                    </ComposedChart>
+                                </ResponsiveContainer>
+                            </div>
                         </div>
                     </div>
 

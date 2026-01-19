@@ -239,6 +239,7 @@ export const resolvers = {
                     diponce: '[]',
                     recette_net: '0',
                     tpe: '0',
+                    tpe2: '0',
                     cheque_bancaire: '0',
                     espaces: '0',
                     tickets_restaurant: '0',
