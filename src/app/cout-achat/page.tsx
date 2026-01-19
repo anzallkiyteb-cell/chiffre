@@ -259,7 +259,7 @@ export default function CoutAchatPage() {
                 .map((e: any) => ({ ...e, date: curr.date }));
 
             const diversList = JSON.parse(curr.diponce_divers || '[]')
-                .filter((e: any) => matchesCategory({ ...e, category: 'Divers' }) && matchesDocType(e))
+                .filter((e: any) => !e.isFromFacturation && matchesCategory({ ...e, category: 'Divers' }) && matchesDocType(e))
                 .map((e: any) => ({ ...e, date: curr.date }));
 
             return {
@@ -324,10 +324,19 @@ export default function CoutAchatPage() {
 
         const topFournisseurs = aggregateGroup(mergedFournisseurs, 'supplier', 'amount');
         const topDivers = aggregateGroup(mergedDivers, 'designation', 'amount');
-        const topPaid = aggregateGroup(paidSupplierInvoices, 'supplier_name', 'amount');
-        const topUnpaid = aggregateGroup(unpaidSupplierInvoices, 'supplier_name', 'amount');
+        const combinedPaid = [
+            ...paidInvoices.map((i: any) => ({ ...i, name: i.supplier_name })),
+            ...base.allExpenses.map((e: any) => ({ ...e, name: e.supplier, supplier_name: e.supplier, status: 'paid' })),
+            ...base.allDivers.map((e: any) => ({ ...e, name: e.designation, supplier_name: e.designation, status: 'paid' }))
+        ];
+        const combinedUnpaid = unpaidInvoices.map((i: any) => ({ ...i, name: i.supplier_name }));
 
-        // Detailed Metrics for Summary Cards - strictly Suppliers for 'Facture/BL' stats
+        const topPaid = aggregateGroup(combinedPaid, 'name', 'amount');
+        const topUnpaid = aggregateGroup(combinedUnpaid, 'name', 'amount');
+
+        const totalPaidUnified = topPaid.reduce((a, b) => a + b.amount, 0);
+        const totalUnpaidUnified = topUnpaid.reduce((a, b) => a + b.amount, 0);
+
         const stats = {
             facturePaid: paidSupplierInvoices.filter((i: any) => (i.doc_type || '').toLowerCase() === 'facture').reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0),
             factureUnpaid: unpaidSupplierInvoices.filter((i: any) => (i.doc_type || '').toLowerCase() === 'facture').reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0),
@@ -338,23 +347,6 @@ export default function CoutAchatPage() {
         const totalDivers = topDivers.reduce((a, b) => a + b.amount, 0);
         const totalDirectManual = topFournisseurs.reduce((a, b) => a + b.amount, 0);
 
-        // Paid Divers Component (to add to Global Paid)
-        const totalPaidDivers = mergedDivers
-            .filter((i: any) => i.status !== 'unpaid')
-            .reduce((a, b) => a + (parseFloat(b.amount) || 0), 0);
-
-        // Global Paid = Supplier Invoices + Direct Manual + Paid Divers (Manual+Invoice)
-        // Note: totalDirectManual now includes paidSupplierInvoices due to mergedFournisseurs
-        const totalPaid = totalDirectManual + totalPaidDivers;
-
-        const totalUnpaid = unpaidSupplierInvoices.reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0) +
-            unpaidDiversInvoices.reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0);
-        const totalLabor = base.labor;
-
-        // Specific totals for "Factures Payées/Impayées" lists (excluding Divers/Manual if logically separate)
-        const totalPaidInvoices = paidSupplierInvoices.reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0);
-        const totalUnpaidInvoices = unpaidSupplierInvoices.reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0);
-
         return {
             fournisseurs: filterByName(topFournisseurs),
             divers: filterByName(topDivers),
@@ -362,16 +354,16 @@ export default function CoutAchatPage() {
             unpaidInvoices: filterByName(topUnpaid),
             rawFournisseurs: base.allExpenses,
             rawDivers: base.allDivers,
-            rawPaidInvoices: paidSupplierInvoices,
-            rawUnpaidInvoices: unpaidSupplierInvoices,
-            totalPaid,
-            totalUnpaid,
-            totalPaidInvoices,
-            totalUnpaidInvoices,
+            rawPaidInvoices: combinedPaid,
+            rawUnpaidInvoices: combinedUnpaid,
+            totalPaid: totalPaidUnified,
+            totalUnpaid: totalUnpaidUnified,
+            totalPaidInvoices: totalPaidUnified,
+            totalUnpaidInvoices: totalUnpaidUnified,
             stats,
             totalDirectManual,
             totalDivers,
-            totalGlobalConsommation: totalPaid + totalUnpaid
+            totalGlobalConsommation: totalPaidUnified + totalUnpaidUnified
         };
     }, [data, searchQuery, categoryFilter, docTypeFilter]);
 
@@ -634,78 +626,6 @@ export default function CoutAchatPage() {
                                     </AnimatePresence>
                                 </div>
 
-
-                                {/* 4. Dépenses Fournisseurs (Directes) */}
-                                <div className="bg-white rounded-[2.5rem] p-6 md:p-8 luxury-shadow border border-[#e6dace]/50 flex flex-col">
-                                    <button onClick={() => toggleSection('fournisseurs')} className="flex justify-between items-center w-full text-left">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-2xl bg-[#4a3426]/10 flex items-center justify-center text-[#4a3426] text-sm"><Truck /></div>
-                                            <div>
-                                                <h4 className="font-black text-[#4a3426] text-xs uppercase tracking-widest">Dépenses Fournisseurs</h4>
-                                                <p className="text-[8px] font-bold text-[#8c8279] uppercase tracking-[0.2em] mt-0.5">Achats directs (Chiffre)</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-4">
-                                            <div className="bg-[#fdfbf7] border border-[#e6dace]/40 px-3 py-2 rounded-xl text-xs font-black text-[#4a3426]">
-                                                {aggregates.fournisseurs.reduce((a: number, b: any) => a + b.amount, 0).toFixed(3)} DT
-                                            </div>
-                                            <motion.div animate={{ rotate: expandedSections['fournisseurs'] ? 180 : 0 }} className="text-[#c69f6e]"><ChevronDown size={20} /></motion.div>
-                                        </div>
-                                    </button>
-                                    <AnimatePresence>
-                                        {expandedSections['fournisseurs'] && (
-                                            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                                                <div className="pt-6 space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-2 mt-2 border-t border-dashed border-[#e6dace]/50 text-xs">
-                                                    {aggregates.fournisseurs.length > 0 ? aggregates.fournisseurs.map((a: any, i: number) => (
-                                                        <div key={i}
-                                                            onClick={() => setSelectedDetail({ name: a.name, type: 'fournisseur' })}
-                                                            className="flex justify-between items-center p-3 bg-[#fcfaf8] rounded-xl border border-[#e6dace]/30 cursor-pointer hover:bg-[#c69f6e]/5 transition-colors">
-                                                            <span className="font-bold text-[#4a3426] opacity-70">{a.name}</span>
-                                                            <span className="font-black text-[#4a3426]">{a.amount.toFixed(3)} DT</span>
-                                                        </div>
-                                                    )) : <div className="py-10 text-center italic text-[#8c8279] opacity-40">Aucune donnée</div>}
-
-                                                </div>
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
-                                </div>
-
-                                {/* 5. Dépenses Diverses */}
-                                <div className="bg-white rounded-[2.5rem] p-6 md:p-8 luxury-shadow border border-[#e6dace]/50 flex flex-col">
-                                    <button onClick={() => toggleSection('divers')} className="flex justify-between items-center w-full text-left">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-2xl bg-[#c69f6e]/10 flex items-center justify-center text-[#c69f6e] text-sm"><Sparkles /></div>
-                                            <div>
-                                                <h4 className="font-black text-[#4a3426] text-xs uppercase tracking-widest">Dépenses Diverses</h4>
-                                                <p className="text-[8px] font-bold text-[#8c8279] uppercase tracking-[0.2em] mt-0.5">Frais exceptionnels</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-4">
-                                            <div className="bg-[#fdfbf7] border border-[#e6dace]/40 px-3 py-2 rounded-xl text-xs font-black text-[#4a3426]">
-                                                {aggregates.divers.reduce((a: number, b: any) => a + b.amount, 0).toFixed(3)} DT
-                                            </div>
-                                            <motion.div animate={{ rotate: expandedSections['divers'] ? 180 : 0 }} className="text-[#c69f6e]"><ChevronDown size={20} /></motion.div>
-                                        </div>
-                                    </button>
-                                    <AnimatePresence>
-                                        {expandedSections['divers'] && (
-                                            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                                                <div className="pt-6 space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-2 mt-2 border-t border-dashed border-[#e6dace]/50 text-xs">
-                                                    {aggregates.divers.length > 0 ? aggregates.divers.map((a: any, i: number) => (
-                                                        <div key={i}
-                                                            onClick={() => setSelectedDetail({ name: a.name, type: 'divers' })}
-                                                            className="flex justify-between items-center p-3 bg-[#fcfaf8] rounded-xl border border-[#e6dace]/30 cursor-pointer hover:bg-[#c69f6e]/5 transition-colors">
-                                                            <span className="font-bold text-[#4a3426] opacity-70">{a.name}</span>
-                                                            <span className="font-black text-[#4a3426]">{a.amount.toFixed(3)} DT</span>
-                                                        </div>
-                                                    )) : <div className="py-10 text-center italic text-[#8c8279] opacity-40">Aucune dépense</div>}
-
-                                                </div>
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
-                                </div>
 
                             </div>
                         </>
