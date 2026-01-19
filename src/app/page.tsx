@@ -5,7 +5,7 @@ import client from '@/lib/apollo-client';
 import ChiffrePage from '@/components/ChiffrePage';
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { Lock, User, CheckCircle2, Loader2, ShieldAlert, ShieldCheck, Power, AlertCircle, Camera, Scan, X } from 'lucide-react';
+import { Lock, User, CheckCircle2, Loader2, ShieldAlert, ShieldCheck, Power, AlertCircle, Camera, Scan, X, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as faceapi from 'face-api.js';
 
@@ -310,6 +310,7 @@ export default function Home() {
   const [initializing, setInitializing] = useState(true);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [lastUser, setLastUser] = useState<any>(null);
   const [error, setError] = useState('');
 
@@ -908,13 +909,20 @@ export default function Home() {
                           <Lock size={18} strokeWidth={2.5} />
                         </div>
                         <input
-                          type="password"
+                          type={showPassword ? "text" : "password"}
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          className="w-full h-16 rounded-2xl bg-[#fcfaf8] border border-[#e6dace] px-5 pl-14 text-sm font-black text-[#4a3426] outline-none focus:border-[#4a3426] focus:bg-white transition-all placeholder:text-[#bba282]/40"
+                          className="w-full h-16 rounded-2xl bg-[#fcfaf8] border border-[#e6dace] px-5 pl-14 pr-12 text-sm font-black text-[#4a3426] outline-none focus:border-[#4a3426] focus:bg-white transition-all placeholder:text-[#bba282]/40"
                           placeholder="••••••••"
                           required
                         />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute inset-y-0 right-5 flex items-center text-[#bba282] hover:text-[#4a3426] transition-colors cursor-pointer"
+                        >
+                          {showPassword ? <EyeOff size={18} strokeWidth={2.5} /> : <Eye size={18} strokeWidth={2.5} />}
+                        </button>
                       </div>
                     </div>
 

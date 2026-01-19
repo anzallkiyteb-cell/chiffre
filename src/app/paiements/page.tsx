@@ -283,8 +283,8 @@ const DELETE_BANK_DEPOSIT = gql`
 `;
 
 const ADD_PAID_INVOICE = gql`
-  mutation AddPaidInvoice($supplier_name: String!, $amount: String!, $date: String!, $photo_url: String, $photo_cheque_url: String, $photo_verso_url: String, $payment_method: String!, $paid_date: String!, $payer: String, $doc_type: String, $category: String) {
-    addPaidInvoice(supplier_name: $supplier_name, amount: $amount, date: $date, photo_url: $photo_url, photo_cheque_url: $photo_cheque_url, photo_verso_url: $photo_verso_url, payment_method: $payment_method, paid_date: $paid_date, payer: $payer, doc_type: $doc_type, category: $category) {
+  mutation AddPaidInvoice($supplier_name: String!, $amount: String!, $date: String!, $photo_url: String, $photo_cheque_url: String, $photo_verso_url: String, $payment_method: String!, $paid_date: String!, $payer: String, $doc_type: String, $doc_number: String, $category: String) {
+    addPaidInvoice(supplier_name: $supplier_name, amount: $amount, date: $date, photo_url: $photo_url, photo_cheque_url: $photo_cheque_url, photo_verso_url: $photo_verso_url, payment_method: $payment_method, paid_date: $paid_date, payer: $payer, doc_type: $doc_type, doc_number: $doc_number, category: $category) {
       id
     }
   }
@@ -317,8 +317,8 @@ const UNPAY_INVOICE = gql`
 `;
 
 const UPDATE_INVOICE = gql`
-  mutation UpdateInvoice($id: Int!, $supplier_name: String, $amount: String, $date: String, $payment_method: String, $paid_date: String, $category: String, $doc_type: String) {
-    updateInvoice(id: $id, supplier_name: $supplier_name, amount: $amount, date: $date, payment_method: $payment_method, paid_date: $paid_date, category: $category, doc_type: $doc_type) {
+  mutation UpdateInvoice($id: Int!, $supplier_name: String, $amount: String, $date: String, $payment_method: String, $paid_date: String, $category: String, $doc_type: String, $doc_number: String) {
+    updateInvoice(id: $id, supplier_name: $supplier_name, amount: $amount, date: $date, payment_method: $payment_method, paid_date: $paid_date, category: $category, doc_type: $doc_type, doc_number: $doc_number) {
       id
     }
   }
@@ -424,6 +424,7 @@ export default function PaiementsPage() {
     const [expCategory, setExpCategory] = useState('Fournisseur');
     const [expPhotoCheque, setExpPhotoCheque] = useState('');
     const [expPhotoVerso, setExpPhotoVerso] = useState('');
+    const [expInvoiceNumber, setExpInvoiceNumber] = useState('');
     const [showExpForm, setShowExpForm] = useState(false);
     const [showSalaryRemaindersModal, setShowSalaryRemaindersModal] = useState(false);
     const [salaryRemainderMonth, setSalaryRemainderMonth] = useState(currentMonthStr);
@@ -1046,6 +1047,7 @@ export default function PaiementsPage() {
             setExpDate(inv.date);
             setExpMethod(inv.payment_method);
             setExpDocType(inv.doc_type || 'Facture');
+            setExpInvoiceNumber(inv.doc_number || '');
             setShowExpForm(true);
             setShowHistoryModal(false);
         }
@@ -1092,6 +1094,7 @@ export default function PaiementsPage() {
                         payment_method: expMethod,
                         paid_date: expDate,
                         doc_type: expDocType,
+                        doc_number: expInvoiceNumber,
                         category: expCategory || editingHistoryItem.category
                     }
                 });
@@ -1110,6 +1113,7 @@ export default function PaiementsPage() {
                         paid_date: expDate,
                         payer: 'riadh',
                         doc_type: expDocType,
+                        doc_number: expInvoiceNumber,
                         category: expCategory
                     }
                 });
@@ -1120,6 +1124,7 @@ export default function PaiementsPage() {
             setExpPhoto('');
             setExpPhotoCheque('');
             setExpPhotoVerso('');
+            setExpInvoiceNumber('');
             setExpCategory('');
             setShowExpForm(false);
             refetch();
@@ -1669,6 +1674,7 @@ export default function PaiementsPage() {
                                                     setExpPhoto('');
                                                     setExpPhotoCheque('');
                                                     setExpPhotoVerso('');
+                                                    setExpInvoiceNumber('');
                                                 }
                                                 setShowExpForm(!showExpForm);
                                             }}
@@ -1814,6 +1820,16 @@ export default function PaiementsPage() {
                                                             <option value="TPE (Carte)">💳 TPE (Carte)</option>
                                                             <option value="Ticket Restaurant">🎫 T. Restaurant</option>
                                                         </select>
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-[10px] font-black text-red-700/50 uppercase ml-1">Numéro du document</label>
+                                                        <input
+                                                            type="text"
+                                                            value={expInvoiceNumber}
+                                                            onChange={(e) => setExpInvoiceNumber(e.target.value)}
+                                                            className="w-full h-11 bg-white border border-red-100 rounded-xl px-4 font-bold text-sm outline-none focus:border-red-400"
+                                                            placeholder="Ex: 001/2026..."
+                                                        />
                                                     </div>
                                                     <div>
                                                         <label className="text-[10px] font-black text-red-700/50 uppercase ml-1">Type de Document</label>
