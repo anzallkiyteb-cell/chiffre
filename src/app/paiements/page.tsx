@@ -11,7 +11,7 @@ import {
     ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Image as ImageIcon, Ticket,
     Clock, CheckCircle2, Eye, EyeOff, Edit2, Trash2, X, Layout, Plus,
     Truck, Sparkles, Calculator, Zap, Award, ZoomIn, ZoomOut, RotateCw, Maximize2,
-    Bookmark, AlertCircle
+    Bookmark, AlertCircle, LayoutGrid, Package
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Swal from 'sweetalert2';
@@ -461,6 +461,7 @@ export default function PaiementsPage() {
     const [imgRotation, setImgRotation] = useState(0);
     const [bankTransactionType, setBankTransactionType] = useState<'deposit' | 'withdraw'>('deposit');
     const [unpaidSearchFilter, setUnpaidSearchFilter] = useState('');
+    const [unpaidCategoryFilter, setUnpaidCategoryFilter] = useState<'Tous' | 'Fournisseur' | 'Divers'>('Tous');
     const [unpaidDateRange, setUnpaidDateRange] = useState({ start: '', end: '' });
 
     const resetView = () => {
@@ -473,9 +474,48 @@ export default function PaiementsPage() {
     }, [viewingData]);
 
     const { data: unpaidData, refetch: refetchUnpaid } = useQuery(GET_INVOICES, {
-        variables: { supplierName: '', startDate: '', endDate: '' },
-        pollInterval: 5000
+        pollInterval: 10000
     });
+
+    const allFilteredUnpaid = useMemo(() => {
+        return (unpaidData?.getInvoices || [])
+            .filter((inv: any) => inv.status !== 'paid')
+            .filter((inv: any) => {
+                // Category filter
+                if (unpaidCategoryFilter !== 'Tous') {
+                    const invCat = (inv.category || 'Fournisseur').toLowerCase().trim();
+                    const filterCat = unpaidCategoryFilter.toLowerCase().trim();
+                    if (invCat !== filterCat) return false;
+                }
+
+                // Search filter
+                if (unpaidSearchFilter) {
+                    const searchLower = unpaidSearchFilter.toLowerCase();
+                    const supplierMatch = inv.supplier_name?.toLowerCase().includes(searchLower);
+                    if (!supplierMatch) return false;
+                }
+
+                // Date range filter
+                if (unpaidDateRange.start || unpaidDateRange.end) {
+                    const invDate = new Date(inv.date);
+                    if (unpaidDateRange.start) {
+                        const startDate = new Date(unpaidDateRange.start);
+                        if (invDate < startDate) return false;
+                    }
+                    if (unpaidDateRange.end) {
+                        const endDate = new Date(unpaidDateRange.end);
+                        if (invDate > endDate) return false;
+                    }
+                }
+
+                return true;
+            })
+            .sort((a: any, b: any) => {
+                const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
+                if (dateDiff !== 0) return dateDiff;
+                return parseInt(b.id) - parseInt(a.id);
+            });
+    }, [unpaidData, unpaidCategoryFilter, unpaidSearchFilter, unpaidDateRange]);
 
     // History Modal State
     const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -595,6 +635,29 @@ export default function PaiementsPage() {
         }
         setInitializing(false);
     }, [router]);
+
+    const handleEditInvoice = (inv: any) => {
+        setEditingHistoryItem({
+            ...inv,
+            id: inv.id,
+            origin: inv.origin,
+            category: inv.category
+        });
+        setExpName(inv.supplier_name || '');
+        setExpAmount(inv.amount ? inv.amount.toString() : '');
+        setExpDate(inv.date || todayStr);
+        setExpPhoto(inv.photo_url || '');
+        setExpPhotoCheque(inv.photo_cheque_url || '');
+        setExpPhotoVerso(inv.photo_verso_url || '');
+        setExpMethod(inv.payment_method || 'Espèces');
+        setExpDocType(inv.doc_type || 'Facture');
+        setExpInvoiceNumber(inv.doc_number || '');
+        setExpCategory(inv.category || 'Fournisseur');
+        setShowExpForm(true);
+        setShowUnpaidModal(false);
+        // Scroll to the form
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
 
     const effectiveDateRange = useMemo(() => {
         if (activeFilter === 'month' && month) {
@@ -2625,212 +2688,208 @@ export default function PaiementsPage() {
                                 onClick={e => e.stopPropagation()}
                                 className="bg-[#f9f6f2] rounded-[2.5rem] w-full max-w-6xl max-h-[90vh] overflow-hidden shadow-2xl border border-white/20 flex flex-col"
                             >
-                                <div className="p-4 bg-white border-b border-[#e6dace] shrink-0">
-                                    <div className="flex flex-col md:flex-row items-center gap-4">
-                                        <div className="flex items-center gap-3 shrink-0">
-                                            <h2 className="text-lg font-black text-[#4a3426] uppercase tracking-tight flex items-center gap-2">
-                                                <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center text-red-600">
-                                                    <Clock size={16} />
+                                <div className="p-8 bg-white border-b border-[#f0e6dd] shrink-0 space-y-8">
+                                    <div className="flex items-center justify-between gap-8">
+                                        <div className="flex items-center gap-4 shrink-0">
+                                            <div className="w-14 h-14 bg-red-50 rounded-[1.25rem] flex items-center justify-center text-[#ef4444] shadow-sm border border-red-100">
+                                                <Clock size={28} strokeWidth={2.5} />
+                                            </div>
+                                            <div>
+                                                <h2 className="text-2xl font-black text-[#4a3426] uppercase tracking-tighter flex items-center gap-3">
+                                                    Factures Non Payées
+                                                    <span className="bg-[#ef4444] text-white px-3 py-1 rounded-xl text-sm font-black shadow-lg shadow-red-500/20">
+                                                        {allFilteredUnpaid.length}
+                                                    </span>
+                                                </h2>
+                                                <p className="text-[11px] font-black text-[#8c8279] uppercase tracking-[0.2em] opacity-60">Suivi des reliquats et dépenses</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-4">
+                                            <div className="flex items-center gap-3 bg-[#fff1f1] px-5 py-3 rounded-[1.25rem] border border-red-100/50 shrink-0">
+                                                <span className="text-[11px] font-black uppercase text-[#ef4444] tracking-widest">Total:</span>
+                                                <div className="flex items-baseline gap-1">
+                                                    <span className="text-2xl font-black text-[#ef4444] tracking-tighter">
+                                                        {maskAmount(allFilteredUnpaid.reduce((sum: number, inv: any) => sum + parseFloat(inv.amount || 0), 0)).replace(',', '.')}
+                                                    </span>
+                                                    <span className="text-[11px] font-black text-[#ef4444]">DT</span>
                                                 </div>
-                                                Factures Non Payées
-                                                <span className="bg-red-50 text-red-600 px-2 py-0.5 rounded-full text-xs border border-red-100">
-                                                    {unpaidData?.getInvoices?.filter((inv: any) => inv.status !== 'paid').length || 0}
-                                                </span>
-                                            </h2>
+                                            </div>
+
+                                            <button
+                                                onClick={() => setShowUnpaidModal(false)}
+                                                className="w-14 h-14 rounded-[1.25rem] bg-[#fcfaf8] hover:bg-red-50 text-[#8c8279] hover:text-[#ef4444] transition-all flex items-center justify-center border-2 border-[#f0e6dd] shadow-sm active:scale-90"
+                                            >
+                                                <X size={24} strokeWidth={3} />
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex flex-col lg:flex-row items-center gap-6">
+                                        {/* Category Filter Pills */}
+                                        <div className="flex items-center bg-[#fcfaf8] border-2 border-[#f0e6dd] p-1.5 rounded-full shadow-sm shrink-0">
+                                            {[
+                                                { id: 'Tous', label: 'Tous', icon: LayoutGrid },
+                                                { id: 'Fournisseur', label: 'Fournisseur', icon: Package },
+                                                { id: 'Divers', label: 'Divers', icon: Banknote }
+                                            ].map((cat) => (
+                                                <button
+                                                    key={cat.id}
+                                                    onClick={() => setUnpaidCategoryFilter(cat.id as any)}
+                                                    className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${unpaidCategoryFilter === cat.id
+                                                        ? 'bg-[#4a3426] text-white shadow-md'
+                                                        : 'text-[#8c8279] hover:bg-white hover:text-[#4a3426]'
+                                                        }`}
+                                                >
+                                                    <cat.icon size={14} strokeWidth={2.5} />
+                                                    {cat.label}
+                                                </button>
+                                            ))}
                                         </div>
 
-                                        <div className="h-8 w-[1px] bg-[#e6dace] hidden md:block"></div>
-
-                                        <div className="flex items-center gap-2 whitespace-nowrap bg-red-50 px-3 py-1.5 rounded-lg border border-red-100 shrink-0">
-                                            <span className="text-[10px] font-bold uppercase text-red-400">Total:</span>
-                                            <span className="text-sm font-black text-red-600">
-                                                {maskAmount(unpaidData?.getInvoices?.filter((inv: any) => inv.status !== 'paid')
-                                                    .reduce((sum: number, inv: any) => sum + parseFloat(inv.amount || 0), 0) || 0)}
-                                            </span>
-                                            <span className="text-[10px] font-bold text-red-400">DT</span>
+                                        {/* Search Filter - Centered */}
+                                        <div className="flex-1 max-w-xl relative group">
+                                            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-[#8c8279] group-focus-within:text-red-400 transition-colors" size={18} />
+                                            <input
+                                                type="text"
+                                                placeholder="Rechercher par fournisseur..."
+                                                value={unpaidSearchFilter}
+                                                onChange={(e) => setUnpaidSearchFilter(e.target.value)}
+                                                className="w-full h-14 pl-14 pr-5 bg-[#fcfaf8] border-2 border-[#f0e6dd] rounded-[1.25rem] text-sm font-bold text-[#4a3426] placeholder:text-[#8c8279]/30 focus:border-red-200 focus:bg-white outline-none transition-all shadow-sm"
+                                            />
                                         </div>
 
-                                        <div className="flex-1 flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
-                                            <div className="relative min-w-[200px] flex-1">
-                                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8c8279]" size={14} />
-                                                <input
-                                                    type="text"
-                                                    placeholder="Rechercher..."
-                                                    value={unpaidSearchFilter}
-                                                    onChange={(e) => setUnpaidSearchFilter(e.target.value)}
-                                                    className="w-full h-9 pl-9 pr-3 bg-[#fcfaf8] border border-[#e6dace] rounded-lg text-xs font-bold text-[#4a3426] placeholder:text-[#8c8279]/50 focus:border-red-300 focus:ring-1 focus:ring-red-100 outline-none transition-all"
+                                        {/* Date Filters - Right side */}
+                                        <div className="flex items-center gap-3 shrink-0 bg-[#fcfaf8] p-2 rounded-[1.25rem] border-2 border-[#f0e6dd]">
+                                            <div className="w-40">
+                                                <PremiumDatePicker
+                                                    label="Début"
+                                                    value={unpaidDateRange.start}
+                                                    onChange={(val) => setUnpaidDateRange(prev => ({ ...prev, start: val }))}
                                                 />
                                             </div>
-
-                                            <div className="flex items-center gap-2 shrink-0">
-                                                <div className="w-32">
-                                                    <PremiumDatePicker
-                                                        label="Début"
-                                                        value={unpaidDateRange.start}
-                                                        onChange={(val) => setUnpaidDateRange(prev => ({ ...prev, start: val }))}
-                                                    />
-                                                </div>
-                                                <span className="text-[#c69f6e] font-black text-xs opacity-30">→</span>
-                                                <div className="w-32">
-                                                    <PremiumDatePicker
-                                                        label="Fin"
-                                                        value={unpaidDateRange.end}
-                                                        onChange={(val) => setUnpaidDateRange(prev => ({ ...prev, end: val }))}
-                                                        align="right"
-                                                    />
-                                                </div>
-                                                {(unpaidDateRange.start || unpaidDateRange.end) && (
-                                                    <button
-                                                        onClick={() => setUnpaidDateRange({ start: '', end: '' })}
-                                                        className="h-9 px-3 bg-red-50 text-red-600 rounded-lg text-[10px] font-bold hover:bg-red-100 transition-all"
-                                                    >
-                                                        RàZ
-                                                    </button>
-                                                )}
+                                            <span className="text-[#c69f6e] font-black text-sm opacity-20">→</span>
+                                            <div className="w-40">
+                                                <PremiumDatePicker
+                                                    label="Fin"
+                                                    value={unpaidDateRange.end}
+                                                    onChange={(val) => setUnpaidDateRange(prev => ({ ...prev, end: val }))}
+                                                    align="right"
+                                                />
                                             </div>
                                         </div>
-
-                                        <button onClick={() => setShowUnpaidModal(false)} className="w-8 h-8 rounded-full hover:bg-[#fcfaf8] flex items-center justify-center text-[#8c8279] transition-colors shrink-0">
-                                            <ChevronRight size={20} className="rotate-90" />
-                                        </button>
                                     </div>
                                 </div>
 
                                 <div className="flex-1 overflow-y-auto p-6 md:p-8 custom-scrollbar">
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                        {unpaidData?.getInvoices
-                                            ?.filter((inv: any) => inv.status !== 'paid')
-                                            .filter((inv: any) => {
-                                                // Filter by supplier name
-                                                if (unpaidSearchFilter) {
-                                                    const searchLower = unpaidSearchFilter.toLowerCase();
-                                                    const supplierMatch = inv.supplier_name?.toLowerCase().includes(searchLower);
-                                                    if (!supplierMatch) return false;
-                                                }
+                                        {allFilteredUnpaid.map((inv: any) => (
+                                            <motion.div
+                                                key={inv.id}
+                                                layout
+                                                initial={{ opacity: 0, scale: 0.95 }}
+                                                animate={{ opacity: 1, scale: 1 }}
+                                                className="bg-[#fff3f3] rounded-[3rem] border-4 border-white overflow-hidden shadow-2xl shadow-red-500/5 hover:shadow-red-500/15 transition-all p-8 flex flex-col gap-6 relative group"
+                                            >
+                                                {/* Top Badges */}
+                                                <div className="flex flex-wrap gap-2.5">
+                                                    <span className="px-5 py-2 bg-[#ef4444] text-white rounded-[1rem] text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-red-500/30">
+                                                        <Clock size={14} strokeWidth={3} /> Non Payé
+                                                    </span>
+                                                    <span className="px-5 py-2 bg-white text-[#ef4444] border-2 border-red-50 rounded-[1rem] text-[10px] font-black uppercase tracking-widest shadow-sm">
+                                                        {inv.doc_type || 'Facture'}
+                                                    </span>
+                                                    <span className="px-5 py-2 bg-[#eef2ff] text-[#4f46e5] border-2 border-[#e0e7ff] rounded-[1rem] text-[10px] font-black uppercase tracking-widest shadow-sm">
+                                                        {inv.category || 'Fournisseur'}
+                                                    </span>
+                                                </div>
 
-                                                // Filter by date range
-                                                if (unpaidDateRange.start || unpaidDateRange.end) {
-                                                    const invDate = new Date(inv.date);
-                                                    if (unpaidDateRange.start) {
-                                                        const startDate = new Date(unpaidDateRange.start);
-                                                        if (invDate < startDate) return false;
-                                                    }
-                                                    if (unpaidDateRange.end) {
-                                                        const endDate = new Date(unpaidDateRange.end);
-                                                        if (invDate > endDate) return false;
-                                                    }
-                                                }
-
-                                                return true;
-                                            })
-                                            .sort((a: any, b: any) => {
-                                                const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
-                                                if (dateDiff !== 0) return dateDiff;
-                                                return parseInt(b.id) - parseInt(a.id);
-                                            })
-                                            .map((inv: any) => (
-                                                <motion.div
-                                                    key={inv.id}
-                                                    layout
-                                                    initial={{ opacity: 0, scale: 0.9 }}
-                                                    animate={{ opacity: 1, scale: 1 }}
-                                                    className="bg-red-50 rounded-[2rem] border-2 border-red-200 overflow-hidden group hover:shadow-xl hover:shadow-red-500/10 transition-all flex flex-col"
-                                                >
-                                                    <div className="p-5 flex justify-between items-start border-b border-red-100/50 bg-red-100/30">
-                                                        <div>
-                                                            <span className="px-3 py-1 bg-red-500 text-white rounded-full text-[10px] font-black uppercase flex items-center gap-1 w-fit mb-2">
-                                                                <Clock size={12} /> Impayé
+                                                {/* Main Row: Supplier & Amount */}
+                                                <div className="flex justify-between items-end gap-4">
+                                                    <h3 className="font-black text-3xl text-[#4a3426] tracking-tighter leading-none" title={inv.supplier_name}>
+                                                        {inv.supplier_name}
+                                                    </h3>
+                                                    <div className="text-right">
+                                                        <div className="flex items-baseline justify-end gap-1.5">
+                                                            <span className="text-4xl font-black text-[#ef4444] tracking-tighter leading-none">
+                                                                {maskAmount(inv.amount).replace(',', '.')}
                                                             </span>
-                                                            <h3 className="font-black text-lg text-[#4a3426] tracking-tight leading-tight line-clamp-1" title={inv.supplier_name}>{inv.supplier_name}</h3>
-                                                            <p className="text-[10px] font-bold text-red-400 uppercase tracking-wider mt-1">Reçu le {new Date(inv.date).toLocaleDateString('fr-FR')}</p>
-                                                        </div>
-                                                        <div className="text-right">
-                                                            <div className="text-xl font-black text-red-600 leading-none">{parseFloat(inv.amount).toFixed(3)}</div>
-                                                            <div className="text-[10px] font-bold text-red-400">TND</div>
+                                                            <span className="text-xs font-black text-[#ef4444] uppercase tracking-tighter">DT</span>
                                                         </div>
                                                     </div>
+                                                </div>
 
-                                                    <div className="p-4 bg-white flex-1">
-                                                        <div className="flex items-center justify-between mb-4">
-                                                            <div className="flex items-center gap-2">
-                                                                {inv.photo_url ? (
-                                                                    <button onClick={() => setViewingUnpaidPhoto(inv)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 text-red-600 text-[10px] font-black uppercase hover:bg-red-100 transition-colors">
-                                                                        <Eye size={12} /> Voir
-                                                                    </button>
-                                                                ) : (
-                                                                    <span className="text-[10px] font-bold text-gray-300 italic px-2">Sans photo</span>
-                                                                )}
-                                                            </div>
-                                                            <span className="text-[10px] font-bold text-[#8c8279] bg-[#f9f6f2] px-2 py-1 rounded-md border border-[#e6dace] uppercase">
-                                                                {inv.doc_type || 'Facture'} N°{inv.doc_number || '-'}
-                                                            </span>
-                                                        </div>
+                                                {/* Date Highlight Box */}
+                                                <div className="inline-flex items-center gap-3 px-5 py-3 bg-white border-2 border-red-50 rounded-[1.25rem] self-start shadow-sm">
+                                                    <Calendar size={16} className="text-[#ef4444]" strokeWidth={2.5} />
+                                                    <span className="text-[11px] font-black text-[#ef4444] uppercase tracking-[0.15em]">
+                                                        Reçu le: <span className="text-[#4a3426] ml-1.5">{new Date(inv.date).toLocaleDateString('fr-FR')}</span>
+                                                    </span>
+                                                </div>
 
-                                                        <div className="flex gap-2 mt-auto">
-                                                            <button
-                                                                onClick={() => setShowPayModal(inv)}
-                                                                className="flex-1 h-10 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold uppercase text-[10px] tracking-wider shadow-lg shadow-red-500/20 flex items-center justify-center gap-2 transition-all active:scale-95"
-                                                            >
-                                                                <CheckCircle2 size={14} /> Régler
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleDelete(inv)}
-                                                                className="w-10 h-10 border border-red-200 rounded-xl flex items-center justify-center text-red-400 hover:bg-red-50 hover:text-red-600 transition-all active:scale-95"
-                                                            >
-                                                                <Trash2 size={16} />
-                                                            </button>
-                                                        </div>
+                                                {/* Photo/Doc Link */}
+                                                <div className="flex items-center gap-3 min-h-[1.5rem] px-2">
+                                                    {inv.photo_url ? (
+                                                        <button
+                                                            onClick={() => setViewingUnpaidPhoto(inv)}
+                                                            className="flex items-center gap-2.5 text-[10px] font-black text-[#ef4444] hover:text-[#dc2626] transition-all uppercase tracking-[0.2em] group/doc"
+                                                        >
+                                                            <Eye size={16} className="group-hover/doc:scale-110 transition-transform" />
+                                                            Voir le document
+                                                        </button>
+                                                    ) : (
+                                                        <span className="text-[10px] font-bold text-[#8c8279]/30 italic uppercase tracking-widest flex items-center gap-2">
+                                                            <div className="w-1 h-1 bg-[#8c8279]/30 rounded-full" /> Sans photo jointe
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                {/* Footer Actions */}
+                                                <div className="flex gap-4 mt-auto pt-4 items-center">
+                                                    <button
+                                                        onClick={() => setShowPayModal(inv)}
+                                                        className="flex-1 h-16 bg-[#ef4444] hover:bg-[#dc2626] text-white rounded-[1.5rem] font-black uppercase text-sm tracking-[0.15em] shadow-xl shadow-red-500/40 flex items-center justify-center gap-3 transition-all active:scale-[0.98] group/pay"
+                                                    >
+                                                        <CheckCircle2 size={20} strokeWidth={3} className="group-hover/pay:scale-110 transition-transform" />
+                                                        À Payer
+                                                    </button>
+
+                                                    <div className="flex gap-2.5">
+                                                        <button
+                                                            onClick={() => handleEditInvoice(inv)}
+                                                            className="w-14 h-14 bg-white border-2 border-[#f0e6dd] rounded-[1.25rem] flex items-center justify-center text-[#8c8279] hover:bg-[#fcfaf8] hover:text-[#4a3426] hover:border-[#4a3426] transition-all shadow-md active:scale-90 group/edit"
+                                                            title="Modifier"
+                                                        >
+                                                            <Edit2 size={22} strokeWidth={2.5} className="group-hover/edit:rotate-12 transition-transform" />
+                                                        </button>
+
+                                                        <button
+                                                            onClick={() => handleDelete(inv)}
+                                                            className="w-14 h-14 bg-white border-2 border-red-50 rounded-[1.25rem] flex items-center justify-center text-[#ef4444]/60 hover:bg-[#ef4444] hover:text-white hover:border-[#ef4444] transition-all shadow-md active:scale-90 group/del"
+                                                            title="Supprimer"
+                                                        >
+                                                            <Trash2 size={22} strokeWidth={2.5} className="group-hover/del:scale-110 transition-transform" />
+                                                        </button>
                                                     </div>
-                                                </motion.div>
-                                            ))}
+                                                </div>
+                                            </motion.div>
+                                        ))}
                                     </div>
-                                    {(() => {
-                                        const unpaidInvoices = unpaidData?.getInvoices?.filter((inv: any) => inv.status !== 'paid') || [];
-                                        const filteredInvoices = unpaidInvoices.filter((inv: any) => {
-                                            // Filter by supplier name
-                                            if (unpaidSearchFilter) {
-                                                const searchLower = unpaidSearchFilter.toLowerCase();
-                                                const supplierMatch = inv.supplier_name?.toLowerCase().includes(searchLower);
-                                                if (!supplierMatch) return false;
-                                            }
-
-                                            // Filter by date range
-                                            if (unpaidDateRange.start || unpaidDateRange.end) {
-                                                const invDate = new Date(inv.date);
-                                                if (unpaidDateRange.start) {
-                                                    const startDate = new Date(unpaidDateRange.start);
-                                                    if (invDate < startDate) return false;
-                                                }
-                                                if (unpaidDateRange.end) {
-                                                    const endDate = new Date(unpaidDateRange.end);
-                                                    if (invDate > endDate) return false;
-                                                }
-                                            }
-
-                                            return true;
-                                        });
-
-                                        if (unpaidInvoices.length === 0) {
-                                            return (
-                                                <div className="flex flex-col items-center justify-center h-64 text-[#8c8279] opacity-50 space-y-4">
+                                    {allFilteredUnpaid.length === 0 && (
+                                        <div className="flex flex-col items-center justify-center h-64 text-[#8c8279] opacity-50 space-y-4">
+                                            {unpaidSearchFilter || unpaidDateRange.start || unpaidDateRange.end || unpaidCategoryFilter !== 'Tous' ? (
+                                                <>
+                                                    <Search size={48} />
+                                                    <p className="font-bold italic">Aucun résultat trouvé pour ces filtres</p>
+                                                </>
+                                            ) : (
+                                                <>
                                                     <CheckCircle2 size={48} />
                                                     <p className="font-bold italic">Aucune facture impayée</p>
-                                                </div>
-                                            );
-                                        }
-
-                                        if (filteredInvoices.length === 0) {
-                                            return (
-                                                <div className="flex flex-col items-center justify-center h-64 text-[#8c8279] opacity-50 space-y-4">
-                                                    <Search size={48} />
-                                                    <p className="font-bold italic">Aucun résultat trouvé</p>
-                                                    <p className="text-xs">Essayez d'ajuster vos filtres</p>
-                                                </div>
-                                            );
-                                        }
-
-                                        return null;
-                                    })()}
+                                                </>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             </motion.div>
                         </motion.div>
