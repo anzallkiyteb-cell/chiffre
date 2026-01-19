@@ -9,7 +9,7 @@ import {
     ArrowUpRight, Download, Filter, User, FileText,
     TrendingUp, Receipt, Wallet, UploadCloud, Coins, Banknote,
     ChevronLeft, ChevronRight, ChevronDown, Image as ImageIcon, Ticket,
-    Clock, CheckCircle2, Eye, Edit2, Trash2, X, Layout, Plus,
+    Clock, CheckCircle2, Eye, EyeOff, Edit2, Trash2, X, Layout, Plus,
     Truck, Sparkles, Calculator, Zap, Award, ZoomIn, ZoomOut, RotateCw, Maximize2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -436,6 +436,13 @@ export default function PaiementsPage() {
     const [selectedEmployeeDetails, setSelectedEmployeeDetails] = useState<{ name: string, category: string, subtitle: string, total: number, items: any[] } | null>(null);
     const [activeSegment, setActiveSegment] = useState<any>(null);
     const [activeCAProfitSegment, setActiveCAProfitSegment] = useState<'expenses' | 'reste' | null>(null);
+    const [hideAmounts, setHideAmounts] = useState(false);
+
+    const maskAmount = (val: number | string, decimals = 3) => {
+        if (hideAmounts) return '****';
+        const num = typeof val === 'string' ? parseFloat(val) : val;
+        return num.toLocaleString('fr-FR', { minimumFractionDigits: decimals }).replace(/\s/g, ',');
+    };
 
     const { data: historyData, refetch: refetchHistory } = useQuery(GET_INVOICES, {
         variables: { payer: 'riadh', startDate: '', endDate: '' },
@@ -1048,9 +1055,18 @@ export default function PaiementsPage() {
 
             <div className="flex-1 min-w-0 pb-24 lg:pb-0">
                 <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-[#e6dace] py-6 px-4 md:px-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    <div>
-                        <h1 className="text-xl md:text-2xl font-black text-[#4a3426] tracking-tight">Finances & Trésorerie</h1>
-                        <p className="text-[10px] md:text-xs text-[#8c8279] font-bold uppercase tracking-widest mt-1">Vision Globale & Flux Bancaires</p>
+                    <div className="flex items-center gap-6">
+                        <div>
+                            <h1 className="text-xl md:text-2xl font-black text-[#4a3426] tracking-tight">Finances & Trésorerie</h1>
+                            <p className="text-[10px] md:text-xs text-[#8c8279] font-bold uppercase tracking-widest mt-1">Vision Globale & Flux Bancaires</p>
+                        </div>
+                        <button
+                            onClick={() => setHideAmounts(!hideAmounts)}
+                            className="w-10 h-10 bg-white rounded-xl border border-[#e6dace] shadow-sm flex items-center justify-center text-[#8c8279] hover:text-[#c69f6e] hover:border-[#c69f6e] transition-all"
+                            title={hideAmounts ? "Afficher les montants" : "Masquer les montants"}
+                        >
+                            {hideAmounts ? <Eye size={20} /> : <EyeOff size={20} />}
+                        </button>
                     </div>
 
                     <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto">
@@ -1188,7 +1204,7 @@ export default function PaiementsPage() {
                                         <FileText size={18} /> Chiffre d'Affaire
                                     </div>
                                     <h3 className="text-7xl font-black tracking-tighter mb-2">
-                                        {computedStats.chiffreAffaire.toLocaleString('fr-FR', { minimumFractionDigits: 3 }).replace(/\s/g, ',')}
+                                        {maskAmount(computedStats.chiffreAffaire)}
                                     </h3>
                                     <span className="text-xl font-bold opacity-80 block uppercase tracking-widest">DT</span>
                                 </div>
@@ -1262,6 +1278,7 @@ export default function PaiementsPage() {
                                             </span>
                                             <span className="text-xl font-black">
                                                 {(() => {
+                                                    if (hideAmounts) return '***';
                                                     const total = computedStats.chiffreAffaire || 1;
                                                     if (activeCAProfitSegment === 'expenses') return Math.round((computedStats.expenses / total) * 100) + '%';
                                                     return Math.round((computedStats.reste / total) * 100) + '%';
@@ -1279,7 +1296,7 @@ export default function PaiementsPage() {
                                         >
                                             <div className="w-2.5 h-2.5 rounded-full bg-[#ef4444] shadow-[0_0_10px_rgba(239,68,68,0.3)]" />
                                             <span className={`text-[10px] font-black uppercase tracking-widest ${activeCAProfitSegment === 'expenses' ? 'text-[#ef4444]' : 'text-white'}`}>
-                                                Dépenses: {computedStats.chiffreAffaire > 0 ? Math.round((computedStats.expenses / computedStats.chiffreAffaire) * 100) : 0}%
+                                                Dépenses: {hideAmounts ? '***' : (computedStats.chiffreAffaire > 0 ? Math.round((computedStats.expenses / computedStats.chiffreAffaire) * 100) : 0) + '%'}
                                             </span>
                                         </button>
                                         <button
@@ -1291,7 +1308,7 @@ export default function PaiementsPage() {
                                         >
                                             <div className="w-2.5 h-2.5 rounded-full bg-[#0154A2] shadow-[0_0_10px_rgba(1,84,162,0.3)]" />
                                             <span className={`text-[10px] font-black uppercase tracking-widest ${activeCAProfitSegment === 'reste' ? 'text-[#0154A2]' : 'text-white'}`}>
-                                                Reste: {computedStats.chiffreAffaire > 0 ? Math.round((computedStats.reste / computedStats.chiffreAffaire) * 100) : 0}%
+                                                Reste: {hideAmounts ? '***' : (computedStats.chiffreAffaire > 0 ? Math.round((computedStats.reste / computedStats.chiffreAffaire) * 100) : 0) + '%'}
                                             </span>
                                         </button>
                                     </div>
@@ -1313,7 +1330,7 @@ export default function PaiementsPage() {
                                     <Banknote size={18} /> Total Dépenses
                                 </div>
                                 <h3 className="text-7xl font-black tracking-tighter mb-2">
-                                    {computedStats.expenses.toLocaleString('fr-FR', { minimumFractionDigits: 3 }).replace(/\s/g, ',')}
+                                    {maskAmount(computedStats.expenses)}
                                 </h3>
                                 <span className="text-xl font-bold opacity-80 block uppercase tracking-widest">DT</span>
                             </div>
@@ -1332,7 +1349,7 @@ export default function PaiementsPage() {
                                     <TrendingUp size={18} /> Reste
                                 </div>
                                 <h3 className="text-7xl font-black tracking-tighter mb-2">
-                                    {computedStats.reste.toLocaleString('fr-FR', { minimumFractionDigits: 3 }).replace(/\s/g, ',')}
+                                    {maskAmount(computedStats.reste)}
                                 </h3>
                                 <span className="text-xl font-bold opacity-80 block uppercase tracking-widest">DT</span>
                             </div>
@@ -1353,7 +1370,7 @@ export default function PaiementsPage() {
                                 <div className="flex items-center gap-2 text-white/90 mb-2 uppercase text-[10px] font-bold tracking-widest">
                                     <Coins size={14} /> Total Cash
                                 </div>
-                                <h3 className="text-4xl font-black tracking-tighter">{computedStats.cash.toLocaleString('fr-FR', { minimumFractionDigits: 3 }).replace(/\s/g, ',')}</h3>
+                                <h3 className="text-4xl font-black tracking-tighter">{maskAmount(computedStats.cash)}</h3>
                                 <span className="text-sm font-bold opacity-70">DT</span>
                             </div>
                             <div className="absolute right-4 bottom-2 opacity-10 group-hover:scale-110 transition-transform duration-500 text-white">
@@ -1371,7 +1388,7 @@ export default function PaiementsPage() {
                                     <CreditCard size={14} /> Bancaire (TPE + Vers. + Chèques)
                                 </div>
                                 <h3 className="text-4xl font-black tracking-tighter">
-                                    {(computedStats.tpe + (data?.getPaymentStats?.totalBankDeposits || 0) + computedStats.cheque - computedStats.bankExpenses).toLocaleString('fr-FR', { minimumFractionDigits: 3 }).replace(/\s/g, ',')}
+                                    {maskAmount(computedStats.tpe + (data?.getPaymentStats?.totalBankDeposits || 0) + computedStats.cheque - computedStats.bankExpenses)}
                                 </h3>
                                 <span className="text-sm font-bold opacity-70">DT</span>
                             </div>
@@ -1390,7 +1407,7 @@ export default function PaiementsPage() {
                                     <Ticket size={14} /> Ticket Restaurant
                                 </div>
                                 <h3 className="text-4xl font-black tracking-tighter">
-                                    {(computedStats.tickets).toLocaleString('fr-FR', { minimumFractionDigits: 3 }).replace(/\s/g, ',')}
+                                    {maskAmount(computedStats.tickets)}
                                 </h3>
                                 <span className="text-sm font-bold opacity-70">DT</span>
                             </div>
@@ -1426,9 +1443,8 @@ export default function PaiementsPage() {
                                                     <span className="flex items-baseline gap-1">
                                                         <span className="text-xs">Total Impayé:</span>
                                                         <span className="text-sm font-black">
-                                                            {(unpaidData?.getInvoices?.filter((inv: any) => inv.status !== 'paid')
-                                                                .reduce((sum: number, inv: any) => sum + parseFloat(inv.amount || 0), 0) || 0)
-                                                                .toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                                            {maskAmount(unpaidData?.getInvoices?.filter((inv: any) => inv.status !== 'paid')
+                                                                .reduce((sum: number, inv: any) => sum + parseFloat(inv.amount || 0), 0) || 0)}
                                                         </span>
                                                         <span className="text-[9px]">DT</span>
                                                     </span>
@@ -1725,7 +1741,7 @@ export default function PaiementsPage() {
                                                 <div key={d.id} className="flex justify-between items-center p-4 bg-[#fcfaf8] rounded-2xl border border-transparent hover:border-[#e6dace] transition-all group">
                                                     <div>
                                                         <p className={`text-sm font-black text-[15px] ${parseFloat(d.amount) < 0 ? 'text-red-500' : 'text-[#4a3426]'}`}>
-                                                            {parseFloat(d.amount) < 0 ? 'Retrait' : 'Versement'} : {Math.abs(parseFloat(d.amount)).toFixed(3)} DT
+                                                            {parseFloat(d.amount) < 0 ? 'Retrait' : 'Versement'} : {maskAmount(Math.abs(parseFloat(d.amount)))} DT
                                                         </p>
                                                         <p className="text-[10px] font-bold text-[#8c8279] uppercase tracking-tighter">{new Date(d.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}</p>
                                                     </div>
@@ -1872,7 +1888,7 @@ export default function PaiementsPage() {
                                                     <div key={g.id} className="flex items-center justify-between p-4 bg-white rounded-2xl border border-red-100 shadow-sm group hover:border-red-200 transition-colors">
                                                         <div className="flex flex-col items-start">
                                                             <div className="flex items-baseline gap-1">
-                                                                <span className="font-black text-xl text-[#4a3426]">{g.amount}</span>
+                                                                <span className="font-black text-xl text-[#4a3426]">{maskAmount(g.amount)}</span>
                                                                 <span className="text-[10px] font-bold text-[#c69f6e] uppercase">DT</span>
                                                             </div>
                                                             {g.updated_at && (
@@ -2156,9 +2172,8 @@ export default function PaiementsPage() {
                                         <div className="flex items-center gap-2 whitespace-nowrap bg-red-50 px-3 py-1.5 rounded-lg border border-red-100 shrink-0">
                                             <span className="text-[10px] font-bold uppercase text-red-400">Total:</span>
                                             <span className="text-sm font-black text-red-600">
-                                                {(unpaidData?.getInvoices?.filter((inv: any) => inv.status !== 'paid')
-                                                    .reduce((sum: number, inv: any) => sum + parseFloat(inv.amount || 0), 0) || 0)
-                                                    .toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                                {maskAmount(unpaidData?.getInvoices?.filter((inv: any) => inv.status !== 'paid')
+                                                    .reduce((sum: number, inv: any) => sum + parseFloat(inv.amount || 0), 0) || 0)}
                                             </span>
                                             <span className="text-[10px] font-bold text-red-400">DT</span>
                                         </div>
@@ -2572,7 +2587,7 @@ export default function PaiementsPage() {
                                                                     </div>
                                                                     <div className="flex-1 flex flex-col justify-center">
                                                                         <div className="font-black text-[#4a3426] text-2xl tabular-nums leading-none tracking-tighter">
-                                                                            {parseFloat(inv.amount).toFixed(3)}
+                                                                            {maskAmount(inv.amount)}
                                                                             <span className="text-[10px] text-[#c69f6e] ml-1 uppercase">dt</span>
                                                                         </div>
                                                                     </div>
@@ -2711,7 +2726,7 @@ export default function PaiementsPage() {
                                                 </div>
                                                 <div className="flex items-baseline gap-1">
                                                     <h3 className="text-2xl font-black tracking-tighter">
-                                                        {computedStats.chiffreAffaire.toLocaleString('fr-FR', { minimumFractionDigits: 0 }).replace(/\s/g, ' ')}
+                                                        {maskAmount(computedStats.chiffreAffaire, 0)}
                                                     </h3>
                                                     <span className="text-[10px] font-bold opacity-80 uppercase">DT</span>
                                                 </div>
@@ -2727,7 +2742,7 @@ export default function PaiementsPage() {
                                                 </div>
                                                 <div className="flex items-baseline gap-1">
                                                     <h3 className="text-2xl font-black tracking-tighter">
-                                                        {totals.global.toLocaleString('fr-FR', { minimumFractionDigits: 0 }).replace(/\s/g, ' ')}
+                                                        {maskAmount(totals.global, 0)}
                                                     </h3>
                                                     <span className="text-[10px] font-bold opacity-80 uppercase">DT</span>
                                                 </div>
@@ -2743,7 +2758,7 @@ export default function PaiementsPage() {
                                                 </div>
                                                 <div className="flex items-baseline gap-1">
                                                     <h3 className="text-2xl font-black tracking-tighter">
-                                                        {computedStats.reste.toLocaleString('fr-FR', { minimumFractionDigits: 0 }).replace(/\s/g, ' ')}
+                                                        {maskAmount(computedStats.reste, 0)}
                                                     </h3>
                                                     <span className="text-[10px] font-bold opacity-80 uppercase">DT</span>
                                                 </div>
@@ -2792,13 +2807,13 @@ export default function PaiementsPage() {
                                                 {activeSegment ? (
                                                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.1 }}>
                                                         <span className="text-4xl font-black text-[#4a3426] leading-none block mb-1">
-                                                            {Math.round(activeSegment.percentage * 100)}%
+                                                            {hideAmounts ? '***' : Math.round(activeSegment.percentage * 100) + '%'}
                                                         </span>
                                                         <span className="text-[9px] font-black text-[#c69f6e] uppercase tracking-[0.2em] block mb-1">
                                                             {activeSegment.label}
                                                         </span>
-                                                        <span className="text-[11px] font-black text-[#4a3426]/60 block">
-                                                            {activeSegment.value.toLocaleString('fr-FR')} DT
+                                                        <span className="text-11px font-black text-[#4a3426]/60 block">
+                                                            {maskAmount(activeSegment.value)} DT
                                                         </span>
                                                     </motion.div>
                                                 ) : (
@@ -2869,7 +2884,7 @@ export default function PaiementsPage() {
                                                         </div>
                                                         <div className="flex items-center gap-4">
                                                             <div className="text-right">
-                                                                <p className="text-2xl font-black text-[#4a3426] leading-none mb-1">{total.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</p>
+                                                                <p className="text-2xl font-black text-[#4a3426] leading-none mb-1">{maskAmount(total)}</p>
                                                                 <p className="text-[10px] font-black text-[#c69f6e] uppercase tracking-widest opacity-60">DT</p>
                                                             </div>
                                                             {hasItems && (
@@ -2907,7 +2922,7 @@ export default function PaiementsPage() {
                                                                         >
                                                                             <span className="text-[11px] font-black text-[#4a3426] uppercase tracking-tight">{item.name}</span>
                                                                             <div className="flex items-center gap-1.5">
-                                                                                <span className="text-sm font-black text-[#4a3426]">{item.amount.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</span>
+                                                                                <span className="text-sm font-black text-[#4a3426]">{maskAmount(item.amount)}</span>
                                                                                 <span className="text-[9px] font-black text-[#c69f6e]/30 uppercase tracking-widest">DT</span>
                                                                             </div>
                                                                         </button>
@@ -2965,7 +2980,7 @@ export default function PaiementsPage() {
                                     <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] leading-none">Total Mensuel</p>
                                     <div className="flex items-baseline gap-2">
                                         <span className="text-5xl font-black text-white tracking-tighter">
-                                            {selectedEmployeeDetails.total.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                            {maskAmount(selectedEmployeeDetails.total)}
                                         </span>
                                         <span className="text-lg font-black text-[#c69f6e]">DT</span>
                                     </div>
@@ -2999,7 +3014,7 @@ export default function PaiementsPage() {
                                                     </div>
                                                 </div>
                                                 <div className="text-right">
-                                                    <p className="text-2xl font-black text-[#4a3426] leading-none mb-1">{item.amount.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</p>
+                                                    <p className="text-2xl font-black text-[#4a3426] leading-none mb-1">{maskAmount(item.amount)}</p>
                                                     <p className="text-[8px] font-black text-[#c69f6e] uppercase tracking-widest opacity-60">DT</p>
                                                 </div>
                                             </div>
@@ -3083,7 +3098,7 @@ export default function PaiementsPage() {
                                     <div>
                                         <h2 className="text-3xl font-black uppercase tracking-tight">{selectedSupplier}</h2>
                                         <p className="text-sm font-bold opacity-60 uppercase tracking-[0.3em]">
-                                            {viewingData.amount?.toLocaleString('fr-FR', { minimumFractionDigits: 3 })} DT • {viewingData.payment_method || viewingData.paymentMethod}
+                                            {maskAmount(viewingData.amount)} DT • {viewingData.payment_method || viewingData.paymentMethod}
                                         </p>
                                     </div>
                                     <div className="flex items-center gap-4">

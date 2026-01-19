@@ -200,26 +200,6 @@ export default function Sidebar({ role }: SidebarProps) {
                         </div>
                     </div>
 
-                    <nav className="space-y-1.5 mb-8 shrink-0">
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#bba282] px-4 mb-3 opacity-60">Menu</p>
-                        {navItems.map((item) => {
-                            const isActive = pathname === item.href;
-                            return (
-                                <Link
-                                    key={item.name}
-                                    href={item.href}
-                                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all ${isActive ? 'bg-[#4a3426] text-white shadow-xl shadow-[#4a3426]/20' : 'text-[#8c8279] hover:bg-[#fcfaf8] hover:text-[#4a3426]'}`}
-                                >
-                                    <div className={`shrink-0 ${isActive ? 'scale-110' : ''}`}>
-                                        <item.icon size={18} strokeWidth={isActive ? 2.5 : 2} />
-                                    </div>
-                                    <span className={`text-xs tracking-tight ${isActive ? 'font-black' : 'font-bold'}`}>{item.name}</span>
-                                    {isActive && <ChevronRight size={14} className="ml-auto opacity-50" />}
-                                </Link>
-                            );
-                        })}
-                    </nav>
-
                     {/* Connected Devices Section */}
                     {role === 'admin' && (
                         <div className="mb-8 shrink-0">
@@ -245,6 +225,26 @@ export default function Sidebar({ role }: SidebarProps) {
                             </div>
                         </div>
                     )}
+
+                    <nav className="space-y-1.5 mb-8 shrink-0">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#bba282] px-4 mb-3 opacity-60">Menu</p>
+                        {navItems.map((item) => {
+                            const isActive = pathname === item.href;
+                            return (
+                                <Link
+                                    key={item.name}
+                                    href={item.href}
+                                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all ${isActive ? 'bg-[#4a3426] text-white shadow-xl shadow-[#4a3426]/20' : 'text-[#8c8279] hover:bg-[#fcfaf8] hover:text-[#4a3426]'}`}
+                                >
+                                    <div className={`shrink-0 ${isActive ? 'scale-110' : ''}`}>
+                                        <item.icon size={18} strokeWidth={isActive ? 2.5 : 2} />
+                                    </div>
+                                    <span className={`text-xs tracking-tight ${isActive ? 'font-black' : 'font-bold'}`}>{item.name}</span>
+                                    {isActive && <ChevronRight size={14} className="ml-auto opacity-50" />}
+                                </Link>
+                            );
+                        })}
+                    </nav>
 
                     {/* User Section */}
                     <div className="mt-auto space-y-2">
