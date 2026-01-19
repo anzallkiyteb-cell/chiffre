@@ -8,7 +8,7 @@ import {
     CreditCard, Loader2, Search, Calendar,
     ArrowUpRight, Download, Filter, User, FileText,
     TrendingUp, Receipt, Wallet, UploadCloud, Coins, Banknote,
-    ChevronLeft, ChevronRight, ChevronDown, Image as ImageIcon, Ticket,
+    ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Image as ImageIcon, Ticket,
     Clock, CheckCircle2, Eye, EyeOff, Edit2, Trash2, X, Layout, Plus,
     Truck, Sparkles, Calculator, Zap, Award, ZoomIn, ZoomOut, RotateCw, Maximize2,
     Bookmark, AlertCircle
@@ -430,6 +430,7 @@ export default function PaiementsPage() {
     const [salaryRemainderMonth, setSalaryRemainderMonth] = useState(currentMonthStr);
     const [salaryRemainderMode, setSalaryRemainderMode] = useState<'global' | 'employee'>('employee');
     const [salaryRemainderSearch, setSalaryRemainderSearch] = useState('');
+    const [showAllEmployees, setShowAllEmployees] = useState(false);
     const [editingHistoryItem, setEditingHistoryItem] = useState<any>(null);
     const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
     const [viewingData, setViewingData] = useState<any>(null);
@@ -1562,7 +1563,7 @@ export default function PaiementsPage() {
                                 <div className="flex items-center gap-2 text-white/90 mb-2 uppercase text-[10px] font-bold tracking-widest">
                                     <Coins size={14} /> Total Cash
                                 </div>
-                                <h3 className="text-4xl font-black tracking-tighter">{maskAmount(computedStats.cash)}</h3>
+                                <h3 className="text-4xl font-black tracking-tighter">{maskAmount(computedStats.cash - (showExpForm && expMethod === 'Espèces' ? (parseFloat(expAmount) || 0) : 0))}</h3>
                                 <span className="text-sm font-bold opacity-70">DT</span>
                             </div>
                             <div className="absolute right-4 bottom-2 opacity-10 group-hover:scale-110 transition-transform duration-500 text-white">
@@ -1580,7 +1581,7 @@ export default function PaiementsPage() {
                                     <CreditCard size={14} /> Bancaire (TPE + Vers. + Chèques)
                                 </div>
                                 <h3 className="text-4xl font-black tracking-tighter">
-                                    {maskAmount(computedStats.tpe + (data?.getPaymentStats?.totalBankDeposits || 0) + computedStats.cheque - computedStats.bankExpenses)}
+                                    {maskAmount(computedStats.tpe + (data?.getPaymentStats?.totalBankDeposits || 0) + computedStats.cheque - computedStats.bankExpenses - (showExpForm && ['Chèque', 'TPE (Carte)'].includes(expMethod) ? (parseFloat(expAmount) || 0) : 0))}
                                 </h3>
                                 <span className="text-sm font-bold opacity-70">DT</span>
                             </div>
@@ -1599,7 +1600,7 @@ export default function PaiementsPage() {
                                     <Ticket size={14} /> Ticket Restaurant
                                 </div>
                                 <h3 className="text-4xl font-black tracking-tighter">
-                                    {maskAmount(computedStats.tickets)}
+                                    {maskAmount(computedStats.tickets - (showExpForm && expMethod === 'Ticket Restaurant' ? (parseFloat(expAmount) || 0) : 0))}
                                 </h3>
                                 <span className="text-sm font-bold opacity-70">DT</span>
                             </div>
@@ -1645,7 +1646,7 @@ export default function PaiementsPage() {
                                                 >
                                                     <Clock size={14} className="text-red-500" />
                                                     <span className="flex items-baseline gap-1">
-                                                        <span className="text-xs">Total Impayé:</span>
+                                                        <span className="text-xs">Total non payé:</span>
                                                         <span className="text-sm font-black">
                                                             {maskAmount(unpaidData?.getInvoices?.filter((inv: any) => inv.status !== 'paid')
                                                                 .reduce((sum: number, inv: any) => sum + parseFloat(inv.amount || 0), 0) || 0)}
@@ -1684,6 +1685,60 @@ export default function PaiementsPage() {
                                         </button>
                                     </div>
                                 </div>
+
+                                <AnimatePresence>
+                                    {showExpForm && (expMethod === 'Espèces' || expMethod === 'Ticket Restaurant' || ['Chèque', 'TPE (Carte)'].includes(expMethod)) && (
+                                        <motion.div
+                                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                                            exit={{ opacity: 0, scale: 0.9, y: 10 }}
+                                            className="mb-4"
+                                        >
+                                            {expMethod === 'Espèces' && (
+                                                <div className="bg-[#f59e0b] p-6 rounded-[2rem] shadow-lg relative overflow-hidden text-white h-32 flex flex-col justify-center">
+                                                    <div className="relative z-10">
+                                                        <div className="flex items-center gap-2 text-white/90 mb-2 uppercase text-[10px] font-bold tracking-widest">
+                                                            <Coins size={14} /> Total Cash (Prévision)
+                                                        </div>
+                                                        <h3 className="text-4xl font-black tracking-tighter">
+                                                            {maskAmount(computedStats.cash - (parseFloat(expAmount) || 0))}
+                                                        </h3>
+                                                        <span className="text-sm font-bold opacity-70">DT</span>
+                                                    </div>
+                                                    <div className="absolute right-4 bottom-[-10%] opacity-10 text-white"><Coins size={80} /></div>
+                                                </div>
+                                            )}
+                                            {expMethod === 'Ticket Restaurant' && (
+                                                <div className="bg-[#8b5cf6] p-6 rounded-[2rem] shadow-lg relative overflow-hidden text-white h-32 flex flex-col justify-center">
+                                                    <div className="relative z-10">
+                                                        <div className="flex items-center gap-2 text-white/90 mb-2 uppercase text-[10px] font-bold tracking-widest">
+                                                            <Ticket size={14} /> Ticket Restaurant (Prévision)
+                                                        </div>
+                                                        <h3 className="text-4xl font-black tracking-tighter">
+                                                            {maskAmount(computedStats.tickets - (parseFloat(expAmount) || 0))}
+                                                        </h3>
+                                                        <span className="text-sm font-bold opacity-70">DT</span>
+                                                    </div>
+                                                    <div className="absolute right-4 bottom-[-10%] opacity-10 text-white"><Ticket size={80} /></div>
+                                                </div>
+                                            )}
+                                            {['Chèque', 'TPE (Carte)'].includes(expMethod) && (
+                                                <div className="bg-[#3b82f6] p-6 rounded-[2rem] shadow-lg relative overflow-hidden text-white h-32 flex flex-col justify-center">
+                                                    <div className="relative z-10">
+                                                        <div className="flex items-center gap-2 text-white/90 mb-2 uppercase text-[10px] font-bold tracking-widest">
+                                                            <CreditCard size={14} /> Bancaire (Prévision)
+                                                        </div>
+                                                        <h3 className="text-4xl font-black tracking-tighter">
+                                                            {maskAmount((computedStats.tpe + (data?.getPaymentStats?.totalBankDeposits || 0) + computedStats.cheque - computedStats.bankExpenses) - (parseFloat(expAmount) || 0))}
+                                                        </h3>
+                                                        <span className="text-sm font-bold opacity-70">DT</span>
+                                                    </div>
+                                                    <div className="absolute right-4 bottom-[-10%] opacity-10 text-white"><CreditCard size={80} /></div>
+                                                </div>
+                                            )}
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
 
                                 <AnimatePresence>
                                     {showExpForm && (
@@ -1729,7 +1784,7 @@ export default function PaiementsPage() {
                                                                 }}
                                                                 onFocus={() => setShowExpSuggestions(true)}
                                                                 className="w-full h-11 bg-white border border-red-100 rounded-xl px-4 font-bold text-sm outline-none focus:border-red-400"
-                                                                placeholder="Ex: Facture STEG..."
+                                                                placeholder="....."
                                                             />
                                                             <AnimatePresence>
                                                                 {showExpSuggestions && (
@@ -2200,132 +2255,153 @@ export default function PaiementsPage() {
                                 </div>
                             </div>
                         ) : (
-                            <div className="overflow-hidden rounded-3xl border border-[#e6dace]/30 bg-white">
-                                <table className="w-full text-left border-collapse">
-                                    <thead>
-                                        <tr className="bg-[#fcfaf8] border-b border-[#e6dace]/30">
-                                            <th className="px-8 py-5 text-[10px] font-black text-[#8c8279] uppercase tracking-[0.2em]">Employé</th>
-                                            <th className="px-8 py-5 text-[10px] font-black text-[#8c8279] uppercase tracking-[0.2em] text-center">Montant</th>
-                                            <th className="px-8 py-5 text-[10px] font-black text-[#8c8279] uppercase tracking-[0.2em] text-right">Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-[#e6dace]/10">
-                                        {(() => {
-                                            const employees = data?.getEmployees || [];
-                                            const remainders = data?.getSalaryRemainders || [];
-                                            const filtered = employees.filter((emp: any) => emp.name.toLowerCase().includes(salaryRemainderSearch.toLowerCase()));
+                            <div className="space-y-4">
+                                <div className="flex justify-end">
+                                    <button
+                                        onClick={() => setShowAllEmployees(!showAllEmployees)}
+                                        className="px-6 py-2 bg-white border border-[#e6dace] rounded-xl text-[10px] font-black uppercase tracking-widest text-[#8c8279] hover:bg-[#c69f6e] hover:text-white hover:border-[#c69f6e] transition-all shadow-sm flex items-center gap-2"
+                                    >
+                                        {showAllEmployees ? (
+                                            <>
+                                                <ChevronUp size={14} /> Masquer la liste
+                                            </>
+                                        ) : (
+                                            <>
+                                                <ChevronDown size={14} /> Voir la liste
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
 
-                                            if (filtered.length === 0) {
-                                                return (
-                                                    <tr>
-                                                        <td colSpan={3} className="px-8 py-12 text-center text-[#8c8279] italic font-bold opacity-50">Aucun employé trouvé</td>
-                                                    </tr>
-                                                );
-                                            }
+                                {showAllEmployees && (
+                                    <div className="overflow-hidden rounded-3xl border border-[#e6dace]/30 bg-white">
+                                        <table className="w-full text-left border-collapse">
+                                            <thead>
+                                                <tr className="bg-[#fcfaf8] border-b border-[#e6dace]/30">
+                                                    <th className="px-8 py-5 text-[10px] font-black text-[#8c8279] uppercase tracking-[0.2em]">Employé</th>
+                                                    <th className="px-8 py-5 text-[10px] font-black text-[#8c8279] uppercase tracking-[0.2em] text-center">Montant</th>
+                                                    <th className="px-8 py-5 text-[10px] font-black text-[#8c8279] uppercase tracking-[0.2em] text-right">Action</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-[#e6dace]/10">
+                                                {(() => {
+                                                    const employees = data?.getEmployees || [];
+                                                    const remainders = data?.getSalaryRemainders || [];
+                                                    const filtered = employees.filter((emp: any) => emp.name.toLowerCase().includes(salaryRemainderSearch.toLowerCase()));
 
-                                            return filtered.map((emp: any) => {
-                                                const rem = remainders.find((r: any) => r.employee_name === emp.name);
-                                                const initials = emp.name.split(' ').map((n: any) => n[0]).join('').toUpperCase().substring(0, 2);
-                                                return (
-                                                    <tr key={emp.id} className="hover:bg-[#fcfaf8]/50 transition-colors group">
-                                                        <td className="px-8 py-4">
-                                                            <div className="flex items-center gap-4">
-                                                                <div className="w-10 h-10 rounded-full bg-[#f4ece4] flex items-center justify-center text-[10px] font-black text-[#c69f6e] group-hover:scale-110 transition-transform">{initials}</div>
-                                                                <span className="font-black text-[#4a3426] tracking-tight text-sm">{emp.name}</span>
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-8 py-4">
-                                                            <div className="flex items-center justify-center gap-2 relative">
-                                                                <input
-                                                                    id={`salary-input-${emp.id}`}
-                                                                    type="number"
-                                                                    step="0.001"
-                                                                    defaultValue={rem?.amount || 0}
-                                                                    className={`w-32 text-center font-black bg-transparent outline-none border-b transition-colors text-lg ${rem && rem.amount > 0 ? 'text-green-600 border-green-200 focus:border-green-500' : 'text-[#4a3426] border-transparent focus:border-[#c69f6e]'}`}
-                                                                />
-                                                                <span className={`text-[10px] font-black mt-1 ${rem && rem.amount > 0 ? 'text-green-600/60' : 'text-[#4a3426]/40'}`}>DT</span>
-                                                                {rem && rem.amount > 0 && (
-                                                                    <div className="absolute -right-6 top-1/2 -translate-y-1/2 text-green-500">
-                                                                        <CheckCircle2 size={16} />
+                                                    if (filtered.length === 0) {
+                                                        return (
+                                                            <tr>
+                                                                <td colSpan={3} className="px-8 py-12 text-center text-[#8c8279] italic font-bold opacity-50">Aucun employé trouvé</td>
+                                                            </tr>
+                                                        );
+                                                    }
+
+                                                    return filtered.map((emp: any) => {
+                                                        const rem = remainders.find((r: any) => r.employee_name === emp.name);
+                                                        const initials = emp.name.split(' ').map((n: any) => n[0]).join('').toUpperCase().substring(0, 2);
+                                                        return (
+                                                            <tr key={emp.id} className="hover:bg-[#fcfaf8]/50 transition-colors group">
+                                                                <td className="px-8 py-4">
+                                                                    <div className="flex items-center gap-4">
+                                                                        <div className="w-10 h-10 rounded-full bg-[#f4ece4] flex items-center justify-center text-[10px] font-black text-[#c69f6e] group-hover:scale-110 transition-transform">{initials}</div>
+                                                                        <span className="font-black text-[#4a3426] tracking-tight text-sm">{emp.name}</span>
                                                                     </div>
-                                                                )}
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-8 py-4 text-right">
-                                                            <div className="flex items-center justify-end gap-2">
-                                                                <button
-                                                                    id={`save-btn-${emp.id}`}
-                                                                    onClick={async () => {
-                                                                        const input = document.getElementById(`salary-input-${emp.id}`) as HTMLInputElement;
-                                                                        const val = parseFloat(input?.value || '0');
-                                                                        await upsertSalaryRemainder({
-                                                                            variables: {
-                                                                                employee_name: emp.name,
-                                                                                amount: val || 0,
-                                                                                month: salaryRemainderMonth,
-                                                                                status: 'CONFIRMÉ'
-                                                                            }
-                                                                        });
-                                                                        await refetch();
-                                                                        const btn = document.getElementById(`save-btn-${emp.id}`);
-                                                                        if (btn) {
-                                                                            const originalContent = btn.innerHTML;
-                                                                            const originalClasses = btn.className;
+                                                                </td>
+                                                                <td className="px-8 py-4">
+                                                                    <div className="flex items-center justify-center gap-2 relative">
+                                                                        <input
+                                                                            id={`salary-input-${emp.id}`}
+                                                                            type="number"
+                                                                            step="0.001"
+                                                                            defaultValue={rem?.amount || 0}
+                                                                            className={`w-32 text-center font-black bg-transparent outline-none border-b transition-colors text-lg ${rem && rem.amount > 0 ? 'text-green-600 border-green-200 focus:border-green-500' : 'text-[#4a3426] border-transparent focus:border-[#c69f6e]'}`}
+                                                                        />
+                                                                        <span className={`text-[10px] font-black mt-1 ${rem && rem.amount > 0 ? 'text-green-600/60' : 'text-[#4a3426]/40'}`}>DT</span>
+                                                                        {rem && rem.amount > 0 && (
+                                                                            <div className="absolute -right-6 top-1/2 -translate-y-1/2 text-green-500">
+                                                                                <CheckCircle2 size={16} />
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                </td>
+                                                                <td className="px-8 py-4 text-right">
+                                                                    <div className="flex items-center justify-end gap-2">
+                                                                        <button
+                                                                            id={`save-btn-${emp.id}`}
+                                                                            onClick={async () => {
+                                                                                const input = document.getElementById(`salary-input-${emp.id}`) as HTMLInputElement;
+                                                                                const val = parseFloat(input?.value || '0');
+                                                                                await upsertSalaryRemainder({
+                                                                                    variables: {
+                                                                                        employee_name: emp.name,
+                                                                                        amount: val || 0,
+                                                                                        month: salaryRemainderMonth,
+                                                                                        status: 'CONFIRMÉ'
+                                                                                    }
+                                                                                });
+                                                                                await refetch();
+                                                                                const btn = document.getElementById(`save-btn-${emp.id}`);
+                                                                                if (btn) {
+                                                                                    const originalContent = btn.innerHTML;
+                                                                                    const originalClasses = btn.className;
 
-                                                                            btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
-                                                                            btn.className = "w-10 h-10 rounded-xl bg-green-500 text-white flex items-center justify-center shadow-lg shadow-green-500/30 transition-all scale-110";
+                                                                                    btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+                                                                                    btn.className = "w-10 h-10 rounded-xl bg-green-500 text-white flex items-center justify-center shadow-lg shadow-green-500/30 transition-all scale-110";
 
-                                                                            setTimeout(() => {
-                                                                                btn.innerHTML = originalContent;
-                                                                                btn.className = originalClasses;
-                                                                            }, 2000);
-                                                                        }
-                                                                    }}
-                                                                    className={`inline-flex items-center justify-center h-10 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all shadow-sm ${rem && rem.amount > 0
-                                                                        ? 'bg-white text-green-600 border-green-200 hover:bg-green-50 hover:border-green-300'
-                                                                        : 'bg-white text-[#4a3426] border-[#e6dace] hover:bg-[#2d6a4f] hover:text-white hover:border-[#2d6a4f]'}`}
-                                                                >
-                                                                    {rem && rem.amount > 0 ? 'Modifier' : 'Sauvegarder'}
-                                                                </button>
+                                                                                    setTimeout(() => {
+                                                                                        btn.innerHTML = originalContent;
+                                                                                        btn.className = originalClasses;
+                                                                                    }, 2000);
+                                                                                }
+                                                                            }}
+                                                                            className={`inline-flex items-center justify-center h-10 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all shadow-sm ${rem && rem.amount > 0
+                                                                                ? 'bg-white text-green-600 border-green-200 hover:bg-green-50 hover:border-green-300'
+                                                                                : 'bg-white text-[#4a3426] border-[#e6dace] hover:bg-[#2d6a4f] hover:text-white hover:border-[#2d6a4f]'}`}
+                                                                        >
+                                                                            {rem && rem.amount > 0 ? 'Modifier' : 'Sauvegarder'}
+                                                                        </button>
 
-                                                                {rem && rem.amount > 0 && (
-                                                                    <button
-                                                                        onClick={async () => {
-                                                                            Swal.fire({
-                                                                                title: 'Supprimer?',
-                                                                                text: 'Voulez-vous supprimer ce montant?',
-                                                                                icon: 'warning',
-                                                                                showCancelButton: true,
-                                                                                confirmButtonColor: '#ef4444',
-                                                                                cancelButtonColor: '#8c8279',
-                                                                                confirmButtonText: 'Oui'
-                                                                            }).then(async (result) => {
-                                                                                if (result.isConfirmed) {
-                                                                                    await deleteSalaryRemainder({
-                                                                                        variables: {
-                                                                                            id: parseInt(rem.id)
+                                                                        {rem && rem.amount > 0 && (
+                                                                            <button
+                                                                                onClick={async () => {
+                                                                                    Swal.fire({
+                                                                                        title: 'Supprimer?',
+                                                                                        text: 'Voulez-vous supprimer ce montant?',
+                                                                                        icon: 'warning',
+                                                                                        showCancelButton: true,
+                                                                                        confirmButtonColor: '#ef4444',
+                                                                                        cancelButtonColor: '#8c8279',
+                                                                                        confirmButtonText: 'Oui'
+                                                                                    }).then(async (result) => {
+                                                                                        if (result.isConfirmed) {
+                                                                                            await deleteSalaryRemainder({
+                                                                                                variables: {
+                                                                                                    id: parseInt(rem.id)
+                                                                                                }
+                                                                                            });
+                                                                                            await refetch();
+                                                                                            const input = document.getElementById(`salary-input-${emp.id}`) as HTMLInputElement;
+                                                                                            if (input) input.value = "0";
                                                                                         }
                                                                                     });
-                                                                                    await refetch();
-                                                                                    const input = document.getElementById(`salary-input-${emp.id}`) as HTMLInputElement;
-                                                                                    if (input) input.value = "0";
-                                                                                }
-                                                                            });
-                                                                        }}
-                                                                        className="w-10 h-10 rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white border border-red-100 flex items-center justify-center transition-all shadow-sm active:scale-95"
-                                                                        title="Supprimer"
-                                                                    >
-                                                                        <Trash2 size={16} />
-                                                                    </button>
-                                                                )}
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            });
-                                        })()}
-                                    </tbody>
-                                </table>
+                                                                                }}
+                                                                                className="w-10 h-10 rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white border border-red-100 flex items-center justify-center transition-all shadow-sm active:scale-95"
+                                                                                title="Supprimer"
+                                                                            >
+                                                                                <Trash2 size={16} />
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    });
+                                                })()}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
@@ -3049,32 +3125,36 @@ export default function PaiementsPage() {
                                                 onClick={() => setActiveSegment(null)}
                                             >
                                                 <circle cx="50" cy="50" r="38" stroke="#f3f0ec" strokeWidth="6" fill="transparent" style={{ cursor: 'pointer' }} />
-                                                {chartData.map((segment, i) => (
-                                                    <motion.circle
-                                                        key={i}
-                                                        cx="50" cy="50" r="38"
-                                                        stroke={segment.color}
-                                                        strokeWidth={activeSegment?.label === segment.label ? 12 : 8}
-                                                        fill="transparent"
-                                                        strokeDasharray={238.76}
-                                                        initial={{ strokeDashoffset: 238.76 }}
-                                                        animate={{
-                                                            strokeDashoffset: 238.76 * (1 - segment.percentage),
-                                                            scale: activeSegment?.label === segment.label ? 1.05 : 1
-                                                        }}
-                                                        style={{
-                                                            rotate: `${segment.startOffset * 360}deg`,
-                                                            transformOrigin: 'center',
-                                                            cursor: 'pointer'
-                                                        }}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setActiveSegment(activeSegment?.label === segment.label ? null : segment);
-                                                        }}
-                                                        transition={{ duration: 0.25, ease: "easeOut" }}
-                                                        strokeLinecap="round"
-                                                    />
-                                                ))}
+                                                {chartData.map((segment, i) => {
+                                                    const circum = 238.76;
+                                                    const dashLen = Math.max(0, (segment.percentage * circum) - 2);
+                                                    return (
+                                                        <motion.circle
+                                                            key={i}
+                                                            cx="50" cy="50" r="38"
+                                                            stroke={segment.color}
+                                                            strokeWidth={activeSegment?.label === segment.label ? 12 : 8}
+                                                            fill="transparent"
+                                                            strokeDasharray={`${dashLen} ${circum}`}
+                                                            initial={{ strokeDashoffset: circum }}
+                                                            animate={{
+                                                                strokeDashoffset: - (segment.startOffset * circum),
+                                                                scale: activeSegment?.label === segment.label ? 1.05 : 1
+                                                            }}
+                                                            style={{
+                                                                cursor: 'pointer',
+                                                                transformOrigin: 'center'
+                                                            }}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setActiveSegment(activeSegment?.label === segment.label ? null : segment);
+                                                            }}
+                                                            transition={{ duration: 1, ease: "easeOut", delay: i * 0.1 }}
+                                                            strokeLinecap="round"
+                                                            exit={{ strokeDashoffset: circum, transition: { duration: 0.2 } }}
+                                                        />
+                                                    );
+                                                })}
                                             </svg>
                                             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center px-4">
                                                 {activeSegment ? (
@@ -3629,6 +3709,6 @@ export default function PaiementsPage() {
                     </div>
                 )}
             </AnimatePresence>
-        </div>
+        </div >
     );
 }
