@@ -452,7 +452,7 @@ export default function PaiementsPage() {
     const [showPayModal, setShowPayModal] = useState<any>(null);
     const [viewingUnpaidPhoto, setViewingUnpaidPhoto] = useState<any>(null);
     const [paymentDetails, setPaymentDetails] = useState({
-        method: 'Espèces',
+        method: '',
         date: todayStr,
         photo_cheque_url: '',
         photo_verso_url: ''
@@ -488,11 +488,12 @@ export default function PaiementsPage() {
                     if (invCat !== filterCat) return false;
                 }
 
-                // Search filter
+                // Search filter (Supplier or Amount)
                 if (unpaidSearchFilter) {
                     const searchLower = unpaidSearchFilter.toLowerCase();
                     const supplierMatch = inv.supplier_name?.toLowerCase().includes(searchLower);
-                    if (!supplierMatch) return false;
+                    const amountMatch = inv.amount?.toString().includes(unpaidSearchFilter);
+                    if (!supplierMatch && !amountMatch) return false;
                 }
 
                 // Date range filter
@@ -547,6 +548,17 @@ export default function PaiementsPage() {
 
     const handlePaySubmit = async () => {
         if (!showPayModal) return;
+
+        if (!paymentDetails.method) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Opération Interdite',
+                text: 'Veuillez sélectionner un mode de paiement avant de confirmer.',
+                confirmButtonColor: '#ef4444'
+            });
+            return;
+        }
+
         try {
             await execPayInvoice({
                 variables: {
@@ -735,8 +747,8 @@ export default function PaiementsPage() {
         const baseReste = (payerType === 'riadh') ? 0 : (aggregated.reste || safeParse(data?.getPaymentStats?.totalRecetteNette));
         const finalReste = baseReste - riadhTotal - pendingRemaindersTotal;
 
-        // Final Cash = (Total Espaces) - (Pending Salary Remainders) - (Cash Expenses)
-        const finalCash = totalEspaces - pendingRemaindersTotal - cashExpenses;
+        // Final Cash = (Total Espaces) - (Pending Salary Remainders) - (Cash Expenses) - (Bank Transfers)
+        const finalCash = totalEspaces - pendingRemaindersTotal - cashExpenses - bankDepositsTotal;
 
         // Final Tickets = (Gross Tickets) - (Ticket Expenses)
         const grossTickets = aggregated.chiffreAffaire > 0
@@ -770,11 +782,23 @@ export default function PaiementsPage() {
             // Force deduction based on current selected method
             const currentMethod = paymentDetails.method;
             if (currentMethod === 'Espèces') previewCash -= amount;
-            else if (['Chèque', 'Virement'].includes(currentMethod)) previewCheque -= amount;
+            else if (['Chèque', 'Virement', 'TPE (Carte)'].includes(currentMethod)) previewCheque -= amount;
             else if (currentMethod === 'Ticket Restaurant') previewTickets -= amount;
         }
 
-        const finalBancaire = previewTpe + bankDepositsTotal + previewCheque - bankExpenses;
+        let previewBankDeposits = bankDepositsTotal;
+        if (showBankForm && (parseFloat(bankAmount) || 0) > 0) {
+            const amount = parseFloat(bankAmount) || 0;
+            if (bankTransactionType === 'deposit') {
+                previewCash -= amount;
+                previewBankDeposits += amount;
+            } else if (bankTransactionType === 'withdraw') {
+                previewCash += amount;
+                previewBankDeposits -= amount;
+            }
+        }
+
+        const finalBancaire = previewTpe + previewBankDeposits + previewCheque - bankExpenses;
 
         return {
             chiffreAffaire: (payerType === 'riadh') ? 0 : (aggregated.chiffreAffaire || safeParse(data?.getPaymentStats?.totalRecetteCaisse)),
@@ -787,7 +811,7 @@ export default function PaiementsPage() {
             bancaire: finalBancaire,
             bankExpenses
         };
-    }, [data, payerType, showExpForm, expAmount, expMethod, showPayModal, paymentDetails]);
+    }, [data, payerType, showExpForm, expAmount, expMethod, showPayModal, paymentDetails, showBankForm, bankAmount, bankTransactionType]);
 
     const setThisWeek = () => {
         const now = new Date();
@@ -2853,7 +2877,10 @@ export default function PaiementsPage() {
                                                 {/* Footer Actions */}
                                                 <div className="flex gap-4 mt-auto pt-4 items-center">
                                                     <button
-                                                        onClick={() => setShowPayModal(inv)}
+                                                        onClick={() => {
+                                                            setPaymentDetails(prev => ({ ...prev, method: '' }));
+                                                            setShowPayModal(inv);
+                                                        }}
                                                         className="flex-1 h-16 bg-[#ef4444] hover:bg-[#dc2626] text-white rounded-[1.5rem] font-black uppercase text-sm tracking-[0.15em] shadow-xl shadow-red-500/40 flex items-center justify-center gap-3 transition-all active:scale-[0.98] group/pay"
                                                     >
                                                         <CheckCircle2 size={20} strokeWidth={3} className="group-hover/pay:scale-110 transition-transform" />
@@ -2932,13 +2959,20 @@ export default function PaiementsPage() {
                                 <div className="p-6 space-y-4">
                                     <div>
                                         <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8c8279] mb-1 block ml-1">Mode de paiement</label>
-                                        <div className="flex gap-2">
-                                            {['Espèces', 'Chèque', 'Virement'].map(m => (
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {['Espèces', 'Chèque', 'TPE (Carte)', 'Ticket Restaurant', 'Virement'].map(m => (
                                                 <button
                                                     key={m}
                                                     onClick={() => setPaymentDetails({ ...paymentDetails, method: m })}
-                                                    className={`flex-1 h-10 rounded-xl font-bold text-xs transition-all ${paymentDetails.method === m ? 'bg-[#10b981] text-white shadow-lg shadow-[#10b981]/30' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                                                    className={`h-10 rounded-xl font-bold text-[11px] transition-all flex items-center justify-center px-2 ${paymentDetails.method === m
+                                                        ? 'bg-[#10b981] text-white shadow-lg shadow-[#10b981]/30'
+                                                        : 'bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-100'} ${m === 'Virement' ? 'col-span-2' : ''}`}
                                                 >
+                                                    {m === 'Espèces' && '💵 '}
+                                                    {m === 'Chèque' && '✍️ '}
+                                                    {m === 'TPE (Carte)' && '💳 '}
+                                                    {m === 'Ticket Restaurant' && '🎫 '}
+                                                    {m === 'Virement' && '🏦 '}
                                                     {m}
                                                 </button>
                                             ))}
@@ -2947,7 +2981,7 @@ export default function PaiementsPage() {
 
                                     {/* Balance Preview */}
                                     <AnimatePresence>
-                                        {showPayModal && (paymentDetails.method === 'Espèces' || paymentDetails.method === 'Ticket Restaurant' || ['Chèque', 'Virement'].includes(paymentDetails.method)) && (
+                                        {showPayModal && (paymentDetails.method === 'Espèces' || paymentDetails.method === 'Ticket Restaurant' || ['Chèque', 'Virement', 'TPE (Carte)'].includes(paymentDetails.method)) && (
                                             <motion.div
                                                 initial={{ opacity: 0, scale: 0.9, y: 20 }}
                                                 animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -2968,14 +3002,14 @@ export default function PaiementsPage() {
                                                         <div className="absolute right-4 bottom-[-10%] opacity-10 text-white"><Coins size={80} /></div>
                                                     </div>
                                                 )}
-                                                {['Chèque', 'Virement'].includes(paymentDetails.method) && (
+                                                {['Chèque', 'Virement', 'TPE (Carte)'].includes(paymentDetails.method) && (
                                                     <div className="bg-[#3b82f6] p-4 rounded-2xl shadow-lg relative overflow-hidden text-white h-28 flex flex-col justify-center">
                                                         <div className="relative z-10">
                                                             <div className="flex items-center gap-2 text-white/90 mb-1 uppercase text-[10px] font-bold tracking-widest">
-                                                                <CreditCard size={14} /> Bancaire (Après Paiement)
+                                                                <CreditCard size={14} /> {paymentDetails.method === 'TPE (Carte)' ? 'TPE' : 'Bancaire'} (Après Paiement)
                                                             </div>
                                                             <h3 className="text-3xl font-black tracking-tighter">
-                                                                {maskAmount(computedStats.bancaire)}
+                                                                {maskAmount(paymentDetails.method === 'TPE (Carte)' ? computedStats.tpe : computedStats.bancaire)}
                                                             </h3>
                                                             <span className="text-sm font-bold opacity-70">DT</span>
                                                         </div>
@@ -3021,7 +3055,10 @@ export default function PaiementsPage() {
 
                                     <button
                                         onClick={handlePaySubmit}
-                                        className="w-full h-12 bg-[#10b981] hover:bg-[#059669] text-white rounded-xl font-black uppercase tracking-widest text-sm shadow-xl shadow-[#10b981]/20 transition-all active:scale-95 flex items-center justify-center gap-2 mt-4"
+                                        className={`w-full h-12 rounded-xl font-black uppercase tracking-widest text-sm transition-all active:scale-95 flex items-center justify-center gap-2 mt-4 ${!paymentDetails.method
+                                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed border-2 border-gray-400/20'
+                                            : 'bg-[#10b981] hover:bg-[#059669] text-white shadow-xl shadow-[#10b981]/20 group'
+                                            }`}
                                     >
                                         <CheckCircle2 size={18} /> Confirmer le paiement
                                     </button>
@@ -3132,7 +3169,10 @@ export default function PaiementsPage() {
                                             const riadhInvoices = historyData?.getInvoices?.filter((inv: any) => inv.payer === 'riadh') || [];
                                             const filteredHistory = riadhInvoices.filter((inv: any) => {
                                                 if (historySearch) {
-                                                    if (!inv.supplier_name.toLowerCase().includes(historySearch.toLowerCase())) return false;
+                                                    const searchLower = historySearch.toLowerCase();
+                                                    const supplierMatch = inv.supplier_name?.toLowerCase().includes(searchLower);
+                                                    const amountMatch = inv.amount?.toString().includes(historySearch);
+                                                    if (!supplierMatch && !amountMatch) return false;
                                                 }
                                                 if (historyDateRange.start) {
                                                     if (new Date(inv.date) < new Date(historyDateRange.start)) return false;
