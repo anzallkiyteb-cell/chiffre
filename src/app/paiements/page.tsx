@@ -10,7 +10,8 @@ import {
     TrendingUp, Receipt, Wallet, UploadCloud, Coins, Banknote,
     ChevronLeft, ChevronRight, ChevronDown, Image as ImageIcon, Ticket,
     Clock, CheckCircle2, Eye, EyeOff, Edit2, Trash2, X, Layout, Plus,
-    Truck, Sparkles, Calculator, Zap, Award, ZoomIn, ZoomOut, RotateCw, Maximize2
+    Truck, Sparkles, Calculator, Zap, Award, ZoomIn, ZoomOut, RotateCw, Maximize2,
+    Bookmark, AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Swal from 'sweetalert2';
@@ -143,6 +144,42 @@ const PremiumDatePicker = ({ value, onChange, label, align = 'left' }: { value: 
 };
 
 // --- End Helper Components ---
+
+const GET_SUPPLIERS = gql`
+  query GetSuppliers {
+    getSuppliers {
+      id
+      name
+    }
+  }
+`;
+
+const GET_DESIGNATIONS = gql`
+    query GetDesignations {
+        getDesignations {
+            id
+            name
+        }
+    }
+`;
+
+const UPSERT_SUPPLIER = gql`
+  mutation UpsertSupplier($name: String!) {
+    upsertSupplier(name: $name) {
+      id
+      name
+    }
+  }
+`;
+
+const UPSERT_DESIGNATION = gql`
+    mutation UpsertDesignation($name: String!) {
+        upsertDesignation(name: $name) {
+            id
+            name
+        }
+    }
+`;
 
 const GET_PAYMENT_DATA = gql`
   query GetPaymentData($month: String, $startDate: String!, $endDate: String!) {
@@ -384,7 +421,7 @@ export default function PaiementsPage() {
     const [expMethod, setExpMethod] = useState('Espèces');
     const [expDocType, setExpDocType] = useState('Facture');
     const [expPhoto, setExpPhoto] = useState('');
-    const [expCategory, setExpCategory] = useState('');
+    const [expCategory, setExpCategory] = useState('Fournisseur');
     const [expPhotoCheque, setExpPhotoCheque] = useState('');
     const [expPhotoVerso, setExpPhotoVerso] = useState('');
     const [showExpForm, setShowExpForm] = useState(false);
@@ -396,6 +433,16 @@ export default function PaiementsPage() {
     const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
     const [viewingData, setViewingData] = useState<any>(null);
     const [selectedSupplier, setSelectedSupplier] = useState<string>('');
+
+    // Master List Suggestions
+    const [showExpSuggestions, setShowExpSuggestions] = useState(false);
+    const [showAddMasterModal, setShowAddMasterModal] = useState(false);
+    const [masterItemName, setMasterItemName] = useState('');
+
+    const { data: suppliersData, refetch: refetchSuppliers } = useQuery(GET_SUPPLIERS);
+    const { data: designationsData, refetch: refetchDesignations } = useQuery(GET_DESIGNATIONS);
+    const [upsertSupplier] = useMutation(UPSERT_SUPPLIER);
+    const [upsertDesignation] = useMutation(UPSERT_DESIGNATION);
 
     // Unpaid Invoices Modal State & Logic
     const [showUnpaidModal, setShowUnpaidModal] = useState(false);
@@ -862,6 +909,12 @@ export default function PaiementsPage() {
         };
     }, [expenseDetails]);
 
+    const masterSuggestions = useMemo(() => {
+        const sList = (suppliersData?.getSuppliers || []).map((s: any) => s.name);
+        const dList = (designationsData?.getDesignations || []).map((d: any) => d.name);
+        return { suppliers: sList, divers: dList };
+    }, [suppliersData, designationsData]);
+
     const chartData = useMemo(() => {
         const categories = [
             { label: 'Fournisseurs', value: expenseDetails.fournisseurs.reduce((a: number, b: any) => a + b.amount, 0), color: '#ef4444' }, // Red
@@ -884,6 +937,21 @@ export default function PaiementsPage() {
             return { ...cat, percentage, startOffset };
         }).filter(c => c.value > 0);
     }, [expenseDetails]);
+
+    useEffect(() => {
+        if (showExpensesDetails) {
+            if (chartData.length > 0 && !activeSegment) {
+                const fournisseurs = chartData.find(s => s.label === 'Fournisseurs');
+                if (fournisseurs) {
+                    setActiveSegment(fournisseurs);
+                } else {
+                    setActiveSegment(chartData[0]);
+                }
+            }
+        } else {
+            setActiveSegment(null);
+        }
+    }, [showExpensesDetails, chartData, activeSegment]);
 
     const handleBankSubmit = async () => {
         if (!bankAmount || !bankDate) return;
@@ -936,6 +1004,32 @@ export default function PaiementsPage() {
             setBankAmount(d.amount);
             setBankDate(d.date);
             setShowBankForm(true);
+        }
+    };
+
+    const handleAddMasterItem = async () => {
+        if (!masterItemName.trim()) return;
+        try {
+            if (expCategory === 'Divers') {
+                await upsertDesignation({ variables: { name: masterItemName.trim() } });
+                refetchDesignations();
+            } else {
+                await upsertSupplier({ variables: { name: masterItemName.trim() } });
+                refetchSuppliers();
+            }
+            setExpName(masterItemName.trim());
+            setShowAddMasterModal(false);
+            setMasterItemName('');
+            Swal.fire({
+                title: 'Enregistré!',
+                text: `${expCategory === 'Divers' ? 'Désignation' : 'Fournisseur'} ajouté avec succès.`,
+                icon: 'success',
+                timer: 1500,
+                showConfirmButton: false
+            });
+        } catch (err) {
+            console.error("Error adding master item:", err);
+            Swal.fire('Erreur', "Impossible d'ajouter l'élément", 'error');
         }
     };
 
@@ -1254,6 +1348,7 @@ export default function PaiementsPage() {
                                                                 transition={{ duration: 1, ease: "easeOut" }}
                                                                 strokeLinecap="round"
                                                                 style={{ cursor: 'pointer', transformOrigin: 'center' }}
+                                                                pointerEvents="visibleStroke"
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
                                                                     setActiveCAProfitSegment(activeCAProfitSegment === 'expenses' ? null : 'expenses');
@@ -1276,6 +1371,7 @@ export default function PaiementsPage() {
                                                                 transition={{ duration: 1, ease: "easeOut", delay: 0.1 }}
                                                                 strokeLinecap="round"
                                                                 style={{ cursor: 'pointer', transformOrigin: 'center' }}
+                                                                pointerEvents="visibleStroke"
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
                                                                     setActiveCAProfitSegment(activeCAProfitSegment === 'personnel' ? null : 'personnel');
@@ -1298,6 +1394,7 @@ export default function PaiementsPage() {
                                                                 transition={{ duration: 1, ease: "easeOut", delay: 0.2 }}
                                                                 strokeLinecap="round"
                                                                 style={{ cursor: 'pointer', transformOrigin: 'center' }}
+                                                                pointerEvents="visibleStroke"
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
                                                                     setActiveCAProfitSegment(activeCAProfitSegment === 'admin' ? null : 'admin');
@@ -1320,6 +1417,7 @@ export default function PaiementsPage() {
                                                                 transition={{ duration: 1, ease: "easeOut", delay: 0.3 }}
                                                                 strokeLinecap="round"
                                                                 style={{ cursor: 'pointer', transformOrigin: 'center' }}
+                                                                pointerEvents="visibleStroke"
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
                                                                     setActiveCAProfitSegment(activeCAProfitSegment === 'reste' ? null : 'reste');
@@ -1336,7 +1434,7 @@ export default function PaiementsPage() {
                                                     if (activeCAProfitSegment === 'expenses') return 'Dép.';
                                                     if (activeCAProfitSegment === 'personnel') return 'Pers.';
                                                     if (activeCAProfitSegment === 'admin') return 'Adm.';
-                                                    return 'Rent.';
+                                                    return 'Rest.';
                                                 })()}
                                             </span>
                                             <span className="text-xl font-black">
@@ -1519,6 +1617,18 @@ export default function PaiementsPage() {
                                         {editingHistoryItem ? 'Modifier la Dépense' : 'Nouvelle Dépense'}
                                     </h3>
                                     <div className="flex items-center gap-2">
+                                        {showExpForm && (
+                                            <button
+                                                onClick={() => {
+                                                    setMasterItemName(expName);
+                                                    setShowAddMasterModal(true);
+                                                }}
+                                                className="text-[10px] font-black uppercase tracking-widest bg-blue-50 text-blue-600 px-4 py-2 rounded-xl hover:bg-blue-100 transition-all h-10 flex items-center gap-2 shadow-sm"
+                                            >
+                                                <Plus size={14} />
+                                                <span>Ajouter {expCategory === 'Divers' ? 'Désignation' : 'Fournisseur'}</span>
+                                            </button>
+                                        )}
                                         {!showExpForm && (
                                             <div className="flex flex-col items-end gap-1">
                                                 <button
@@ -1562,7 +1672,7 @@ export default function PaiementsPage() {
                                                 }
                                                 setShowExpForm(!showExpForm);
                                             }}
-                                            className="text-[10px] font-black uppercase tracking-widest bg-red-50 text-red-500 px-3 py-2 rounded-xl hover:bg-red-100 transition-all h-10"
+                                            className="text-[10px] font-black uppercase tracking-widest bg-red-50 text-red-500 px-4 py-2 rounded-xl hover:bg-red-100 transition-all h-10 border border-red-100 shadow-sm"
                                         >
                                             {showExpForm ? 'Annuler' : 'Ajouter une dépense'}
                                         </button>
@@ -1603,13 +1713,71 @@ export default function PaiementsPage() {
                                                 <div className="space-y-3">
                                                     <div>
                                                         <label className="text-[10px] font-black text-red-700/50 uppercase ml-1">Nom / Libellé</label>
-                                                        <input
-                                                            type="text"
-                                                            value={expName}
-                                                            onChange={(e) => setExpName(e.target.value)}
-                                                            className="w-full h-11 bg-white border border-red-100 rounded-xl px-4 font-bold text-sm outline-none focus:border-red-400"
-                                                            placeholder="Ex: Facture STEG..."
-                                                        />
+                                                        <div className="relative">
+                                                            <input
+                                                                type="text"
+                                                                value={expName}
+                                                                onChange={(e) => {
+                                                                    setExpName(e.target.value);
+                                                                    setShowExpSuggestions(true);
+                                                                }}
+                                                                onFocus={() => setShowExpSuggestions(true)}
+                                                                className="w-full h-11 bg-white border border-red-100 rounded-xl px-4 font-bold text-sm outline-none focus:border-red-400"
+                                                                placeholder="Ex: Facture STEG..."
+                                                            />
+                                                            <AnimatePresence>
+                                                                {showExpSuggestions && (
+                                                                    <motion.div
+                                                                        initial={{ opacity: 0, y: 10 }}
+                                                                        animate={{ opacity: 1, y: 0 }}
+                                                                        exit={{ opacity: 0, y: 10 }}
+                                                                        className="absolute z-[100] left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-[#e6dace]/50 max-h-60 overflow-y-auto no-scrollbar custom-scrollbar"
+                                                                    >
+                                                                        {(expCategory === 'Divers' ? masterSuggestions.divers : masterSuggestions.suppliers)
+                                                                            .filter((name: string) => (name || '').toLowerCase().includes((expName || '').toLowerCase()))
+                                                                            .map((name: string, i: number) => (
+                                                                                <button
+                                                                                    key={i}
+                                                                                    type="button"
+                                                                                    onClick={() => {
+                                                                                        setExpName(name);
+                                                                                        setShowExpSuggestions(false);
+                                                                                    }}
+                                                                                    className="w-full text-left px-5 py-3 hover:bg-[#fcfaf8] text-sm font-bold text-[#4a3426] border-b border-[#f4ece4] last:border-0 transition-colors flex items-center justify-between"
+                                                                                >
+                                                                                    <span>{name}</span>
+                                                                                    <CheckCircle2 size={14} className="text-green-500 opacity-0 group-hover:opacity-100" />
+                                                                                </button>
+                                                                            ))
+                                                                        }
+                                                                        {expName && !(expCategory === 'Divers' ? masterSuggestions.divers : masterSuggestions.suppliers).some((n: string) => n.toLowerCase() === expName.toLowerCase()) && (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => {
+                                                                                    setMasterItemName(expName);
+                                                                                    setShowAddMasterModal(true);
+                                                                                    setShowExpSuggestions(false);
+                                                                                }}
+                                                                                className="w-full text-left px-5 py-4 bg-red-50/50 hover:bg-red-50 text-red-600 text-[10px] font-black uppercase tracking-wider transition-colors flex items-center gap-3 border-t border-red-100"
+                                                                            >
+                                                                                <div className="w-6 h-6 rounded-lg bg-red-500 text-white flex items-center justify-center shadow-md">
+                                                                                    <Plus size={14} />
+                                                                                </div>
+                                                                                <span>Enregistrer "{expName}" dans la liste</span>
+                                                                            </button>
+                                                                        )}
+                                                                        {(expCategory === 'Divers' ? masterSuggestions.divers : masterSuggestions.suppliers)
+                                                                            .filter((name: string) => (name || '').toLowerCase().includes((expName || '').toLowerCase())).length === 0 && !expName && (
+                                                                                <div className="p-8 text-center text-[#8c8279] italic text-xs">
+                                                                                    Commencez à taper pour rechercher...
+                                                                                </div>
+                                                                            )
+                                                                        }
+                                                                    </motion.div>
+                                                                )}
+                                                            </AnimatePresence>
+                                                            {showExpSuggestions && <div className="fixed inset-0 z-[90]" onClick={() => setShowExpSuggestions(false)} />}
+                                                        </div>
                                                     </div>
                                                     <div className="grid grid-cols-2 gap-3 items-end">
                                                         <div>
@@ -2939,17 +3107,32 @@ export default function PaiementsPage() {
                                             const total = (cat.items || []).reduce((sum: number, item: any) => sum + (item.amount || 0), 0);
                                             // Always render all categories to maintain the 3-column vertical layout requested by user
 
+                                            const labelMap: Record<string, string> = {
+                                                'DÉPENSES FOURNISSEURS': 'Fournisseurs',
+                                                'ACCOMPTE': 'Avances',
+                                                'PRIMES': 'Primes',
+                                                'DÉPENSES DIVERS': 'Divers',
+                                                'DOUBLAGE': 'Doublage',
+                                                'TOUS EMPLOYÉS': 'Employés',
+                                                'DÉPENSES ADMINISTRATIF': 'Administratif',
+                                                'EXTRA': 'Extras'
+                                            };
+                                            const isActive = activeSegment?.label === labelMap[cat.title];
                                             const isExpanded = expandedCategories.includes(idx);
                                             const hasItems = (cat.items || []).length > 0;
 
                                             return (
                                                 <div
                                                     key={idx}
-                                                    className={`group bg-white rounded-[2.5rem] border transition-all duration-300 ${isExpanded ? 'border-[#c69f6e] ring-4 ring-[#c69f6e]/5 shadow-xl' : 'border-[#e6dace]/20 hover:border-[#c69f6e]/30 shadow-sm shadow-[#4a3426]/5'}`}
+                                                    className={`group bg-white rounded-[2.5rem] border transition-all duration-300 ${(isExpanded || isActive) ? 'border-[#c69f6e] ring-4 ring-[#c69f6e]/5 shadow-xl' : 'border-[#e6dace]/20 hover:border-[#c69f6e]/30 shadow-sm shadow-[#4a3426]/5'} ${isActive ? 'scale-[1.02]' : ''}`}
                                                 >
                                                     {/* Category Header Card */}
                                                     <div
                                                         onClick={() => {
+                                                            // Highlight in chart
+                                                            const seg = chartData.find(s => s.label === labelMap[cat.title]);
+                                                            if (seg) setActiveSegment(seg);
+
                                                             if (!hasItems) return;
                                                             setExpandedCategories(prev =>
                                                                 (prev || []).includes(idx) ? (prev || []).filter((i: number) => i !== idx) : [...(prev || []), idx]
@@ -3355,6 +3538,80 @@ export default function PaiementsPage() {
                         </motion.div>
                     )
                 }
+            </AnimatePresence>
+            {/* Add Master Item Modal */}
+            <AnimatePresence>
+                {showAddMasterModal && (
+                    <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                            className="absolute inset-0 bg-[#4a3426]/60 backdrop-blur-md"
+                            onClick={() => setShowAddMasterModal(false)}
+                        />
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                            className="relative bg-white rounded-[3rem] shadow-2xl w-full max-w-md overflow-hidden border border-white/20"
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <div className="p-8 pb-4 flex justify-between items-center bg-[#fcfaf8]">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-12 h-12 bg-red-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-red-500/20">
+                                        {expCategory === 'Divers' ? <Bookmark size={24} /> : <Truck size={24} />}
+                                    </div>
+                                    <div>
+                                        <h3 className="text-xl font-black text-[#4a3426] leading-tight">
+                                            Ajouter {expCategory === 'Divers' ? 'Désignation' : 'Fournisseur'}
+                                        </h3>
+                                        <p className="text-[10px] font-bold text-[#c69f6e] uppercase tracking-widest">Master List Registry</p>
+                                    </div>
+                                </div>
+                                <button onClick={() => setShowAddMasterModal(false)} className="w-10 h-10 hover:bg-[#f4ece4] rounded-full flex items-center justify-center text-[#8c8279] transition-colors">
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            <div className="p-8 space-y-6">
+                                <div className="space-y-4">
+                                    <div className="space-y-1.5 px-1">
+                                        <label className="text-[10px] font-black text-[#8c8279] uppercase tracking-[0.2em]">Nom de l'élément</label>
+                                        <div className="relative">
+                                            <input
+                                                autoFocus
+                                                type="text"
+                                                placeholder={expCategory === 'Divers' ? "Ex: Fruits, Transit..." : "Ex: Steg, Coca Cola..."}
+                                                value={masterItemName}
+                                                onChange={(e) => setMasterItemName(e.target.value)}
+                                                className="w-full h-14 bg-[#fcfaf8] border-2 border-[#e6dace]/30 focus:border-red-400 rounded-2xl px-5 outline-none font-black text-[#4a3426] transition-all text-lg placeholder:text-[#8c8279]/30"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100 flex gap-3 items-start">
+                                        <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center text-white shrink-0 mt-0.5">
+                                            <AlertCircle size={12} />
+                                        </div>
+                                        <p className="text-[11px] font-bold text-blue-800 leading-relaxed">
+                                            Cet élément sera enregistré de manière permanente et apparaîtra dans vos suggestions de recherche.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <button
+                                    onClick={handleAddMasterItem}
+                                    disabled={!masterItemName.trim()}
+                                    className="w-full h-16 bg-[#4a3426] text-white rounded-[1.5rem] font-black text-lg shadow-xl shadow-[#4a3426]/20 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 transition-all flex items-center justify-center gap-3"
+                                >
+                                    <div className="w-7 h-7 bg-white/10 rounded-lg flex items-center justify-center">
+                                        <Plus size={18} />
+                                    </div>
+                                    Confirmer l'Ajout
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
             </AnimatePresence>
         </div>
     );

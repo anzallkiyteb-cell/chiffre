@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, gql } from '@apollo/client';
 import {
     LayoutDashboard, TrendingDown, TrendingUp, Calendar, ChevronLeft, ChevronRight,
@@ -769,7 +769,9 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     const [newEmpDept, setNewEmpDept] = useState('');
     const [showHistoryModal, setShowHistoryModal] = useState<any>(null); // { type: 'avance' | 'doublage' | 'extra' | 'prime' }
     const [employeeSearch, setEmployeeSearch] = useState('');
+    const [newEmployeeModalName, setNewEmployeeModalName] = useState('');
     const [employeeDepartment, setEmployeeDepartment] = useState('');
+    const [showDeptSuggestions, setShowDeptSuggestions] = useState(false);
     const [viewingInvoices, setViewingInvoices] = useState<string[] | null>(null);
     const [viewingInvoicesTarget, setViewingInvoicesTarget] = useState<{ index: number, type: 'expense' | 'divers' } | null>(null);
     const [imgZoom, setImgZoom] = useState(1);
@@ -797,6 +799,15 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     const [modalDetailsTarget, setModalDetailsTarget] = useState<{ index: number, type: 'expense' | 'divers' } | null>(null);
     const [tempDetails, setTempDetails] = useState('');
     const [lastFocusedValue, setLastFocusedValue] = useState('');
+
+    const [showJournalierSuggestions, setShowJournalierSuggestions] = useState(false);
+
+    const journalierMasterSuggestions = useMemo(() => {
+        const sList = (suppliersData?.getSuppliers || []).map((s: any) => s.name);
+        const dList = (designationsData?.getDesignations || []).map((d: any) => d.name);
+        const eList = (employeesData?.getEmployees || []).map((e: any) => e.name);
+        return { suppliers: sList, divers: dList, employees: eList };
+    }, [suppliersData, designationsData, employeesData]);
 
     const commonDesignations = designationsData?.getDesignations?.map((d: any) => d.name) || ["Fruits", "khodhra", "Entretien", "Outils", "Transport", "Petit déjeuner", "Divers"];
 
@@ -2192,7 +2203,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 <button
                                     onClick={() => {
                                         if (isLocked) return;
-                                        setEmployeeSearch('');
+                                        setNewEmployeeModalName('');
                                         setShowEmployeeModal(true);
                                     }}
                                     className={`flex items-center gap-2 px-6 py-2 bg-white border border-[#e6dace] rounded-full text-[11px] font-bold uppercase tracking-widest text-[#c69f6e] shadow-sm hover:shadow-md hover:bg-[#fcfaf8] transition-all ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -3118,14 +3129,14 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 setShowEmployeeModal(false);
                                 setDesignationSearch('');
                                 setNewSupplierName('');
-                                setEmployeeSearch('');
+                                setNewEmployeeModalName('');
                             }}
                         />
                         <motion.div
                             initial={{ scale: 0.9, opacity: 0, y: 20 }}
                             animate={{ scale: 1, opacity: 1, y: 0 }}
                             exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                            className="relative bg-white rounded-[3rem] w-full max-w-sm overflow-hidden shadow-2xl border border-white/20 p-10"
+                            className="relative bg-white rounded-[3rem] w-full max-w-sm shadow-2xl border border-white/20 p-10"
                         >
                             <div className="space-y-8">
                                 <div className="flex flex-col items-center text-center space-y-4">
@@ -3150,41 +3161,81 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                 autoFocus
                                                 type="text"
                                                 placeholder={showSupplierModal ? "Nom du fournisseur..." : showEmployeeModal ? "Nom de l'employé..." : "Nom de la désignation..."}
-                                                value={showSupplierModal ? newSupplierName : showEmployeeModal ? employeeSearch : designationSearch}
-                                                onChange={(e) => showSupplierModal ? setNewSupplierName(e.target.value) : showEmployeeModal ? setEmployeeSearch(e.target.value) : setDesignationSearch(e.target.value)}
-                                                className="w-full h-16 bg-[#fcfaf8] border border-[#e6dace] rounded-2xl pl-14 pr-6 font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all placeholder-[#bba282]/50"
+                                                value={showSupplierModal ? newSupplierName : showEmployeeModal ? newEmployeeModalName : designationSearch}
+                                                onChange={(e) => {
+                                                    const v = e.target.value;
+                                                    if (showSupplierModal) setNewSupplierName(v);
+                                                    else if (showEmployeeModal) setNewEmployeeModalName(v);
+                                                    else setDesignationSearch(v);
+                                                    setShowJournalierSuggestions(true);
+                                                }}
+                                                onFocus={() => setShowJournalierSuggestions(true)}
+                                                className={`w-full h-16 bg-[#fcfaf8] border ${(showSupplierModal && journalierMasterSuggestions.suppliers.some((n: string) => n.toLowerCase() === newSupplierName.trim().toLowerCase())) ||
+                                                    (showEmployeeModal && journalierMasterSuggestions.employees.some((n: string) => n.toLowerCase() === newEmployeeModalName.trim().toLowerCase())) ||
+                                                    (showDiversModal && journalierMasterSuggestions.divers.some((n: string) => n.toLowerCase() === designationSearch.trim().toLowerCase()))
+                                                    ? 'border-red-400' : 'border-[#e6dace]'
+                                                    } rounded-2xl pl-14 pr-6 font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all placeholder-[#bba282]/50`}
                                             />
+
+                                            {/* Proactive Alert Text */}
+                                            {(
+                                                (showSupplierModal && newSupplierName.trim() && journalierMasterSuggestions.suppliers.some((n: string) => n.toLowerCase() === newSupplierName.trim().toLowerCase())) ||
+                                                (showEmployeeModal && newEmployeeModalName.trim() && journalierMasterSuggestions.employees.some((n: string) => n.toLowerCase() === newEmployeeModalName.trim().toLowerCase())) ||
+                                                (showDiversModal && designationSearch.trim() && journalierMasterSuggestions.divers.some((n: string) => n.toLowerCase() === designationSearch.trim().toLowerCase()))
+                                            ) && (
+                                                    <div className="absolute -bottom-6 left-1 flex items-center gap-1 text-[10px] font-black text-red-500 uppercase">
+                                                        <AlertCircle size={12} /> Cet élément existe déjà (Redondance détectée)
+                                                    </div>
+                                                )}
+
+                                            <AnimatePresence>
+                                                {showJournalierSuggestions && (showSupplierModal ? newSupplierName.trim() : showEmployeeModal ? newEmployeeModalName.trim() : designationSearch.trim()).length > 0 && (
+                                                    <motion.div
+                                                        initial={{ opacity: 0, y: 10 }}
+                                                        animate={{ opacity: 1, y: 0 }}
+                                                        exit={{ opacity: 0, y: 10 }}
+                                                        className="absolute z-[100] top-16 left-0 right-0 mt-3 bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-[#e6dace] max-h-52 overflow-y-auto no-scrollbar"
+                                                    >
+                                                        {(showSupplierModal ? journalierMasterSuggestions.suppliers : showEmployeeModal ? journalierMasterSuggestions.employees : journalierMasterSuggestions.divers)
+                                                            .filter((name: string) => (name || '').toLowerCase().includes(((showSupplierModal ? newSupplierName : showEmployeeModal ? newEmployeeModalName : designationSearch) || '').toLowerCase()))
+                                                            .map((name: string, i: number) => (
+                                                                <button
+                                                                    key={i}
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        if (showSupplierModal) setNewSupplierName(name);
+                                                                        else if (showEmployeeModal) setNewEmployeeModalName(name);
+                                                                        else setDesignationSearch(name);
+                                                                        setShowJournalierSuggestions(false);
+                                                                    }}
+                                                                    className="w-full text-left px-5 py-3 hover:bg-[#fcfaf8] text-sm font-bold text-[#4a3426] border-b border-[#f4ece4] last:border-0 transition-colors"
+                                                                >
+                                                                    {name}
+                                                                </button>
+                                                            ))
+                                                        }
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+                                            {showJournalierSuggestions && <div className="fixed inset-0 z-[90]" onClick={() => setShowJournalierSuggestions(false)} />}
                                         </div>
 
                                         {showEmployeeModal && (
-                                            <div className="relative animate-in fade-in slide-in-from-top-4 duration-300">
+                                            <div className={`relative animate-in fade-in slide-in-from-top-4 duration-300 ${showJournalierSuggestions && (showEmployeeModal ? newEmployeeModalName.trim() : '').length > 0 ? 'mt-32' : 'mt-4'}`}>
                                                 <Briefcase className="absolute left-5 top-1/2 -translate-y-1/2 text-[#bba282]" size={20} />
                                                 <div className="relative flex items-center">
                                                     <input
                                                         type="text"
-                                                        readOnly
                                                         placeholder="Département (optionnel)..."
                                                         value={employeeDepartment ?? ''}
-                                                        className="w-full h-16 bg-[#fcfaf8] border border-[#e6dace] rounded-2xl pl-14 pr-14 font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all placeholder-[#bba282]/50 cursor-pointer"
-                                                        onClick={async () => {
-                                                            const { value: dept } = await MySwal.fire({
-                                                                title: 'Ajouter Département',
-                                                                input: 'text',
-                                                                inputPlaceholder: 'Nom du département...',
-                                                                showCancelButton: true,
-                                                                confirmButtonText: 'Ajouter',
-                                                                cancelButtonText: 'Annuler',
-                                                                confirmButtonColor: '#4a3426',
-                                                                background: '#fff',
-                                                                customClass: {
-                                                                    title: 'text-lg font-black uppercase text-[#4a3426]',
-                                                                    confirmButton: 'rounded-xl font-bold uppercase tracking-widest text-xs py-3',
-                                                                    cancelButton: 'rounded-xl font-bold uppercase tracking-widest text-xs py-3'
-                                                                }
-                                                            });
-                                                            if (dept) setEmployeeDepartment(dept);
+                                                        onChange={(e) => {
+                                                            setEmployeeDepartment(e.target.value);
+                                                            setShowDeptSuggestions(true);
                                                         }}
+                                                        onFocus={() => setShowDeptSuggestions(true)}
+                                                        className="w-full h-16 bg-[#fcfaf8] border border-[#e6dace] rounded-2xl pl-14 pr-14 font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all placeholder-[#bba282]/50"
                                                     />
+
                                                     <button
                                                         onClick={async () => {
                                                             const { value: dept } = await MySwal.fire({
@@ -3204,16 +3255,54 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                             });
                                                             if (dept) setEmployeeDepartment(dept);
                                                         }}
-                                                        className="absolute right-3 p-2 bg-[#f4ece4] rounded-xl text-[#c69f6e] hover:bg-[#e6dace] transition-colors"
+                                                        className="absolute right-3 p-2 bg-[#f4ece4] rounded-xl text-[#c69f6e] hover:bg-[#e6dace] transition-colors z-[105]"
                                                     >
                                                         <Plus size={18} />
                                                     </button>
+
+                                                    <AnimatePresence>
+                                                        {showDeptSuggestions && (
+                                                            <motion.div
+                                                                initial={{ opacity: 0, y: 10 }}
+                                                                animate={{ opacity: 1, y: 0 }}
+                                                                exit={{ opacity: 0, y: 10 }}
+                                                                className="absolute z-[110] top-16 left-0 right-0 mt-3 bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-[#e6dace] max-h-40 overflow-y-auto no-scrollbar"
+                                                            >
+                                                                {Array.from(new Set(employeesData?.getEmployees?.map((e: any) => e.department).filter(Boolean) as string[]))
+                                                                    .filter(dept => dept.toLowerCase().includes(employeeDepartment.toLowerCase()))
+                                                                    .map((dept, i) => (
+                                                                        <button
+                                                                            key={i}
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                setEmployeeDepartment(dept);
+                                                                                setShowDeptSuggestions(false);
+                                                                            }}
+                                                                            className="w-full text-left px-5 py-3 hover:bg-[#fcfaf8] text-sm font-bold text-[#4a3426] border-b border-[#f4ece4] last:border-0 transition-colors"
+                                                                        >
+                                                                            {dept}
+                                                                        </button>
+                                                                    ))
+                                                                }
+                                                                {employeeDepartment.trim() && !Array.from(new Set(employeesData?.getEmployees?.map((e: any) => e.department).filter(Boolean) as string[])).some(d => d.toLowerCase() === employeeDepartment.toLowerCase()) && (
+                                                                    <div className="px-5 py-3 text-[10px] font-black text-[#c69f6e] uppercase bg-[#fcfaf8]">
+                                                                        Nouveau Département
+                                                                    </div>
+                                                                )}
+                                                            </motion.div>
+                                                        )}
+                                                    </AnimatePresence>
+                                                    {showDeptSuggestions && <div className="fixed inset-0 z-[100]" onClick={() => setShowDeptSuggestions(false)} />}
                                                 </div>
                                             </div>
                                         )}
                                     </div>
 
-                                    <div className="flex gap-4">
+                                    <div className={`flex gap-4 transition-all duration-300 ${(showJournalierSuggestions && (
+                                        (showSupplierModal && newSupplierName.trim().length > 0) ||
+                                        (showDiversModal && designationSearch.trim().length > 0)
+                                    )) || (showDeptSuggestions) ? 'mt-40' : ''
+                                        }`}>
                                         <button
                                             onClick={() => {
                                                 setShowSupplierModal(false);
@@ -3221,7 +3310,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                 setShowEmployeeModal(false);
                                                 setDesignationSearch('');
                                                 setNewSupplierName('');
-                                                setEmployeeSearch('');
+                                                setNewEmployeeModalName('');
                                                 setEmployeeDepartment('');
                                             }}
                                             className="flex-1 h-14 rounded-2xl border border-[#e6dace] text-[#8c8279] font-black uppercase text-xs tracking-[0.2em] hover:bg-[#fcfaf8] transition-all"
@@ -3230,8 +3319,22 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                         </button>
                                         <button
                                             onClick={async () => {
-                                                const val = showSupplierModal ? newSupplierName : showEmployeeModal ? employeeSearch : designationSearch;
+                                                const val = showSupplierModal ? newSupplierName : showEmployeeModal ? newEmployeeModalName : designationSearch;
                                                 if (!val.trim()) return;
+
+                                                const currentList = showSupplierModal ? journalierMasterSuggestions.suppliers : showEmployeeModal ? journalierMasterSuggestions.employees : journalierMasterSuggestions.divers;
+                                                const isDuplicate = currentList.some((n: string) => n.toLowerCase() === val.trim().toLowerCase());
+
+                                                if (isDuplicate) {
+                                                    MySwal.fire({
+                                                        title: 'Élément Existant',
+                                                        text: `"${val.trim()}" existe déjà dans votre liste.`,
+                                                        icon: 'warning',
+                                                        confirmButtonColor: '#4a3426',
+                                                        confirmButtonText: 'D’accord'
+                                                    });
+                                                    return;
+                                                }
 
                                                 try {
                                                     if (showSupplierModal) {
@@ -3243,7 +3346,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         await upsertEmployee({ variables: { name: val.trim(), department: employeeDepartment.trim() || null } });
                                                         refetchEmployees();
                                                         setShowEmployeeModal(false);
-                                                        setEmployeeSearch('');
+                                                        setNewEmployeeModalName('');
                                                         setEmployeeDepartment('');
                                                     } else {
                                                         await upsertDesignation({ variables: { name: val.trim() } });
