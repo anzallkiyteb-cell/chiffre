@@ -275,53 +275,43 @@ export default function StatistiquesPage() {
 
         if (aggregation === 'day') {
             return raw.map((d: any) => {
-                const dayLabor = (d.avances_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0) +
-                    (d.doublages_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0) +
-                    (d.extras_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0) +
-                    (d.primes_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0) +
-                    (d.restes_salaires_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
+                const dayAdvances = (d.avances_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
+                const details = (d.avances_details || []).map((r: any) => ({
+                    name: r.username,
+                    value: parseFloat(r.montant) || 0
+                }));
 
                 return {
                     name: new Date(d.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
-                    total: dayLabor,
+                    total: dayAdvances,
+                    details: details,
                     type: 'Journalier'
                 };
-            });
+            }).filter((d: any) => d.total > 0);
         } else {
-            // Use combined monthly payroll + aggregated daily stuff
-            const months: Record<string, number> = {};
+            const months: Record<string, { total: number, details: Record<string, number> }> = {};
             raw.forEach((d: any) => {
                 const mKey = d.date.substring(0, 7);
-                const dayLabor = (d.avances_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0) +
-                    (d.doublages_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0) +
-                    (d.extras_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0) +
-                    (d.primes_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0) +
-                    (d.restes_salaires_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
-                months[mKey] = (months[mKey] || 0) + dayLabor;
-            });
+                if (!months[mKey]) months[mKey] = { total: 0, details: {} };
 
-            // Add official payroll from salaryData if it exists
-            (salaryData?.getMonthlySalaries || []).forEach((s: any) => {
-                // salaryData.month is long format like "janvier 2026"
-                // Let's try to find a match in the months keys or just add it
-                // To be safe, we match by looking for the month name inside the name
-                const matchedEntry = Object.entries(months).find(([key, _]) => {
-                    const monthName = new Date(key + '-01').toLocaleDateString('fr-FR', { month: 'long' });
-                    return s.month.toLowerCase().includes(monthName.toLowerCase());
+                const advances = (d.avances_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
+                months[mKey].total += advances;
+
+                (d.avances_details || []).forEach((r: any) => {
+                    const name = r.username;
+                    const amt = parseFloat(r.montant) || 0;
+                    months[mKey].details[name] = (months[mKey].details[name] || 0) + amt;
                 });
-
-                if (matchedEntry) {
-                    months[matchedEntry[0]] += parseFloat(s.total) || 0;
-                }
             });
 
             return Object.entries(months).map(([m, val]) => ({
                 name: new Date(m + '-01').toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
-                total: val,
+                total: val.total,
+                details: Object.entries(val.details).map(([name, value]) => ({ name, value })),
                 type: 'Aggregated'
-            }));
+            })).filter((d: any) => d.total > 0);
         }
-    }, [data, aggregation, salaryData]);
+    }, [data, aggregation]);
 
     const intelligentInsights = useMemo(() => {
         if (statsData.length === 0) return null;
@@ -333,7 +323,7 @@ export default function StatistiquesPage() {
     }, [statsData, totals]);
 
     const aggregatedExpensesDetailed = useMemo(() => {
-        if (!data?.getChiffresByRange) return { data: [], suppliers: [] };
+        if (!data?.getChiffresByRange) return { data: [], suppliers: [], categoryGroups: [], colorMap: {} };
         let raw = data.getChiffresByRange;
         let riadhRaw = data.getInvoices || [];
 
@@ -509,17 +499,26 @@ export default function StatistiquesPage() {
             categoryGroups.push({ title: 'MAIN D\'OEUVRE', items: payrollItems });
         }
 
-        return { data: Object.values(aggregated), suppliers: orderedSuppliers, categoryGroups };
-    }, [data, aggregation, salaryData]);
+        // Generate dynamic unique colors for each supplier
+        const colorMap: Record<string, string> = {};
+        orderedSuppliers.forEach((name, idx) => {
+            // Use golden angle to spread theoretical hues
+            const goldenAngle = 137.508;
+            const rawHue = (idx * goldenAngle) % 360;
 
-    const supplierColors = [
-        '#c69f6e', '#2d6a4f', '#ef4444', '#3b82f6', '#8b5cf6',
-        '#ec4899', '#f59e0b', '#10b981', '#6366f1', '#14b8a6', '#8c8279',
-        '#1e3a8a', '#111827', '#b91c1c', '#1e40af', '#7c3aed', '#db2777',
-        '#ea580c', '#15803d', '#0369a1', '#334155', '#4d7c0f', '#854d0e',
-        '#475569', '#9f1239', '#1e1b4b', '#312e81', '#4c1d95', '#701a75',
-        '#713f12', '#064e3b', '#0c4a6e', '#1e293b', '#0f172a', '#450a0a'
-    ];
+            // Map hues strictly into non-red range [60, 320]
+            const hue = 60 + (rawHue % 260);
+
+            // Vary saturation and lightness aggressively in staggered steps
+            // This creates 12 distinct style profiles per hue zone
+            const s = 40 + (idx % 3) * 25; // 40%, 65%, 90%
+            const l = 30 + (idx % 4) * 12; // 30%, 42%, 54%, 66%
+
+            colorMap[name] = `hsl(${hue}, ${s}%, ${l}%)`;
+        });
+
+        return { data: Object.values(aggregated), suppliers: orderedSuppliers, categoryGroups, colorMap };
+    }, [data, aggregation, salaryData]);
 
     const allAvailableSuppliers = useMemo(() => {
         if (!data?.getChiffresByRange) return [];
@@ -844,7 +843,8 @@ export default function StatistiquesPage() {
                                                 const groupItems = payload.filter(p =>
                                                     group.items.includes(p.name as string) &&
                                                     (parseFloat(p.value as string) || 0) > 0
-                                                ).sort((a, b) => (b.value as number) - (a.value as number));
+                                                ).sort((a, b) => (b.value as number) - (a.value as number))
+                                                    .map(p => ({ ...p, color: aggregatedExpensesDetailed.colorMap?.[p.name as string] || '#ccc' }));
 
                                                 if (groupItems.length > 0) {
                                                     groups.push({ title: group.title, items: groupItems });
@@ -892,74 +892,95 @@ export default function StatistiquesPage() {
                                             );
                                         }}
                                     />
-                                    {aggregatedExpensesDetailed.suppliers.map((s: string, idx: number) => {
-                                        const color = idx < supplierColors.length ? supplierColors[idx] : `hsl(${(idx * 137.5) % 360}, 65%, 45%)`;
-                                        return <Bar key={s} dataKey={s} stackId="a" fill={color} barSize={aggregation === 'day' ? 20 : 40} />;
+                                    {aggregatedExpensesDetailed.suppliers.map((s: string) => {
+                                        return <Bar key={s} dataKey={s} stackId="a" fill={aggregatedExpensesDetailed.colorMap?.[s] || '#ccc'} barSize={aggregation === 'day' ? 20 : 40} />;
                                     })}
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
                     </div>
 
-                    {/* Row: Encaissements & Salaries */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        {/* Payment Methods Breakdown */}
-                        <div className="bg-white p-4 md:p-8 rounded-[2rem] md:rounded-[2.5rem] luxury-shadow border border-[#e6dace]/50">
-                            <h3 className="text-xl font-bold text-[#4a3426] mb-8 flex items-center gap-2">
-                                <PieChartIcon className="text-[#c69f6e]" /> Répartition des Encaissements
-                            </h3>
-                            <div className="h-[300px] w-full flex items-center justify-center relative">
-                                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-8">
-                                    <span className="text-sm font-bold text-[#8c8279] uppercase tracking-tighter">Total</span>
-                                    <span className="text-3xl font-black text-[#4a3426]">{totals.recette.toLocaleString()}</span>
-                                    <span className="text-xs font-bold text-[#c69f6e]">DT</span>
-                                </div>
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart>
-                                        <Pie
-                                            data={[
-                                                { name: 'Espèces', value: totals.especes },
-                                                { name: 'Ticket Restau', value: totals.tickets },
-                                                { name: 'Chèque', value: totals.cheque },
-                                                { name: 'TPE (Carte)', value: totals.tpe },
-                                            ]}
-                                            innerRadius={85}
-                                            outerRadius={110}
-                                            paddingAngle={8}
-                                            dataKey="value"
-                                            cornerRadius={12}
-                                        >
-                                            {COLORS.map((color, index) => (
-                                                <Cell key={index} fill={color} stroke="none" />
-                                            ))}
-                                        </Pie>
-                                        <RechartsTooltip contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }} />
-                                        <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', color: '#4a3426', paddingTop: '20px' }} />
-                                    </PieChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </div>
-
-                        {/* Salary Evolution Chart */}
+                    {/* Row: Evolution des avances */}
+                    <div className="grid grid-cols-1 gap-8">
+                        {/* Advances Evolution Chart */}
                         <div className="bg-white p-4 md:p-8 rounded-[2rem] md:rounded-[2.5rem] luxury-shadow border border-[#e6dace]/50">
                             <div className="mb-8">
                                 <h3 className="text-xl font-bold text-[#4a3426] flex items-center gap-2">
-                                    <Users className="text-[#c69f6e]" /> Evolution des Salaires
+                                    <Banknote className="text-[#c69f6e]" /> Evolution des avances
                                 </h3>
-                                <p className="text-xs text-[#8c8279] mt-1">Somme mensuelle des salaires payés (confirmés)</p>
+                                <p className="text-xs text-[#8c8279] mt-1">Somme des acomptes accordés aux employés (détails par personne)</p>
                             </div>
-                            <div className="h-[300px] w-full">
+                            <div className="h-[350px] md:h-[450px] w-full">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <ComposedChart data={laborData}>
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0e6dd" />
-                                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#8c8279', fontSize: 11 }} />
+                                        <XAxis
+                                            dataKey="name"
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tick={(props) => {
+                                                const { x, y, payload } = props;
+                                                const dataPoint = laborData.find((d: any) => d.name === payload.value);
+                                                return (
+                                                    <g transform={`translate(${x},${y})`}>
+                                                        <text
+                                                            x={0}
+                                                            y={0}
+                                                            dy={10}
+                                                            textAnchor="middle"
+                                                            fill="#8c8279"
+                                                            fontSize={11}
+                                                            fontWeight="bold"
+                                                        >
+                                                            {payload.value}
+                                                        </text>
+                                                        {dataPoint && (
+                                                            <text
+                                                                x={0}
+                                                                y={0}
+                                                                dy={24}
+                                                                textAnchor="middle"
+                                                                fill="#c69f6e"
+                                                                fontSize={10}
+                                                                fontWeight="900"
+                                                            >
+                                                                {dataPoint.total.toLocaleString('fr-FR', { maximumFractionDigits: 0 })}
+                                                            </text>
+                                                        )}
+                                                    </g>
+                                                );
+                                            }}
+                                            height={60}
+                                            interval={aggregation === 'day' ? (laborData.length > 15 ? 2 : 0) : 0}
+                                        />
                                         <YAxis axisLine={false} tickLine={false} tick={{ fill: '#8c8279', fontSize: 11 }} />
                                         <RechartsTooltip
-                                            formatter={(val: any) => `${parseFloat(val).toLocaleString('fr-FR', { minimumFractionDigits: 3 })} DT`}
-                                            contentStyle={{ backgroundColor: '#fff', borderRadius: '15px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }}
+                                            content={({ active, payload, label }) => {
+                                                if (active && payload && payload.length) {
+                                                    const data = payload[0].payload;
+                                                    return (
+                                                        <div className="bg-white p-4 rounded-2xl shadow-2xl border border-[#e6dace] min-w-[200px]">
+                                                            <p className="text-[10px] font-black text-[#8c8279] uppercase tracking-widest mb-3 pb-2 border-b border-[#f4ece4]">{label}</p>
+                                                            <div className="space-y-2">
+                                                                {data.details?.map((detail: any, idx: number) => (
+                                                                    <div key={idx} className="flex justify-between items-center gap-4">
+                                                                        <span className="text-[11px] font-bold text-[#4a3426]">{detail.name}</span>
+                                                                        <span className="text-[11px] font-black text-[#c69f6e]">{detail.value.toLocaleString('fr-FR', { minimumFractionDigits: 3 })} DT</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                            <div className="mt-3 pt-2 border-t border-[#f4ece4] flex justify-between">
+                                                                <span className="text-[10px] font-black text-[#4a3426] uppercase">Total</span>
+                                                                <span className="text-[10px] font-black text-[#4a3426]">{data.total.toLocaleString('fr-FR', { minimumFractionDigits: 3 })} DT</span>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+                                                return null;
+                                            }}
                                         />
-                                        <Bar dataKey="total" name="Coût Main d'Oeuvre" fill="#2d6a4f" radius={[10, 10, 0, 0]} barSize={40} />
-                                        <Line type="monotone" dataKey="total" stroke="#c69f6e" strokeWidth={3} dot={{ r: 4 }} />
+                                        <Bar dataKey="total" name="Total Avances" fill="#c69f6e" radius={[10, 10, 0, 0]} barSize={aggregation === 'day' ? 30 : 50} />
+                                        <Line type="monotone" dataKey="total" stroke="#4a3426" strokeWidth={3} dot={{ r: 4 }} />
                                     </ComposedChart>
                                 </ResponsiveContainer>
                             </div>
@@ -980,9 +1001,9 @@ export default function StatistiquesPage() {
                                         <th className="px-8 py-5 text-xs font-black text-[#8c8279] uppercase tracking-widest text-right">Dépenses</th>
                                         <th className="px-8 py-5 text-xs font-black text-[#8c8279] uppercase tracking-widest text-right">Net</th>
                                         <th className="px-8 py-5 text-xs font-black text-[#8c8279] uppercase tracking-widest text-right">Espèces</th>
-                                        <th className="px-8 py-5 text-xs font-black text-[#8c8279] uppercase tracking-widest text-right">T. Restau</th>
-                                        <th className="px-8 py-5 text-xs font-black text-[#8c8279] uppercase tracking-widest text-right">TPE (Carte)</th>
                                         <th className="px-8 py-5 text-xs font-black text-[#8c8279] uppercase tracking-widest text-right">Chèque</th>
+                                        <th className="px-8 py-5 text-xs font-black text-[#8c8279] uppercase tracking-widest text-right">TPE (Carte)</th>
+                                        <th className="px-8 py-5 text-xs font-black text-[#8c8279] uppercase tracking-widest text-right">T. Restau</th>
                                         <th className="px-8 py-5 text-xs font-black text-[#8c8279] uppercase tracking-widest text-right text-[#c69f6e]">Rentabilité</th>
                                     </tr>
                                 </thead>
@@ -996,9 +1017,9 @@ export default function StatistiquesPage() {
                                                 <td className="px-8 py-5 font-bold text-right text-red-500">{d.depenses.toLocaleString()}</td>
                                                 <td className="px-8 py-5 font-black text-right text-green-700">{d.net.toLocaleString()}</td>
                                                 <td className="px-8 py-5 font-bold text-right opacity-60">{d.especes.toLocaleString()}</td>
-                                                <td className="px-8 py-5 font-bold text-right opacity-60">{d.tickets.toLocaleString()}</td>
-                                                <td className="px-8 py-5 font-bold text-right opacity-60">{d.tpe.toLocaleString()}</td>
                                                 <td className="px-8 py-5 font-bold text-right opacity-60">{d.cheque.toLocaleString()}</td>
+                                                <td className="px-8 py-5 font-bold text-right opacity-60">{d.tpe.toLocaleString()}</td>
+                                                <td className="px-8 py-5 font-bold text-right opacity-60">{d.tickets.toLocaleString()}</td>
                                                 <td className="px-8 py-5 text-right">
                                                     <span className={`px-3 py-1 rounded-full text-[10px] font-black ${margin > 50 ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
                                                         {margin.toFixed(1)}%
@@ -1032,7 +1053,7 @@ export default function StatistiquesPage() {
                                 </div>
 
                                 <div className="grid grid-cols-7 gap-1 text-center mb-4">
-                                    {['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'].map((d, i) => (
+                                    {['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'].map((d: string, i: number) => (
                                         <span key={i} className="text-[10px] font-black text-[#bba282] uppercase">{d}</span>
                                     ))}
                                 </div>
