@@ -841,10 +841,10 @@ export const resolvers = {
                 diponce_admin: typeof row.diponce_admin === 'string' ? row.diponce_admin : JSON.stringify(row.diponce_admin || [])
             };
         },
-        addInvoice: async (_: any, { supplier_name, amount, date, photo_url, photos, doc_type, doc_number }: any) => {
+        addInvoice: async (_: any, { supplier_name, amount, date, photo_url, photos, doc_type, doc_number, category }: any) => {
             const res = await query(
-                'INSERT INTO invoices (supplier_name, amount, date, photo_url, photos, doc_type, doc_number) VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7) RETURNING *',
-                [supplier_name, amount, date, photo_url, photos || '[]', doc_type || 'Facture', doc_number]
+                'INSERT INTO invoices (supplier_name, amount, date, photo_url, photos, doc_type, doc_number, category) VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8) RETURNING *',
+                [supplier_name, amount, date, photo_url, photos || '[]', doc_type || 'Facture', doc_number, category || 'fournisseur']
             );
             const row = res.rows[0];
             return {

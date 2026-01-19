@@ -618,7 +618,7 @@ export default function StatistiquesPage() {
                         {[
                             { label: 'Recette Totale', val: totals.recette, icon: Wallet, color: 'text-green-700', bg: 'bg-green-50' },
                             { label: 'Dépenses Totales', val: totals.depenses, icon: TrendingDown, color: 'text-red-700', bg: 'bg-red-50' },
-                            { label: 'Recette Nette', val: totals.net, icon: TrendingUp, color: 'text-blue-700', bg: 'bg-blue-50' },
+                            { label: 'Reste Nette', val: totals.net, icon: TrendingUp, color: 'text-blue-700', bg: 'bg-blue-50' },
                             { label: 'Moyenne Recette', val: totals.recette / (statsData.length || 1), icon: BarChart3, color: 'text-[#c69f6e]', bg: 'bg-[#f4ece4]' }
                         ].map((s, i) => (
                             <motion.div

@@ -919,7 +919,7 @@ export default function DashboardPage() {
                                     <div className="w-full pt-8 border-t border-white/10">
                                         <div className="flex items-center gap-2 opacity-70 mb-3 text-white">
                                             <TrendingUp size={20} />
-                                            <span className="text-sm font-black uppercase tracking-[0.2em]">Recette Nette Estimée</span>
+                                            <span className="text-sm font-black uppercase tracking-[0.2em]">Recette Nette</span>
                                         </div>
                                         <div className="flex items-baseline gap-4 mt-2">
                                             {hideMonthlySummary ? (
@@ -1090,6 +1090,12 @@ export default function DashboardPage() {
                                                                         <div className="mt-1 text-[8px] font-black text-[#8c8279] uppercase tracking-widest bg-[#f9f7f5] px-2 py-0.5 rounded border border-[#e6dace]/30 w-fit">
                                                                             {inv.paymentMethod || 'Espèces'}
                                                                         </div>
+                                                                        {inv.details && (
+                                                                            <div className="mt-2 text-[10px] text-[#4a3426] font-medium bg-[#fcfaf8] p-2 rounded-lg border border-[#e6dace] flex gap-2 items-start">
+                                                                                <Sparkles size={12} className="text-[#c69f6e] mt-0.5 shrink-0" />
+                                                                                <span className="italic">"{inv.details}"</span>
+                                                                            </div>
+                                                                        )}
                                                                     </div>
                                                                     <div className="text-right">
                                                                         <div className="text-2xl font-black text-[#4a3426] tracking-tighter leading-none">

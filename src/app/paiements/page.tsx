@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Swal from 'sweetalert2';
+import { BarChart, Bar, Cell, ResponsiveContainer } from 'recharts';
 
 // --- Helper Components & Utilities ---
 
@@ -751,6 +752,17 @@ export default function PaiementsPage() {
         totalTicketsRestaurant: 0,
         totalRestesSalaires: 0
     };
+
+    const miniChartData = useMemo(() => {
+        if (!data?.getChiffresByRange) return [];
+        return [...data.getChiffresByRange]
+            .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
+            .slice(-31)
+            .map((d: any) => ({
+                name: d.date,
+                value: parseFloat(d.recette_net || 0)
+            }));
+    }, [data]);
 
     const expenseDetails = useMemo(() => {
         const sourceData = (payerType === 'riadh') ? [] : (data?.getChiffresByRange || []);

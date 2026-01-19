@@ -213,13 +213,14 @@ const UPSERT_DESIGNATION = gql`
 `;
 
 const ADD_INVOICE = gql`
-  mutation AddInvoice($supplier_name: String!, $amount: String!, $date: String!, $photo_url: String, $photos: String, $doc_type: String, $doc_number: String) {
-    addInvoice(supplier_name: $supplier_name, amount: $amount, date: $date, photo_url: $photo_url, photos: $photos, doc_type: $doc_type, doc_number: $doc_number) {
+  mutation AddInvoice($supplier_name: String!, $amount: String!, $date: String!, $photo_url: String, $photos: String, $doc_type: String, $doc_number: String, $category: String) {
+    addInvoice(supplier_name: $supplier_name, amount: $amount, date: $date, photo_url: $photo_url, photos: $photos, doc_type: $doc_type, doc_number: $doc_number, category: $category) {
       id
       status
       photos
       doc_type
       doc_number
+      category
     }
   }
 `;
@@ -391,7 +392,7 @@ export default function FacturationPage() {
         photo_verso_url: ''
     });
 
-    const [section, setSection] = useState<'Fournisseur' | 'Divers'>('Fournisseur');
+    const [section, setSection] = useState<'Fournisseur' | 'Divers' | null>(null);
     const [showAddNameModal, setShowAddNameModal] = useState(false);
     const [newName, setNewName] = useState({ name: '', section: 'Fournisseur' });
     const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
@@ -501,6 +502,7 @@ export default function FacturationPage() {
     const lockedDates = data?.getLockedDates || [];
 
     const handleAddInvoice = async () => {
+        if (!section) return;
         if (!newInvoice.supplier_name || !newInvoice.amount || !newInvoice.date) return;
         if (lockedDates.includes(newInvoice.date)) {
             alert("Cette date est verrouillée. Impossible d'ajouter une facture.");
@@ -520,7 +522,8 @@ export default function FacturationPage() {
                             photo_url: newInvoice.photos[0] || '',
                             photos: JSON.stringify(newInvoice.photos),
                             doc_type: newInvoice.doc_type,
-                            doc_number: newInvoice.doc_number || null
+                            doc_number: newInvoice.doc_number || null,
+                            category: section.toLowerCase()
                         }
                     });
                     setShowAddModal(false);
@@ -1224,163 +1227,177 @@ export default function FacturationPage() {
                                                 </button>
                                             ))}
                                         </div>
-
-                                        <label className="text-[9px] font-black uppercase tracking-[0.2em] text-[#8c8279] mb-0.5 block ml-1">
-                                            {section === 'Fournisseur' ? 'Fournisseur' : 'Désignation'}
-                                        </label>
-                                        <div className="relative">
-                                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#c69f6e] z-10 pointer-events-none" size={16} />
-                                            <input
-                                                type="text"
-                                                value={newInvoice.supplier_name}
-                                                onChange={(e) => setNewInvoice({ ...newInvoice, supplier_name: e.target.value })}
-                                                onFocus={() => setShowSupplierDropdown(true)}
-                                                onBlur={() => setTimeout(() => setShowSupplierDropdown(false), 200)}
-                                                placeholder={`Rechercher ${section === 'Fournisseur' ? 'un fournisseur' : 'une désignation'}...`}
-                                                className="w-full h-10 pl-10 pr-10 bg-[#f9f6f2] border border-[#e6dace] rounded-xl font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all text-xs placeholder:text-[#8c8279]/40 placeholder:font-normal"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setNewName({ ...newName, section: section });
-                                                    setShowAddNameModal(true);
-                                                }}
-                                                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-[#4a3426] text-white rounded-lg hover:bg-[#38261b] transition-all z-10"
-                                            >
-                                                <Plus size={14} />
-                                            </button>
-
-                                            {/* Dropdown Suggestions */}
-                                            <AnimatePresence>
-                                                {showSupplierDropdown && (() => {
-                                                    const items = section === 'Fournisseur'
-                                                        ? (data?.getSuppliers || [])
-                                                        : (data?.getDesignations || []).filter((d: any) => d.type === 'divers');
-
-                                                    const filtered = items.filter((item: any) =>
-                                                        item.name.toLowerCase().includes(newInvoice.supplier_name.toLowerCase())
-                                                    );
-
-                                                    if (filtered.length === 0) return null;
-
-                                                    return (
-                                                        <motion.div
-                                                            initial={{ opacity: 0, y: -10 }}
-                                                            animate={{ opacity: 1, y: 0 }}
-                                                            exit={{ opacity: 0, y: -10 }}
-                                                            className="absolute top-full left-0 right-0 mt-1 bg-white border border-[#e6dace] rounded-xl shadow-lg max-h-48 overflow-y-auto z-50 custom-scrollbar"
-                                                        >
-                                                            {filtered.map((item: any) => (
-                                                                <button
-                                                                    key={item.id}
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        setNewInvoice({ ...newInvoice, supplier_name: item.name });
-                                                                        setShowSupplierDropdown(false);
-                                                                    }}
-                                                                    className="w-full px-4 py-2.5 text-left text-xs font-bold text-[#4a3426] hover:bg-[#fcfaf8] transition-colors border-b border-[#f4ece4] last:border-b-0"
-                                                                >
-                                                                    {item.name}
-                                                                </button>
-                                                            ))}
-                                                        </motion.div>
-                                                    );
-                                                })()}
-                                            </AnimatePresence>
-                                        </div>
                                     </div>
 
-                                    <div>
-                                        <label className="text-[9px] font-black uppercase tracking-[0.2em] text-[#8c8279] mb-0.5 block ml-1">Document & N°</label>
-                                        <div className="flex gap-2">
-                                            <div className="flex-1 flex gap-1">
-                                                {['Facture', 'BL'].map((t) => (
+                                    {!section ? (
+                                        <div className="py-12 flex flex-col items-center justify-center gap-3 text-[#8c8279] opacity-50">
+                                            <div className="w-12 h-12 rounded-full border-2 border-[#8c8279] border-dashed flex items-center justify-center">
+                                                <LayoutGrid size={20} />
+                                            </div>
+                                            <p className="text-[10px] font-black uppercase tracking-widest">Sélectionner une section</p>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div>
+                                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-[#8c8279] mb-0.5 block ml-1">
+                                                    {section === 'Fournisseur' ? 'Fournisseur' : 'Désignation'}
+                                                </label>
+                                                <div className="relative">
+                                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#c69f6e] z-10 pointer-events-none" size={16} />
+                                                    <input
+                                                        type="text"
+                                                        value={newInvoice.supplier_name}
+                                                        onChange={(e) => setNewInvoice({ ...newInvoice, supplier_name: e.target.value })}
+                                                        onFocus={() => setShowSupplierDropdown(true)}
+                                                        onBlur={() => setTimeout(() => setShowSupplierDropdown(false), 200)}
+                                                        placeholder={`Rechercher ${section === 'Fournisseur' ? 'un fournisseur' : 'une désignation'}...`}
+                                                        className="w-full h-10 pl-10 pr-10 bg-[#f9f6f2] border border-[#e6dace] rounded-xl font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all text-xs placeholder:text-[#8c8279]/40 placeholder:font-normal"
+                                                    />
                                                     <button
-                                                        key={t}
                                                         type="button"
-                                                        onClick={() => setNewInvoice({ ...newInvoice, doc_type: t })}
-                                                        className={`flex-1 h-8 rounded-lg font-black text-[9px] uppercase tracking-widest transition-all border ${newInvoice.doc_type === t
-                                                            ? 'bg-[#d00000] text-white border-[#d00000] shadow-md shadow-[#d00000]/10'
-                                                            : 'bg-white text-[#8c8279] border-[#e6dace] hover:border-[#d00000]/20'
-                                                            }`}
+                                                        onClick={() => {
+                                                            const currentSection = section || 'Fournisseur';
+                                                            setNewName({ ...newName, section: currentSection });
+                                                            setShowAddNameModal(true);
+                                                        }}
+                                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-[#4a3426] text-white rounded-lg hover:bg-[#38261b] transition-all z-10"
                                                     >
-                                                        {t}
+                                                        <Plus size={14} />
                                                     </button>
-                                                ))}
-                                            </div>
-                                            <div className="flex-[1.2] relative">
-                                                <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-[#c69f6e]" size={14} />
-                                                <input
-                                                    type="text"
-                                                    placeholder="N° optional"
-                                                    value={newInvoice.doc_number}
-                                                    onChange={(e) => setNewInvoice({ ...newInvoice, doc_number: e.target.value })}
-                                                    className="w-full h-8 pl-9 pr-3 bg-[#f9f6f2] border border-[#e6dace] rounded-lg font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all text-[11px]"
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
 
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <div>
-                                            <label className="text-[9px] font-black uppercase tracking-[0.2em] text-[#8c8279] mb-0.5 block ml-1">Montant (DT)</label>
-                                            <div className="relative">
-                                                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-[#c69f6e]" size={16} />
-                                                <input
-                                                    type="number"
-                                                    step="0.001"
-                                                    placeholder="0.000"
-                                                    value={newInvoice.amount}
-                                                    onChange={(e) => setNewInvoice({ ...newInvoice, amount: e.target.value })}
-                                                    className="w-full h-10 pl-9 pr-3 bg-[#f9f6f2] border border-[#e6dace] rounded-xl font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all text-sm"
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="space-y-0.5">
-                                            <label className="text-[9px] font-black uppercase tracking-[0.2em] text-[#8c8279] mb-0.5 block ml-1">Date Facture</label>
-                                            <div className="scale-[0.85] origin-top-left -mb-4">
-                                                <PremiumDatePicker
-                                                    label="Date"
-                                                    value={newInvoice.date}
-                                                    onChange={(val) => setNewInvoice({ ...newInvoice, date: val })}
-                                                    lockedDates={lockedDates}
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
+                                                    {/* Dropdown Suggestions */}
+                                                    <AnimatePresence>
+                                                        {showSupplierDropdown && (() => {
+                                                            const items = section === 'Fournisseur'
+                                                                ? (data?.getSuppliers || [])
+                                                                : (data?.getDesignations || []).filter((d: any) => d.type === 'divers');
 
-                                    <div className="mt-[-8px]">
-                                        <label className="text-[9px] font-black uppercase tracking-[0.2em] text-[#8c8279] mb-0.5 block ml-1">Photos</label>
-                                        <div className="grid grid-cols-6 gap-1.5 mb-1.5">
-                                            {newInvoice.photos.map((p, idx) => (
-                                                <div key={idx} className="relative aspect-square bg-[#f9f6f2] rounded-lg overflow-hidden group border border-[#e6dace]">
-                                                    <img src={p} className="w-full h-full object-cover" />
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); handleDeletePhoto(idx); }}
-                                                        className="absolute top-0.5 right-0.5 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center opacity-100 transition-opacity"
-                                                    >
-                                                        <X size={10} />
-                                                    </button>
+                                                            const filtered = items.filter((item: any) =>
+                                                                item.name.toLowerCase().includes(newInvoice.supplier_name.toLowerCase())
+                                                            );
+
+                                                            if (filtered.length === 0) return null;
+
+                                                            return (
+                                                                <motion.div
+                                                                    initial={{ opacity: 0, y: -10 }}
+                                                                    animate={{ opacity: 1, y: 0 }}
+                                                                    exit={{ opacity: 0, y: -10 }}
+                                                                    className="absolute top-full left-0 right-0 mt-1 bg-white border border-[#e6dace] rounded-xl shadow-lg max-h-48 overflow-y-auto z-50 custom-scrollbar"
+                                                                >
+                                                                    {filtered.map((item: any) => (
+                                                                        <button
+                                                                            key={item.id}
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                setNewInvoice({ ...newInvoice, supplier_name: item.name });
+                                                                                setShowSupplierDropdown(false);
+                                                                            }}
+                                                                            className="w-full px-4 py-2.5 text-left text-xs font-bold text-[#4a3426] hover:bg-[#fcfaf8] transition-colors border-b border-[#f4ece4] last:border-b-0"
+                                                                        >
+                                                                            {item.name}
+                                                                        </button>
+                                                                    ))}
+                                                                </motion.div>
+                                                            );
+                                                        })()}
+                                                    </AnimatePresence>
                                                 </div>
-                                            ))}
-                                            <div
-                                                onClick={() => document.getElementById('photo-upload')?.click()}
-                                                className="aspect-square bg-[#fcfaf8] border border-dashed border-[#e6dace] rounded-lg flex flex-col items-center justify-center gap-0.5 cursor-pointer hover:border-[#c69f6e] hover:bg-[#fff9f2] transition-all"
-                                            >
-                                                <UploadCloud className="text-[#c69f6e] opacity-40" size={16} />
-                                                <span className="text-[6px] font-black text-[#8c8279] uppercase tracking-widest text-center">Ajouter</span>
-                                                <input id="photo-upload" type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoUpload} />
                                             </div>
-                                        </div>
-                                    </div>
 
-                                    <button
-                                        onClick={handleAddInvoice}
-                                        disabled={!newInvoice.supplier_name || !newInvoice.amount || !newInvoice.doc_type}
-                                        className="w-full h-11 bg-[#4a3426] text-white rounded-xl font-black uppercase tracking-[0.2em] text-xs hover:bg-[#38261b] disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-lg"
-                                    >
-                                        Confirmer l'ajout
-                                    </button>
+                                            <div>
+                                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-[#8c8279] mb-0.5 block ml-1">Document & N°</label>
+                                                <div className="flex gap-2">
+                                                    <div className="flex-1 flex gap-1">
+                                                        {['Facture', 'BL'].map((t) => (
+                                                            <button
+                                                                key={t}
+                                                                type="button"
+                                                                onClick={() => setNewInvoice({ ...newInvoice, doc_type: t })}
+                                                                className={`flex-1 h-8 rounded-lg font-black text-[9px] uppercase tracking-widest transition-all border ${newInvoice.doc_type === t
+                                                                    ? 'bg-[#d00000] text-white border-[#d00000] shadow-md shadow-[#d00000]/10'
+                                                                    : 'bg-white text-[#8c8279] border-[#e6dace] hover:border-[#d00000]/20'
+                                                                    }`}
+                                                            >
+                                                                {t}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                    <div className="flex-[1.2] relative">
+                                                        <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-[#c69f6e]" size={14} />
+                                                        <input
+                                                            type="text"
+                                                            placeholder="N° optional"
+                                                            value={newInvoice.doc_number}
+                                                            onChange={(e) => setNewInvoice({ ...newInvoice, doc_number: e.target.value })}
+                                                            className="w-full h-8 pl-9 pr-3 bg-[#f9f6f2] border border-[#e6dace] rounded-lg font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all text-[11px]"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <div>
+                                                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-[#8c8279] mb-0.5 block ml-1">Montant (DT)</label>
+                                                    <div className="relative">
+                                                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-[#c69f6e]" size={16} />
+                                                        <input
+                                                            type="number"
+                                                            step="0.001"
+                                                            placeholder="0.000"
+                                                            value={newInvoice.amount}
+                                                            onChange={(e) => setNewInvoice({ ...newInvoice, amount: e.target.value })}
+                                                            className="w-full h-10 pl-9 pr-3 bg-[#f9f6f2] border border-[#e6dace] rounded-xl font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all text-sm"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-0.5">
+                                                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-[#8c8279] mb-0.5 block ml-1">Date Facture</label>
+                                                    <div className="scale-[0.85] origin-top-left -mb-4">
+                                                        <PremiumDatePicker
+                                                            label="Date"
+                                                            value={newInvoice.date}
+                                                            onChange={(val) => setNewInvoice({ ...newInvoice, date: val })}
+                                                            lockedDates={lockedDates}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="mt-[-8px]">
+                                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-[#8c8279] mb-0.5 block ml-1">Photos</label>
+                                                <div className="grid grid-cols-6 gap-1.5 mb-1.5">
+                                                    {newInvoice.photos.map((p, idx) => (
+                                                        <div key={idx} className="relative aspect-square bg-[#f9f6f2] rounded-lg overflow-hidden group border border-[#e6dace]">
+                                                            <img src={p} className="w-full h-full object-cover" />
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); handleDeletePhoto(idx); }}
+                                                                className="absolute top-0.5 right-0.5 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center opacity-100 transition-opacity"
+                                                            >
+                                                                <X size={10} />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                    <div
+                                                        onClick={() => document.getElementById('photo-upload')?.click()}
+                                                        className="aspect-square bg-[#fcfaf8] border border-dashed border-[#e6dace] rounded-lg flex flex-col items-center justify-center gap-0.5 cursor-pointer hover:border-[#c69f6e] hover:bg-[#fff9f2] transition-all"
+                                                    >
+                                                        <UploadCloud className="text-[#c69f6e] opacity-40" size={16} />
+                                                        <span className="text-[6px] font-black text-[#8c8279] uppercase tracking-widest text-center">Ajouter</span>
+                                                        <input id="photo-upload" type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoUpload} />
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <button
+                                                onClick={handleAddInvoice}
+                                                disabled={!newInvoice.supplier_name || !newInvoice.amount || !newInvoice.doc_type}
+                                                className="w-full h-11 bg-[#4a3426] text-white rounded-xl font-black uppercase tracking-[0.2em] text-xs hover:bg-[#38261b] disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-lg"
+                                            >
+                                                Confirmer l'ajout
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
                             </motion.div>
                         </motion.div>
