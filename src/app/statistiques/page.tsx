@@ -542,7 +542,7 @@ export default function StatistiquesPage() {
                             </button>
                         </div>
 
-                        <div className="h-[350px] md:h-[500px] lg:h-[600px] w-full">
+                        <div className="h-[300px] md:h-[400px] lg:h-[450px] w-full">
                             {loading ? (
                                 <div className="h-full flex flex-col items-center justify-center gap-4">
                                     <Loader2 className="animate-spin text-[#c69f6e]" size={40} />

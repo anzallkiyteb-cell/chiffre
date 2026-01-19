@@ -394,6 +394,7 @@ export default function FacturationPage() {
     const [section, setSection] = useState<'Fournisseur' | 'Divers'>('Fournisseur');
     const [showAddNameModal, setShowAddNameModal] = useState(false);
     const [newName, setNewName] = useState({ name: '', section: 'Fournisseur' });
+    const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
 
     const [execUpsertSupplier] = useMutation(UPSERT_SUPPLIER);
     const [execUpsertDesignation] = useMutation(UPSERT_DESIGNATION);
@@ -1228,34 +1229,64 @@ export default function FacturationPage() {
                                             {section === 'Fournisseur' ? 'Fournisseur' : 'Désignation'}
                                         </label>
                                         <div className="relative">
-                                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#c69f6e]" size={16} />
-                                            <select
+                                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#c69f6e] z-10 pointer-events-none" size={16} />
+                                            <input
+                                                type="text"
                                                 value={newInvoice.supplier_name}
                                                 onChange={(e) => setNewInvoice({ ...newInvoice, supplier_name: e.target.value })}
-                                                className="w-full h-10 pl-10 pr-10 bg-[#f9f6f2] border border-[#e6dace] rounded-xl font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all appearance-none text-xs"
-                                            >
-                                                <option value="">Sélectionner</option>
-                                                {section === 'Fournisseur' ? (
-                                                    data?.getSuppliers.map((s: any) => (
-                                                        <option key={s.id} value={s.name}>{s.name}</option>
-                                                    ))
-                                                ) : (
-                                                    data?.getDesignations
-                                                        .filter((d: any) => d.type === 'divers')
-                                                        .map((d: any) => (
-                                                            <option key={d.id} value={d.name}>{d.name}</option>
-                                                        ))
-                                                )}
-                                            </select>
+                                                onFocus={() => setShowSupplierDropdown(true)}
+                                                onBlur={() => setTimeout(() => setShowSupplierDropdown(false), 200)}
+                                                placeholder={`Rechercher ${section === 'Fournisseur' ? 'un fournisseur' : 'une désignation'}...`}
+                                                className="w-full h-10 pl-10 pr-10 bg-[#f9f6f2] border border-[#e6dace] rounded-xl font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all text-xs placeholder:text-[#8c8279]/40 placeholder:font-normal"
+                                            />
                                             <button
+                                                type="button"
                                                 onClick={() => {
                                                     setNewName({ ...newName, section: section });
                                                     setShowAddNameModal(true);
                                                 }}
-                                                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-[#4a3426] text-white rounded-lg hover:bg-[#38261b] transition-all"
+                                                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-[#4a3426] text-white rounded-lg hover:bg-[#38261b] transition-all z-10"
                                             >
                                                 <Plus size={14} />
                                             </button>
+
+                                            {/* Dropdown Suggestions */}
+                                            <AnimatePresence>
+                                                {showSupplierDropdown && (() => {
+                                                    const items = section === 'Fournisseur'
+                                                        ? (data?.getSuppliers || [])
+                                                        : (data?.getDesignations || []).filter((d: any) => d.type === 'divers');
+
+                                                    const filtered = items.filter((item: any) =>
+                                                        item.name.toLowerCase().includes(newInvoice.supplier_name.toLowerCase())
+                                                    );
+
+                                                    if (filtered.length === 0) return null;
+
+                                                    return (
+                                                        <motion.div
+                                                            initial={{ opacity: 0, y: -10 }}
+                                                            animate={{ opacity: 1, y: 0 }}
+                                                            exit={{ opacity: 0, y: -10 }}
+                                                            className="absolute top-full left-0 right-0 mt-1 bg-white border border-[#e6dace] rounded-xl shadow-lg max-h-48 overflow-y-auto z-50 custom-scrollbar"
+                                                        >
+                                                            {filtered.map((item: any) => (
+                                                                <button
+                                                                    key={item.id}
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setNewInvoice({ ...newInvoice, supplier_name: item.name });
+                                                                        setShowSupplierDropdown(false);
+                                                                    }}
+                                                                    className="w-full px-4 py-2.5 text-left text-xs font-bold text-[#4a3426] hover:bg-[#fcfaf8] transition-colors border-b border-[#f4ece4] last:border-b-0"
+                                                                >
+                                                                    {item.name}
+                                                                </button>
+                                                            ))}
+                                                        </motion.div>
+                                                    );
+                                                })()}
+                                            </AnimatePresence>
                                         </div>
                                     </div>
 
