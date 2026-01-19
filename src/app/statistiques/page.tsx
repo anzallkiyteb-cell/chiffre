@@ -673,7 +673,45 @@ export default function StatistiquesPage() {
                                             </linearGradient>
                                         </defs>
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0e6dd" />
-                                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#8c8279', fontSize: 11 }} dy={10} interval={aggregation === 'day' ? (statsData.length > 15 ? 2 : 0) : 0} />
+                                        <XAxis
+                                            dataKey="name"
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tick={(props) => {
+                                                const { x, y, payload } = props;
+                                                const dataPoint = statsData.find((d: any) => d.name === payload.value);
+                                                return (
+                                                    <g transform={`translate(${x},${y})`}>
+                                                        <text
+                                                            x={0}
+                                                            y={0}
+                                                            dy={10}
+                                                            textAnchor="middle"
+                                                            fill="#8c8279"
+                                                            fontSize={11}
+                                                            fontWeight="bold"
+                                                        >
+                                                            {payload.value}
+                                                        </text>
+                                                        {dataPoint && (
+                                                            <text
+                                                                x={0}
+                                                                y={0}
+                                                                dy={24}
+                                                                textAnchor="middle"
+                                                                fill="#3b82f6"
+                                                                fontSize={10}
+                                                                fontWeight="900"
+                                                            >
+                                                                {dataPoint.recette.toLocaleString('fr-FR', { maximumFractionDigits: 0 })}
+                                                            </text>
+                                                        )}
+                                                    </g>
+                                                );
+                                            }}
+                                            height={60}
+                                            interval={aggregation === 'day' ? (statsData.length > 15 ? 2 : 0) : 0}
+                                        />
                                         <YAxis axisLine={false} tickLine={false} tick={{ fill: '#8c8279', fontSize: 11 }} />
                                         <RechartsTooltip
                                             contentStyle={{ backgroundColor: '#fff', borderRadius: '20px', border: 'none', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.15)', padding: '20px' }}
@@ -681,7 +719,7 @@ export default function StatistiquesPage() {
                                         />
                                         <Legend verticalAlign="top" height={60} iconType="circle" wrapperStyle={{ paddingBottom: '20px', textTransform: 'uppercase', fontSize: '10px', fontWeight: 'bold' }} />
 
-                                        <Bar dataKey="recette" name="Recette Totale" fill="#c69f6e" radius={[10, 10, 0, 0]} barSize={aggregation === 'day' ? 20 : 40} />
+                                        <Bar dataKey="recette" name="Recette Totale" fill="#3b82f6" radius={[10, 10, 0, 0]} barSize={aggregation === 'day' ? 20 : 40} />
                                         <Area type="monotone" dataKey="depenses" name="Dépenses" stroke="#e63946" strokeWidth={2} fillOpacity={0} strokeDasharray="3 3" />
                                         <Line type="monotone" dataKey="net" name="Bénéfice Net" stroke="#2d6a4f" strokeWidth={4} dot={{ r: 4, fill: '#2d6a4f', strokeWidth: 2, stroke: '#fff' }} />
                                     </ComposedChart>
