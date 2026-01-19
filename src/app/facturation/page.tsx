@@ -791,7 +791,7 @@ export default function FacturationPage() {
                                     <Clock size={24} />
                                 </div>
                                 <div>
-                                    <p className="text-[10px] font-black text-white/60 uppercase tracking-widest">Total Impayé</p>
+                                    <p className="text-[10px] font-black text-white/60 uppercase tracking-widest">Total Non Payé</p>
                                     <h3 className="text-2xl font-black text-white">{stats.unpaid.toFixed(3)} <span className="text-xs opacity-50">DT</span></h3>
                                 </div>
                             </div>
