@@ -337,42 +337,82 @@ export default function StatistiquesPage() {
         let raw = data.getChiffresByRange;
         let riadhRaw = data.getInvoices || [];
 
-        const categoryTotals: Record<string, number> = {};
-        const processItems = (items: any[]) => {
-            items.forEach(e => {
-                const name = e.supplier || e.designation || e.name || 'Divers';
-                categoryTotals[name] = (categoryTotals[name] || 0) + (parseFloat(e.amount) || 0);
-            });
+        // Separate categories by type
+        const diversTotals: Record<string, number> = {};
+        const adminTotals: Record<string, number> = {};
+        const fournisseurTotals: Record<string, number> = {};
+        const payrollTotals: Record<string, number> = {
+            'EXTRA': 0,
+            'DOUBLAGE': 0,
+            'ACCOMPTE': 0,
+            'PRIMES': 0,
+            'TOUS EMPLOYÉS': 0
         };
 
-        // Process payroll categories
-        const payrollCategories = ['ACCOMPTE', 'PRIMES', 'DOUBLAGE', 'RESTES SALAIRES', 'EXTRA'];
-        payrollCategories.forEach(cat => {
-            categoryTotals[cat] = 0;
-        });
-
         raw.forEach((d: any) => {
-            processItems(JSON.parse(d.diponce || '[]'));
-            processItems(JSON.parse(d.diponce_divers || '[]'));
-            processItems(JSON.parse(d.diponce_admin || '[]'));
+            // Process DÉPENSES DIVERS
+            JSON.parse(d.diponce_divers || '[]').forEach((e: any) => {
+                const name = e.designation || e.name || 'Divers';
+                diversTotals[name] = (diversTotals[name] || 0) + (parseFloat(e.amount) || 0);
+            });
+
+            // Process DÉPENSES ADMINISTRATIF
+            JSON.parse(d.diponce_admin || '[]').forEach((e: any) => {
+                const name = e.designation || e.name || 'Admin';
+                adminTotals[name] = (adminTotals[name] || 0) + (parseFloat(e.amount) || 0);
+            });
+
+            // Process DÉPENSES FOURNISSEURS
+            JSON.parse(d.diponce || '[]').forEach((e: any) => {
+                const name = e.supplier || e.name || 'Fournisseur';
+                fournisseurTotals[name] = (fournisseurTotals[name] || 0) + (parseFloat(e.amount) || 0);
+            });
 
             // Add payroll totals
-            categoryTotals['ACCOMPTE'] += (d.avances_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
-            categoryTotals['PRIMES'] += (d.primes_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
-            categoryTotals['DOUBLAGE'] += (d.doublages_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
-            categoryTotals['RESTES SALAIRES'] += (d.restes_salaires_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
-            categoryTotals['EXTRA'] += (d.extras_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
+            payrollTotals['EXTRA'] += (d.extras_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
+            payrollTotals['DOUBLAGE'] += (d.doublages_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
+            payrollTotals['ACCOMPTE'] += (d.avances_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
+            payrollTotals['PRIMES'] += (d.primes_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
         });
 
+        // Add monthly salaries to TOUS EMPLOYÉS
+        (salaryData?.getMonthlySalaries || []).forEach((s: any) => {
+            payrollTotals['TOUS EMPLOYÉS'] += parseFloat(s.total) || 0;
+        });
+
+        // Add Riadh invoices to fournisseurs
         riadhRaw.forEach((inv: any) => {
-            const name = inv.supplier_name || 'Riadh Exp';
-            categoryTotals[name] = (categoryTotals[name] || 0) + (parseFloat(inv.amount) || 0);
+            const name = inv.supplier_name || 'Riadh';
+            fournisseurTotals[name] = (fournisseurTotals[name] || 0) + (parseFloat(inv.amount) || 0);
         });
 
-        const allSuppliers = Object.entries(categoryTotals)
+        // Build ordered supplier list
+        const orderedSuppliers: string[] = [];
+
+        // 1. DÉPENSES DIVERS (sorted by amount)
+        Object.entries(diversTotals)
             .filter(([_, val]) => val > 0)
             .sort((a, b) => b[1] - a[1])
-            .map(c => c[0]);
+            .forEach(([name]) => orderedSuppliers.push(name));
+
+        // 2. DÉPENSES ADMINISTRATIF (sorted by amount)
+        Object.entries(adminTotals)
+            .filter(([_, val]) => val > 0)
+            .sort((a, b) => b[1] - a[1])
+            .forEach(([name]) => orderedSuppliers.push(name));
+
+        // 3. DÉPENSES FOURNISSEURS (sorted by amount)
+        Object.entries(fournisseurTotals)
+            .filter(([_, val]) => val > 0)
+            .sort((a, b) => b[1] - a[1])
+            .forEach(([name]) => orderedSuppliers.push(name));
+
+        // 4. Payroll categories in specific order
+        ['EXTRA', 'DOUBLAGE', 'ACCOMPTE', 'PRIMES', 'TOUS EMPLOYÉS'].forEach(cat => {
+            if (payrollTotals[cat] > 0) {
+                orderedSuppliers.push(cat);
+            }
+        });
 
         const aggregated: Record<string, any> = {};
         raw.forEach((d: any) => {
@@ -384,35 +424,46 @@ export default function StatistiquesPage() {
                         : new Date(d.date).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
                     total: 0
                 };
-                allSuppliers.forEach(c => aggregated[key][c] = 0);
+                orderedSuppliers.forEach(c => aggregated[key][c] = 0);
             }
 
-            const allDayItems = [
-                ...JSON.parse(d.diponce || '[]'),
-                ...JSON.parse(d.diponce_divers || '[]'),
-                ...JSON.parse(d.diponce_admin || '[]')
-            ];
+            // Add divers
+            JSON.parse(d.diponce_divers || '[]').forEach((e: any) => {
+                const name = e.designation || e.name || 'Divers';
+                const amt = parseFloat(e.amount) || 0;
+                aggregated[key][name] += amt;
+                aggregated[key].total += amt;
+            });
 
-            allDayItems.forEach(e => {
-                const name = e.supplier || e.designation || e.name || 'Divers';
+            // Add admin
+            JSON.parse(d.diponce_admin || '[]').forEach((e: any) => {
+                const name = e.designation || e.name || 'Admin';
+                const amt = parseFloat(e.amount) || 0;
+                aggregated[key][name] += amt;
+                aggregated[key].total += amt;
+            });
+
+            // Add fournisseurs
+            JSON.parse(d.diponce || '[]').forEach((e: any) => {
+                const name = e.supplier || e.name || 'Fournisseur';
                 const amt = parseFloat(e.amount) || 0;
                 aggregated[key][name] += amt;
                 aggregated[key].total += amt;
             });
 
             // Add payroll expenses per day
+            const extra = (d.extras_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
+            const doublage = (d.doublages_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
             const accompte = (d.avances_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
             const primes = (d.primes_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
-            const doublage = (d.doublages_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
             const restes = (d.restes_salaires_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
-            const extra = (d.extras_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
 
+            aggregated[key]['EXTRA'] += extra;
+            aggregated[key]['DOUBLAGE'] += doublage;
             aggregated[key]['ACCOMPTE'] += accompte;
             aggregated[key]['PRIMES'] += primes;
-            aggregated[key]['DOUBLAGE'] += doublage;
-            aggregated[key]['RESTES SALAIRES'] += restes;
-            aggregated[key]['EXTRA'] += extra;
-            aggregated[key].total += accompte + primes + doublage + restes + extra;
+            aggregated[key]['TOUS EMPLOYÉS'] += restes;
+            aggregated[key].total += extra + doublage + accompte + primes + restes;
         });
 
         riadhRaw.forEach((inv: any) => {
@@ -420,14 +471,46 @@ export default function StatistiquesPage() {
             if (!dStr) return;
             const key = aggregation === 'day' ? dStr : dStr.substring(0, 7);
             if (!aggregated[key]) return;
-            const name = inv.supplier_name || 'Riadh Exp';
+            const name = inv.supplier_name || 'Riadh';
             const amt = parseFloat(inv.amount) || 0;
             aggregated[key][name] += amt;
             aggregated[key].total += amt;
         });
 
-        return { data: Object.values(aggregated), suppliers: allSuppliers };
-    }, [data, aggregation]);
+        // Build category groups for legend
+        const categoryGroups: Array<{ title: string, items: string[] }> = [];
+
+        const diversItems = Object.entries(diversTotals)
+            .filter(([_, val]) => val > 0)
+            .sort((a, b) => b[1] - a[1])
+            .map(([name]) => name);
+        if (diversItems.length > 0) {
+            categoryGroups.push({ title: 'DÉPENSES DIVERS', items: diversItems });
+        }
+
+        const adminItems = Object.entries(adminTotals)
+            .filter(([_, val]) => val > 0)
+            .sort((a, b) => b[1] - a[1])
+            .map(([name]) => name);
+        if (adminItems.length > 0) {
+            categoryGroups.push({ title: 'DÉPENSES ADMINISTRATIF', items: adminItems });
+        }
+
+        const fournisseurItems = Object.entries(fournisseurTotals)
+            .filter(([_, val]) => val > 0)
+            .sort((a, b) => b[1] - a[1])
+            .map(([name]) => name);
+        if (fournisseurItems.length > 0) {
+            categoryGroups.push({ title: 'DÉPENSES FOURNISSEURS', items: fournisseurItems });
+        }
+
+        const payrollItems = ['EXTRA', 'DOUBLAGE', 'ACCOMPTE', 'PRIMES', 'TOUS EMPLOYÉS'].filter(cat => payrollTotals[cat] > 0);
+        if (payrollItems.length > 0) {
+            categoryGroups.push({ title: 'MAIN D\'OEUVRE', items: payrollItems });
+        }
+
+        return { data: Object.values(aggregated), suppliers: orderedSuppliers, categoryGroups };
+    }, [data, aggregation, salaryData]);
 
     const supplierColors = [
         '#c69f6e', '#2d6a4f', '#ef4444', '#3b82f6', '#8b5cf6',
@@ -712,47 +795,59 @@ export default function StatistiquesPage() {
                                         content={({ active, payload, label }) => {
                                             if (!active || !payload || !payload.length) return null;
 
-                                            const sortedPayload = [...payload]
-                                                .filter(p => (parseFloat(p.value as string) || 0) > 0)
-                                                .sort((a, b) => (b.value as number) - (a.value as number));
+                                            // Group items by category
+                                            const groups: Array<{ title: string, items: any[] }> = [];
 
-                                            if (sortedPayload.length === 0) return null;
+                                            aggregatedExpensesDetailed.categoryGroups?.forEach(group => {
+                                                const groupItems = payload.filter(p =>
+                                                    group.items.includes(p.name as string) &&
+                                                    (parseFloat(p.value as string) || 0) > 0
+                                                ).sort((a, b) => (b.value as number) - (a.value as number));
+
+                                                if (groupItems.length > 0) {
+                                                    groups.push({ title: group.title, items: groupItems });
+                                                }
+                                            });
+
+                                            if (groups.length === 0) return null;
+
+                                            const total = payload.reduce((acc, curr) => acc + ((curr.value as number) || 0), 0);
 
                                             return (
                                                 <div className="bg-white p-4 rounded-2xl shadow-2xl border border-[#e6dace] max-h-[400px] overflow-y-auto custom-scrollbar min-w-[200px]">
                                                     <p className="text-[10px] font-black text-[#8c8279] uppercase tracking-widest mb-3 pb-2 border-b border-[#f4ece4]">{label}</p>
-                                                    <div className="space-y-2">
-                                                        {sortedPayload.map((entry, index) => (
-                                                            <div key={index} className="flex justify-between items-center gap-4">
-                                                                <div className="flex items-center gap-2">
-                                                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }}></div>
-                                                                    <span className="text-[11px] font-bold text-[#4a3426] truncate max-w-[150px]">{entry.name}</span>
+
+                                                    <div className="space-y-3">
+                                                        {groups.map((group, groupIdx) => (
+                                                            <div key={groupIdx}>
+                                                                <p className="text-[9px] font-black text-[#2d6a4f] uppercase tracking-wider mb-1.5">
+                                                                    {group.title} :
+                                                                </p>
+                                                                <div className="space-y-1.5 pl-2">
+                                                                    {group.items.map((entry, index) => (
+                                                                        <div key={index} className="flex justify-between items-center gap-4">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }}></div>
+                                                                                <span className="text-[11px] font-bold text-[#4a3426] truncate max-w-[150px]">{entry.name}</span>
+                                                                            </div>
+                                                                            <span className="text-[11px] font-black text-[#c69f6e]">
+                                                                                {parseFloat(entry.value as string).toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                                                            </span>
+                                                                        </div>
+                                                                    ))}
                                                                 </div>
-                                                                <span className="text-[11px] font-black text-[#c69f6e]">
-                                                                    {parseFloat(entry.value as string).toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
-                                                                </span>
                                                             </div>
                                                         ))}
                                                     </div>
+
                                                     <div className="mt-3 pt-2 border-t border-[#f4ece4] flex justify-between">
                                                         <span className="text-[10px] font-black text-[#4a3426] uppercase">Total</span>
                                                         <span className="text-[10px] font-black text-[#4a3426]">
-                                                            {sortedPayload.reduce((acc, curr) => acc + (curr.value as number), 0).toLocaleString('fr-FR', { minimumFractionDigits: 3 })} DT
+                                                            {total.toLocaleString('fr-FR', { minimumFractionDigits: 3 })} DT
                                                         </span>
                                                     </div>
                                                 </div>
                                             );
-                                        }}
-                                    />
-                                    <Legend
-                                        iconType="circle"
-                                        wrapperStyle={{
-                                            paddingTop: '30px',
-                                            maxHeight: '100px',
-                                            overflowY: 'auto',
-                                            fontSize: '10px',
-                                            fontWeight: 'bold',
-                                            textTransform: 'uppercase'
                                         }}
                                     />
                                     {aggregatedExpensesDetailed.suppliers.map((s: string, idx: number) => (
