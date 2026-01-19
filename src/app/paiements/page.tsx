@@ -435,7 +435,7 @@ export default function PaiementsPage() {
     const [historyDateRange, setHistoryDateRange] = useState({ start: '', end: '' });
     const [selectedEmployeeDetails, setSelectedEmployeeDetails] = useState<{ name: string, category: string, subtitle: string, total: number, items: any[] } | null>(null);
     const [activeSegment, setActiveSegment] = useState<any>(null);
-    const [activeCAProfitSegment, setActiveCAProfitSegment] = useState<'expenses' | 'reste' | null>(null);
+    const [activeCAProfitSegment, setActiveCAProfitSegment] = useState<'expenses' | 'personnel' | 'admin' | 'reste' | null>(null);
     const [hideAmounts, setHideAmounts] = useState(false);
 
     const maskAmount = (val: number | string, decimals = 3) => {
@@ -840,20 +840,24 @@ export default function PaiementsPage() {
     }, [data, payerType]);
 
     const totals = useMemo(() => {
-        const dep = expenseDetails.fournisseurs.reduce((a: number, b: any) => a + b.amount, 0) +
-            expenseDetails.divers.reduce((a: number, b: any) => a + b.amount, 0) +
-            expenseDetails.administratif.reduce((a: number, b: any) => a + b.amount, 0);
+        const f_total = expenseDetails.fournisseurs.reduce((a: number, b: any) => a + b.amount, 0);
+        const d_total = expenseDetails.divers.reduce((a: number, b: any) => a + b.amount, 0);
+        const a_total = expenseDetails.administratif.reduce((a: number, b: any) => a + b.amount, 0);
 
-        const sal = expenseDetails.avances.reduce((a: number, b: any) => a + b.amount, 0) +
+        const p_total = expenseDetails.avances.reduce((a: number, b: any) => a + b.amount, 0) +
             expenseDetails.doublages.reduce((a: number, b: any) => a + b.amount, 0) +
             expenseDetails.extras.reduce((a: number, b: any) => a + b.amount, 0) +
             expenseDetails.primes.reduce((a: number, b: any) => a + b.amount, 0) +
             expenseDetails.remainders.reduce((a: number, b: any) => a + b.amount, 0);
 
         return {
-            expenses: dep,
-            salaries: sal,
-            global: dep + sal
+            fournisseurs: f_total,
+            divers: d_total,
+            administratif: a_total,
+            personnel: p_total,
+            expenses: f_total + d_total, // "Dépenses" without personnel/admin
+            salaries: p_total,
+            global: f_total + d_total + a_total + p_total
         };
     }, [expenseDetails]);
 
@@ -1060,13 +1064,6 @@ export default function PaiementsPage() {
                             <h1 className="text-xl md:text-2xl font-black text-[#4a3426] tracking-tight">Finances & Trésorerie</h1>
                             <p className="text-[10px] md:text-xs text-[#8c8279] font-bold uppercase tracking-widest mt-1">Vision Globale & Flux Bancaires</p>
                         </div>
-                        <button
-                            onClick={() => setHideAmounts(!hideAmounts)}
-                            className="w-10 h-10 bg-white rounded-xl border border-[#e6dace] shadow-sm flex items-center justify-center text-[#8c8279] hover:text-[#c69f6e] hover:border-[#c69f6e] transition-all"
-                            title={hideAmounts ? "Afficher les montants" : "Masquer les montants"}
-                        >
-                            {hideAmounts ? <Eye size={20} /> : <EyeOff size={20} />}
-                        </button>
                     </div>
 
                     <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto">
@@ -1196,17 +1193,29 @@ export default function PaiementsPage() {
                         {/* 1. Chiffre d'Affaire */}
                         <motion.div
                             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-                            className="bg-[#56b350] p-10 rounded-[2.5rem] shadow-lg relative overflow-hidden group hover:scale-[1.005] transition-all text-white h-52 flex flex-col justify-center cursor-default"
+                            className="bg-[#56b350] p-8 rounded-[2.5rem] shadow-lg relative overflow-hidden group hover:scale-[1.005] transition-all text-white h-44 flex flex-col justify-center cursor-default"
                         >
                             <div className="relative z-10 flex items-center justify-between gap-8">
                                 <div>
-                                    <div className="flex items-center gap-3 text-white/90 mb-4 uppercase text-[11px] font-bold tracking-[0.2em]">
-                                        <FileText size={18} /> Chiffre d'Affaire
+                                    <div className="flex items-center gap-4 text-white/90 mb-4 uppercase text-[11px] font-bold tracking-[0.2em]">
+                                        <div className="flex items-center gap-3">
+                                            <FileText size={18} /> Chiffre d'Affaire
+                                        </div>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setHideAmounts(!hideAmounts);
+                                            }}
+                                            className="w-8 h-8 bg-black/20 hover:bg-black/40 rounded-lg flex items-center justify-center text-white transition-all backdrop-blur-sm border border-white/5"
+                                            title={hideAmounts ? "Afficher les montants" : "Masquer les montants"}
+                                        >
+                                            {hideAmounts ? <Eye size={16} /> : <EyeOff size={16} />}
+                                        </button>
                                     </div>
-                                    <h3 className="text-7xl font-black tracking-tighter mb-2">
+                                    <h3 className="text-6xl font-black tracking-tighter mb-2">
                                         {maskAmount(computedStats.chiffreAffaire)}
                                     </h3>
-                                    <span className="text-xl font-bold opacity-80 block uppercase tracking-widest">DT</span>
+                                    <span className="text-lg font-bold opacity-80 block uppercase tracking-widest">DT</span>
                                 </div>
 
                                 <div className="hidden lg:flex items-center gap-6 bg-white/10 backdrop-blur-md rounded-[2.5rem] p-6 pr-10 border border-white/20">
@@ -1217,25 +1226,28 @@ export default function PaiementsPage() {
 
                                             {(() => {
                                                 const total = computedStats.chiffreAffaire || 1;
-                                                const expPerc = (computedStats.expenses / total) * 100;
+                                                const depPerc = (totals.expenses / total) * 100;
+                                                const personnelPerc = (totals.personnel / total) * 100;
+                                                const adminPerc = (totals.administratif / total) * 100;
                                                 const restePerc = (computedStats.reste / total) * 100;
+
                                                 const circum = 2 * Math.PI * 40;
 
-                                                // Exp segment (Red)
-                                                const expDash = (expPerc / 100) * circum - (expPerc > 0 ? 2 : 0);
-
-                                                // Reste segment (Blue)
+                                                const depDash = (depPerc / 100) * circum - (depPerc > 0 ? 2 : 0);
+                                                const personnelDash = (personnelPerc / 100) * circum - (personnelPerc > 0 ? 2 : 0);
+                                                const adminDash = (adminPerc / 100) * circum - (adminPerc > 0 ? 2 : 0);
                                                 const resteDash = (restePerc / 100) * circum - (restePerc > 0 ? 2 : 0);
 
                                                 return (
                                                     <>
-                                                        {expPerc > 0 && (
+                                                        {/* Dépenses (Fournisseurs + Divers) - Red */}
+                                                        {depPerc > 0 && (
                                                             <motion.circle
                                                                 cx="50" cy="50" r="40"
                                                                 stroke="#ef4444"
                                                                 strokeWidth={activeCAProfitSegment === 'expenses' ? 16 : 12}
                                                                 fill="transparent"
-                                                                strokeDasharray={`${Math.max(0, expDash)} ${circum}`}
+                                                                strokeDasharray={`${Math.max(0, depDash)} ${circum}`}
                                                                 initial={{ strokeDashoffset: circum }}
                                                                 animate={{ strokeDashoffset: 0, scale: activeCAProfitSegment === 'expenses' ? 1.1 : 1 }}
                                                                 transition={{ duration: 1, ease: "easeOut" }}
@@ -1247,6 +1259,51 @@ export default function PaiementsPage() {
                                                                 }}
                                                             />
                                                         )}
+                                                        {/* Personnel - Amber */}
+                                                        {personnelPerc > 0 && (
+                                                            <motion.circle
+                                                                cx="50" cy="50" r="40"
+                                                                stroke="#f59e0b"
+                                                                strokeWidth={activeCAProfitSegment === 'personnel' ? 16 : 12}
+                                                                fill="transparent"
+                                                                strokeDasharray={`${Math.max(0, personnelDash)} ${circum}`}
+                                                                initial={{ strokeDashoffset: circum }}
+                                                                animate={{
+                                                                    strokeDashoffset: - (depPerc / 100) * circum,
+                                                                    scale: activeCAProfitSegment === 'personnel' ? 1.1 : 1
+                                                                }}
+                                                                transition={{ duration: 1, ease: "easeOut", delay: 0.1 }}
+                                                                strokeLinecap="round"
+                                                                style={{ cursor: 'pointer', transformOrigin: 'center' }}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setActiveCAProfitSegment(activeCAProfitSegment === 'personnel' ? null : 'personnel');
+                                                                }}
+                                                            />
+                                                        )}
+                                                        {/* Administratif - Emerald */}
+                                                        {adminPerc > 0 && (
+                                                            <motion.circle
+                                                                cx="50" cy="50" r="40"
+                                                                stroke="#a855f7"
+                                                                strokeWidth={activeCAProfitSegment === 'admin' ? 16 : 12}
+                                                                fill="transparent"
+                                                                strokeDasharray={`${Math.max(0, adminDash)} ${circum}`}
+                                                                initial={{ strokeDashoffset: circum }}
+                                                                animate={{
+                                                                    strokeDashoffset: - ((depPerc + personnelPerc) / 100) * circum,
+                                                                    scale: activeCAProfitSegment === 'admin' ? 1.1 : 1
+                                                                }}
+                                                                transition={{ duration: 1, ease: "easeOut", delay: 0.2 }}
+                                                                strokeLinecap="round"
+                                                                style={{ cursor: 'pointer', transformOrigin: 'center' }}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setActiveCAProfitSegment(activeCAProfitSegment === 'admin' ? null : 'admin');
+                                                                }}
+                                                            />
+                                                        )}
+                                                        {/* Reste - Blue */}
                                                         {restePerc > 0 && (
                                                             <motion.circle
                                                                 cx="50" cy="50" r="40"
@@ -1256,10 +1313,10 @@ export default function PaiementsPage() {
                                                                 strokeDasharray={`${Math.max(0, resteDash)} ${circum}`}
                                                                 initial={{ strokeDashoffset: circum }}
                                                                 animate={{
-                                                                    strokeDashoffset: - (expPerc / 100) * circum,
+                                                                    strokeDashoffset: - ((depPerc + personnelPerc + adminPerc) / 100) * circum,
                                                                     scale: activeCAProfitSegment === 'reste' ? 1.1 : 1
                                                                 }}
-                                                                transition={{ duration: 1, ease: "easeOut", delay: 0.2 }}
+                                                                transition={{ duration: 1, ease: "easeOut", delay: 0.3 }}
                                                                 strokeLinecap="round"
                                                                 style={{ cursor: 'pointer', transformOrigin: 'center' }}
                                                                 onClick={(e) => {
@@ -1274,19 +1331,26 @@ export default function PaiementsPage() {
                                         </svg>
                                         <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
                                             <span className="text-[10px] font-black opacity-60 uppercase mb-[-2px]">
-                                                {activeCAProfitSegment === 'expenses' ? 'Exp.' : 'Rent.'}
+                                                {(() => {
+                                                    if (activeCAProfitSegment === 'expenses') return 'Dép.';
+                                                    if (activeCAProfitSegment === 'personnel') return 'Pers.';
+                                                    if (activeCAProfitSegment === 'admin') return 'Adm.';
+                                                    return 'Rent.';
+                                                })()}
                                             </span>
                                             <span className="text-xl font-black">
                                                 {(() => {
                                                     if (hideAmounts) return '***';
                                                     const total = computedStats.chiffreAffaire || 1;
-                                                    if (activeCAProfitSegment === 'expenses') return Math.round((computedStats.expenses / total) * 100) + '%';
+                                                    if (activeCAProfitSegment === 'expenses') return Math.round((totals.expenses / total) * 100) + '%';
+                                                    if (activeCAProfitSegment === 'personnel') return Math.round((totals.personnel / total) * 100) + '%';
+                                                    if (activeCAProfitSegment === 'admin') return Math.round((totals.administratif / total) * 100) + '%';
                                                     return Math.round((computedStats.reste / total) * 100) + '%';
                                                 })()}
                                             </span>
                                         </div>
                                     </div>
-                                    <div className="flex flex-col gap-2">
+                                    <div className="flex flex-col gap-1.5">
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation();
@@ -1294,9 +1358,33 @@ export default function PaiementsPage() {
                                             }}
                                             className={`flex items-center gap-2 transition-all ${activeCAProfitSegment === 'expenses' ? 'scale-110 translate-x-1' : 'opacity-80'}`}
                                         >
-                                            <div className="w-2.5 h-2.5 rounded-full bg-[#ef4444] shadow-[0_0_10px_rgba(239,68,68,0.3)]" />
-                                            <span className={`text-[10px] font-black uppercase tracking-widest ${activeCAProfitSegment === 'expenses' ? 'text-[#ef4444]' : 'text-white'}`}>
-                                                Dépenses: {hideAmounts ? '***' : (computedStats.chiffreAffaire > 0 ? Math.round((computedStats.expenses / computedStats.chiffreAffaire) * 100) : 0) + '%'}
+                                            <div className="w-2 h-2 rounded-full bg-[#ef4444] shadow-[0_0_8px_rgba(239,68,68,0.3)]" />
+                                            <span className={`text-[9px] font-black uppercase tracking-widest ${activeCAProfitSegment === 'expenses' ? 'text-[#ef4444] text-[10px]' : 'text-white'}`}>
+                                                Dépenses: {hideAmounts ? '***' : Math.round((totals.expenses / (computedStats.chiffreAffaire || 1)) * 100) + '%'}
+                                            </span>
+                                        </button>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setActiveCAProfitSegment(activeCAProfitSegment === 'personnel' ? null : 'personnel');
+                                            }}
+                                            className={`flex items-center gap-2 transition-all ${activeCAProfitSegment === 'personnel' ? 'scale-110 translate-x-1' : 'opacity-80'}`}
+                                        >
+                                            <div className="w-2 h-2 rounded-full bg-[#f59e0b] shadow-[0_0_8px_rgba(245,158,11,0.3)]" />
+                                            <span className={`text-[9px] font-black uppercase tracking-widest ${activeCAProfitSegment === 'personnel' ? 'text-[#f59e0b] text-[10px]' : 'text-white'}`}>
+                                                Personnel: {hideAmounts ? '***' : Math.round((totals.personnel / (computedStats.chiffreAffaire || 1)) * 100) + '%'}
+                                            </span>
+                                        </button>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setActiveCAProfitSegment(activeCAProfitSegment === 'admin' ? null : 'admin');
+                                            }}
+                                            className={`flex items-center gap-2 transition-all ${activeCAProfitSegment === 'admin' ? 'scale-110 translate-x-1' : 'opacity-80'}`}
+                                        >
+                                            <div className="w-2 h-2 rounded-full bg-[#a855f7] shadow-[0_0_8px_rgba(168,85,247,0.3)]" />
+                                            <span className={`text-[9px] font-black uppercase tracking-widest ${activeCAProfitSegment === 'admin' ? 'text-[#a855f7] text-[10px]' : 'text-white'}`}>
+                                                Admin: {hideAmounts ? '***' : Math.round((totals.administratif / (computedStats.chiffreAffaire || 1)) * 100) + '%'}
                                             </span>
                                         </button>
                                         <button
@@ -1306,8 +1394,8 @@ export default function PaiementsPage() {
                                             }}
                                             className={`flex items-center gap-2 transition-all ${activeCAProfitSegment === 'reste' ? 'scale-110 translate-x-1' : 'opacity-80'}`}
                                         >
-                                            <div className="w-2.5 h-2.5 rounded-full bg-[#0154A2] shadow-[0_0_10px_rgba(1,84,162,0.3)]" />
-                                            <span className={`text-[10px] font-black uppercase tracking-widest ${activeCAProfitSegment === 'reste' ? 'text-[#0154A2]' : 'text-white'}`}>
+                                            <div className="w-2 h-2 rounded-full bg-[#0154A2] shadow-[0_0_8px_rgba(1,84,162,0.3)]" />
+                                            <span className={`text-[9px] font-black uppercase tracking-widest ${activeCAProfitSegment === 'reste' ? 'text-[#0154A2] text-[10px]' : 'text-white'}`}>
                                                 Reste: {hideAmounts ? '***' : (computedStats.chiffreAffaire > 0 ? Math.round((computedStats.reste / computedStats.chiffreAffaire) * 100) : 0) + '%'}
                                             </span>
                                         </button>
@@ -1315,7 +1403,7 @@ export default function PaiementsPage() {
                                 </div>
                             </div>
                             <div className="absolute right-8 bottom-[-20%] opacity-15 group-hover:scale-110 transition-transform duration-500 text-white">
-                                <Wallet size={240} />
+                                <Wallet size={200} />
                             </div>
                         </motion.div>
 
@@ -1323,38 +1411,38 @@ export default function PaiementsPage() {
                         <motion.div
                             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
                             onClick={() => setShowExpensesDetails(true)}
-                            className="bg-[#ef4444] p-10 rounded-[2.5rem] shadow-lg relative overflow-hidden group hover:scale-[1.005] transition-all text-white h-52 flex flex-col justify-center cursor-pointer"
+                            className="bg-[#ef4444] p-8 rounded-[2.5rem] shadow-lg relative overflow-hidden group hover:scale-[1.005] transition-all text-white h-44 flex flex-col justify-center cursor-pointer"
                         >
                             <div className="relative z-10">
                                 <div className="flex items-center gap-3 text-white/90 mb-4 uppercase text-[11px] font-bold tracking-[0.2em]">
                                     <Banknote size={18} /> Total Dépenses
                                 </div>
-                                <h3 className="text-7xl font-black tracking-tighter mb-2">
+                                <h3 className="text-6xl font-black tracking-tighter mb-2">
                                     {maskAmount(computedStats.expenses)}
                                 </h3>
-                                <span className="text-xl font-bold opacity-80 block uppercase tracking-widest">DT</span>
+                                <span className="text-lg font-bold opacity-80 block uppercase tracking-widest">DT</span>
                             </div>
                             <div className="absolute right-8 bottom-[-20%] opacity-15 group-hover:scale-110 transition-transform duration-500 text-white">
-                                <Banknote size={240} />
+                                <Banknote size={200} />
                             </div>
                         </motion.div>
 
                         {/* 3. Reste */}
                         <motion.div
                             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-                            className="bg-[#0154A2] p-10 rounded-[2.5rem] shadow-lg relative overflow-hidden group hover:scale-[1.005] transition-all text-white h-52 flex flex-col justify-center cursor-default"
+                            className="bg-[#0154A2] p-8 rounded-[2.5rem] shadow-lg relative overflow-hidden group hover:scale-[1.005] transition-all text-white h-44 flex flex-col justify-center cursor-default"
                         >
                             <div className="relative z-10">
                                 <div className="flex items-center gap-3 text-white/90 mb-4 uppercase text-[11px] font-bold tracking-[0.2em]">
                                     <TrendingUp size={18} /> Reste
                                 </div>
-                                <h3 className="text-7xl font-black tracking-tighter mb-2">
+                                <h3 className="text-6xl font-black tracking-tighter mb-2">
                                     {maskAmount(computedStats.reste)}
                                 </h3>
-                                <span className="text-xl font-bold opacity-80 block uppercase tracking-widest">DT</span>
+                                <span className="text-lg font-bold opacity-80 block uppercase tracking-widest">DT</span>
                             </div>
                             <div className="absolute right-8 bottom-[-20%] opacity-15 group-hover:scale-110 transition-transform duration-500 text-white">
-                                <TrendingUp size={240} />
+                                <TrendingUp size={200} />
                             </div>
                         </motion.div>
                     </div>
@@ -2844,7 +2932,7 @@ export default function PaiementsPage() {
                                             { title: 'DÉPENSES DIVERS', subtitle: 'FRAIS EXCEPTIONNELS', icon: Sparkles, color: 'text-[#c69f6e]', iconBg: 'bg-[#c69f6e]/5', items: expenseDetails.divers },
                                             { title: 'DOUBLAGE', subtitle: 'HEURES SUPPLÉMENTAIRES', icon: TrendingUp, color: 'text-[#4a3426]', iconBg: 'bg-[#4a3426]/5', items: expenseDetails.doublages },
                                             { title: 'TOUS EMPLOYÉS', subtitle: 'SALAIRES EN ATTENTE', icon: Banknote, color: 'text-red-500', iconBg: 'bg-red-50', items: expenseDetails.remainders, badge: 'EN ATTENTE' },
-                                            { title: 'DÉPENSES ADMINISTRATIF', subtitle: 'LOYERS, FACTURES & BUREAUX', icon: Layout, color: 'text-[#4a3426]', iconBg: 'bg-[#4a3426]/5', items: expenseDetails.administratif },
+                                            { title: 'DÉPENSES ADMINISTRATIF', subtitle: 'LOYERS, FACTURES & BUREAUX', icon: Layout, color: 'text-purple-500', iconBg: 'bg-purple-50', items: expenseDetails.administratif },
                                             { title: 'EXTRA', subtitle: "MAIN D'ŒUVRE OCCASIONNELLE", icon: Zap, color: 'text-[#c69f6e]', iconBg: 'bg-[#c69f6e]/5', items: expenseDetails.extras },
                                         ].map((cat, idx) => {
                                             const total = (cat.items || []).reduce((sum: number, item: any) => sum + (item.amount || 0), 0);
