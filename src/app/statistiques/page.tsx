@@ -345,17 +345,32 @@ export default function StatistiquesPage() {
             });
         };
 
+        // Process payroll categories
+        const payrollCategories = ['ACCOMPTE', 'PRIMES', 'DOUBLAGE', 'RESTES SALAIRES', 'EXTRA'];
+        payrollCategories.forEach(cat => {
+            categoryTotals[cat] = 0;
+        });
+
         raw.forEach((d: any) => {
             processItems(JSON.parse(d.diponce || '[]'));
             processItems(JSON.parse(d.diponce_divers || '[]'));
             processItems(JSON.parse(d.diponce_admin || '[]'));
+
+            // Add payroll totals
+            categoryTotals['ACCOMPTE'] += (d.avances_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
+            categoryTotals['PRIMES'] += (d.primes_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
+            categoryTotals['DOUBLAGE'] += (d.doublages_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
+            categoryTotals['RESTES SALAIRES'] += (d.restes_salaires_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
+            categoryTotals['EXTRA'] += (d.extras_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
         });
+
         riadhRaw.forEach((inv: any) => {
             const name = inv.supplier_name || 'Riadh Exp';
             categoryTotals[name] = (categoryTotals[name] || 0) + (parseFloat(inv.amount) || 0);
         });
 
         const allSuppliers = Object.entries(categoryTotals)
+            .filter(([_, val]) => val > 0)
             .sort((a, b) => b[1] - a[1])
             .map(c => c[0]);
 
@@ -367,6 +382,7 @@ export default function StatistiquesPage() {
                     name: aggregation === 'day'
                         ? new Date(d.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
                         : new Date(d.date).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
+                    total: 0
                 };
                 allSuppliers.forEach(c => aggregated[key][c] = 0);
             }
@@ -381,7 +397,22 @@ export default function StatistiquesPage() {
                 const name = e.supplier || e.designation || e.name || 'Divers';
                 const amt = parseFloat(e.amount) || 0;
                 aggregated[key][name] += amt;
+                aggregated[key].total += amt;
             });
+
+            // Add payroll expenses per day
+            const accompte = (d.avances_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
+            const primes = (d.primes_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
+            const doublage = (d.doublages_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
+            const restes = (d.restes_salaires_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
+            const extra = (d.extras_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
+
+            aggregated[key]['ACCOMPTE'] += accompte;
+            aggregated[key]['PRIMES'] += primes;
+            aggregated[key]['DOUBLAGE'] += doublage;
+            aggregated[key]['RESTES SALAIRES'] += restes;
+            aggregated[key]['EXTRA'] += extra;
+            aggregated[key].total += accompte + primes + doublage + restes + extra;
         });
 
         riadhRaw.forEach((inv: any) => {
@@ -392,6 +423,7 @@ export default function StatistiquesPage() {
             const name = inv.supplier_name || 'Riadh Exp';
             const amt = parseFloat(inv.amount) || 0;
             aggregated[key][name] += amt;
+            aggregated[key].total += amt;
         });
 
         return { data: Object.values(aggregated), suppliers: allSuppliers };
@@ -634,44 +666,82 @@ export default function StatistiquesPage() {
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={aggregatedExpensesDetailed.data}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0e6dd" />
-                                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#8c8279', fontSize: 11 }} interval={aggregation === 'day' ? (aggregatedExpensesDetailed.data.length > 15 ? 2 : 0) : 0} />
+                                    <XAxis
+                                        dataKey="name"
+                                        axisLine={false}
+                                        tickLine={false}
+                                        tick={(props) => {
+                                            const { x, y, payload } = props;
+                                            const dataPoint = aggregatedExpensesDetailed.data.find((d: any) => d.name === payload.value);
+                                            return (
+                                                <g transform={`translate(${x},${y})`}>
+                                                    <text
+                                                        x={0}
+                                                        y={0}
+                                                        dy={10}
+                                                        textAnchor="middle"
+                                                        fill="#8c8279"
+                                                        fontSize={11}
+                                                        fontWeight="bold"
+                                                    >
+                                                        {payload.value}
+                                                    </text>
+                                                    {dataPoint && (
+                                                        <text
+                                                            x={0}
+                                                            y={0}
+                                                            dy={24}
+                                                            textAnchor="middle"
+                                                            fill="#4a3426"
+                                                            fontSize={10}
+                                                            fontWeight="900"
+                                                        >
+                                                            {dataPoint.total.toLocaleString('fr-FR', { maximumFractionDigits: 0 })}
+                                                        </text>
+                                                    )}
+                                                </g>
+                                            );
+                                        }}
+                                        height={60}
+                                        interval={aggregation === 'day' ? (aggregatedExpensesDetailed.data.length > 15 ? 2 : 0) : 0}
+                                    />
                                     <YAxis axisLine={false} tickLine={false} tick={{ fill: '#8c8279', fontSize: 11 }} />
                                     <RechartsTooltip
-                                        wrapperStyle={{ pointerEvents: 'auto' }}
+                                        cursor={{ fill: 'transparent' }}
+                                        wrapperStyle={{ pointerEvents: 'auto', zIndex: 1000 }}
                                         content={({ active, payload, label }) => {
-                                            if (active && payload && payload.length) {
-                                                const sortedPayload = [...payload]
-                                                    .filter(p => (parseFloat(p.value as string) || 0) > 0)
-                                                    .sort((a, b) => (b.value as number) - (a.value as number));
+                                            if (!active || !payload || !payload.length) return null;
 
-                                                if (sortedPayload.length === 0) return null;
+                                            const sortedPayload = [...payload]
+                                                .filter(p => (parseFloat(p.value as string) || 0) > 0)
+                                                .sort((a, b) => (b.value as number) - (a.value as number));
 
-                                                return (
-                                                    <div className="bg-white p-4 rounded-2xl shadow-2xl border border-[#e6dace] max-h-[400px] overflow-y-auto custom-scrollbar min-w-[200px]">
-                                                        <p className="text-[10px] font-black text-[#8c8279] uppercase tracking-widest mb-3 pb-2 border-b border-[#f4ece4]">{label}</p>
-                                                        <div className="space-y-2">
-                                                            {sortedPayload.map((entry, index) => (
-                                                                <div key={index} className="flex justify-between items-center gap-4">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }}></div>
-                                                                        <span className="text-[11px] font-bold text-[#4a3426] truncate max-w-[150px]">{entry.name}</span>
-                                                                    </div>
-                                                                    <span className="text-[11px] font-black text-[#c69f6e]">
-                                                                        {parseFloat(entry.value as string).toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
-                                                                    </span>
+                                            if (sortedPayload.length === 0) return null;
+
+                                            return (
+                                                <div className="bg-white p-4 rounded-2xl shadow-2xl border border-[#e6dace] max-h-[400px] overflow-y-auto custom-scrollbar min-w-[200px]">
+                                                    <p className="text-[10px] font-black text-[#8c8279] uppercase tracking-widest mb-3 pb-2 border-b border-[#f4ece4]">{label}</p>
+                                                    <div className="space-y-2">
+                                                        {sortedPayload.map((entry, index) => (
+                                                            <div key={index} className="flex justify-between items-center gap-4">
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }}></div>
+                                                                    <span className="text-[11px] font-bold text-[#4a3426] truncate max-w-[150px]">{entry.name}</span>
                                                                 </div>
-                                                            ))}
-                                                        </div>
-                                                        <div className="mt-3 pt-2 border-t border-[#f4ece4] flex justify-between">
-                                                            <span className="text-[10px] font-black text-[#4a3426] uppercase">Total</span>
-                                                            <span className="text-[10px] font-black text-[#4a3426]">
-                                                                {sortedPayload.reduce((acc, curr) => acc + (curr.value as number), 0).toLocaleString('fr-FR', { minimumFractionDigits: 3 })} DT
-                                                            </span>
-                                                        </div>
+                                                                <span className="text-[11px] font-black text-[#c69f6e]">
+                                                                    {parseFloat(entry.value as string).toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                                                </span>
+                                                            </div>
+                                                        ))}
                                                     </div>
-                                                );
-                                            }
-                                            return null;
+                                                    <div className="mt-3 pt-2 border-t border-[#f4ece4] flex justify-between">
+                                                        <span className="text-[10px] font-black text-[#4a3426] uppercase">Total</span>
+                                                        <span className="text-[10px] font-black text-[#4a3426]">
+                                                            {sortedPayload.reduce((acc, curr) => acc + (curr.value as number), 0).toLocaleString('fr-FR', { minimumFractionDigits: 3 })} DT
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            );
                                         }}
                                     />
                                     <Legend
