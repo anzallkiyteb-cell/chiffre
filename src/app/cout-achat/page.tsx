@@ -278,7 +278,7 @@ export default function CoutAchatPage() {
             allExpenses: [], allDivers: [], manualDiversOnly: [], labor: 0
         });
 
-        const filteredInvoices = invoices.filter(inv => matchesCategory(inv) && matchesDocType(inv));
+        const filteredInvoices = invoices.filter((inv: any) => matchesCategory(inv) && matchesDocType(inv));
         const paidInvoices = filteredInvoices.filter((inv: any) => inv.status === 'paid');
         const unpaidInvoices = filteredInvoices.filter((inv: any) => inv.status !== 'paid');
 
