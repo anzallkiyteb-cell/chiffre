@@ -711,9 +711,11 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         isFromFacturation?: boolean,
         invoiceId?: number,
         doc_type?: string,
-        doc_number?: string
+        doc_number?: string,
+        hasRetenue?: boolean,
+        originalAmount?: string
     }[]>([
-        { supplier: '', amount: '0', details: '', invoices: [], photo_cheque: '', photo_verso: '', paymentMethod: 'Espèces', doc_type: 'BL' }
+        { supplier: '', amount: '0', details: '', invoices: [], photo_cheque: '', photo_verso: '', paymentMethod: 'Espèces', doc_type: 'BL', hasRetenue: false, originalAmount: '0' }
     ]);
     const [expensesDivers, setExpensesDivers] = useState<{
         designation: string,
@@ -721,9 +723,13 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         details: string,
         invoices: string[],
         paymentMethod: string,
-        doc_type?: string
+        isFromFacturation?: boolean,
+        invoiceId?: number,
+        doc_type?: string,
+        hasRetenue?: boolean,
+        originalAmount?: string
     }[]>([
-        { designation: '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces', doc_type: 'BL' }
+        { designation: '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces', doc_type: 'BL', hasRetenue: false, originalAmount: '0' }
     ]);
     const [expensesAdmin, setExpensesAdmin] = useState<{
         designation: string,
@@ -1111,6 +1117,36 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             }
         });
     };
+    const handleToggleRetenue = (index: number, type: 'expense' | 'divers') => {
+        if (isLocked) return;
+        setHasInteracted(true);
+        if (type === 'expense') {
+            const newExpenses = [...expenses];
+            const item = newExpenses[index];
+            const currentAmount = parseFloat(item.amount) || 0;
+            if (!item.hasRetenue) {
+                const original = item.amount;
+                const net = (currentAmount * 0.99).toFixed(3);
+                newExpenses[index] = { ...item, hasRetenue: true, originalAmount: original, amount: net };
+            } else {
+                newExpenses[index] = { ...item, hasRetenue: false, amount: item.originalAmount || item.amount };
+            }
+            setExpenses(newExpenses);
+        } else {
+            const newDivers = [...expensesDivers];
+            const item = newDivers[index];
+            const currentAmount = parseFloat(item.amount) || 0;
+            if (!item.hasRetenue) {
+                const original = item.amount;
+                const net = (currentAmount * 0.99).toFixed(3);
+                newDivers[index] = { ...item, hasRetenue: true, originalAmount: original, amount: net };
+            } else {
+                newDivers[index] = { ...item, hasRetenue: false, amount: item.originalAmount || item.amount };
+            }
+            setExpensesDivers(newDivers);
+        }
+    };
+
     const handleRemoveExpense = (index: number) => {
         if (isLocked) {
             setShowConfirm({
@@ -1747,18 +1783,25 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     {expenses.map((expense, index) => (
                                         <div key={index} className={`group flex flex-col p-2 rounded-xl transition-all border ${expense.isFromFacturation ? 'bg-[#f0faf5]/50 border-[#d1e7dd]' : 'hover:bg-[#f9f6f2] border-transparent hover:border-[#e6dace]'}`}>
                                             <div className="flex flex-col md:flex-row items-center gap-3 w-full">
-                                                <div className="w-full md:w-32 relative">
+                                                <div className="w-full md:w-52 relative">
                                                     <input
                                                         type="number"
                                                         placeholder="0.00"
-                                                        disabled={expense.isFromFacturation || isLocked}
+                                                        disabled={isLocked}
                                                         value={expense.amount ?? ''}
                                                         onWheel={(e) => e.currentTarget.blur()}
                                                         onFocus={(e) => { if (expense.amount === '0') handleDetailChange(index, 'amount', ''); }}
                                                         onChange={(e) => handleDetailChange(index, 'amount', e.target.value)}
-                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 px-3 font-black text-xl outline-none focus:border-[#c69f6e] text-center ${(expense.isFromFacturation || isLocked) ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 pl-10 pr-20 font-black text-lg outline-none focus:border-[#c69f6e] text-center ${isLocked ? 'opacity-70 cursor-not-allowed' : ''}`}
                                                     />
                                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#bba282] text-xs font-black">DT</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleToggleRetenue(index, 'expense')}
+                                                        className={`absolute right-1.5 top-1/2 -translate-y-1/2 h-9 px-5 rounded-lg text-sm font-black transition-all ${expense.hasRetenue ? 'bg-orange-500 text-white shadow-lg' : 'bg-[#f4ece4] text-[#8c8279] hover:bg-[#e6dace]'} ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                    >
+                                                        1%
+                                                    </button>
                                                 </div>
                                                 {/* BL/Facture Selector */}
                                                 <div className="flex-1 w-full relative">
@@ -1769,30 +1812,26 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         type="text"
                                                         placeholder="Fournisseur..."
                                                         value={expense.supplier ?? ''}
-                                                        disabled={expense.isFromFacturation || isLocked}
+                                                        disabled={isLocked}
                                                         onFocus={() => {
-                                                            if (!expense.isFromFacturation) {
-                                                                setShowSupplierDropdown(index);
-                                                                setSupplierSearch(expense.supplier);
-                                                                setLastFocusedValue(expense.supplier);
-                                                            }
+                                                            setShowSupplierDropdown(index);
+                                                            setSupplierSearch(expense.supplier);
+                                                            setLastFocusedValue(expense.supplier);
                                                         }}
                                                         onBlur={() => setTimeout(() => setShowSupplierDropdown(null), 200)}
                                                         onChange={(e) => { handleDetailChange(index, 'supplier', e.target.value); setSupplierSearch(e.target.value); }}
-                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 pl-12 pr-10 focus:border-[#c69f6e] outline-none font-medium transition-all ${(expense.isFromFacturation || isLocked) ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 pl-12 pr-10 focus:border-[#c69f6e] outline-none font-medium transition-all ${isLocked ? 'opacity-70 cursor-not-allowed' : ''}`}
                                                     />
-                                                    {!expense.isFromFacturation && (
-                                                        <button
-                                                            onClick={() => {
-                                                                if (isLocked) return;
-                                                                setShowSupplierDropdown(showSupplierDropdown === index ? null : index);
-                                                            }}
-                                                            className={`absolute right-3 top-1/2 -translate-y-1/2 text-[#bba282] hover:text-[#c69f6e] transition-colors ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
-                                                        >
-                                                            <ChevronDown size={18} />
-                                                        </button>
-                                                    )}
-                                                    {showSupplierDropdown === index && !expense.isFromFacturation && (
+                                                    <button
+                                                        onClick={() => {
+                                                            if (isLocked) return;
+                                                            setShowSupplierDropdown(showSupplierDropdown === index ? null : index);
+                                                        }}
+                                                        className={`absolute right-3 top-1/2 -translate-y-1/2 text-[#bba282] hover:text-[#c69f6e] transition-colors ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                    >
+                                                        <ChevronDown size={18} />
+                                                    </button>
+                                                    {showSupplierDropdown === index && (
                                                         <div className="absolute top-full left-0 w-full bg-white shadow-xl rounded-xl z-50 mt-1 max-h-48 overflow-y-auto border border-[#e6dace]">
                                                             {filteredSuppliers.map((s: any) => (
                                                                 <div key={s.id} className="p-3 hover:bg-[#f9f6f2] cursor-pointer" onClick={() => { handleDetailChange(index, 'supplier', s.name); setShowSupplierDropdown(null); }}>
@@ -1813,9 +1852,9 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         <button
                                                             key={t}
                                                             type="button"
-                                                            disabled={expense.isFromFacturation || isLocked}
+                                                            disabled={isLocked}
                                                             onClick={() => handleDetailChange(index, 'doc_type', t)}
-                                                            className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${expense.doc_type === t ? (t === 'Facture' ? 'bg-[#3182ce]' : 'bg-[#e53e3e]') + ' text-white shadow-sm' : 'text-[#8c8279] hover:bg-white/50'} ${(expense.isFromFacturation || isLocked) ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                            className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${expense.doc_type === t ? (t === 'Facture' ? 'bg-[#3182ce]' : 'bg-[#e53e3e]') + ' text-white shadow-sm' : 'text-[#8c8279] hover:bg-white/50'} ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
                                                         >
                                                             {t === 'Facture' ? 'Fact' : 'BL'}
                                                         </button>
@@ -1882,7 +1921,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                                 >
                                                                     <UploadCloud size={14} />
                                                                     <span className="font-black uppercase tracking-widest">{expense.photo_cheque ? 'Recto OK' : 'Recto'}</span>
-                                                                    {!expense.isFromFacturation && <input type="file" accept="image/*,.pdf" disabled={isLocked} className="hidden" onChange={(e) => handleFileUpload(index, e, 'recto')} />}
+                                                                    <input type="file" accept="image/*,.pdf" disabled={isLocked} className="hidden" onChange={(e) => handleFileUpload(index, e, 'recto')} />
                                                                 </label>
                                                                 <label
                                                                     onClick={(e) => {
@@ -1896,7 +1935,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                                 >
                                                                     <UploadCloud size={14} />
                                                                     <span className="font-black uppercase tracking-widest">{expense.photo_verso ? 'Verso OK' : 'Verso'}</span>
-                                                                    {!expense.isFromFacturation && <input type="file" accept="image/*,.pdf" disabled={isLocked} className="hidden" onChange={(e) => handleFileUpload(index, e, 'verso')} />}
+                                                                    <input type="file" accept="image/*,.pdf" disabled={isLocked} className="hidden" onChange={(e) => handleFileUpload(index, e, 'verso')} />
                                                                 </label>
                                                             </>
                                                         )}
@@ -1982,7 +2021,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     {expensesDivers.map((divers, index) => (
                                         <div key={index} className="group flex flex-col p-2 rounded-xl transition-all border hover:bg-[#f9f6f2] border-transparent hover:border-[#e6dace]">
                                             <div className="flex flex-col md:flex-row items-center gap-3 w-full">
-                                                <div className="w-full md:w-32 relative">
+                                                <div className="w-full md:w-52 relative">
                                                     <input
                                                         type="number"
                                                         placeholder="0.00"
@@ -1991,9 +2030,16 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         onWheel={(e) => e.currentTarget.blur()}
                                                         onFocus={(e) => { if (divers.amount === '0') handleDiversChange(index, 'amount', ''); }}
                                                         onChange={(e) => handleDiversChange(index, 'amount', e.target.value)}
-                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 px-3 font-black text-xl outline-none focus:border-[#c69f6e] text-center ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 pl-10 pr-20 font-black text-lg outline-none focus:border-[#c69f6e] text-center ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
                                                     />
                                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#bba282] text-xs font-black">DT</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleToggleRetenue(index, 'divers')}
+                                                        className={`absolute right-1.5 top-1/2 -translate-y-1/2 h-9 px-5 rounded-lg text-sm font-black transition-all ${divers.hasRetenue ? 'bg-orange-500 text-white shadow-lg' : 'bg-[#f4ece4] text-[#8c8279] hover:bg-[#e6dace]'} ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                    >
+                                                        1%
+                                                    </button>
                                                 </div>
                                                 <div className="flex-1 w-full relative">
                                                     <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2">

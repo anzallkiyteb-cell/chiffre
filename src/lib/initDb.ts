@@ -129,9 +129,38 @@ const initDb = async () => {
         paid_date character varying(255),
         photo_cheque_url text,
         photo_verso_url text,
+        category character varying(50),
+        doc_type character varying(50),
+        doc_number character varying(255),
+        origin character varying(50),
+        payer character varying(50),
+        details text,
         CONSTRAINT invoices_pkey PRIMARY KEY (id)
       );
     `);
+
+    // Ensure missing columns exist for invoices
+    const invoiceCols = [
+      { name: 'category', type: 'character varying(50)' },
+      { name: 'doc_type', type: 'character varying(50)' },
+      { name: 'doc_number', type: 'character varying(255)' },
+      { name: 'origin', type: 'character varying(50)' },
+      { name: 'payer', type: 'character varying(50)' },
+      { name: 'details', type: 'text' },
+      { name: 'has_retenue', type: 'boolean', default: 'false' },
+      { name: 'original_amount', type: 'character varying(255)' }
+    ];
+
+    for (const col of invoiceCols) {
+      await query(`
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='invoices' AND column_name='${col.name}') THEN
+                    ALTER TABLE public.invoices ADD COLUMN ${col.name} ${col.type};
+                END IF;
+            END $$;
+        `);
+    }
 
     // Ensure photos column exists
     await query(`

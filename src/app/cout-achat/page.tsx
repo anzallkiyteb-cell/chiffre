@@ -186,10 +186,8 @@ export default function CoutAchatPage() {
     const [endDate, setEndDate] = useState(endOfMonth);
     const [searchQuery, setSearchQuery] = useState('');
     const [categoryFilter, setCategoryFilter] = useState<'tous' | 'fournisseur' | 'divers'>('tous');
-    const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-        paid: true,
-        unpaid: true
-    });
+    const [docTypeFilter, setDocTypeFilter] = useState<'tous' | 'bl' | 'facture'>('tous');
+    const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
     const [selectedDetail, setSelectedDetail] = useState<{ name: string, type: 'paid' | 'unpaid' | 'fournisseur' | 'divers' } | null>(null);
     const [viewingData, setViewingData] = useState<any>(null);
     const [imgZoom, setImgZoom] = useState(1);
@@ -248,15 +246,20 @@ export default function CoutAchatPage() {
             }
             return true;
         };
+        const matchesDocType = (item: any) => {
+            if (docTypeFilter === 'tous') return true;
+            const type = (item.doc_type || '').toLowerCase();
+            return type === docTypeFilter;
+        };
 
         const base = data.getChiffresByRange.reduce((acc: any, curr: any) => {
             const diponceList = JSON.parse(curr.diponce || '[]');
             const manualExpenses = diponceList
-                .filter((e: any) => !e.isFromFacturation && matchesCategory(e))
+                .filter((e: any) => !e.isFromFacturation && matchesCategory(e) && matchesDocType(e))
                 .map((e: any) => ({ ...e, date: curr.date }));
 
             const diversList = JSON.parse(curr.diponce_divers || '[]')
-                .filter((e: any) => matchesCategory({ ...e, category: 'Divers' }))
+                .filter((e: any) => matchesCategory({ ...e, category: 'Divers' }) && matchesDocType(e))
                 .map((e: any) => ({ ...e, date: curr.date }));
 
             return {
@@ -275,7 +278,7 @@ export default function CoutAchatPage() {
             allExpenses: [], allDivers: [], manualDiversOnly: [], labor: 0
         });
 
-        const filteredInvoices = invoices.filter(matchesCategory);
+        const filteredInvoices = invoices.filter(inv => matchesCategory(inv) && matchesDocType(inv));
         const paidInvoices = filteredInvoices.filter((inv: any) => inv.status === 'paid');
         const unpaidInvoices = filteredInvoices.filter((inv: any) => inv.status !== 'paid');
 
@@ -370,7 +373,7 @@ export default function CoutAchatPage() {
             totalDivers,
             totalGlobalConsommation: totalPaid + totalUnpaid
         };
-    }, [data, searchQuery, categoryFilter]);
+    }, [data, searchQuery, categoryFilter, docTypeFilter]);
 
     if (initializing || !user) return (
         <div className="min-h-screen flex items-center justify-center bg-[#fdfbf7]">
@@ -419,6 +422,28 @@ export default function CoutAchatPage() {
                                     `}
                                 >
                                     <tab.icon size={14} />
+                                    <span>{tab.label}</span>
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="flex bg-[#f9f7f5] p-1 rounded-xl border border-[#e6dace]/50 shadow-sm overflow-x-auto no-scrollbar">
+                            {[
+                                { id: 'tous', label: 'Tous' },
+                                { id: 'bl', label: 'BL' },
+                                { id: 'facture', label: 'Facture' }
+                            ].map((tab) => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setDocTypeFilter(tab.id as any)}
+                                    className={`
+                                        px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap
+                                        ${docTypeFilter === tab.id
+                                            ? 'bg-[#c69f6e] text-white shadow-md'
+                                            : 'text-[#8c8279] hover:bg-white hover:text-[#4a3426]'
+                                        }
+                                    `}
+                                >
                                     <span>{tab.label}</span>
                                 </button>
                             ))}

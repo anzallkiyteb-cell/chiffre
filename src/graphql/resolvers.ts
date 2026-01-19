@@ -32,7 +32,10 @@ export const resolvers = {
                     isFromFacturation: true,
                     invoiceId: inv.id,
                     doc_type: inv.doc_type,
-                    doc_number: inv.doc_number
+                    doc_number: inv.doc_number,
+                    details: inv.details || '',
+                    hasRetenue: inv.has_retenue || false,
+                    originalAmount: inv.original_amount || inv.amount
                 };
 
                 if (inv.category === 'divers') {
@@ -225,6 +228,9 @@ export const resolvers = {
                         doc_type: inv.doc_type,
                         doc_number: inv.doc_number,
                         category: inv.category,
+                        details: inv.details || '',
+                        hasRetenue: inv.has_retenue || false,
+                        originalAmount: inv.original_amount || inv.amount,
                         origin: inv.origin,
                         status: inv.status
                     });
@@ -638,7 +644,10 @@ export const resolvers = {
                         isFromFacturation: true,
                         invoiceId: inv.id,
                         doc_type: inv.doc_type,
-                        doc_number: inv.doc_number
+                        doc_number: inv.doc_number,
+                        details: inv.details || '',
+                        hasRetenue: inv.has_retenue || false,
+                        originalAmount: inv.original_amount || inv.amount
                     };
 
                     if (inv.category === 'divers') {
@@ -718,14 +727,14 @@ export const resolvers = {
                 for (const d of fullDiponceList) {
                     if (!d.isFromFacturation && d.supplier && parseFloat(d.amount) > 0) {
                         await query(
-                            `INSERT INTO invoices (supplier_name, amount, date, photo_url, photos, photo_cheque_url, photo_verso_url, status, payment_method, paid_date, payer, category, doc_type, doc_number, origin)
-                             VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, 'paid', $8, $9, $10, 'fournisseur', $11, $12, 'daily_sheet')`,
-                            [d.supplier, d.amount, date, d.photo_url || null, JSON.stringify(d.invoices || []), d.photo_cheque || null, d.photo_verso || null, d.paymentMethod || 'Espèces', date, payerRole, d.doc_type || 'BL', d.doc_number || null]
+                            `INSERT INTO invoices (supplier_name, amount, date, photo_url, photos, photo_cheque_url, photo_verso_url, status, payment_method, paid_date, payer, category, doc_type, doc_number, origin, details, has_retenue, original_amount)
+                             VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, 'paid', $8, $9, $10, 'fournisseur', $11, $12, 'daily_sheet', $13, $14, $15)`,
+                            [d.supplier, d.amount, date, d.photo_url || null, JSON.stringify(d.invoices || []), d.photo_cheque || null, d.photo_verso || null, d.paymentMethod || 'Espèces', date, payerRole, d.doc_type || 'BL', d.doc_number || null, d.details || '', d.hasRetenue || false, d.originalAmount || d.amount]
                         );
                     } else if (d.isFromFacturation && d.invoiceId) {
                         await query(
-                            `UPDATE invoices SET photos = $1::jsonb WHERE id = $2`,
-                            [JSON.stringify(d.invoices || []), d.invoiceId]
+                            `UPDATE invoices SET photos = $1::jsonb, details = $2, supplier_name = $3, amount = $4, doc_type = $5, has_retenue = $6, original_amount = $7 WHERE id = $8`,
+                            [JSON.stringify(d.invoices || []), d.details || '', d.supplier, d.amount, d.doc_type, d.hasRetenue || false, d.originalAmount || d.amount, d.invoiceId]
                         );
                     } else if (!d.isFromFacturation) {
                         diponceList.push(d);
@@ -740,14 +749,14 @@ export const resolvers = {
                 for (const d of fullDiversList) {
                     if (!d.isFromFacturation && d.designation && parseFloat(d.amount) > 0) {
                         await query(
-                            `INSERT INTO invoices (supplier_name, amount, date, photos, status, payment_method, paid_date, payer, category, doc_type, origin)
-                             VALUES ($1, $2, $3, $4::jsonb, 'paid', $5, $6, $7, 'divers', $8, 'daily_sheet')`,
-                            [d.designation, d.amount, date, JSON.stringify(d.invoices || []), d.paymentMethod || 'Espèces', date, payerRole, d.doc_type || 'BL']
+                            `INSERT INTO invoices (supplier_name, amount, date, photos, status, payment_method, paid_date, payer, category, doc_type, origin, details, has_retenue, original_amount)
+                             VALUES ($1, $2, $3, $4::jsonb, 'paid', $5, $6, $7, 'divers', $8, 'daily_sheet', $9, $10, $11)`,
+                            [d.designation, d.amount, date, JSON.stringify(d.invoices || []), d.paymentMethod || 'Espèces', date, payerRole, d.doc_type || 'BL', d.details || '', d.hasRetenue || false, d.originalAmount || d.amount]
                         );
                     } else if (d.isFromFacturation && d.invoiceId) {
                         await query(
-                            `UPDATE invoices SET photos = $1::jsonb WHERE id = $2`,
-                            [JSON.stringify(d.invoices || []), d.invoiceId]
+                            `UPDATE invoices SET photos = $1::jsonb, details = $2, supplier_name = $3, amount = $4, doc_type = $5, has_retenue = $6, original_amount = $7 WHERE id = $8`,
+                            [JSON.stringify(d.invoices || []), d.details || '', d.designation, d.amount, d.doc_type, d.hasRetenue || false, d.originalAmount || d.amount, d.invoiceId]
                         );
                     } else if (!d.isFromFacturation) {
                         diponceDiversList.push(d);

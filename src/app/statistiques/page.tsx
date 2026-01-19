@@ -514,7 +514,11 @@ export default function StatistiquesPage() {
 
     const supplierColors = [
         '#c69f6e', '#2d6a4f', '#ef4444', '#3b82f6', '#8b5cf6',
-        '#ec4899', '#f59e0b', '#10b981', '#6366f1', '#14b8a6', '#8c8279'
+        '#ec4899', '#f59e0b', '#10b981', '#6366f1', '#14b8a6', '#8c8279',
+        '#1e3a8a', '#111827', '#b91c1c', '#1e40af', '#7c3aed', '#db2777',
+        '#ea580c', '#15803d', '#0369a1', '#334155', '#4d7c0f', '#854d0e',
+        '#475569', '#9f1239', '#1e1b4b', '#312e81', '#4c1d95', '#701a75',
+        '#713f12', '#064e3b', '#0c4a6e', '#1e293b', '#0f172a', '#450a0a'
     ];
 
     const allAvailableSuppliers = useMemo(() => {
@@ -888,9 +892,10 @@ export default function StatistiquesPage() {
                                             );
                                         }}
                                     />
-                                    {aggregatedExpensesDetailed.suppliers.map((s: string, idx: number) => (
-                                        <Bar key={s} dataKey={s} stackId="a" fill={supplierColors[idx % supplierColors.length]} barSize={aggregation === 'day' ? 20 : 40} />
-                                    ))}
+                                    {aggregatedExpensesDetailed.suppliers.map((s: string, idx: number) => {
+                                        const color = idx < supplierColors.length ? supplierColors[idx] : `hsl(${(idx * 137.5) % 360}, 65%, 45%)`;
+                                        return <Bar key={s} dataKey={s} stackId="a" fill={color} barSize={aggregation === 'day' ? 20 : 40} />;
+                                    })}
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
