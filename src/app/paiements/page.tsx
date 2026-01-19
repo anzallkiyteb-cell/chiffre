@@ -1061,7 +1061,7 @@ export default function PaiementsPage() {
             <div className="flex-1 min-w-0 pb-24 lg:pb-0">
                 <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-[#e6dace] py-6 px-4 md:px-8 flex flex-col md:flex-row items-center gap-6">
                     <div className="flex-shrink-0">
-                        <h1 className="text-xl md:text-2xl font-black text-[#4a3426] tracking-tight">Finances & Trésorerie</h1>
+                        <h1 className="text-xl md:text-2xl font-black text-[#4a3426] tracking-tight">Finances</h1>
 
                     </div>
 
