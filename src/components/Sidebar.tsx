@@ -194,7 +194,7 @@ export default function Sidebar({ role }: SidebarProps) {
                             <div className="flex items-center gap-2 mt-0.5">
                                 <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)] shrink-0"></div>
                                 <p className="text-[10px] font-black uppercase tracking-widest text-[#8c8279] truncate">
-                                    {role === 'admin' ? 'Administration' : 'Gestion Caisse'}
+                                    {role === 'admin' ? 'Admin' : 'Gestion Caisse'}
                                 </p>
                             </div>
                         </div>
