@@ -1119,6 +1119,10 @@ export const resolvers = {
         },
         toggleSystemBlock: async (_: any, { isBlocked }: { isBlocked: boolean }) => {
             await query("UPDATE public.settings SET value = $1 WHERE key = 'is_blocked'", [isBlocked.toString()]);
+            // If blocking the platform, disconnect ALL users (including admin) immediately
+            if (isBlocked) {
+                await query("UPDATE public.logins SET last_active = NULL");
+            }
             return true;
         },
         upsertUser: async (_: any, { username, password, role, full_name, face_data }: any) => {

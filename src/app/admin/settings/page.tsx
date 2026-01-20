@@ -16,19 +16,19 @@ import * as faceapi from 'face-api.js';
 // Load face-api models once
 let modelsLoaded = false;
 const loadModels = async () => {
-  if (modelsLoaded) return true;
-  try {
-    await Promise.all([
-      faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
-      faceapi.nets.faceLandmark68Net.loadFromUri('/models'),
-      faceapi.nets.faceRecognitionNet.loadFromUri('/models'),
-    ]);
-    modelsLoaded = true;
-    return true;
-  } catch (err) {
-    console.error('Failed to load face-api models:', err);
-    return false;
-  }
+    if (modelsLoaded) return true;
+    try {
+        await Promise.all([
+            faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
+            faceapi.nets.faceLandmark68Net.loadFromUri('/models'),
+            faceapi.nets.faceRecognitionNet.loadFromUri('/models'),
+        ]);
+        modelsLoaded = true;
+        return true;
+    } catch (err) {
+        console.error('Failed to load face-api models:', err);
+        return false;
+    }
 };
 
 const GET_SETTINGS_DATA = gql`
@@ -199,28 +199,64 @@ export default function SettingsPage() {
     };
 
     const handleDisconnect = async (username: string) => {
-        if (!confirm(`Déconnecter ${username} ?`)) return;
         try {
-            await disconnectUser({ variables: { username } });
+            await disconnectUser({
+                variables: { username },
+                optimisticResponse: {
+                    disconnectUser: true
+                },
+                update(cache) {
+                    const existingData: any = cache.readQuery({ query: GET_SETTINGS_DATA });
+                    if (existingData) {
+                        const newUsers = existingData.getUsers.map((u: any) =>
+                            u.username === username ? { ...u, is_online: false } : u
+                        );
+                        cache.writeQuery({
+                            query: GET_SETTINGS_DATA,
+                            data: { ...existingData, getUsers: newUsers }
+                        });
+                    }
+                }
+            });
 
-            // If the admin disconnects themselves, log out immediately
             if (currentUser && currentUser.username.toLowerCase() === username.toLowerCase()) {
                 localStorage.clear();
                 window.location.href = '/';
                 return;
             }
-
+        } catch (e) {
+            console.error(e);
+            alert('Error disconnecting user');
             refetch();
-        } catch (e) { alert('Error disconnecting user'); }
+        }
     };
 
     const handleToggleBlock = async (username: string, currentStatus: boolean) => {
-        const action = currentStatus ? 'Débloquer' : 'Bloquer';
-        if (!confirm(`${action} ${username} ?`)) return;
         try {
-            await toggleUserBlock({ variables: { username, isBlocked: !currentStatus } });
+            const newStatus = !currentStatus;
+            await toggleUserBlock({
+                variables: { username, isBlocked: newStatus },
+                optimisticResponse: {
+                    toggleUserBlock: true
+                },
+                update(cache) {
+                    const existingData: any = cache.readQuery({ query: GET_SETTINGS_DATA });
+                    if (existingData) {
+                        const newUsers = existingData.getUsers.map((u: any) =>
+                            u.username === username ? { ...u, is_blocked_user: newStatus } : u
+                        );
+                        cache.writeQuery({
+                            query: GET_SETTINGS_DATA,
+                            data: { ...existingData, getUsers: newUsers }
+                        });
+                    }
+                }
+            });
+        } catch (e) {
+            console.error(e);
+            alert('Error toggling block');
             refetch();
-        } catch (e) { alert('Error toggling block'); }
+        }
     };
 
     const handleClearLogs = async () => {
@@ -231,14 +267,16 @@ export default function SettingsPage() {
         } catch (e) { alert('Erreur lors de l\'effacement'); }
     };
 
-    const handleToggleSystemBlock = async () => {
-        const action = isSystemBlocked ? 'DÉVERROUILLER' : 'VERROUILLER';
-        if (!confirm(`${action} tout le système ?\n\n${isSystemBlocked ? "Cela rétablira l'accès pour tous." : "Cela bloquera l'accès pour tous les caissiers."}`)) return;
+    const handleBlockPlatform = async () => {
+        if (isSystemBlocked) return; // Already blocked, do nothing
+        if (!confirm('BLOQUER la plateforme ?\n\nCela va déconnecter tous les utilisateurs et bloquer l\'accès à la plateforme.')) return;
         try {
-            await toggleSystemBlock({ variables: { isBlocked: !isSystemBlocked } });
-            refetchStatus();
+            await toggleSystemBlock({ variables: { isBlocked: true } });
+            // Clear local storage and redirect to home (logout current user)
+            localStorage.clear();
+            window.location.href = '/';
         } catch (e) {
-            alert('Erreur lors du changement de statut du système');
+            alert('Erreur lors du blocage de la plateforme');
         }
     };
 
@@ -276,13 +314,15 @@ export default function SettingsPage() {
                             </div>
                         </div>
 
-                        <button
-                            onClick={handleToggleSystemBlock}
-                            className={`w-full md:w-auto h-16 px-10 rounded-2xl font-black uppercase text-xs tracking-widest transition-all flex items-center justify-center gap-3 shadow-xl ${isSystemBlocked ? 'bg-green-600 hover:bg-green-700 text-white shadow-green-600/20' : 'bg-red-600 hover:bg-red-700 text-white shadow-red-600/20'}`}
-                        >
-                            {isSystemBlocked ? <ShieldCheck size={20} /> : <ShieldAlert size={20} />}
-                            {isSystemBlocked ? "Débloquer la plateforme" : "Bloquer la plateforme"}
-                        </button>
+                        {!isSystemBlocked && (
+                            <button
+                                onClick={handleBlockPlatform}
+                                className="w-full md:w-auto h-16 px-10 rounded-2xl font-black uppercase text-xs tracking-widest transition-all flex items-center justify-center gap-3 shadow-xl bg-red-600 hover:bg-red-700 text-white shadow-red-600/20"
+                            >
+                                <ShieldAlert size={20} />
+                                Bloquer la plateforme
+                            </button>
+                        )}
                     </section>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
@@ -822,11 +862,10 @@ function FaceCaptureModal({ onClose, onCapture }: { onClose: () => void, onCaptu
                                 <div className="absolute inset-y-8 left-1/2 -translate-x-1/2 w-[1px] bg-[#c69f6e] opacity-30 shadow-[0_0_15px_#c69f6e] z-10 animate-pulse"></div>
 
                                 {/* Circular Guide - changes color based on face detection */}
-                                <div className={`absolute inset-12 border-[3px] rounded-full transition-all duration-300 ${
-                                    faceDetected
-                                        ? 'border-green-500 opacity-80 shadow-[0_0_20px_rgba(34,197,94,0.5)]'
-                                        : 'border-dashed border-[#c69f6e] opacity-30'
-                                }`}></div>
+                                <div className={`absolute inset-12 border-[3px] rounded-full transition-all duration-300 ${faceDetected
+                                    ? 'border-green-500 opacity-80 shadow-[0_0_20px_rgba(34,197,94,0.5)]'
+                                    : 'border-dashed border-[#c69f6e] opacity-30'
+                                    }`}></div>
 
                                 {step > 0 && faceDetected && (
                                     <div className="absolute inset-0 flex items-center justify-center p-12 pointer-events-none">
@@ -875,11 +914,10 @@ function FaceCaptureModal({ onClose, onCapture }: { onClose: () => void, onCaptu
                         <button
                             onClick={captureface}
                             disabled={!faceDetected}
-                            className={`w-full h-16 rounded-2xl font-black uppercase tracking-[0.2em] shadow-xl flex items-center justify-center gap-3 transition-all ${
-                                faceDetected
-                                    ? 'bg-[#4a3426] text-white hover:scale-105 active:scale-95'
-                                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                            }`}
+                            className={`w-full h-16 rounded-2xl font-black uppercase tracking-[0.2em] shadow-xl flex items-center justify-center gap-3 transition-all ${faceDetected
+                                ? 'bg-[#4a3426] text-white hover:scale-105 active:scale-95'
+                                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                }`}
                         >
                             <Camera size={20} />
                             {faceDetected ? 'Capturer le visage' : 'En attente de visage...'}

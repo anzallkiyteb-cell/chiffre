@@ -314,17 +314,30 @@ export default function Home() {
   const [lastUser, setLastUser] = useState<any>(null);
   const [error, setError] = useState('');
 
-  const { data: statusData, loading: statusLoading, refetch: refetchStatus } = useQuery(GET_SYSTEM_STATUS, { pollInterval: 30000 });
+  const { data: statusData, loading: statusLoading, refetch: refetchStatus } = useQuery(GET_SYSTEM_STATUS, {
+    pollInterval: 10000,
+    onCompleted: (data) => {
+      // If system is blocked and current user is not admin, logout immediately
+      const isSystemBlocked = data?.getSystemStatus?.is_blocked;
+      const stored = localStorage.getItem('bb_user');
+      if (isSystemBlocked && stored) {
+        const userData = JSON.parse(stored);
+        if (userData.role !== 'admin') {
+          handleLogout();
+        }
+      }
+    }
+  });
   const [recordConnection] = useMutation(RECORD_CONNECTION);
   const [disconnectUser] = useMutation(DISCONNECT_USER);
 
   const [pendingUser, setPendingUser] = useState<any>(null);
   const [isFaceLoginOpen, setIsFaceLoginOpen] = useState(false);
-  const [showAdminLogin, setShowAdminLogin] = useState(false);
 
   // Check if system OR current user is blocked
   const [isAccountBlocked, setIsAccountBlocked] = useState(false);
-  const isBlocked = statusData?.getSystemStatus?.is_blocked || isAccountBlocked;
+  const isSystemBlocked = statusData?.getSystemStatus?.is_blocked;
+  const isBlocked = (isSystemBlocked && user?.role !== 'admin') || isAccountBlocked;
 
   const [checkStatus] = useLazyQuery(gql`
     query CheckUserStatus {
@@ -613,6 +626,14 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [user]); // Re-run if user state changes
 
+  // Handle system-wide block logout
+  useEffect(() => {
+    if (isSystemBlocked && user && user.role !== 'admin') {
+      console.log("System-wide block active. Disconnecting non-admin user.");
+      handleLogout();
+    }
+  }, [isSystemBlocked, user]);
+
   // Auto-disconnect on inactivity (10 minutes)
   useEffect(() => {
     if (!user?.username) return;
@@ -826,10 +847,48 @@ export default function Home() {
     );
   }
 
+  // Show blocked screen when system is blocked (no login possible)
+  if (isSystemBlocked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 md:p-8 bg-[#1a110a]">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-[1000px] bg-transparent rounded-[2.5rem] overflow-hidden min-h-[600px] relative"
+        >
+          <div className="flex flex-col items-center justify-center relative p-12 bg-[#3d2a1d] rounded-[3rem] text-white overflow-hidden h-full min-h-[600px]">
+            {/* Watermark "B" */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.03] select-none">
+              <span className="text-[600px] font-black leading-none mt-[-50px]">B</span>
+            </div>
+
+            <div className="absolute inset-0 opacity-[0.08] bg-[url('/logo.jpeg')] bg-cover bg-center grayscale mix-blend-luminosity"></div>
+            <div className="absolute inset-0 bg-gradient-to-br from-[#4a3426] to-[#2a1a10]"></div>
+
+            <div className="relative z-10 text-center space-y-12 w-full flex flex-col items-center">
+              <motion.div
+                initial={{ rotate: -10, scale: 0.9 }}
+                animate={{ rotate: 0, scale: 1 }}
+                transition={{ type: "spring", damping: 12 }}
+                className="w-48 h-48 relative rounded-[2.5rem] p-1 bg-white/10 backdrop-blur-md ring-1 ring-white/20 shadow-2xl"
+              >
+                <div className="absolute inset-0 rounded-[2.3rem] overflow-hidden">
+                  <Image src="/logo.jpeg" alt="Logo" fill className="object-cover border-4 border-transparent" />
+                </div>
+              </motion.div>
+
+
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // Show login form when not logged in (and system is not blocked)
   if (!user || isBlocked) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 md:p-8 bg-[#fdfbf7]">
-        {/* Decorative background elements */}
         <div className="fixed top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
           <div className="absolute -top-20 -right-20 w-[600px] h-[600px] bg-[var(--accent)] rounded-full mix-blend-multiply filter blur-[120px] opacity-[0.05] animate-pulse"></div>
           <div className="absolute top-40 -left-20 w-[500px] h-[500px] bg-[var(--primary)] rounded-full mix-blend-multiply filter blur-[100px] opacity-[0.05]"></div>
@@ -838,137 +897,140 @@ export default function Home() {
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className={`w-full max-w-[1000px] grid grid-cols-1 ${!isBlocked || showAdminLogin ? 'md:grid-cols-2' : ''} bg-white rounded-[2.5rem] shadow-[0_40px_100px_-20px_rgba(92,58,33,0.12)] overflow-hidden min-h-[600px] border border-[rgba(196,154,108,0.15)] relative`}
+          className="w-full max-w-[1000px] grid grid-cols-1 md:grid-cols-2 bg-white shadow-[0_40px_100px_-20px_rgba(92,58,33,0.12)] border-[rgba(196,154,108,0.15)] rounded-[2.5rem] overflow-hidden min-h-[600px] relative"
         >
-          {/* Left Side - Visual/Brand (Visible only when NOT blocked or when admin login is requested) */}
-          {/* Left Side - Visual/Brand (Always active, becomes full screen when blocked) */}
-          <div className={`${(!isBlocked || showAdminLogin) ? 'hidden md:flex' : 'flex'} flex-col items-center justify-center relative p-12 bg-[#4a3426] text-white overflow-hidden h-full min-h-[600px] transition-all duration-500`}>
+          {/* Main Visual Content */}
+          <div className="hidden md:flex flex-col items-center justify-center relative p-12 bg-[#4a3426] text-white overflow-hidden h-full min-h-[600px]">
             <div className="absolute inset-0 opacity-[0.08] bg-[url('/logo.jpeg')] bg-cover bg-center grayscale mix-blend-luminosity"></div>
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
 
-            <div className="relative z-10 text-center space-y-8 max-w-sm">
+            <div className="relative z-10 text-center space-y-12 w-full flex flex-col items-center">
               <motion.div
                 initial={{ rotate: -10, scale: 0.9 }}
                 animate={{ rotate: 0, scale: 1 }}
                 transition={{ type: "spring", damping: 12 }}
-                className="w-32 h-32 relative mx-auto rounded-[2rem] p-1 bg-white/10 backdrop-blur-md ring-1 ring-white/20 shadow-2xl cursor-pointer"
-                onDoubleClick={() => {
-                  if (isBlocked && !showAdminLogin) setShowAdminLogin(true);
-                }}
+                className="w-32 h-32 relative rounded-[2.5rem] p-1 bg-white/10 backdrop-blur-md ring-1 ring-white/20 shadow-2xl"
               >
-                <Image src="/logo.jpeg" alt="Logo" fill className="rounded-[1.8rem] object-cover border-4 border-transparent" />
+                <div className="absolute inset-0 rounded-[2.3rem] overflow-hidden">
+                  <Image src="/logo.jpeg" alt="Logo" fill className="object-cover border-4 border-transparent" />
+                </div>
+
+                {/* Status Indicator */}
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full border-4 border-[#4a3426] z-20"
+                />
               </motion.div>
 
-              {/* Show text ONLY if NOT blocked (or if admin login active) */}
-              {(!isBlocked || showAdminLogin) && (
-                <div className="space-y-2">
-                  <h2 className="text-4xl font-black tracking-tighter mb-2 uppercase italic text-white">Expertise Bey</h2>
-                  <div className="flex items-center justify-center gap-2">
-                    <div className="h-[1px] w-6 bg-white/30"></div>
-                    <p className="text-[#c69f6e] uppercase tracking-[0.4em] text-[8px] font-black italic">Hardware & Stock Intelligence</p>
-                    <div className="h-[1px] w-6 bg-white/30"></div>
-                  </div>
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-2"
+              >
+                <h2 className="text-4xl font-black tracking-tighter mb-2 uppercase italic text-white leading-none">Expertise Bey</h2>
+                <div className="flex items-center justify-center gap-3">
+                  <div className="h-[1px] w-8 bg-white/20"></div>
+                  <p className="text-[#c69f6e] uppercase tracking-[0.5em] text-[10px] font-black italic">Hardware & Stock Intelligence</p>
+                  <div className="h-[1px] w-8 bg-white/20"></div>
                 </div>
-              )}
+              </motion.div>
             </div>
           </div>
 
-          {/* Right Side - Form (Only visible when NOT blocked or unlocked) */}
-          {(!isBlocked || showAdminLogin) && (
-            <div className="p-8 md:p-14 flex flex-col justify-center relative">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key="form"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                >
-                  <div className="text-center md:text-left mb-10">
-                    <h2 className="text-3xl font-black text-[#4a3426] tracking-tighter uppercase italic leading-tight">Bienvenue</h2>
-                    <p className="text-[#bba282] font-bold text-[10px] uppercase tracking-widest mt-2 opacity-60">Identification requise</p>
+          {/* Right Side - Form */}
+          <div className="p-8 md:p-14 flex flex-col justify-center relative">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key="form"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+              >
+                <div className="text-center md:text-left mb-10">
+                  <h2 className="text-3xl font-black text-[#4a3426] tracking-tighter uppercase italic leading-tight">Bienvenue</h2>
+                  <p className="text-[#bba282] font-bold text-[10px] uppercase tracking-widest mt-2 opacity-60">Identification requise</p>
+                </div>
+
+                <form onSubmit={handleLogin} className="space-y-6">
+                  <div className="space-y-5">
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 left-5 flex items-center text-[#bba282] group-focus-within:text-[#4a3426] transition-colors">
+                        <User size={18} strokeWidth={2.5} />
+                      </div>
+                      <input
+                        type="text"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        className="w-full h-16 rounded-2xl bg-[#fcfaf8] border border-[#e6dace] px-5 pl-14 text-sm font-black text-[#4a3426] outline-none focus:border-[#4a3426] focus:bg-white transition-all placeholder:text-[#bba282]/40"
+                        placeholder="IDENTIFIANT"
+                        required
+                      />
+                    </div>
+
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 left-5 flex items-center text-[#bba282] group-focus-within:text-[#4a3426] transition-colors">
+                        <Lock size={18} strokeWidth={2.5} />
+                      </div>
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full h-16 rounded-2xl bg-[#fcfaf8] border border-[#e6dace] px-5 pl-14 pr-12 text-sm font-black text-[#4a3426] outline-none focus:border-[#4a3426] focus:bg-white transition-all placeholder:text-[#bba282]/40"
+                        placeholder="••••••••"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute inset-y-0 right-5 flex items-center text-[#bba282] hover:text-[#4a3426] transition-colors cursor-pointer"
+                      >
+                        {showPassword ? <EyeOff size={18} strokeWidth={2.5} /> : <Eye size={18} strokeWidth={2.5} />}
+                      </button>
+                    </div>
                   </div>
 
-                  <form onSubmit={handleLogin} className="space-y-6">
-                    <div className="space-y-5">
-                      <div className="relative group">
-                        <div className="absolute inset-y-0 left-5 flex items-center text-[#bba282] group-focus-within:text-[#4a3426] transition-colors">
-                          <User size={18} strokeWidth={2.5} />
-                        </div>
-                        <input
-                          type="text"
-                          value={username}
-                          onChange={(e) => setUsername(e.target.value)}
-                          className="w-full h-16 rounded-2xl bg-[#fcfaf8] border border-[#e6dace] px-5 pl-14 text-sm font-black text-[#4a3426] outline-none focus:border-[#4a3426] focus:bg-white transition-all placeholder:text-[#bba282]/40"
-                          placeholder="IDENTIFIANT"
-                          required
-                        />
-                      </div>
+                  {error && (
+                    <motion.div
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className="p-4 bg-red-50 text-red-600 text-[10px] font-black rounded-xl flex items-center gap-3 border border-red-100 uppercase tracking-widest"
+                    >
+                      <AlertCircle size={16} />
+                      {error}
+                    </motion.div>
+                  )}
 
-                      <div className="relative group">
-                        <div className="absolute inset-y-0 left-5 flex items-center text-[#bba282] group-focus-within:text-[#4a3426] transition-colors">
-                          <Lock size={18} strokeWidth={2.5} />
-                        </div>
-                        <input
-                          type={showPassword ? "text" : "password"}
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          className="w-full h-16 rounded-2xl bg-[#fcfaf8] border border-[#e6dace] px-5 pl-14 pr-12 text-sm font-black text-[#4a3426] outline-none focus:border-[#4a3426] focus:bg-white transition-all placeholder:text-[#bba282]/40"
-                          placeholder="••••••••"
-                          required
-                        />
+                  <button
+                    type="submit"
+                    disabled={loading || queryLoading}
+                    className="w-full h-16 bg-[#4a3426] text-white rounded-2xl font-black text-sm uppercase tracking-[0.2em] shadow-2xl shadow-[#4a3426]/30 hover:scale-[1.01] active:scale-95 disabled:opacity-70 disabled:scale-100 transition-all flex items-center justify-center gap-3 mt-4"
+                  >
+                    {loading || queryLoading ? <Loader2 className="animate-spin" size={20} /> : <span>Se connecter</span>}
+                  </button>
+
+                  {lastUser && lastUser.has_face_id && (
+                    <div className="relative pt-8 mt-2">
+                      <div className="absolute top-8 left-0 right-0 flex items-center justify-center">
+                        <span className="bg-white px-4 text-[9px] font-black text-[#bba282] uppercase tracking-[0.2em] opacity-40">OU</span>
+                      </div>
+                      <div className="border-t border-[#e6dace] opacity-30 pt-8">
                         <button
                           type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute inset-y-0 right-5 flex items-center text-[#bba282] hover:text-[#4a3426] transition-colors cursor-pointer"
+                          onClick={handleFacialReconnect}
+                          disabled={loading || queryLoading}
+                          className="w-full h-16 border-2 border-[#4a3426] text-[#4a3426] rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-[#4a3426] hover:text-white transition-all flex items-center justify-center gap-3 group"
                         >
-                          {showPassword ? <EyeOff size={18} strokeWidth={2.5} /> : <Eye size={18} strokeWidth={2.5} />}
+                          <Scan size={18} className="group-hover:scale-110 transition-transform" />
+                          <span>Reconnexion Faciale ({lastUser.username})</span>
                         </button>
                       </div>
                     </div>
-
-                    {error && (
-                      <motion.div
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        className="p-4 bg-red-50 text-red-600 text-[10px] font-black rounded-xl flex items-center gap-3 border border-red-100 uppercase tracking-widest"
-                      >
-                        <AlertCircle size={16} />
-                        {error}
-                      </motion.div>
-                    )}
-
-                    <button
-                      type="submit"
-                      disabled={loading || queryLoading}
-                      className="w-full h-16 bg-[#4a3426] text-white rounded-2xl font-black text-sm uppercase tracking-[0.2em] shadow-2xl shadow-[#4a3426]/30 hover:scale-[1.01] active:scale-95 disabled:opacity-70 disabled:scale-100 transition-all flex items-center justify-center gap-3 mt-4"
-                    >
-                      {loading || queryLoading ? <Loader2 className="animate-spin" size={20} /> : <span>Se connecter</span>}
-                    </button>
-
-                    {lastUser && lastUser.has_face_id && (
-                      <div className="relative pt-8 mt-2">
-                        <div className="absolute top-8 left-0 right-0 flex items-center justify-center">
-                          <span className="bg-white px-4 text-[9px] font-black text-[#bba282] uppercase tracking-[0.2em] opacity-40">OU</span>
-                        </div>
-                        <div className="border-t border-[#e6dace] opacity-30 pt-8">
-                          <button
-                            type="button"
-                            onClick={handleFacialReconnect}
-                            disabled={loading || queryLoading}
-                            className="w-full h-16 border-2 border-[#4a3426] text-[#4a3426] rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-[#4a3426] hover:text-white transition-all flex items-center justify-center gap-3 group"
-                          >
-                            <Scan size={18} className="group-hover:scale-110 transition-transform" />
-                            <span>Reconnexion Faciale ({lastUser.username})</span>
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </form>
-                </motion.div>
-              </AnimatePresence>
-
-            </div>
-          )}
+                  )}
+                </form>
+              </motion.div>
+            </AnimatePresence>
+          </div>
         </motion.div>
 
         {/* Face ID Login Modal */}
