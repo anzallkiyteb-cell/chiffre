@@ -2056,14 +2056,15 @@ export default function PaiementsPage() {
                                                             {showExpSuggestions && <div className="fixed inset-0 z-[90]" onClick={() => setShowExpSuggestions(false)} />}
                                                         </div>
                                                     </div>
-                                                    <div className="grid grid-cols-2 gap-3 items-end">
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
                                                         <div>
                                                             <label className="text-[10px] font-black text-red-700/50 uppercase ml-1">Montant (DT)</label>
                                                             <input
                                                                 type="number"
+                                                                step="0.001"
                                                                 value={expAmount}
                                                                 onChange={(e) => setExpAmount(e.target.value)}
-                                                                className="w-full h-11 bg-white border border-red-100 rounded-xl px-4 font-black text-lg outline-none focus:border-red-400"
+                                                                className="w-full h-12 bg-white border border-red-100 rounded-xl px-4 font-black text-xl outline-none focus:border-red-400 min-w-[180px]"
                                                                 placeholder="0.000"
                                                             />
                                                         </div>
@@ -2239,14 +2240,15 @@ export default function PaiementsPage() {
                                             className="mb-6"
                                         >
                                             <div className="space-y-3 p-4 bg-[#fcfaf8] rounded-3xl border border-[#e6dace]/50">
-                                                <div className="grid grid-cols-2 gap-3 items-end">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
                                                     <div>
                                                         <label className="text-[10px] font-black text-[#8c8279] uppercase ml-1">Montant (DT)</label>
                                                         <input
                                                             type="number"
+                                                            step="0.001"
                                                             value={bankAmount}
                                                             onChange={(e) => setBankAmount(e.target.value)}
-                                                            className="w-full h-11 bg-white border border-[#e6dace] rounded-xl px-4 font-black text-lg outline-none focus:border-[#c69f6e]"
+                                                            className="w-full h-12 bg-white border border-[#e6dace] rounded-xl px-4 font-black text-xl outline-none focus:border-[#c69f6e] min-w-[180px]"
                                                             placeholder="0.000"
                                                         />
                                                     </div>
@@ -2386,7 +2388,7 @@ export default function PaiementsPage() {
                                             type="number"
                                             step="0.001"
                                             defaultValue={0}
-                                            className="w-full text-center text-5xl font-black text-[#4a3426] outline-none border-b-2 border-[#e6dace] focus:border-red-400 pb-2 bg-transparent transition-colors"
+                                            className="w-full text-center text-4xl md:text-5xl font-black text-[#4a3426] outline-none border-b-2 border-[#e6dace] focus:border-red-400 pb-2 bg-transparent transition-colors min-w-[250px]"
                                         />
                                         <span className="text-xs font-black text-[#c69f6e] mt-2 block mb-6">DT</span>
 
@@ -2531,7 +2533,7 @@ export default function PaiementsPage() {
                                                                             type="number"
                                                                             step="0.001"
                                                                             defaultValue={rem?.amount || 0}
-                                                                            className={`w-32 text-center font-black bg-transparent outline-none border-b transition-colors text-lg ${rem && rem.amount > 0 ? 'text-green-600 border-green-200 focus:border-green-500' : 'text-[#4a3426] border-transparent focus:border-[#c69f6e]'}`}
+                                                                            className={`w-44 text-center font-black bg-transparent outline-none border-b transition-colors text-xl ${rem && rem.amount > 0 ? 'text-green-600 border-green-200 focus:border-green-500' : 'text-[#4a3426] border-transparent focus:border-[#c69f6e]'}`}
                                                                         />
                                                                         <span className={`text-[10px] font-black mt-1 ${rem && rem.amount > 0 ? 'text-green-600/60' : 'text-[#4a3426]/40'}`}>DT</span>
                                                                         {rem && rem.amount > 0 && (

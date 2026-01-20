@@ -953,7 +953,7 @@ export default function DashboardPage() {
                                                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">{m.label}</span>
                                                 </div>
                                                 <div className="flex items-baseline gap-2 text-white mt-1">
-                                                    <div className="text-2xl md:text-3xl font-black tracking-tighter truncate">
+                                                    <div className="text-2xl md:text-3xl font-black tracking-tighter">
                                                         {hideMonthlySummary ? '********' : m.val.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
                                                     </div>
                                                     <div className="text-[10px] font-black opacity-20 uppercase shrink-0">DT</div>

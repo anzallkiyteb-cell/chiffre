@@ -1336,7 +1336,7 @@ export default function FacturationPage() {
                                                 </div>
                                             </div>
 
-                                            <div className="grid grid-cols-2 gap-2">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                                 <div>
                                                     <label className="text-[9px] font-black uppercase tracking-[0.2em] text-[#8c8279] mb-0.5 block ml-1">Montant (DT)</label>
                                                     <div className="relative">
@@ -1347,7 +1347,7 @@ export default function FacturationPage() {
                                                             placeholder="0.000"
                                                             value={newInvoice.amount}
                                                             onChange={(e) => setNewInvoice({ ...newInvoice, amount: e.target.value })}
-                                                            className="w-full h-10 pl-9 pr-3 bg-[#f9f6f2] border border-[#e6dace] rounded-xl font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all text-sm"
+                                                            className="w-full h-12 pl-9 pr-3 bg-[#f9f6f2] border border-[#e6dace] rounded-xl font-black text-xl text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all min-w-[180px]"
                                                         />
                                                     </div>
                                                 </div>
@@ -1789,7 +1789,7 @@ export default function FacturationPage() {
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-3">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                         <div>
                                             <label className="text-[9px] font-black uppercase tracking-[0.2em] text-[#8c8279] mb-1 block ml-1">Montant (DT)</label>
                                             <div className="relative">
@@ -1800,7 +1800,7 @@ export default function FacturationPage() {
                                                     placeholder="0.000"
                                                     value={showEditModal.amount}
                                                     onChange={(e) => setShowEditModal({ ...showEditModal, amount: e.target.value })}
-                                                    className="w-full h-10 pl-9 pr-3 bg-[#f9f6f2] border border-[#e6dace] rounded-xl font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all text-sm"
+                                                    className="w-full h-12 pl-9 pr-3 bg-[#f9f6f2] border border-[#e6dace] rounded-xl font-black text-xl text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all min-w-[180px]"
                                                 />
                                             </div>
                                         </div>

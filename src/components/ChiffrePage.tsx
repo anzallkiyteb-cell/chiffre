@@ -343,7 +343,7 @@ const EntryModal = ({ isOpen, onClose, onSubmit, type, employees = [], initialDa
                                         onWheel={(e) => e.currentTarget.blur()}
                                         onFocus={(e) => { if (amount === '0') setAmount(''); }}
                                         onChange={(e) => setAmount(e.target.value)}
-                                        className="w-full h-14 bg-[#fcfaf8] border border-[#e6dace] rounded-2xl pl-12 pr-4 font-black text-2xl text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all"
+                                        className="w-full h-16 bg-[#fcfaf8] border border-[#e6dace] rounded-2xl pl-14 pr-4 font-black text-3xl text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all min-w-[220px]"
                                     />
                                 </div>
                             </div>
@@ -1624,13 +1624,14 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                             >
                                                 <input
                                                     type="number"
+                                                    step="0.001"
                                                     value={recetteCaisse ?? ''}
                                                     disabled={isLocked}
                                                     onWheel={(e) => e.currentTarget.blur()}
                                                     onFocus={(e) => { if (recetteCaisse === '0') setRecetteCaisse(''); }}
                                                     onBlur={(e) => { if (e.target.value === '' || e.target.value === null) setRecetteCaisse('0'); }}
                                                     onChange={(e) => { setRecetteCaisse(e.target.value); setHasInteracted(true); }}
-                                                    className={`text-6xl md:text-7xl lg:text-8xl font-black bg-transparent text-[#4a3426] outline-none placeholder-[#e6dace] text-center md:text-right w-full md:w-auto min-w-[150px] ${isLocked ? 'cursor-not-allowed opacity-50 pointer-events-none' : ''}`}
+                                                    className={`text-5xl md:text-6xl lg:text-7xl font-black bg-transparent text-[#4a3426] outline-none placeholder-[#e6dace] text-center md:text-right w-full md:w-auto min-w-[280px] ${isLocked ? 'cursor-not-allowed opacity-50 pointer-events-none' : ''}`}
                                                     placeholder="0"
                                                 />
                                                 <span className="text-xl md:text-2xl lg:text-3xl font-black text-[#c69f6e] shrink-0">DT</span>
@@ -1722,15 +1723,16 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                                 className={`flex-1 bg-white border border-[#e6dace] rounded-xl h-12 px-4 font-bold text-[#4a3426] outline-none focus:border-[#c69f6e] ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
                                                             />
                                                             <div className="flex items-center gap-2 w-full md:w-auto">
-                                                                <div className="relative w-full md:w-32">
+                                                                <div className="relative w-full md:w-44">
                                                                     <input
                                                                         type="number"
+                                                                        step="0.001"
                                                                         value={offre.amount ?? ''}
                                                                         disabled={isLocked}
                                                                         onFocus={(e) => { if (offre.amount === '0') handleOffresChange(index, 'amount', ''); }}
                                                                         onBlur={(e) => { if (offre.amount === '') handleOffresChange(index, 'amount', '0'); }}
                                                                         onChange={(e) => handleOffresChange(index, 'amount', e.target.value)}
-                                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 px-3 font-black text-xl outline-none focus:border-[#c69f6e] text-center ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 pl-10 pr-3 font-black text-xl outline-none focus:border-[#c69f6e] text-center ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
                                                                     />
                                                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#bba282] text-xs font-black">DT</span>
                                                                 </div>
@@ -1783,16 +1785,17 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     {expenses.map((expense, index) => (
                                         <div key={index} className={`group flex flex-col p-2 rounded-xl transition-all border ${expense.isFromFacturation ? 'bg-[#f0faf5]/50 border-[#d1e7dd]' : 'hover:bg-[#f9f6f2] border-transparent hover:border-[#e6dace]'}`}>
                                             <div className="flex flex-col md:flex-row items-center gap-3 w-full">
-                                                <div className="w-full md:w-52 relative">
+                                                <div className="w-full md:w-64 relative">
                                                     <input
                                                         type="number"
-                                                        placeholder="0.00"
+                                                        step="0.001"
+                                                        placeholder="0.000"
                                                         disabled={isLocked}
                                                         value={expense.amount ?? ''}
                                                         onWheel={(e) => e.currentTarget.blur()}
                                                         onFocus={(e) => { if (expense.amount === '0') handleDetailChange(index, 'amount', ''); }}
                                                         onChange={(e) => handleDetailChange(index, 'amount', e.target.value)}
-                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 pl-10 pr-20 font-black text-lg outline-none focus:border-[#c69f6e] text-center ${isLocked ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-14 pl-12 pr-20 font-black text-xl outline-none focus:border-[#c69f6e] text-center ${isLocked ? 'opacity-70 cursor-not-allowed' : ''}`}
                                                     />
                                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#bba282] text-xs font-black">DT</span>
                                                     <button
@@ -2021,16 +2024,17 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     {expensesDivers.map((divers, index) => (
                                         <div key={index} className="group flex flex-col p-2 rounded-xl transition-all border hover:bg-[#f9f6f2] border-transparent hover:border-[#e6dace]">
                                             <div className="flex flex-col md:flex-row items-center gap-3 w-full">
-                                                <div className="w-full md:w-52 relative">
+                                                <div className="w-full md:w-64 relative">
                                                     <input
                                                         type="number"
-                                                        placeholder="0.00"
+                                                        step="0.001"
+                                                        placeholder="0.000"
                                                         value={divers.amount ?? ''}
                                                         disabled={isLocked}
                                                         onWheel={(e) => e.currentTarget.blur()}
                                                         onFocus={(e) => { if (divers.amount === '0') handleDiversChange(index, 'amount', ''); }}
                                                         onChange={(e) => handleDiversChange(index, 'amount', e.target.value)}
-                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 pl-10 pr-20 font-black text-lg outline-none focus:border-[#c69f6e] text-center ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-14 pl-12 pr-20 font-black text-xl outline-none focus:border-[#c69f6e] text-center ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
                                                     />
                                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#bba282] text-xs font-black">DT</span>
                                                     <button
@@ -2163,6 +2167,29 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                     </div>
                                                 </div>
                                             </div>
+
+                                            <AnimatePresence>
+                                                {divers.details && (
+                                                    <motion.div
+                                                        initial={{ height: 0, opacity: 0, marginTop: 0 }}
+                                                        animate={{ height: 'auto', opacity: 1, marginTop: 8 }}
+                                                        exit={{ height: 0, opacity: 0, marginTop: 0 }}
+                                                        onClick={() => {
+                                                            setModalDetailsTarget({ index, type: 'divers' });
+                                                            setTempDetails(divers.details);
+                                                            setShowDetailsModal(true);
+                                                        }}
+                                                        className="overflow-hidden w-full flex items-center gap-2 cursor-pointer hover:bg-[#fcfaf8]"
+                                                    >
+                                                        <div className="w-8 flex justify-center text-[#c69f6e]">
+                                                            <Sparkles size={14} />
+                                                        </div>
+                                                        <span className="text-xs text-[#8c8279] font-medium italic">
+                                                            {divers.details}
+                                                        </span>
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
                                         </div>
                                     ))}
                                 </div>
@@ -2195,16 +2222,17 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     {expensesAdmin.map((admin, index) => (
                                         <div key={index} className="group flex flex-col p-2 rounded-xl transition-all border hover:bg-[#f9f6f2] border-transparent hover:border-[#e6dace]">
                                             <div className="flex flex-col md:flex-row items-center gap-3 w-full">
-                                                <div className="w-full md:w-32 relative">
+                                                <div className="w-full md:w-48 relative">
                                                     <input
                                                         type="number"
-                                                        placeholder="0.00"
+                                                        step="0.001"
+                                                        placeholder="0.000"
                                                         value={admin.amount ?? ''}
                                                         disabled={isLocked}
                                                         onWheel={(e) => e.currentTarget.blur()}
                                                         onFocus={(e) => { if (admin.amount === '0') handleAdminChange(index, 'amount', ''); }}
                                                         onChange={(e) => handleAdminChange(index, 'amount', e.target.value)}
-                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 px-3 font-black text-xl outline-none focus:border-[#c69f6e] text-center ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-14 pl-10 pr-3 font-black text-xl outline-none focus:border-[#c69f6e] text-center ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
                                                     />
                                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#bba282] text-xs font-black">DT</span>
                                                 </div>
@@ -2770,7 +2798,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             )
                             }
                             <div className="flex gap-4 w-full max-w-md">
-                                {isLocked && role === 'admin' && (
+                                {isLocked && (
                                     <button
                                         onClick={async () => {
                                             try {
