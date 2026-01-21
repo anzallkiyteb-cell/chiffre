@@ -547,6 +547,7 @@ export default function PaiementsPage() {
         photo_verso_url: ''
     });
     const [imgZoom, setImgZoom] = useState(1);
+    const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
     const [imgRotation, setImgRotation] = useState(0);
     const [bankTransactionType, setBankTransactionType] = useState<'deposit' | 'withdraw'>('deposit');
     const [unpaidSearchFilter, setUnpaidSearchFilter] = useState('');
@@ -1470,12 +1471,28 @@ export default function PaiementsPage() {
 
             <div className="flex-1 min-w-0 pb-24 lg:pb-0">
                 <header className={`sticky top-0 z-30 backdrop-blur-md border-b py-6 px-4 md:px-8 flex flex-col md:flex-row items-center gap-6 transition-colors duration-700 ${hasNegativeValues ? 'bg-[#80201E]/90 border-red-900/40' : 'bg-white/90 border-[#e6dace]'}`}>
-                    <div className="flex-shrink-0">
+                    <div className="flex-shrink-0 flex items-center gap-3">
                         <h1 className={`text-xl md:text-2xl font-black tracking-tight transition-colors duration-700 ${hasNegativeValues ? 'text-white' : 'text-[#4a3426]'}`}>Finances</h1>
 
+                        {/* Mobile Filter Toggle Button */}
+                        <button
+                            onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
+                            className={`md:hidden flex items-center justify-center w-10 h-10 rounded-xl border shadow-sm transition-all ${
+                                hasNegativeValues
+                                    ? 'bg-[#942c2a] border-red-900/40 text-white'
+                                    : 'bg-white border-[#e6dace] text-[#4a3426]'
+                            }`}
+                        >
+                            <motion.div
+                                animate={{ rotate: mobileFiltersOpen ? 180 : 0 }}
+                                transition={{ duration: 0.2 }}
+                            >
+                                <ChevronDown size={20} />
+                            </motion.div>
+                        </button>
                     </div>
 
-                    <div className="flex-1 flex flex-col md:flex-row items-center justify-center gap-3 w-full">
+                    <div className={`flex-1 flex-col md:flex-row items-center justify-center gap-3 w-full ${mobileFiltersOpen ? 'flex' : 'hidden md:flex'}`}>
                         <div className={`flex rounded-2xl p-1 border shadow-sm w-full md:w-auto transition-colors duration-700 ${hasNegativeValues ? 'bg-[#942c2a] border-red-900/40' : 'bg-white border-[#e6dace]'}`}>
                             <button
                                 onClick={() => {
@@ -1876,35 +1893,35 @@ export default function PaiementsPage() {
                         {/* Middle: Salaries/Payments List */}
                         <div className="lg:col-span-2 space-y-8">
                             {/* Nouvelle Dépense Section */}
-                            <div className="bg-white p-6 rounded-[2.5rem] luxury-shadow border border-[#e6dace]/50">
-                                <div className="flex justify-between items-center mb-6">
+                            <div className="bg-white p-4 md:p-6 rounded-[2.5rem] luxury-shadow border border-[#e6dace]/50">
+                                <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
                                     <h3 className="text-lg font-black text-[#4a3426] flex items-center gap-2">
                                         <div className={editingHistoryItem ? "bg-blue-500 p-2 rounded-xl text-white" : "bg-red-500 p-2 rounded-xl text-white"}>
                                             <Receipt size={18} />
                                         </div>
                                         {editingHistoryItem ? 'Modifier la Dépense' : 'Nouvelle Dépense'}
                                     </h3>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2">
                                         {showExpForm && (
                                             <button
                                                 onClick={() => {
                                                     setMasterItemName(expName);
                                                     setShowAddMasterModal(true);
                                                 }}
-                                                className="text-[10px] font-black uppercase tracking-widest bg-blue-50 text-blue-600 px-4 py-2 rounded-xl hover:bg-blue-100 transition-all h-10 flex items-center gap-2 shadow-sm"
+                                                className="text-[10px] font-black uppercase tracking-widest bg-blue-50 text-blue-600 px-4 py-2 rounded-xl hover:bg-blue-100 transition-all h-10 flex items-center justify-center gap-2 shadow-sm w-full md:w-auto"
                                             >
                                                 <Plus size={14} />
                                                 <span>Ajouter {expCategory === 'Divers' ? 'Désignation' : 'Fournisseur'}</span>
                                             </button>
                                         )}
                                         {!showExpForm && (
-                                            <div className="flex flex-col items-end gap-1">
+                                            <div className="flex flex-col items-stretch md:items-end gap-2 md:gap-1 w-full md:w-auto">
                                                 <button
                                                     onClick={() => {
                                                         refetchUnpaid();
                                                         setShowUnpaidModal(true);
                                                     }}
-                                                    className="text-[10px] font-black uppercase tracking-widest bg-red-50 border-2 border-red-200 text-red-600 px-4 py-2 rounded-xl hover:bg-red-100 transition-all flex items-center gap-2 shadow-sm"
+                                                    className="text-[10px] font-black uppercase tracking-widest bg-red-50 border-2 border-red-200 text-red-600 px-4 py-2 rounded-xl hover:bg-red-100 transition-all flex items-center justify-center md:justify-start gap-2 shadow-sm"
                                                 >
                                                     <Clock size={14} className="text-red-500" />
                                                     <span className="flex items-baseline gap-1">
@@ -1921,13 +1938,14 @@ export default function PaiementsPage() {
                                                         setShowHistoryModal(true);
                                                         refetchHistory();
                                                     }}
-                                                    className="w-full h-18 py-5 text-[16px] font-black uppercase tracking-[0.2em] bg-[#f4ece4] border-2 border-[#e6dace] text-[#c69f6e] rounded-2xl hover:bg-[#ebdccf] transition-all flex items-center justify-center gap-5 shadow-xl group active:scale-[0.98]"
+                                                    className="w-full h-14 md:h-18 py-3 md:py-5 text-[14px] md:text-[16px] font-black uppercase tracking-[0.15em] md:tracking-[0.2em] bg-[#f4ece4] border-2 border-[#e6dace] text-[#c69f6e] rounded-2xl hover:bg-[#ebdccf] transition-all flex items-center justify-center gap-3 md:gap-5 shadow-xl group active:scale-[0.98]"
                                                 >
-                                                    <Clock size={24} strokeWidth={3} />
-                                                    <span className="flex items-center gap-4">
+                                                    <Clock size={20} className="md:hidden" strokeWidth={3} />
+                                                    <Clock size={24} className="hidden md:block" strokeWidth={3} />
+                                                    <span className="flex items-center gap-2 md:gap-4">
                                                         Historique Riadh
                                                         {(historyData?.getInvoices?.filter((inv: any) => inv.payer === 'riadh').length || 0) > 0 && (
-                                                            <span className="bg-[#c69f6e] text-white px-4 py-1.5 rounded-full text-[14px] font-black min-w-[36px] shadow-lg shadow-[#c69f6e]/30 border-2 border-white/30">
+                                                            <span className="bg-[#c69f6e] text-white px-3 md:px-4 py-1 md:py-1.5 rounded-full text-[12px] md:text-[14px] font-black min-w-[30px] md:min-w-[36px] shadow-lg shadow-[#c69f6e]/30 border-2 border-white/30">
                                                                 {historyData?.getInvoices?.filter((inv: any) => inv.payer === 'riadh').length}
                                                             </span>
                                                         )}
@@ -1948,7 +1966,7 @@ export default function PaiementsPage() {
                                                 }
                                                 setShowExpForm(!showExpForm);
                                             }}
-                                            className="text-[10px] font-black uppercase tracking-widest bg-red-50 text-red-500 px-4 py-2 rounded-xl hover:bg-red-100 transition-all h-10 border border-red-100 shadow-sm"
+                                            className="text-[10px] font-black uppercase tracking-widest bg-red-50 text-red-500 px-4 py-2 rounded-xl hover:bg-red-100 transition-all h-10 border border-red-100 shadow-sm w-full md:w-auto"
                                         >
                                             {showExpForm ? 'Annuler' : 'Ajouter une dépense'}
                                         </button>
