@@ -20,19 +20,41 @@ import withReactContent from 'sweetalert2-react-content';
 
 const MySwal = withReactContent(Swal);
 
+const formatDisplayTime = (dateValue: any) => {
+    if (!dateValue) return null;
+    try {
+        const d = new Date(typeof dateValue === 'string' && !isNaN(Number(dateValue)) ? Number(dateValue) : (typeof dateValue === 'string' ? dateValue.replace(' ', 'T') : dateValue));
+        if (isNaN(d.getTime())) return null;
+        return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    } catch (e) {
+        return null;
+    }
+};
+
+const formatDisplayDate = (dateValue: any) => {
+    if (!dateValue) return null;
+    try {
+        const d = new Date(typeof dateValue === 'string' && !isNaN(Number(dateValue)) ? Number(dateValue) : (typeof dateValue === 'string' ? dateValue.replace(' ', 'T') : dateValue));
+        if (isNaN(d.getTime())) return String(dateValue);
+        return d.toLocaleDateString('fr-FR');
+    } catch (e) {
+        return String(dateValue);
+    }
+};
+
 const GET_CHIFFRES_RANGE = gql`
   query GetChiffresRange($startDate: String!, $endDate: String!) {
     getChiffresByRange(startDate: $startDate, endDate: $endDate) {
         id
         date
-        avances_details { id username montant created_at }
-        doublages_details { id username montant created_at }
-        extras_details { id username montant created_at }
-        primes_details { id username montant created_at }
+        avances_details { id username montant date created_at }
+        doublages_details { id username montant date created_at }
+        extras_details { id username montant date created_at }
+        primes_details { id username montant date created_at }
         diponce
         diponce_divers
         diponce_admin
-        restes_salaires_details { id username montant nb_jours created_at }
+        restes_salaires_details { id username montant nb_jours date created_at }
     }
   }
 `;
@@ -523,11 +545,8 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
             groupedData[item.username].total += amount;
             globalTotal += amount;
 
-            // Safe Date Formatting (YYYY-MM-DD -> DD/MM/YYYY)
-            const dateParts = (item.date || chiffre.date).split('T')[0].split('-');
-            const formattedDate = dateParts.length === 3
-                ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`
-                : (item.date || chiffre.date);
+            // Safe Date Formatting
+            const formattedDate = formatDisplayDate(item.date || chiffre.date);
 
             groupedData[item.username].entries.push({
                 date: formattedDate,
@@ -617,17 +636,11 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
                                             <div key={di} className="flex justify-between items-center bg-[#fcfaf8] border border-[#e6dace] rounded-xl px-4 py-3 shadow-sm">
                                                 <div className="flex flex-col gap-1">
                                                     <span className="text-xs font-bold text-[#4a3426]">{entry.date}</span>
-                                                    {entry.created_at && (
+                                                    {formatDisplayTime(entry.created_at) && (
                                                         <div className="flex items-center gap-1">
                                                             <Clock size={10} className="text-[#c69f6e]" />
                                                             <span className="text-[9px] font-medium text-[#8c8279]">
-                                                                {(() => {
-                                                                    try {
-                                                                        const d = new Date(typeof entry.created_at === 'string' ? entry.created_at.replace(' ', 'T') : entry.created_at);
-                                                                        if (isNaN(d.getTime())) return "";
-                                                                        return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-                                                                    } catch (e) { return ""; }
-                                                                })()}
+                                                                {formatDisplayTime(entry.created_at)}
                                                             </span>
                                                         </div>
                                                     )}
@@ -999,6 +1012,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         if (espVal.endsWith('.000')) espVal = espVal.replace('.000', '');
         setEspeces(espVal);
     }, [recetteCaisse, totalExpenses, tpe, tpe2, cheque, ticketsRestaurant]);
+
 
     // Handlers
     const handleDetailChange = (index: number, field: string, value: any) => {
@@ -2172,7 +2186,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         )}
                                                     </div>
                                                     <div className="w-12 flex justify-center">
-                                                        {(!isLocked || role === 'admin') && (index > 0 || expensesDivers.length > 1) && (
+                                                        {(!isLocked || role === 'admin') && (
                                                             <button onClick={() => handleRemoveDivers(index)} className="h-12 w-12 flex items-center justify-center text-red-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors">
                                                                 <Trash2 size={20} />
                                                             </button>
@@ -2343,17 +2357,29 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     {avancesList.length > 0 ? avancesList.map((a, i) => (
                                         <div key={i} className="flex justify-between p-3 bg-[#f9f6f2] rounded-2xl items-center group">
                                             <div className="flex items-center gap-2">
-                                                <span
-                                                    className="font-bold text-[#4a3426] cursor-pointer hover:text-[#c69f6e] transition-colors"
-                                                    onClick={() => setShowHistoryModal({ type: 'avance', targetName: a.username })}
-                                                >
-                                                    {a.username}
-                                                </span>
-                                                {getDepartment(a.username) && (
-                                                    <span className="text-[10px] font-black text-[#8c8279] uppercase tracking-wider bg-[#f4ece4] px-2 py-0.5 rounded-lg border border-[#e6dace]/50">
-                                                        {getDepartment(a.username)}
+                                                <div className="flex flex-col">
+                                                    <span
+                                                        className="font-bold text-[#4a3426] cursor-pointer hover:text-[#c69f6e] transition-colors"
+                                                        onClick={() => setShowHistoryModal({ type: 'avance', targetName: a.username })}
+                                                    >
+                                                        {a.username}
                                                     </span>
-                                                )}
+                                                    <div className="flex items-center gap-2 mt-0.5">
+                                                        {formatDisplayTime(a.created_at) && (
+                                                            <div className="flex items-center gap-1 opacity-60">
+                                                                <Clock size={10} className="text-[#a67c52]" />
+                                                                <span className="text-[9px] font-bold text-[#8c8279]">
+                                                                    {formatDisplayTime(a.created_at)}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                        {getDepartment(a.username) && (
+                                                            <span className="text-[10px] font-black text-[#8c8279] uppercase tracking-wider bg-[#f4ece4] px-2 py-0.5 rounded-lg border border-[#e6dace]/50">
+                                                                {getDepartment(a.username)}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
                                             </div>
                                             <div className="flex items-center gap-3">
                                                 <b className="font-black text-[#4a3426]">{parseFloat(a.montant).toFixed(3)}</b>
@@ -2411,17 +2437,29 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     {doublagesList.length > 0 ? doublagesList.map((a, i) => (
                                         <div key={i} className="flex justify-between p-3 bg-[#f9f6f2] rounded-2xl items-center group">
                                             <div className="flex items-center gap-2">
-                                                <span
-                                                    className="font-bold text-[#4a3426] cursor-pointer hover:text-[#c69f6e] transition-colors"
-                                                    onClick={() => setShowHistoryModal({ type: 'doublage', targetName: a.username })}
-                                                >
-                                                    {a.username}
-                                                </span>
-                                                {getDepartment(a.username) && (
-                                                    <span className="text-[10px] font-black text-[#8c8279] uppercase tracking-wider bg-[#f4ece4] px-2 py-0.5 rounded-lg border border-[#e6dace]/50">
-                                                        {getDepartment(a.username)}
+                                                <div className="flex flex-col">
+                                                    <span
+                                                        className="font-bold text-[#4a3426] cursor-pointer hover:text-[#c69f6e] transition-colors"
+                                                        onClick={() => setShowHistoryModal({ type: 'doublage', targetName: a.username })}
+                                                    >
+                                                        {a.username}
                                                     </span>
-                                                )}
+                                                    <div className="flex items-center gap-2 mt-0.5">
+                                                        {formatDisplayTime(a.created_at) && (
+                                                            <div className="flex items-center gap-1 opacity-60">
+                                                                <Clock size={10} className="text-[#a67c52]" />
+                                                                <span className="text-[9px] font-bold text-[#8c8279]">
+                                                                    {formatDisplayTime(a.created_at)}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                        {getDepartment(a.username) && (
+                                                            <span className="text-[10px] font-black text-[#8c8279] uppercase tracking-wider bg-[#f4ece4] px-2 py-0.5 rounded-lg border border-[#e6dace]/50">
+                                                                {getDepartment(a.username)}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
                                             </div>
                                             <div className="flex items-center gap-3">
                                                 <b className="font-black text-[#4a3426]">{parseFloat(a.montant).toFixed(3)}</b>
@@ -2480,17 +2518,29 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     {extrasList.length > 0 ? extrasList.map((a, i) => (
                                         <div key={i} className="flex justify-between p-3 bg-[#f9f6f2] rounded-2xl items-center group">
                                             <div className="flex items-center gap-2">
-                                                <span
-                                                    className="font-bold text-[#4a3426] cursor-pointer hover:text-[#c69f6e] transition-colors"
-                                                    onClick={() => setShowHistoryModal({ type: 'extra', targetName: a.username })}
-                                                >
-                                                    {a.username}
-                                                </span>
-                                                {getDepartment(a.username) && (
-                                                    <span className="text-[10px] font-black text-[#8c8279] uppercase tracking-wider bg-[#f4ece4] px-2 py-0.5 rounded-lg border border-[#e6dace]/50">
-                                                        {getDepartment(a.username)}
+                                                <div className="flex flex-col">
+                                                    <span
+                                                        className="font-bold text-[#4a3426] cursor-pointer hover:text-[#c69f6e] transition-colors"
+                                                        onClick={() => setShowHistoryModal({ type: 'extra', targetName: a.username })}
+                                                    >
+                                                        {a.username}
                                                     </span>
-                                                )}
+                                                    <div className="flex items-center gap-2 mt-0.5">
+                                                        {formatDisplayTime(a.created_at) && (
+                                                            <div className="flex items-center gap-1 opacity-60">
+                                                                <Clock size={10} className="text-[#a67c52]" />
+                                                                <span className="text-[9px] font-bold text-[#8c8279]">
+                                                                    {formatDisplayTime(a.created_at)}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                        {getDepartment(a.username) && (
+                                                            <span className="text-[10px] font-black text-[#8c8279] uppercase tracking-wider bg-[#f4ece4] px-2 py-0.5 rounded-lg border border-[#e6dace]/50">
+                                                                {getDepartment(a.username)}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
                                             </div>
                                             <div className="flex items-center gap-3">
                                                 <b className="font-black text-[#4a3426]">{parseFloat(a.montant).toFixed(3)}</b>
@@ -2549,17 +2599,29 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     {primesList.length > 0 ? primesList.map((p, i) => (
                                         <div key={i} className="flex justify-between p-3 bg-[#f9f6f2] rounded-2xl items-center group">
                                             <div className="flex items-center gap-2">
-                                                <span
-                                                    className="font-bold text-[#4a3426] cursor-pointer hover:text-[#c69f6e] transition-colors"
-                                                    onClick={() => setShowHistoryModal({ type: 'prime', targetName: p.username })}
-                                                >
-                                                    {p.username}
-                                                </span>
-                                                {getDepartment(p.username) && (
-                                                    <span className="text-[10px] font-black text-[#8c8279] uppercase tracking-wider bg-[#f4ece4] px-2 py-0.5 rounded-lg border border-[#e6dace]/50">
-                                                        {getDepartment(p.username)}
+                                                <div className="flex flex-col">
+                                                    <span
+                                                        className="font-bold text-[#4a3426] cursor-pointer hover:text-[#c69f6e] transition-colors"
+                                                        onClick={() => setShowHistoryModal({ type: 'prime', targetName: p.username })}
+                                                    >
+                                                        {p.username}
                                                     </span>
-                                                )}
+                                                    <div className="flex items-center gap-2 mt-0.5">
+                                                        {formatDisplayTime(p.created_at) && (
+                                                            <div className="flex items-center gap-1 opacity-60">
+                                                                <Clock size={10} className="text-[#a67c52]" />
+                                                                <span className="text-[9px] font-bold text-[#8c8279]">
+                                                                    {formatDisplayTime(p.created_at)}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                        {getDepartment(p.username) && (
+                                                            <span className="text-[10px] font-black text-[#8c8279] uppercase tracking-wider bg-[#f4ece4] px-2 py-0.5 rounded-lg border border-[#e6dace]/50">
+                                                                {getDepartment(p.username)}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
                                             </div>
                                             <div className="flex items-center gap-3">
                                                 <b className="font-black text-[#4a3426]">{parseFloat(p.montant).toFixed(3)}</b>
@@ -2597,7 +2659,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                             onClick={() => setShowHistoryModal({ type: 'restes_salaires' })}
                                         >
                                             <h4 className="font-bold text-[#4a3426] text-xs uppercase tracking-wider group-hover/title:text-[#c69f6e] transition-colors">RESTES SALAIRES</h4>
-                                            <p className="text-[9px] font-bold text-[#8c8279] uppercase tracking-tighter opacity-70">Salaires non payés</p>
+                                            <p className="text-[9px] font-bold text-[#8c8279] uppercase tracking-tighter opacity-70">Salaires</p>
                                         </div>
                                         <button
                                             disabled={isLocked}
@@ -2626,11 +2688,11 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         {p.username}
                                                     </span>
                                                     <div className="flex items-center gap-2 mt-0.5">
-                                                        {p.created_at && (
+                                                        {formatDisplayTime(p.created_at) && (
                                                             <div className="flex items-center gap-1">
                                                                 <Clock size={10} className="text-[#a67c52]" />
                                                                 <span className="text-[9px] font-bold text-[#8c8279]">
-                                                                    {new Date(p.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                                                    {formatDisplayTime(p.created_at)}
                                                                 </span>
                                                             </div>
                                                         )}
@@ -3488,7 +3550,6 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                     } else {
                                                         await upsertDesignation({ variables: { name: val.trim() } });
                                                         refetchDesignations();
-                                                        handleAddDivers(val.trim());
                                                         setShowDiversModal(false);
                                                         setDesignationSearch('');
                                                     }

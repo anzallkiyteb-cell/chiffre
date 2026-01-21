@@ -8,7 +8,7 @@ import {
     Save, X, Check, Loader2, AlertTriangle, Cpu, Globe,
     ChevronRight, Settings as SettingsIcon, Lock, UserPlus,
     Clock, Activity, Wifi, WifiOff, ShieldCheck, ShieldAlert,
-    Camera, Scan, CheckCircle
+    Camera, Scan, CheckCircle, Eye, EyeOff
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as faceapi from 'face-api.js';
@@ -163,8 +163,13 @@ export default function SettingsPage() {
 
     const [isFaceCaptureOpen, setIsFaceCaptureOpen] = useState(false);
     const [facePreview, setFacePreview] = useState<string | null>(null);
+    const [showPassword, setShowPassword] = useState(false);
 
     const handleSaveUser = async () => {
+        if (!editingUser && !userForm.password.trim()) {
+            alert('Veuillez saisir un mot de passe pour le nouvel utilisateur');
+            return;
+        }
         try {
             const res = await upsertUser({
                 variables: {
@@ -338,6 +343,7 @@ export default function SettingsPage() {
                                     onClick={() => {
                                         setEditingUser(null);
                                         setUserForm({ username: '', password: '', role: 'caissier', full_name: '', face_data: '' });
+                                        setShowPassword(false);
                                         setIsUserModalOpen(true);
                                     }}
                                     className="p-2.5 bg-white border border-[#e6dace] rounded-xl text-[#c69f6e] hover:bg-[#4a3426] hover:text-white hover:border-[#4a3426] shadow-sm transition-all"
@@ -380,7 +386,10 @@ export default function SettingsPage() {
                                                             </div>
                                                             {u.last_active && (
                                                                 <span className="text-[8px] font-bold text-[#bba282] italic">
-                                                                    Actif {new Date(u.last_active).toLocaleTimeString()}
+                                                                    Actif {(() => {
+                                                                        const d = new Date(typeof u.last_active === 'string' ? u.last_active.replace(' ', 'T') : u.last_active);
+                                                                        return isNaN(d.getTime()) ? '' : d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+                                                                    })()}
                                                                 </span>
                                                             )}
                                                             {u.is_online && (
@@ -420,6 +429,7 @@ export default function SettingsPage() {
                                                                 onClick={() => {
                                                                     setEditingUser(u);
                                                                     setUserForm({ ...u, password: '', face_data: u.face_data || '' });
+                                                                    setShowPassword(false);
                                                                     setIsUserModalOpen(true);
                                                                 }}
                                                                 className="p-2 hover:bg-white rounded-lg text-[#bba282] hover:text-[#c69f6e] border border-transparent hover:border-[#e6dace]"
@@ -548,13 +558,22 @@ export default function SettingsPage() {
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black uppercase tracking-widest text-[#bba282] ml-1">Mot de Passe</label>
-                                    <input
-                                        type="password"
-                                        value={userForm.password}
-                                        onChange={e => setUserForm({ ...userForm, password: e.target.value })}
-                                        className="w-full h-14 bg-[#fcfaf8] border border-[#e6dace] rounded-2xl px-5 text-sm font-bold outline-none focus:border-[#c69f6e]"
-                                        placeholder={editingUser ? 'Laisser vide pour garder l\'ancien' : ''}
-                                    />
+                                    <div className="relative">
+                                        <input
+                                            type={showPassword ? "text" : "password"}
+                                            value={userForm.password}
+                                            onChange={e => setUserForm({ ...userForm, password: e.target.value })}
+                                            className="w-full h-14 bg-[#fcfaf8] border border-[#e6dace] rounded-2xl px-5 text-sm font-bold outline-none focus:border-[#c69f6e] pr-12"
+                                            placeholder={editingUser ? 'Laisser vide pour garder l\'ancien' : ''}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="absolute right-4 top-1/2 -translate-y-1/2 p-2 hover:bg-white rounded-xl transition-all text-[#bba282] border border-transparent hover:border-[#e6dace]/50"
+                                        >
+                                            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                        </button>
+                                    </div>
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black uppercase tracking-widest text-[#bba282] ml-1">Rôle</label>

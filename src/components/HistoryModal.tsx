@@ -7,11 +7,11 @@ const GET_CHIFFRES_RANGE = gql`
   query GetChiffresRange($startDate: String!, $endDate: String!) {
     getChiffresByRange(startDate: $startDate, endDate: $endDate) {
       date
-      avances_details { id username montant created_at }
-      doublages_details { id username montant created_at }
-      extras_details { id username montant created_at }
-      primes_details { id username montant created_at }
-      restes_salaires_details { id username montant nb_jours created_at }
+      avances_details { id username montant date created_at }
+      doublages_details { id username montant date created_at }
+      extras_details { id username montant date created_at }
+      primes_details { id username montant date created_at }
+      restes_salaires_details { id username montant nb_jours date created_at }
       diponce_divers
       diponce_admin
       diponce
@@ -26,6 +26,28 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
         skip: !isOpen,
         fetchPolicy: 'network-only'
     });
+
+    const formatDisplayTime = (dateValue: any) => {
+        if (!dateValue) return null;
+        try {
+            const d = new Date(typeof dateValue === 'string' && !isNaN(Number(dateValue)) ? Number(dateValue) : (typeof dateValue === 'string' ? dateValue.replace(' ', 'T') : dateValue));
+            if (isNaN(d.getTime())) return null;
+            return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        } catch (e) {
+            return null;
+        }
+    };
+
+    const formatDisplayDate = (dateValue: any) => {
+        if (!dateValue) return null;
+        try {
+            const d = new Date(typeof dateValue === 'string' && !isNaN(Number(dateValue)) ? Number(dateValue) : (typeof dateValue === 'string' ? dateValue.replace(' ', 'T') : dateValue));
+            if (isNaN(d.getTime())) return String(dateValue);
+            return d.toLocaleDateString('fr-FR');
+        } catch (e) {
+            return String(dateValue);
+        }
+    };
 
     const [search, setSearch] = React.useState('');
 
@@ -95,11 +117,8 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
             groupedData[item.username].total += amount;
             globalTotal += amount;
 
-            // Safe Date Formatting (YYYY-MM-DD -> DD/MM/YYYY)
-            const dateParts = (item.date || chiffre.date).split('T')[0].split('-');
-            const formattedDate = dateParts.length === 3
-                ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`
-                : (item.date || chiffre.date);
+            // Safe Date Formatting
+            const formattedDate = formatDisplayDate(item.date || chiffre.date);
 
             groupedData[item.username].entries.push({
                 date: formattedDate,
@@ -294,17 +313,11 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
                                                         <div className="text-[#4a3426] font-bold text-xs">
                                                             {entry.date}
                                                         </div>
-                                                        {entry.created_at && (
+                                                        {formatDisplayTime(entry.created_at) && (
                                                             <div className="flex items-center gap-1.5 opacity-60">
                                                                 <Clock size={10} className="text-[#c69f6e]" />
                                                                 <span className="text-[10px] font-medium text-[#8c8279]">
-                                                                    {(() => {
-                                                                        try {
-                                                                            const d = new Date(typeof entry.created_at === 'string' ? entry.created_at.replace(' ', 'T') : entry.created_at);
-                                                                            if (isNaN(d.getTime())) return "";
-                                                                            return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-                                                                        } catch (e) { return ""; }
-                                                                    })()}
+                                                                    {formatDisplayTime(entry.created_at)}
                                                                 </span>
                                                             </div>
                                                         )}

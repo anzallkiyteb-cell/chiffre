@@ -8,7 +8,8 @@ import { useQuery, useMutation, gql } from '@apollo/client';
 import {
     LayoutDashboard, PieChart as PieChartIcon, Truck, LogOut, CreditCard,
     ShoppingBag, Monitor, Shield, Key, ChevronRight, Settings,
-    Lock, CheckCircle2, AlertCircle, User as UserIcon, X, Loader2
+    Lock, CheckCircle2, AlertCircle, User as UserIcon, X, Loader2,
+    Eye, EyeOff
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -53,6 +54,7 @@ export default function Sidebar({ role }: SidebarProps) {
     const [user, setUser] = useState<any>(null);
     const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
     const [newPass, setNewPass] = useState('');
+    const [showPass, setShowPass] = useState(false);
     const [updateStatus, setUpdateStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
     const { data: deviceData } = useQuery(GET_DEVICES, {
@@ -360,14 +362,23 @@ export default function Sidebar({ role }: SidebarProps) {
 
                                         <div>
                                             <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#bba282] mb-3 block opacity-60 pl-1">Nouveau Mot de Passe</label>
-                                            <input
-                                                type="password"
-                                                autoFocus
-                                                value={newPass}
-                                                onChange={e => setNewPass(e.target.value)}
-                                                className="h-14 w-full px-5 bg-[#fcfaf8] border border-[#e6dace] rounded-2xl text-sm font-bold text-[#4a3426] outline-none focus:border-[#c69f6e] focus:bg-white focus:shadow-inner transition-all placeholder:text-[#bba282]/40"
-                                                placeholder="••••••••"
-                                            />
+                                            <div className="relative">
+                                                <input
+                                                    type={showPass ? "text" : "password"}
+                                                    autoFocus
+                                                    value={newPass}
+                                                    onChange={e => setNewPass(e.target.value)}
+                                                    className="h-14 w-full px-5 bg-[#fcfaf8] border border-[#e6dace] rounded-2xl text-sm font-bold text-[#4a3426] outline-none focus:border-[#c69f6e] focus:bg-white focus:shadow-inner transition-all placeholder:text-[#bba282]/40 pr-12"
+                                                    placeholder="••••••••"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowPass(!showPass)}
+                                                    className="absolute right-4 top-1/2 -translate-y-1/2 p-2 hover:bg-white rounded-xl transition-all text-[#bba282] border border-transparent hover:border-[#e6dace]/50"
+                                                >
+                                                    {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
+                                                </button>
+                                            </div>
                                         </div>
 
                                         {updateStatus === 'error' && (

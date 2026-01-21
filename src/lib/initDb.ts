@@ -192,7 +192,8 @@ const initDb = async () => {
       END $$;
     `);
 
-    // Seed default designations if empty
+    // Seed default designations if empty - REMOVED AS REQUESTED BY USER
+    /*
     const ds = await query('SELECT count(*) FROM public.designations');
     if (parseInt(ds.rows[0].count) === 0) {
       const journalier = ["Fruits", "khodhra", "Transport", "Petit déjeuner"];
@@ -205,6 +206,7 @@ const initDb = async () => {
         await query('INSERT INTO public.designations (name, type) VALUES ($1, $2)', [d, 'divers']);
       }
     }
+    */
 
     // Migrate any leftover 'journalier' types to 'divers'
     await query("UPDATE public.designations SET type = 'divers' WHERE type = 'journalier'");

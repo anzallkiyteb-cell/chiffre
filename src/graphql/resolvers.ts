@@ -1129,17 +1129,25 @@ export const resolvers = {
             const existing = await query('SELECT id FROM logins WHERE username = $1', [username]);
             let res;
             if (existing.rows.length > 0) {
-                if (face_data) {
-                    res = await query(
-                        'UPDATE logins SET password = $1, role = $2, full_name = $3, face_data = $4, has_face_id = true WHERE username = $5 RETURNING id, username, role, full_name, face_data, has_face_id',
-                        [password, role, full_name, face_data, username]
-                    );
-                } else {
-                    res = await query(
-                        'UPDATE logins SET password = $1, role = $2, full_name = $3 WHERE username = $4 RETURNING id, username, role, full_name, face_data, has_face_id',
-                        [password, role, full_name, username]
-                    );
+                const fields = ['role = $1', 'full_name = $2'];
+                const params = [role, full_name];
+
+                if (password && password.trim() !== '') {
+                    params.push(password);
+                    fields.push(`password = $${params.length}`);
                 }
+
+                if (face_data) {
+                    params.push(face_data);
+                    fields.push(`face_data = $${params.length}`);
+                    fields.push('has_face_id = true');
+                }
+
+                params.push(username);
+                res = await query(
+                    `UPDATE logins SET ${fields.join(', ')} WHERE username = $${params.length} RETURNING id, username, role, full_name, face_data, has_face_id`,
+                    params
+                );
             } else {
                 res = await query(
                     'INSERT INTO logins (username, password, role, full_name, face_data, has_face_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, username, role, full_name, face_data, has_face_id',
@@ -1188,7 +1196,6 @@ export const resolvers = {
                 return false;
             }
 
-            console.log(`Heartbeat received for: ${username} from ${ipAddress}`);
             return true;
         },
         recordConnection: async (_: any, { username, ipAddress, deviceInfo, browser }: any) => {

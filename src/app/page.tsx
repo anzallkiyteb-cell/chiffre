@@ -3,7 +3,7 @@
 import { useQuery, useLazyQuery, useMutation, gql } from '@apollo/client';
 import client from '@/lib/apollo-client';
 import ChiffrePage from '@/components/ChiffrePage';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Image from 'next/image';
 import { Lock, User, CheckCircle2, Loader2, ShieldAlert, ShieldCheck, Power, AlertCircle, Camera, Scan, X, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -304,6 +304,14 @@ const DISCONNECT_USER = gql`
   }
 `;
 
+const CHECK_SESSION = gql`
+  query CheckSession($startDate: String!, $endDate: String!) {
+    getChiffresByRange(startDate: $startDate, endDate: $endDate) {
+      date
+    }
+  }
+`;
+
 export default function Home() {
   const [user, setUser] = useState<{ role: 'admin' | 'caissier', username?: string, full_name?: string } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -338,6 +346,26 @@ export default function Home() {
   const [isAccountBlocked, setIsAccountBlocked] = useState(false);
   const isSystemBlocked = statusData?.getSystemStatus?.is_blocked;
   const isBlocked = (isSystemBlocked && user?.role !== 'admin') || isAccountBlocked;
+
+  const targetDateStr = useMemo(() => {
+    const now = new Date();
+    const targetDate = new Date(now);
+    // If before 08:00 AM, check for yesterday
+    if (now.getHours() < 8) {
+      targetDate.setDate(now.getDate() - 1);
+    }
+    const y = targetDate.getFullYear();
+    const m = String(targetDate.getMonth() + 1).padStart(2, '0');
+    const d = String(targetDate.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }, []);
+
+  const { data: sessionData } = useQuery(CHECK_SESSION, {
+    variables: { startDate: targetDateStr, endDate: targetDateStr },
+    fetchPolicy: 'network-only'
+  });
+
+  const isSessionSaved = sessionData?.getChiffresByRange?.length > 0;
 
   const [checkStatus] = useLazyQuery(gql`
     query CheckUserStatus {
@@ -917,9 +945,15 @@ export default function Home() {
 
                 {/* Status Indicator */}
                 <motion.div
-                  animate={{ scale: [1, 1.2, 1] }}
+                  animate={{
+                    scale: isSessionSaved ? [1, 1.2, 1] : [1, 1.1, 1],
+                    opacity: isSessionSaved ? 1 : [0.8, 1, 0.8]
+                  }}
                   transition={{ duration: 2, repeat: Infinity }}
-                  className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full border-4 border-[#4a3426] z-20"
+                  className={`absolute -top-2 -right-2 w-6 h-6 rounded-full border-4 border-[#4a3426] z-20 transition-colors duration-500 ${isSessionSaved
+                    ? 'bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.3)]'
+                    : 'bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)]'
+                    }`}
                 />
               </motion.div>
 

@@ -9,7 +9,7 @@ import {
     ArrowUpRight, Download, Filter, User, FileText,
     TrendingUp, Receipt, Wallet, UploadCloud, Coins, Banknote,
     ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Image as ImageIcon, Ticket,
-    Clock, CheckCircle2, Eye, EyeOff, Edit2, Trash2, X, Layout, Plus,
+    Clock, CheckCircle2, Check, Eye, EyeOff, Edit2, Trash2, X, Layout, Plus,
     Truck, Sparkles, Calculator, Zap, Award, ZoomIn, ZoomOut, RotateCw, Maximize2,
     Bookmark, AlertCircle, LayoutGrid, Package
 } from 'lucide-react';
@@ -132,6 +132,93 @@ const PremiumDatePicker = ({ value, onChange, label, align = 'left' }: { value: 
                                             `}
                                         >
                                             {day.getDate()}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+};
+
+const PremiumMonthPicker = ({ value, onChange, align = 'left' }: { value: string, onChange: (val: string) => void, align?: 'left' | 'right' }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [viewYear, setViewYear] = useState(parseInt(value?.split('-')[0]) || new Date().getFullYear());
+
+    const months = [
+        'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+        'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
+    ];
+
+    const currentMonthIdx = parseInt(value?.split('-')[1]) - 1;
+
+    return (
+        <div className="relative">
+            <button
+                type="button"
+                onClick={() => setIsOpen(!isOpen)}
+                className="flex items-center justify-between gap-4 bg-white border border-[#e6dace] rounded-xl px-6 h-10 transition-all min-w-[200px] hover:shadow-sm group shadow-sm"
+            >
+                <span className="text-[11px] font-black text-[#4a3426] uppercase tracking-widest">
+                    {!isNaN(currentMonthIdx) ? `${months[currentMonthIdx]} ${value.split('-')[0]}` : 'Sélectionner Mois'}
+                </span>
+                <Calendar size={16} className="text-[#c69f6e]" />
+            </button>
+
+            <AnimatePresence>
+                {isOpen && (
+                    <>
+                        <div className="fixed inset-0 z-[100]" onClick={() => setIsOpen(false)} />
+                        <motion.div
+                            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                            className={`absolute top-full ${align === 'right' ? 'right-0' : 'left-0'} mt-3 bg-white rounded-[2rem] shadow-2xl border border-[#e6dace] p-6 z-[110] w-72`}
+                        >
+                            <div className="flex justify-between items-center mb-6">
+                                <button
+                                    type="button"
+                                    onClick={() => setViewYear(viewYear - 1)}
+                                    className="p-2 hover:bg-[#fcfaf8] rounded-xl text-[#8c8279] transition-colors"
+                                >
+                                    <ChevronLeft size={18} />
+                                </button>
+                                <span className="text-sm font-black text-[#4a3426] tracking-tighter">
+                                    {viewYear}
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => setViewYear(viewYear + 1)}
+                                    className="p-2 hover:bg-[#fcfaf8] rounded-xl text-[#8c8279] transition-colors"
+                                >
+                                    <ChevronRight size={18} />
+                                </button>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-2">
+                                {months.map((m, i) => {
+                                    const mStr = String(i + 1).padStart(2, '0');
+                                    const isSelected = value === `${viewYear}-${mStr}`;
+                                    return (
+                                        <button
+                                            key={i}
+                                            type="button"
+                                            onClick={() => {
+                                                onChange(`${viewYear}-${mStr}`);
+                                                setIsOpen(false);
+                                            }}
+                                            className={`
+                                                py-3 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all
+                                                ${isSelected
+                                                    ? 'bg-[#c69f6e] text-white shadow-lg shadow-[#c69f6e]/20'
+                                                    : 'text-[#4a3426] hover:bg-[#fcfaf8] border border-transparent hover:border-[#e6dace]/30'
+                                                }
+                                            `}
+                                        >
+                                            {m.substring(0, 4)}
                                         </button>
                                     );
                                 })}
@@ -428,6 +515,8 @@ export default function PaiementsPage() {
     const [expInvoiceNumber, setExpInvoiceNumber] = useState('');
     const [showExpForm, setShowExpForm] = useState(false);
     const [showSalaryRemaindersModal, setShowSalaryRemaindersModal] = useState(false);
+    const [editingSalaryId, setEditingSalaryId] = useState<number | string | null>(null);
+    const [successSalaryId, setSuccessSalaryId] = useState<number | string | null>(null);
     const [salaryRemainderMonth, setSalaryRemainderMonth] = useState(currentMonthStr);
     const [salaryRemainderMode, setSalaryRemainderMode] = useState<'global' | 'employee'>('employee');
     const [salaryRemainderSearch, setSalaryRemainderSearch] = useState('');
@@ -812,6 +901,8 @@ export default function PaiementsPage() {
             bankExpenses
         };
     }, [data, payerType, showExpForm, expAmount, expMethod, showPayModal, paymentDetails, showBankForm, bankAmount, bankTransactionType]);
+
+    const hasNegativeValues = computedStats.reste < 0 || computedStats.cash < 0 || computedStats.bancaire < 0 || computedStats.tickets < 0;
 
     const setThisWeek = () => {
         const now = new Date();
@@ -1374,18 +1465,18 @@ export default function PaiementsPage() {
     );
 
     return (
-        <div className="flex min-h-screen bg-[#f8f5f2]">
+        <div className={`flex min-h-screen transition-colors duration-700 ${hasNegativeValues ? 'bg-[#80201E]' : 'bg-[#f8f5f2]'}`}>
             <Sidebar role={user.role} />
 
             <div className="flex-1 min-w-0 pb-24 lg:pb-0">
-                <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-[#e6dace] py-6 px-4 md:px-8 flex flex-col md:flex-row items-center gap-6">
+                <header className={`sticky top-0 z-30 backdrop-blur-md border-b py-6 px-4 md:px-8 flex flex-col md:flex-row items-center gap-6 transition-colors duration-700 ${hasNegativeValues ? 'bg-[#80201E]/90 border-red-900/40' : 'bg-white/90 border-[#e6dace]'}`}>
                     <div className="flex-shrink-0">
-                        <h1 className="text-xl md:text-2xl font-black text-[#4a3426] tracking-tight">Finances</h1>
+                        <h1 className={`text-xl md:text-2xl font-black tracking-tight transition-colors duration-700 ${hasNegativeValues ? 'text-white' : 'text-[#4a3426]'}`}>Finances</h1>
 
                     </div>
 
                     <div className="flex-1 flex flex-col md:flex-row items-center justify-center gap-3 w-full">
-                        <div className="flex bg-white rounded-2xl p-1 border border-[#e6dace] shadow-sm w-full md:w-auto">
+                        <div className={`flex rounded-2xl p-1 border shadow-sm w-full md:w-auto transition-colors duration-700 ${hasNegativeValues ? 'bg-[#942c2a] border-red-900/40' : 'bg-white border-[#e6dace]'}`}>
                             <button
                                 onClick={() => {
                                     setActiveFilter('month');
@@ -1410,7 +1501,7 @@ export default function PaiementsPage() {
                         </div>
 
                         {/* SOURCE FILTER: Payer Par */}
-                        <div className="flex bg-white rounded-2xl p-1 border border-[#e6dace] shadow-sm w-full md:w-auto">
+                        <div className={`flex rounded-2xl p-1 border shadow-sm w-full md:w-auto transition-colors duration-700 ${hasNegativeValues ? 'bg-[#942c2a] border-red-900/40' : 'bg-white border-[#e6dace]'}`}>
                             {[
                                 { id: 'all', label: 'Tout' },
                                 { id: 'caisse', label: 'Caisse' },
@@ -1428,68 +1519,18 @@ export default function PaiementsPage() {
 
                         <div className="flex flex-col gap-2 w-full md:w-auto">
                             <div className="relative">
-                                <button
-                                    onClick={() => setShowMonthPicker(!showMonthPicker)}
-                                    className={`bg-white border border-[#e6dace] rounded-2xl h-11 px-6 flex items-center justify-center gap-3 hover:border-[#c69f6e] transition-all group w-full ${activeFilter === 'month' ? 'ring-2 ring-[#c69f6e]/20' : ''}`}
-                                >
-                                    <Calendar size={18} className="text-[#c69f6e]" />
-                                    <span className="font-black text-[#4a3426] uppercase text-[11px] tracking-widest text-center">
-                                        {month ? `${months[parseInt(month.split('-')[1]) - 1]} ${month.split('-')[0]}` : 'Sélectionner Mois'}
-                                    </span>
-                                </button>
+                                <PremiumMonthPicker
+                                    value={month || ''}
+                                    onChange={(val) => {
+                                        setActiveFilter('month');
+                                        setMonth(val);
+                                    }}
+                                    align="right"
+                                />
 
-                                <AnimatePresence>
-                                    {showMonthPicker && (
-                                        <>
-                                            <div className="fixed inset-0 z-40" onClick={() => setShowMonthPicker(false)} />
-                                            <motion.div
-                                                initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                                exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                                                className="absolute top-full right-0 mt-3 w-72 bg-white rounded-[2rem] shadow-2xl border border-[#e6dace] p-6 z-50 overflow-hidden"
-                                            >
-                                                <div className="flex justify-between items-center mb-6 px-2">
-                                                    <button
-                                                        onClick={() => setPickerYear(v => v - 1)}
-                                                        className="p-2 hover:bg-[#fcfaf8] rounded-xl text-[#8c8279] transition-colors"
-                                                    >
-                                                        <ChevronLeft size={20} />
-                                                    </button>
-                                                    <span className="text-xl font-black text-[#4a3426] tracking-tighter">{pickerYear}</span>
-                                                    <button
-                                                        onClick={() => setPickerYear(v => v + 1)}
-                                                        className="p-2 hover:bg-[#fcfaf8] rounded-xl text-[#8c8279] transition-colors"
-                                                    >
-                                                        <ChevronRight size={20} />
-                                                    </button>
-                                                </div>
-
-                                                <div className="grid grid-cols-3 gap-2">
-                                                    {months.map((m, i) => {
-                                                        const currentMonth = `${pickerYear}-${String(i + 1).padStart(2, '0')}`;
-                                                        const isActive = month === currentMonth;
-                                                        return (
-                                                            <button
-                                                                key={m}
-                                                                onClick={() => {
-                                                                    setMonth(currentMonth);
-                                                                    setActiveFilter('month');
-                                                                    setShowMonthPicker(false);
-                                                                }}
-                                                                className={`h-10 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all ${isActive ? 'bg-[#c69f6e] text-white shadow-lg shadow-[#c69f6e]/20' : 'text-[#8c8279] hover:bg-[#fcfaf8] hover:text-[#4a3426] border border-transparent hover:border-[#e6dace]'}`}
-                                                            >
-                                                                {m.substring(0, 3)}
-                                                            </button>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </motion.div>
-                                        </>
-                                    )}
-                                </AnimatePresence>
                             </div>
 
-                            <div className="flex items-center gap-3 bg-white rounded-3xl p-1.5 border border-[#e6dace] shadow-sm">
+                            <div className={`flex items-center gap-3 rounded-3xl p-1.5 border shadow-sm transition-colors duration-700 ${hasNegativeValues ? 'bg-[#942c2a] border-red-900/40' : 'bg-white border-[#e6dace]'}`}>
                                 <PremiumDatePicker
                                     label="Début"
                                     value={dateRange.start}
@@ -1754,7 +1795,7 @@ export default function PaiementsPage() {
                         {/* 3. Reste */}
                         <motion.div
                             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-                            className="bg-[#0154A2] p-8 rounded-[2.5rem] shadow-lg relative overflow-hidden group hover:scale-[1.005] transition-all text-white h-44 flex flex-col justify-center cursor-default"
+                            className={`${computedStats.reste < 0 ? 'bg-[#80201E]' : 'bg-[#0154A2]'} p-8 rounded-[2.5rem] shadow-lg relative overflow-hidden group hover:scale-[1.005] transition-all text-white h-44 flex flex-col justify-center cursor-default`}
                         >
                             <div className="relative z-10">
                                 <div className="flex items-center gap-3 text-white/90 mb-4 uppercase text-[11px] font-bold tracking-[0.2em]">
@@ -1776,7 +1817,7 @@ export default function PaiementsPage() {
                         {/* 4. Total Cash */}
                         <motion.div
                             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-                            className="bg-[#f59e0b] p-8 rounded-[2rem] shadow-sm relative overflow-hidden group hover:scale-[1.02] transition-all text-white h-40 flex flex-col justify-center"
+                            className={`${computedStats.cash < 0 ? 'bg-[#80201E]' : 'bg-[#f59e0b]'} p-8 rounded-[2rem] shadow-sm relative overflow-hidden group hover:scale-[1.02] transition-all text-white h-40 flex flex-col justify-center`}
                         >
                             <div className="relative z-10">
                                 <div className="flex items-center gap-2 text-white/90 mb-2 uppercase text-[10px] font-bold tracking-widest">
@@ -1795,7 +1836,7 @@ export default function PaiementsPage() {
                         {/* 5. Bancaire */}
                         <motion.div
                             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
-                            className="bg-[#3b82f6] p-8 rounded-[2rem] shadow-sm relative overflow-hidden group hover:scale-[1.02] transition-all text-white h-40 flex flex-col justify-center"
+                            className={`${computedStats.bancaire < 0 ? 'bg-[#80201E]' : 'bg-[#3b82f6]'} p-8 rounded-[2rem] shadow-sm relative overflow-hidden group hover:scale-[1.02] transition-all text-white h-40 flex flex-col justify-center`}
                         >
                             <div className="relative z-10">
                                 <div className="flex items-center gap-2 text-white/90 mb-2 uppercase text-[10px] font-bold tracking-widest">
@@ -1814,7 +1855,7 @@ export default function PaiementsPage() {
                         {/* 6. Ticket Restaurant */}
                         <motion.div
                             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
-                            className="bg-[#8b5cf6] p-8 rounded-[2rem] shadow-sm relative overflow-hidden group hover:scale-[1.02] transition-all text-white h-40 flex flex-col justify-center"
+                            className={`${computedStats.tickets < 0 ? 'bg-[#80201E]' : 'bg-[#8b5cf6]'} p-8 rounded-[2rem] shadow-sm relative overflow-hidden group hover:scale-[1.02] transition-all text-white h-40 flex flex-col justify-center`}
                         >
                             <div className="relative z-10">
                                 <div className="flex items-center gap-2 text-white/90 mb-2 uppercase text-[10px] font-bold tracking-widest">
@@ -2076,6 +2117,7 @@ export default function PaiementsPage() {
                                                                 step="0.001"
                                                                 value={expAmount}
                                                                 onChange={(e) => setExpAmount(e.target.value)}
+                                                                onWheel={(e) => e.currentTarget.blur()}
                                                                 className="w-full h-12 bg-white border border-red-100 rounded-xl px-4 font-black text-xl outline-none focus:border-red-400 min-w-[180px]"
                                                                 placeholder="0.000"
                                                             />
@@ -2175,10 +2217,10 @@ export default function PaiementsPage() {
                                                         onClick={handleExpSubmit}
                                                         disabled={addingExp || !expCategory}
                                                         className={`w-full h-11 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg md:mt-auto transition-all ${!expCategory
-                                                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                                                : editingHistoryItem
-                                                                    ? 'bg-blue-600 shadow-blue-500/20 hover:bg-blue-700'
-                                                                    : 'bg-red-500 shadow-red-500/20 hover:bg-red-600'
+                                                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                                            : editingHistoryItem
+                                                                ? 'bg-blue-600 shadow-blue-500/20 hover:bg-blue-700'
+                                                                : 'bg-red-500 shadow-red-500/20 hover:bg-red-600'
                                                             }`}
                                                     >
                                                         {addingExp ? <Loader2 size={16} className="animate-spin mx-auto" /> : (editingHistoryItem ? 'Enregistrer les modifications' : 'Enregistrer la Dépense')}
@@ -2201,7 +2243,7 @@ export default function PaiementsPage() {
                         {/* Bancaire Section */}
                         <div className="lg:col-span-1 space-y-6">
                             <div className="bg-white p-6 rounded-[2.5rem] luxury-shadow border border-[#e6dace]/50">
-                                <div className="flex justify-between items-center mb-6">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                                     <h3 className="text-lg font-black text-[#4a3426] flex items-center gap-2">
                                         <div className="bg-[#4a3426] p-2 rounded-xl text-white">
                                             <TrendingUp size={18} />
@@ -2257,19 +2299,20 @@ export default function PaiementsPage() {
                                             className="mb-6"
                                         >
                                             <div className="space-y-3 p-4 bg-[#fcfaf8] rounded-3xl border border-[#e6dace]/50">
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
-                                                    <div>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+                                                    <div className="flex-1 min-w-0">
                                                         <label className="text-[10px] font-black text-[#8c8279] uppercase ml-1">Montant (DT)</label>
                                                         <input
                                                             type="number"
                                                             step="0.001"
                                                             value={bankAmount}
                                                             onChange={(e) => setBankAmount(e.target.value)}
-                                                            className="w-full h-12 bg-white border border-[#e6dace] rounded-xl px-4 font-black text-xl outline-none focus:border-[#c69f6e] min-w-[180px]"
+                                                            onWheel={(e) => e.currentTarget.blur()}
+                                                            className="w-full h-12 bg-white border border-[#e6dace] rounded-xl px-4 font-black text-xl outline-none focus:border-[#c69f6e]"
                                                             placeholder="0.000"
                                                         />
                                                     </div>
-                                                    <div className="space-y-1">
+                                                    <div className="flex-1 min-w-0">
                                                         <label className="text-[10px] font-black text-[#8c8279] uppercase ml-1">Date</label>
                                                         <PremiumDatePicker
                                                             label="Date"
@@ -2354,14 +2397,10 @@ export default function PaiementsPage() {
                             </div>
 
                             <div className="flex items-center gap-4">
-                                <div className="flex bg-[#fcfaf8] border border-[#e6dace] rounded-xl p-1 shadow-inner h-10 items-center">
-                                    <input
-                                        type="month"
-                                        value={salaryRemainderMonth}
-                                        onChange={(e) => setSalaryRemainderMonth(e.target.value)}
-                                        className="bg-transparent px-3 py-1 text-xs font-black text-[#4a3426] outline-none h-full"
-                                    />
-                                </div>
+                                <PremiumMonthPicker
+                                    value={salaryRemainderMonth}
+                                    onChange={(val) => setSalaryRemainderMonth(val)}
+                                />
 
                                 <div className="flex gap-2">
                                     <button
@@ -2401,11 +2440,19 @@ export default function PaiementsPage() {
                                     <div className="relative">
                                         <input
                                             id="global-salary-input"
-                                            key={salaryRemainderMonth}
+                                            key={`${salaryRemainderMonth}-${(data?.getSalaryRemainders || []).find((r: any) => r.employee_name === 'Restes Salaires')?.amount || 0}-${editingSalaryId === 'global'}`}
                                             type="number"
                                             step="0.001"
-                                            defaultValue={0}
-                                            className="w-full text-center text-4xl md:text-5xl font-black text-[#4a3426] outline-none border-b-2 border-[#e6dace] focus:border-red-400 pb-2 bg-transparent transition-colors min-w-[250px]"
+                                            disabled={editingSalaryId !== 'global'}
+                                            defaultValue={(data?.getSalaryRemainders || []).find((r: any) => r.employee_name === 'Restes Salaires')?.amount || 0}
+                                            onFocus={(e) => e.target.value === '0' && (e.target.value = '')}
+                                            onBlur={(e) => e.target.value === '' && (e.target.value = '0')}
+                                            onWheel={(e) => e.currentTarget.blur()}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Escape') setEditingSalaryId(null);
+                                                if (e.key === 'Enter') document.getElementById('global-save-btn')?.click();
+                                            }}
+                                            className="w-full text-center text-4xl md:text-5xl font-black text-[#4a3426] outline-none border-b-2 border-[#e6dace] focus:border-red-400 pb-2 bg-transparent transition-colors min-w-[250px] disabled:opacity-100"
                                         />
                                         <span className="text-xs font-black text-[#c69f6e] mt-2 block mb-6">DT</span>
 
@@ -2413,6 +2460,12 @@ export default function PaiementsPage() {
                                             <button
                                                 id="global-save-btn"
                                                 onClick={async () => {
+                                                    if (editingSalaryId !== 'global') {
+                                                        setEditingSalaryId('global');
+                                                        setTimeout(() => document.getElementById('global-salary-input')?.focus(), 10);
+                                                        return;
+                                                    }
+
                                                     const input = document.getElementById('global-salary-input') as HTMLInputElement;
                                                     const val = parseFloat(input?.value || '0');
                                                     await upsertSalaryRemainder({
@@ -2424,24 +2477,26 @@ export default function PaiementsPage() {
                                                         }
                                                     });
                                                     await refetch();
-                                                    if (input) input.value = '';
-                                                    const btn = document.getElementById('global-save-btn');
-                                                    if (btn) {
-                                                        const originalText = btn.innerHTML;
-                                                        btn.innerHTML = '<span class="flex items-center gap-2 justify-center">ENREGISTRÉ <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>';
-                                                        btn.classList.add('bg-green-500', 'text-white', 'border-green-500', 'shadow-green-500/30');
-                                                        btn.classList.remove('bg-white', 'text-red-500', 'border-red-200');
-                                                        setTimeout(() => {
-                                                            btn.innerHTML = originalText;
-                                                            btn.classList.remove('bg-green-500', 'text-white', 'border-green-500', 'shadow-green-500/30');
-                                                            btn.classList.add('bg-white', 'text-red-500', 'border-red-200');
-                                                        }, 2000);
-                                                    }
+                                                    setEditingSalaryId(null);
+                                                    setSuccessSalaryId('global');
+                                                    setTimeout(() => setSuccessSalaryId(null), 2000);
                                                 }}
-                                                className="flex-1 py-4 rounded-xl font-black text-sm uppercase tracking-widest bg-white border-2 border-red-200 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500 transition-all shadow-md active:scale-95"
+                                                className={`flex-1 py-4 rounded-xl font-black text-sm uppercase tracking-widest transition-all shadow-md active:scale-95 border-2 ${successSalaryId === 'global' ? 'bg-green-500 text-white border-green-500 shadow-green-500/30' :
+                                                    editingSalaryId === 'global' ? 'bg-[#c69f6e] text-white border-[#c69f6e]' :
+                                                        'bg-white border-red-200 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500'}`}
                                             >
-                                                Sauvegarder
+                                                {successSalaryId === 'global' ? (
+                                                    <span className="flex items-center gap-2 justify-center">ENREGISTRÉ <Check size={16} strokeWidth={3} /></span>
+                                                ) : editingSalaryId === 'global' ? 'Enregistrer' : 'Modifier'}
                                             </button>
+                                            {editingSalaryId === 'global' && !successSalaryId && (
+                                                <button
+                                                    onClick={() => setEditingSalaryId(null)}
+                                                    className="px-8 py-4 rounded-xl font-black text-sm uppercase tracking-widest bg-white border-2 border-gray-100 text-gray-400 hover:bg-gray-50 transition-all shadow-sm active:scale-95"
+                                                >
+                                                    Annuler
+                                                </button>
+                                            )}
                                         </div>
                                         <div className="mt-8 space-y-3">
                                             {(() => {
@@ -2549,8 +2604,17 @@ export default function PaiementsPage() {
                                                                             id={`salary-input-${emp.id}`}
                                                                             type="number"
                                                                             step="0.001"
+                                                                            disabled={editingSalaryId !== emp.id}
+                                                                            key={`${emp.id}-${rem?.amount || 0}-${editingSalaryId === emp.id}`}
                                                                             defaultValue={rem?.amount || 0}
-                                                                            className={`w-44 text-center font-black bg-transparent outline-none border-b transition-colors text-xl ${rem && rem.amount > 0 ? 'text-green-600 border-green-200 focus:border-green-500' : 'text-[#4a3426] border-transparent focus:border-[#c69f6e]'}`}
+                                                                            onFocus={(e) => e.target.value === '0' && (e.target.value = '')}
+                                                                            onBlur={(e) => e.target.value === '' && (e.target.value = '0')}
+                                                                            onWheel={(e) => e.currentTarget.blur()}
+                                                                            onKeyDown={(e) => {
+                                                                                if (e.key === 'Escape') setEditingSalaryId(null);
+                                                                                if (e.key === 'Enter') document.getElementById(`save-btn-${emp.id}`)?.click();
+                                                                            }}
+                                                                            className={`w-44 text-center font-black bg-transparent outline-none border-b transition-colors text-xl ${editingSalaryId === emp.id ? 'border-[#c69f6e] text-[#4a3426]' : (rem && rem.amount > 0 ? 'text-green-600 border-green-200' : 'text-[#4a3426] border-transparent')} disabled:opacity-100 placeholder:opacity-50`}
                                                                         />
                                                                         <span className={`text-[10px] font-black mt-1 ${rem && rem.amount > 0 ? 'text-green-600/60' : 'text-[#4a3426]/40'}`}>DT</span>
                                                                         {rem && rem.amount > 0 && (
@@ -2565,6 +2629,14 @@ export default function PaiementsPage() {
                                                                         <button
                                                                             id={`save-btn-${emp.id}`}
                                                                             onClick={async () => {
+                                                                                if (editingSalaryId !== emp.id) {
+                                                                                    setEditingSalaryId(emp.id);
+                                                                                    setTimeout(() => {
+                                                                                        document.getElementById(`salary-input-${emp.id}`)?.focus();
+                                                                                    }, 10);
+                                                                                    return;
+                                                                                }
+
                                                                                 const input = document.getElementById(`salary-input-${emp.id}`) as HTMLInputElement;
                                                                                 const val = parseFloat(input?.value || '0');
                                                                                 await upsertSalaryRemainder({
@@ -2576,26 +2648,28 @@ export default function PaiementsPage() {
                                                                                     }
                                                                                 });
                                                                                 await refetch();
-                                                                                const btn = document.getElementById(`save-btn-${emp.id}`);
-                                                                                if (btn) {
-                                                                                    const originalContent = btn.innerHTML;
-                                                                                    const originalClasses = btn.className;
-
-                                                                                    btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
-                                                                                    btn.className = "w-10 h-10 rounded-xl bg-green-500 text-white flex items-center justify-center shadow-lg shadow-green-500/30 transition-all scale-110";
-
-                                                                                    setTimeout(() => {
-                                                                                        btn.innerHTML = originalContent;
-                                                                                        btn.className = originalClasses;
-                                                                                    }, 2000);
-                                                                                }
+                                                                                setEditingSalaryId(null);
+                                                                                setSuccessSalaryId(emp.id);
+                                                                                setTimeout(() => setSuccessSalaryId(null), 2000);
                                                                             }}
-                                                                            className={`inline-flex items-center justify-center h-10 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all shadow-sm ${rem && rem.amount > 0
-                                                                                ? 'bg-white text-green-600 border-green-200 hover:bg-green-50 hover:border-green-300'
-                                                                                : 'bg-white text-[#4a3426] border-[#e6dace] hover:bg-[#2d6a4f] hover:text-white hover:border-[#2d6a4f]'}`}
+                                                                            className={`inline-flex items-center justify-center h-10 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all shadow-sm ${successSalaryId === emp.id ? 'bg-green-500 text-white border-green-500 shadow-lg shadow-green-500/30 scale-110 px-2' :
+                                                                                editingSalaryId === emp.id ? 'bg-[#c69f6e] text-white border-[#c69f6e] shadow-md shadow-[#c69f6e]/20' :
+                                                                                    (rem && rem.amount > 0 ? 'bg-white text-green-600 border-green-200 hover:bg-green-50 hover:border-green-300' : 'bg-white text-[#4a3426] border-[#e6dace] hover:bg-[#2d6a4f] hover:text-white hover:border-[#2d6a4f]')}`}
                                                                         >
-                                                                            {rem && rem.amount > 0 ? 'Modifier' : 'Sauvegarder'}
+                                                                            {successSalaryId === emp.id ? (
+                                                                                <Check size={16} strokeWidth={3} />
+                                                                            ) : editingSalaryId === emp.id ? 'Enregistrer' : (rem && rem.amount > 0 ? 'Modifier' : 'Sauvegarder')}
                                                                         </button>
+
+                                                                        {editingSalaryId === emp.id && !successSalaryId && (
+                                                                            <button
+                                                                                onClick={() => setEditingSalaryId(null)}
+                                                                                className="w-10 h-10 rounded-xl bg-gray-50 text-gray-400 hover:bg-gray-100 flex items-center justify-center transition-all border border-gray-100"
+                                                                                title="Annuler (Esc)"
+                                                                            >
+                                                                                <X size={16} />
+                                                                            </button>
+                                                                        )}
 
                                                                         {rem && rem.amount > 0 && (
                                                                             <button
