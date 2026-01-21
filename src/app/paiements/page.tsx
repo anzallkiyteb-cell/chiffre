@@ -3480,17 +3480,24 @@ export default function PaiementsPage() {
                                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                                 animate={{ opacity: 1, scale: 1, y: 0 }}
                                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                                className="relative bg-[#fcfaf8] w-full max-w-[85vw] h-auto max-h-[95vh] rounded-[4rem] shadow-[0_30px_100px_rgba(74,52,38,0.15)] overflow-hidden border border-white flex flex-col"
+                                className="relative bg-[#fcfaf8] w-full max-w-[95vw] md:max-w-[85vw] h-auto max-h-[96vh] rounded-[2rem] md:rounded-[4rem] shadow-[0_30px_100px_rgba(74,52,38,0.15)] overflow-hidden border border-white flex flex-col"
                             >
                                 {/* Modal Header */}
-                                <div className="p-12 pb-10 flex items-center justify-between">
-                                    <div className="flex-1 flex flex-col justify-center">
-                                        <h2 className="text-4xl font-black text-[#4a3426] tracking-tighter leading-none mb-2">Détails des Dépenses</h2>
+                                <div className="p-4 md:p-12 pb-4 md:pb-10 flex flex-col lg:flex-row items-center lg:items-center justify-between gap-4 md:gap-8 overflow-y-auto lg:overflow-visible no-scrollbar flex-shrink-0 relative">
+                                    <button
+                                        onClick={() => setShowExpensesDetails(false)}
+                                        className="absolute top-5 right-5 lg:static w-10 h-10 md:w-14 md:h-14 bg-white rounded-2xl flex items-center justify-center text-[#8c8279] hover:bg-red-50 hover:text-red-500 transition-all border border-[#e6dace]/30 shadow-sm shrink-0 z-[10]"
+                                    >
+                                        <X size={20} className="md:size-7" />
+                                    </button>
 
-                                        <p className="text-[#c69f6e] font-black text-[9px] uppercase tracking-[0.4em] mb-6">Récapitulatif financier complet</p>
+                                    <div className="w-full lg:flex-1 flex flex-col items-center lg:items-start text-center lg:text-left pt-6 lg:pt-0">
+                                        <h2 className="text-xl md:text-3xl lg:text-4xl font-black text-[#4a3426] tracking-tighter leading-none mb-1 md:mb-2">Détails des Dépenses</h2>
+
+                                        <p className="text-[#c69f6e] font-black text-[7px] md:text-[9px] uppercase tracking-[0.4em] mb-4 md:mb-6">Récapitulatif financier complet</p>
 
                                         {/* Dynamic Legend */}
-                                        <div className="grid grid-cols-2 gap-x-6 gap-y-2 mt-2">
+                                        <div className="flex flex-wrap justify-center lg:grid lg:grid-cols-2 gap-x-4 md:gap-x-6 gap-y-1 md:gap-y-2 mt-1">
                                             {chartData.map((cat, i) => (
                                                 <div
                                                     key={i}
@@ -3509,53 +3516,53 @@ export default function PaiementsPage() {
                                         </div>
                                     </div>
 
-                                    <div className="flex-[2] grid grid-cols-3 gap-3 px-4">
+                                    <div className="w-full lg:flex-[2] grid grid-cols-3 gap-2 md:gap-3 px-0 lg:px-4">
                                         {/* 1. Chiffre d'Affaire */}
-                                        <div className="bg-[#56b350] p-5 rounded-3xl shadow-md relative overflow-hidden text-white flex flex-col justify-center min-h-[110px]">
+                                        <div className="bg-[#56b350] p-3 lg:p-5 rounded-xl lg:rounded-3xl shadow-md relative overflow-hidden text-white flex flex-col justify-center min-h-[70px] lg:min-h-[110px]">
                                             <div className="relative z-10">
-                                                <div className="flex items-center gap-2 text-white/90 mb-1 uppercase text-[8px] font-bold tracking-[0.2em]">
-                                                    <FileText size={12} /> CA
+                                                <div className="flex items-center gap-1.5 text-white/90 mb-0.5 md:mb-1 uppercase text-[6px] lg:text-[8px] font-bold tracking-[0.1em] md:tracking-[0.2em]">
+                                                    <FileText size={8} className="md:size-3" /> CA
                                                 </div>
-                                                <div className="flex items-baseline gap-1">
-                                                    <h3 className="text-2xl font-black tracking-tighter">
+                                                <div className="flex items-baseline gap-0.5">
+                                                    <h3 className="text-xs md:text-xl lg:text-2xl font-black tracking-tighter">
                                                         {maskAmount(computedStats.chiffreAffaire, 0)}
                                                     </h3>
-                                                    <span className="text-[10px] font-bold opacity-80 uppercase">DT</span>
+                                                    <span className="text-[6px] md:text-[10px] font-bold opacity-80 uppercase">DT</span>
                                                 </div>
                                             </div>
-                                            <Wallet size={80} className="absolute right-[-10%] bottom-[-20%] opacity-20 text-white" />
+                                            <Wallet className="absolute right-[-10%] bottom-[-20%] opacity-20 text-white w-12 lg:w-20 h-12 lg:h-20" />
                                         </div>
 
                                         {/* 2. Total Dépenses - RED (CENTER) */}
-                                        <div className="bg-[#ef4444] p-5 rounded-3xl shadow-md relative overflow-hidden text-white flex flex-col justify-center min-h-[110px]">
+                                        <div className="bg-[#ef4444] p-3 lg:p-5 rounded-xl lg:rounded-3xl shadow-md relative overflow-hidden text-white flex flex-col justify-center min-h-[70px] lg:min-h-[110px]">
                                             <div className="relative z-10">
-                                                <div className="flex items-center gap-2 text-white/90 mb-1 uppercase text-[8px] font-bold tracking-[0.2em]">
-                                                    <Banknote size={12} /> DÉPENSES
+                                                <div className="flex items-center gap-1.5 text-white/90 mb-0.5 md:mb-1 uppercase text-[6px] lg:text-[8px] font-bold tracking-[0.1em] md:tracking-[0.2em]">
+                                                    <Banknote size={8} className="md:size-3" /> DEP
                                                 </div>
-                                                <div className="flex items-baseline gap-1">
-                                                    <h3 className="text-2xl font-black tracking-tighter">
+                                                <div className="flex items-baseline gap-0.5">
+                                                    <h3 className="text-xs md:text-xl lg:text-2xl font-black tracking-tighter">
                                                         {maskAmount(totals.global, 0)}
                                                     </h3>
-                                                    <span className="text-[10px] font-bold opacity-80 uppercase">DT</span>
+                                                    <span className="text-[6px] md:text-[10px] font-bold opacity-80 uppercase">DT</span>
                                                 </div>
                                             </div>
-                                            <Banknote size={80} className="absolute right-[-10%] bottom-[-20%] opacity-20 text-white" />
+                                            <Banknote className="absolute right-[-10%] bottom-[-20%] opacity-20 text-white w-12 lg:w-20 h-12 lg:h-20" />
                                         </div>
 
                                         {/* 3. Reste */}
-                                        <div className="bg-[#0154A2] p-5 rounded-3xl shadow-md relative overflow-hidden text-white flex flex-col justify-center min-h-[110px]">
+                                        <div className="bg-[#0154A2] p-3 lg:p-5 rounded-xl lg:rounded-3xl shadow-md relative overflow-hidden text-white flex flex-col justify-center min-h-[70px] lg:min-h-[110px]">
                                             <div className="relative z-10">
-                                                <div className="flex items-center gap-2 text-white/90 mb-1 uppercase text-[8px] font-bold tracking-[0.2em]">
-                                                    <TrendingUp size={12} /> RESTE
+                                                <div className="flex items-center gap-1.5 text-white/90 mb-0.5 md:mb-1 uppercase text-[6px] lg:text-[8px] font-bold tracking-[0.1em] md:tracking-[0.2em]">
+                                                    <TrendingUp size={8} className="md:size-3" /> RST
                                                 </div>
-                                                <div className="flex items-baseline gap-1">
-                                                    <h3 className="text-2xl font-black tracking-tighter">
+                                                <div className="flex items-baseline gap-0.5">
+                                                    <h3 className="text-xs md:text-xl lg:text-2xl font-black tracking-tighter">
                                                         {maskAmount(computedStats.reste, 0)}
                                                     </h3>
-                                                    <span className="text-[10px] font-bold opacity-80 uppercase">DT</span>
+                                                    <span className="text-[6px] md:text-[10px] font-bold opacity-80 uppercase">DT</span>
                                                 </div>
                                             </div>
-                                            <TrendingUp size={80} className="absolute right-[-10%] bottom-[-20%] opacity-20 text-white" />
+                                            <TrendingUp className="absolute right-[-10%] bottom-[-20%] opacity-20 text-white w-12 lg:w-20 h-12 lg:h-20" />
                                         </div>
 
                                         {/* Dynamic Sum Selection Display */}
@@ -3588,9 +3595,9 @@ export default function PaiementsPage() {
                                         </AnimatePresence>
                                     </div>
 
-                                    <div className="flex-1 flex items-center justify-end gap-6">
+                                    <div className="w-full lg:flex-1 flex items-center justify-center lg:justify-end">
                                         {/* MEGA-POWERFUL High-Performance Donut Chart - CLICK INTERACTION */}
-                                        <div className="relative w-64 h-64 flex-shrink-0 group">
+                                        <div className="relative w-36 h-36 md:w-48 md:h-48 lg:w-64 lg:h-64 flex-shrink-0 group">
                                             <svg
                                                 className="w-full h-full -rotate-90 overflow-visible"
                                                 viewBox="0 0 100 100"
@@ -3628,52 +3635,42 @@ export default function PaiementsPage() {
                                                     );
                                                 })}
                                             </svg>
-                                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center px-4">
+                                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center px-2">
                                                 {selectedCategories.length > 0 ? (
                                                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.1 }}>
-                                                        <span className="text-4xl font-black text-[#2d6a4f] leading-none block mb-1">
+                                                        <span className="text-lg lg:text-4xl font-black text-[#2d6a4f] leading-none block mb-0.5">
                                                             {maskAmount(selectedTotal, 0)}
                                                         </span>
-                                                        <span className="text-[9px] font-black text-[#c69f6e] uppercase tracking-[0.2em] block mb-1">
+                                                        <span className="text-[6px] lg:text-[9px] font-black text-[#c69f6e] uppercase tracking-[0.1em] md:tracking-[0.2em] block">
                                                             SÉLECTION
-                                                        </span>
-                                                        <span className="text-[9px] font-black text-[#4a3426]/40 uppercase tracking-[0.1em] block">
-                                                            {selectedCategories.length} Catégories
                                                         </span>
                                                     </motion.div>
                                                 ) : activeSegment ? (
                                                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.1 }}>
-                                                        <span className="text-4xl font-black text-[#4a3426] leading-none block mb-1">
+                                                        <span className="text-lg lg:text-4xl font-black text-[#4a3426] leading-none block mb-0.5">
                                                             {hideAmounts ? '***' : Math.round(activeSegment.percentage * 100) + '%'}
                                                         </span>
-                                                        <span className="text-[9px] font-black text-[#c69f6e] uppercase tracking-[0.2em] block mb-1">
+                                                        <span className="text-[6px] lg:text-[9px] font-black text-[#c69f6e] uppercase tracking-[0.1em] md:tracking-[0.2em] block leading-none mb-1">
                                                             {activeSegment.label}
                                                         </span>
-                                                        <span className="text-11px font-black text-[#4a3426]/60 block">
-                                                            {maskAmount(activeSegment.value)} DT
+                                                        <span className="text-[7px] lg:text-[11px] font-black text-[#4a3426]/60 block leading-none">
+                                                            {maskAmount(activeSegment.value)}
                                                         </span>
                                                     </motion.div>
                                                 ) : (
                                                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                                                        <span className="text-[16px] font-black text-[#4a3426] leading-none block mb-1">DÉPENSES</span>
-                                                        <span className="text-[9px] font-black text-[#c69f6e] uppercase tracking-[0.4em] block">TOTALES</span>
+                                                        <span className="text-[10px] lg:text-[16px] font-black text-[#4a3426] leading-none block mb-0.5">DÉPENSES</span>
+                                                        <span className="text-[6px] lg:text-[9px] font-black text-[#c69f6e] uppercase tracking-[0.2em] md:tracking-[0.4em] block">TOTALES</span>
                                                     </motion.div>
                                                 )}
                                             </div>
                                         </div>
-
-                                        <button
-                                            onClick={() => setShowExpensesDetails(false)}
-                                            className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-[#8c8279] hover:bg-red-50 hover:text-red-500 transition-all border border-[#e6dace]/30 shadow-sm"
-                                        >
-                                            <X size={28} />
-                                        </button>
                                     </div>
                                 </div>
 
                                 {/* Modal Content - Grid Layout */}
-                                <div className="flex-1 overflow-y-auto px-12 pb-12 custom-scrollbar no-scrollbar">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
+                                <div className="flex-1 overflow-y-auto px-6 md:px-12 pb-8 md:pb-12 custom-scrollbar no-scrollbar">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 items-start">
                                         {[
                                             { title: 'DÉPENSES FOURNISSEURS', subtitle: 'MARCHANDISES & SERVICES', icon: Truck, color: 'text-red-500', iconBg: 'bg-red-50', dotColor: '#ef4444', items: expenseDetails.fournisseurs },
                                             { title: 'ACCOMPTE', subtitle: 'AVANCES SUR SALAIRES', icon: Calculator, color: 'text-[#6366f1]', iconBg: 'bg-[#6366f1]/5', dotColor: '#6366f1', items: expenseDetails.avances },
@@ -3703,7 +3700,7 @@ export default function PaiementsPage() {
                                             return (
                                                 <div
                                                     key={idx}
-                                                    className={`group bg-white rounded-[2.5rem] border transition-all duration-300 ${isSelected ? 'border-[#2d6a4f] ring-4 ring-[#2d6a4f]/10 shadow-xl bg-[#2d6a4f]/5' : (isExpanded || isActive) ? 'border-[#c69f6e] ring-4 ring-[#c69f6e]/5 shadow-xl' : 'border-[#e6dace]/20 hover:border-[#c69f6e]/30 shadow-sm shadow-[#4a3426]/5'} ${isActive || isSelected ? 'scale-[1.02]' : ''}`}
+                                                    className={`group bg-white rounded-[1.5rem] lg:rounded-[2.5rem] border transition-all duration-300 ${isSelected ? 'border-[#2d6a4f] ring-4 ring-[#2d6a4f]/10 shadow-xl bg-[#2d6a4f]/5' : (isExpanded || isActive) ? 'border-[#c69f6e] ring-4 ring-[#c69f6e]/5 shadow-xl' : 'border-[#e6dace]/20 hover:border-[#c69f6e]/30 shadow-sm shadow-[#4a3426]/5'} ${isActive || isSelected ? 'scale-[1.02]' : ''}`}
                                                 >
                                                     {/* Category Header Card */}
                                                     <div
@@ -3713,7 +3710,7 @@ export default function PaiementsPage() {
                                                         onMouseLeave={cancelPress}
                                                         onTouchEnd={cancelPress}
                                                         onClick={() => handleCardClick(idx, cat, labelMap, hasItems)}
-                                                        className={`p-6 flex items-center justify-between cursor-pointer select-none rounded-[2.5rem] transition-colors ${!hasItems ? 'cursor-default' : ''} ${isSelected ? 'bg-white/50' : 'hover:bg-[#fcfaf8]'}`}
+                                                        className={`p-4 lg:p-6 flex items-center justify-between cursor-pointer select-none rounded-[1.5rem] lg:rounded-[2.5rem] transition-colors ${!hasItems ? 'cursor-default' : ''} ${isSelected ? 'bg-white/50' : 'hover:bg-[#fcfaf8]'}`}
                                                     >
                                                         <div className="flex items-center gap-5">
                                                             <div className={`w-14 h-14 rounded-2xl ${cat.iconBg} flex items-center justify-center ${cat.color} group-hover:scale-110 transition-transform`}>
@@ -3789,169 +3786,171 @@ export default function PaiementsPage() {
                         </div>
                     )
                 }
-            </AnimatePresence>
+            </AnimatePresence >
 
             {/* Supplier Details Modal - IMAGE 1 STYLE */}
             <AnimatePresence>
-                {selectedEmployeeDetails && (
-                    <div className="fixed inset-0 z-[400] flex items-center justify-center p-4">
-                        <motion.div
-                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                            className="absolute inset-0 bg-[#4a3426]/40 backdrop-blur-md"
-                            onClick={() => setSelectedEmployeeDetails(null)}
-                        />
-                        <motion.div
-                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
-                            animate={{ scale: 1, opacity: 1, y: 0 }}
-                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                            className="relative w-full max-w-5xl bg-[#fdfaf7] rounded-[3.5rem] shadow-2xl overflow-hidden border border-white"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            {/* Header Section */}
-                            <div className="bg-[#4a3426] p-10 flex items-center justify-between rounded-t-[3.5rem]">
-                                <div className="flex items-center gap-6">
-                                    <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center border border-white/20 shadow-inner">
-                                        <ImageIcon className="text-white/60" size={32} />
-                                    </div>
-                                    <div>
-                                        <h2 className="text-5xl font-black text-white tracking-tighter uppercase leading-none mb-3">
-                                            {selectedEmployeeDetails.name}
-                                        </h2>
-                                        <div className="flex items-center gap-3">
-                                            <span className="w-2 h-2 rounded-full bg-[#c69f6e]"></span>
-                                            <p className="text-sm font-black text-white/50 uppercase tracking-[0.3em] leading-none pt-0.5">
-                                                {new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
-                                            </p>
+                {
+                    selectedEmployeeDetails && (
+                        <div className="fixed inset-0 z-[400] flex items-center justify-center p-4">
+                            <motion.div
+                                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                                className="absolute inset-0 bg-[#4a3426]/40 backdrop-blur-md"
+                                onClick={() => setSelectedEmployeeDetails(null)}
+                            />
+                            <motion.div
+                                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                                animate={{ scale: 1, opacity: 1, y: 0 }}
+                                exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                                className="relative w-full max-w-5xl bg-[#fdfaf7] rounded-[3.5rem] shadow-2xl overflow-hidden border border-white"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                {/* Header Section */}
+                                <div className="bg-[#4a3426] p-10 flex items-center justify-between rounded-t-[3.5rem]">
+                                    <div className="flex items-center gap-6">
+                                        <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center border border-white/20 shadow-inner">
+                                            <ImageIcon className="text-white/60" size={32} />
+                                        </div>
+                                        <div>
+                                            <h2 className="text-5xl font-black text-white tracking-tighter uppercase leading-none mb-3">
+                                                {selectedEmployeeDetails.name}
+                                            </h2>
+                                            <div className="flex items-center gap-3">
+                                                <span className="w-2 h-2 rounded-full bg-[#c69f6e]"></span>
+                                                <p className="text-sm font-black text-white/50 uppercase tracking-[0.3em] leading-none pt-0.5">
+                                                    {new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
+                                                </p>
+                                            </div>
                                         </div>
                                     </div>
+                                    <div className="text-right flex flex-col items-end gap-2">
+                                        <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] leading-none">Total Mensuel</p>
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="text-5xl font-black text-white tracking-tighter">
+                                                {maskAmount(selectedEmployeeDetails.total)}
+                                            </span>
+                                            <span className="text-lg font-black text-[#c69f6e]">DT</span>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => setSelectedEmployeeDetails(null)}
+                                        className="absolute top-8 right-8 w-12 h-12 bg-white/10 hover:bg-white/20 rounded-2xl flex items-center justify-center text-white transition-all backdrop-blur-sm border border-white/20 group"
+                                    >
+                                        <X size={24} className="group-hover:rotate-90 transition-transform duration-300" />
+                                    </button>
                                 </div>
-                                <div className="text-right flex flex-col items-end gap-2">
-                                    <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] leading-none">Total Mensuel</p>
-                                    <div className="flex items-baseline gap-2">
-                                        <span className="text-5xl font-black text-white tracking-tighter">
-                                            {maskAmount(selectedEmployeeDetails.total)}
-                                        </span>
-                                        <span className="text-lg font-black text-[#c69f6e]">DT</span>
+
+                                {/* Cards Grid */}
+                                <div className="p-10 max-h-[65vh] overflow-y-auto custom-scrollbar">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                        {selectedEmployeeDetails.items.map((item: any, i: number) => {
+                                            const isRestesSalaires = selectedEmployeeDetails.category === 'RESTES SALAIRES';
+                                            const itemDate = item.date || item.created_at || item.updated_at;
+                                            const displayDate = itemDate ? new Date(itemDate).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }).toUpperCase() : '';
+
+                                            return (
+                                                <div key={i} className="bg-white rounded-[2.5rem] p-8 border border-[#e6dace]/30 shadow-[0_10px_40px_rgba(74,52,38,0.03)] flex flex-col h-full hover:shadow-xl transition-all group">
+                                                    <div className="flex justify-between items-start mb-6">
+                                                        <div className="flex flex-col items-end gap-1">
+                                                            {isRestesSalaires ? (
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-[8px] font-black text-[#c69f6e] uppercase tracking-widest">Date</span>
+                                                                    <span className="text-[10px] font-black text-[#8c8279] uppercase tracking-widest">
+                                                                        {displayDate}
+                                                                    </span>
+                                                                </div>
+                                                            ) : (
+                                                                <>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-[8px] font-black text-[#c69f6e] uppercase tracking-widest">Reçue le</span>
+                                                                        <span className="text-[10px] font-black text-[#8c8279] uppercase tracking-widest">
+                                                                            {new Date(item.doc_date || item.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }).toUpperCase()}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-[8px] font-black text-green-600 uppercase tracking-widest">Réglée le</span>
+                                                                        <span className="text-[10px] font-black text-[#4a3426] uppercase tracking-widest">
+                                                                            {new Date(item.paid_date || item.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }).toUpperCase()}
+                                                                        </span>
+                                                                    </div>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <p className="text-2xl font-black text-[#4a3426] leading-none mb-1">{maskAmount(item.amount)}</p>
+                                                            <p className="text-[8px] font-black text-[#c69f6e] uppercase tracking-widest opacity-60">DT</p>
+                                                        </div>
+                                                    </div>
+
+                                                    {!isRestesSalaires && (
+                                                        <div className="flex flex-wrap gap-2 mb-8">
+                                                            <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-lg">
+                                                                <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                                                                <span className="text-[9px] font-black text-green-600 uppercase tracking-wider leading-none">Règlement Effectué</span>
+                                                            </div>
+                                                            <div className="px-3 py-1.5 bg-[#fdfaf7] border border-[#e6dace]/40 rounded-lg">
+                                                                <span className="text-[9px] font-black text-[#8c8279] uppercase tracking-wider leading-none">{item.paymentMethod || item.payment_method || 'ESPÈCES'}</span>
+                                                            </div>
+                                                            {item.doc_type && (
+                                                                <div className={`px-3 py-1.5 rounded-lg border flex items-center gap-2 ${item.doc_type === 'Facture' ? 'bg-blue-50 border-blue-100' : 'bg-orange-50 border-orange-100'}`}>
+                                                                    <div className={`w-1.5 h-1.5 rounded-full ${item.doc_type === 'Facture' ? 'bg-blue-500' : 'bg-orange-500'}`}></div>
+                                                                    <span className={`text-[9px] font-black uppercase tracking-wider leading-none ${item.doc_type === 'Facture' ? 'text-blue-600' : 'text-orange-600'}`}>
+                                                                        {item.doc_type}
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+
+
+                                                    {!isRestesSalaires && (
+                                                        <div className="mt-auto">
+                                                            {(() => {
+                                                                const hasLegacy = !!(item.photo_url && item.photo_url.length > 5);
+                                                                const hasCheque = !!((item.photo_cheque || item.photo_cheque_url || '').length > 5 || (item.photo_verso || item.photo_verso_url || '').length > 5);
+                                                                const hasGallery = Array.isArray(item.invoices) && item.invoices.length > 0;
+                                                                const hasNewPhotos = !!(item.photos && item.photos !== '[]' && item.photos.length > 5);
+
+                                                                if (hasLegacy || hasCheque || hasGallery || hasNewPhotos) {
+                                                                    return (
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                setSelectedSupplier(selectedEmployeeDetails.name);
+                                                                                // Normalize for viewer
+                                                                                const normalized = {
+                                                                                    ...item,
+                                                                                    photos: Array.isArray(item.invoices) ? JSON.stringify(item.invoices) : (item.photos || '[]'),
+                                                                                    photo_cheque_url: item.photo_cheque || item.photo_cheque_url,
+                                                                                    photo_verso_url: item.photo_verso || item.photo_verso_url,
+                                                                                    paymentMethod: item.paymentMethod || item.payment_method
+                                                                                };
+                                                                                setViewingData(normalized);
+                                                                            }}
+                                                                            className="w-full py-4 bg-[#4a3426] hover:bg-[#c69f6e] text-white rounded-2xl flex items-center justify-center gap-3 transition-all shadow-lg shadow-[#4a3426]/10"
+                                                                        >
+                                                                            <Eye size={16} />
+                                                                            <span className="text-[11px] font-black uppercase tracking-[0.2em] pt-0.5">Justificatifs</span>
+                                                                        </button>
+                                                                    );
+                                                                }
+                                                                return (
+                                                                    <div className="w-full py-4 bg-[#fcfaf8] rounded-2xl border border-dashed border-[#e6dace] flex items-center justify-center">
+                                                                        <span className="text-[10px] font-black text-[#8c8279]/30 uppercase tracking-[0.2em]">Aucun Visuel</span>
+                                                                    </div>
+                                                                );
+                                                            })()}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
-                                <button
-                                    onClick={() => setSelectedEmployeeDetails(null)}
-                                    className="absolute top-8 right-8 w-12 h-12 bg-white/10 hover:bg-white/20 rounded-2xl flex items-center justify-center text-white transition-all backdrop-blur-sm border border-white/20 group"
-                                >
-                                    <X size={24} className="group-hover:rotate-90 transition-transform duration-300" />
-                                </button>
-                            </div>
-
-                            {/* Cards Grid */}
-                            <div className="p-10 max-h-[65vh] overflow-y-auto custom-scrollbar">
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {selectedEmployeeDetails.items.map((item: any, i: number) => {
-                                        const isRestesSalaires = selectedEmployeeDetails.category === 'RESTES SALAIRES';
-                                        const itemDate = item.date || item.created_at || item.updated_at;
-                                        const displayDate = itemDate ? new Date(itemDate).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }).toUpperCase() : '';
-
-                                        return (
-                                            <div key={i} className="bg-white rounded-[2.5rem] p-8 border border-[#e6dace]/30 shadow-[0_10px_40px_rgba(74,52,38,0.03)] flex flex-col h-full hover:shadow-xl transition-all group">
-                                                <div className="flex justify-between items-start mb-6">
-                                                    <div className="flex flex-col items-end gap-1">
-                                                        {isRestesSalaires ? (
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-[8px] font-black text-[#c69f6e] uppercase tracking-widest">Date</span>
-                                                                <span className="text-[10px] font-black text-[#8c8279] uppercase tracking-widest">
-                                                                    {displayDate}
-                                                                </span>
-                                                            </div>
-                                                        ) : (
-                                                            <>
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className="text-[8px] font-black text-[#c69f6e] uppercase tracking-widest">Reçue le</span>
-                                                                    <span className="text-[10px] font-black text-[#8c8279] uppercase tracking-widest">
-                                                                        {new Date(item.doc_date || item.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }).toUpperCase()}
-                                                                    </span>
-                                                                </div>
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className="text-[8px] font-black text-green-600 uppercase tracking-widest">Réglée le</span>
-                                                                    <span className="text-[10px] font-black text-[#4a3426] uppercase tracking-widest">
-                                                                        {new Date(item.paid_date || item.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }).toUpperCase()}
-                                                                    </span>
-                                                                </div>
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <p className="text-2xl font-black text-[#4a3426] leading-none mb-1">{maskAmount(item.amount)}</p>
-                                                        <p className="text-[8px] font-black text-[#c69f6e] uppercase tracking-widest opacity-60">DT</p>
-                                                    </div>
-                                                </div>
-
-                                                {!isRestesSalaires && (
-                                                    <div className="flex flex-wrap gap-2 mb-8">
-                                                        <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-lg">
-                                                            <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
-                                                            <span className="text-[9px] font-black text-green-600 uppercase tracking-wider leading-none">Règlement Effectué</span>
-                                                        </div>
-                                                        <div className="px-3 py-1.5 bg-[#fdfaf7] border border-[#e6dace]/40 rounded-lg">
-                                                            <span className="text-[9px] font-black text-[#8c8279] uppercase tracking-wider leading-none">{item.paymentMethod || item.payment_method || 'ESPÈCES'}</span>
-                                                        </div>
-                                                        {item.doc_type && (
-                                                            <div className={`px-3 py-1.5 rounded-lg border flex items-center gap-2 ${item.doc_type === 'Facture' ? 'bg-blue-50 border-blue-100' : 'bg-orange-50 border-orange-100'}`}>
-                                                                <div className={`w-1.5 h-1.5 rounded-full ${item.doc_type === 'Facture' ? 'bg-blue-500' : 'bg-orange-500'}`}></div>
-                                                                <span className={`text-[9px] font-black uppercase tracking-wider leading-none ${item.doc_type === 'Facture' ? 'text-blue-600' : 'text-orange-600'}`}>
-                                                                    {item.doc_type}
-                                                                </span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
-
-
-                                                {!isRestesSalaires && (
-                                                    <div className="mt-auto">
-                                                        {(() => {
-                                                            const hasLegacy = !!(item.photo_url && item.photo_url.length > 5);
-                                                            const hasCheque = !!((item.photo_cheque || item.photo_cheque_url || '').length > 5 || (item.photo_verso || item.photo_verso_url || '').length > 5);
-                                                            const hasGallery = Array.isArray(item.invoices) && item.invoices.length > 0;
-                                                            const hasNewPhotos = !!(item.photos && item.photos !== '[]' && item.photos.length > 5);
-
-                                                            if (hasLegacy || hasCheque || hasGallery || hasNewPhotos) {
-                                                                return (
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            setSelectedSupplier(selectedEmployeeDetails.name);
-                                                                            // Normalize for viewer
-                                                                            const normalized = {
-                                                                                ...item,
-                                                                                photos: Array.isArray(item.invoices) ? JSON.stringify(item.invoices) : (item.photos || '[]'),
-                                                                                photo_cheque_url: item.photo_cheque || item.photo_cheque_url,
-                                                                                photo_verso_url: item.photo_verso || item.photo_verso_url,
-                                                                                paymentMethod: item.paymentMethod || item.payment_method
-                                                                            };
-                                                                            setViewingData(normalized);
-                                                                        }}
-                                                                        className="w-full py-4 bg-[#4a3426] hover:bg-[#c69f6e] text-white rounded-2xl flex items-center justify-center gap-3 transition-all shadow-lg shadow-[#4a3426]/10"
-                                                                    >
-                                                                        <Eye size={16} />
-                                                                        <span className="text-[11px] font-black uppercase tracking-[0.2em] pt-0.5">Justificatifs</span>
-                                                                    </button>
-                                                                );
-                                                            }
-                                                            return (
-                                                                <div className="w-full py-4 bg-[#fcfaf8] rounded-2xl border border-dashed border-[#e6dace] flex items-center justify-center">
-                                                                    <span className="text-[10px] font-black text-[#8c8279]/30 uppercase tracking-[0.2em]">Aucun Visuel</span>
-                                                                </div>
-                                                            );
-                                                        })()}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
+                            </motion.div>
+                        </div>
+                    )
+                }
+            </AnimatePresence >
 
             {/* Viewing Data Modal (Photos) - EXACT LOGIC FROM DASHBOARD/FACTURATION */}
             <AnimatePresence>
@@ -4137,81 +4136,83 @@ export default function PaiementsPage() {
                         </motion.div>
                     )
                 }
-            </AnimatePresence>
+            </AnimatePresence >
             {/* Add Master Item Modal */}
             <AnimatePresence>
-                {showAddMasterModal && (
-                    <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
-                        <motion.div
-                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                            className="absolute inset-0 bg-[#4a3426]/60 backdrop-blur-md"
-                            onClick={() => setShowAddMasterModal(false)}
-                        />
-                        <motion.div
-                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
-                            animate={{ scale: 1, opacity: 1, y: 0 }}
-                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                            className="relative bg-white rounded-[3rem] shadow-2xl w-full max-w-md overflow-hidden border border-white/20"
-                            onClick={e => e.stopPropagation()}
-                        >
-                            <div className="p-8 pb-4 flex justify-between items-center bg-[#fcfaf8]">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-12 h-12 bg-red-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-red-500/20">
-                                        {expCategory === 'Divers' ? <Bookmark size={24} /> : <Truck size={24} />}
+                {
+                    showAddMasterModal && (
+                        <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
+                            <motion.div
+                                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                                className="absolute inset-0 bg-[#4a3426]/60 backdrop-blur-md"
+                                onClick={() => setShowAddMasterModal(false)}
+                            />
+                            <motion.div
+                                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                                animate={{ scale: 1, opacity: 1, y: 0 }}
+                                exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                                className="relative bg-white rounded-[3rem] shadow-2xl w-full max-w-md overflow-hidden border border-white/20"
+                                onClick={e => e.stopPropagation()}
+                            >
+                                <div className="p-8 pb-4 flex justify-between items-center bg-[#fcfaf8]">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-12 h-12 bg-red-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-red-500/20">
+                                            {expCategory === 'Divers' ? <Bookmark size={24} /> : <Truck size={24} />}
+                                        </div>
+                                        <div>
+                                            <h3 className="text-xl font-black text-[#4a3426] leading-tight">
+                                                Ajouter {expCategory === 'Divers' ? 'Désignation' : 'Fournisseur'}
+                                            </h3>
+                                            <p className="text-[10px] font-bold text-[#c69f6e] uppercase tracking-widest">Master List Registry</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h3 className="text-xl font-black text-[#4a3426] leading-tight">
-                                            Ajouter {expCategory === 'Divers' ? 'Désignation' : 'Fournisseur'}
-                                        </h3>
-                                        <p className="text-[10px] font-bold text-[#c69f6e] uppercase tracking-widest">Master List Registry</p>
-                                    </div>
+                                    <button onClick={() => setShowAddMasterModal(false)} className="w-10 h-10 hover:bg-[#f4ece4] rounded-full flex items-center justify-center text-[#8c8279] transition-colors">
+                                        <X size={20} />
+                                    </button>
                                 </div>
-                                <button onClick={() => setShowAddMasterModal(false)} className="w-10 h-10 hover:bg-[#f4ece4] rounded-full flex items-center justify-center text-[#8c8279] transition-colors">
-                                    <X size={20} />
-                                </button>
-                            </div>
 
-                            <div className="p-8 space-y-6">
-                                <div className="space-y-4">
-                                    <div className="space-y-1.5 px-1">
-                                        <label className="text-[10px] font-black text-[#8c8279] uppercase tracking-[0.2em]">Nom de l'élément</label>
-                                        <div className="relative">
-                                            <input
-                                                autoFocus
-                                                type="text"
-                                                placeholder={expCategory === 'Divers' ? "Ex: Fruits, Transit..." : "Ex: Steg, Coca Cola..."}
-                                                value={masterItemName}
-                                                onChange={(e) => setMasterItemName(e.target.value)}
-                                                className="w-full h-14 bg-[#fcfaf8] border-2 border-[#e6dace]/30 focus:border-red-400 rounded-2xl px-5 outline-none font-black text-[#4a3426] transition-all text-lg placeholder:text-[#8c8279]/30"
-                                            />
+                                <div className="p-8 space-y-6">
+                                    <div className="space-y-4">
+                                        <div className="space-y-1.5 px-1">
+                                            <label className="text-[10px] font-black text-[#8c8279] uppercase tracking-[0.2em]">Nom de l'élément</label>
+                                            <div className="relative">
+                                                <input
+                                                    autoFocus
+                                                    type="text"
+                                                    placeholder={expCategory === 'Divers' ? "Ex: Fruits, Transit..." : "Ex: Steg, Coca Cola..."}
+                                                    value={masterItemName}
+                                                    onChange={(e) => setMasterItemName(e.target.value)}
+                                                    className="w-full h-14 bg-[#fcfaf8] border-2 border-[#e6dace]/30 focus:border-red-400 rounded-2xl px-5 outline-none font-black text-[#4a3426] transition-all text-lg placeholder:text-[#8c8279]/30"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100 flex gap-3 items-start">
+                                            <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center text-white shrink-0 mt-0.5">
+                                                <AlertCircle size={12} />
+                                            </div>
+                                            <p className="text-[11px] font-bold text-blue-800 leading-relaxed">
+                                                Cet élément sera enregistré de manière permanente et apparaîtra dans vos suggestions de recherche.
+                                            </p>
                                         </div>
                                     </div>
 
-                                    <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100 flex gap-3 items-start">
-                                        <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center text-white shrink-0 mt-0.5">
-                                            <AlertCircle size={12} />
+                                    <button
+                                        onClick={handleAddMasterItem}
+                                        disabled={!masterItemName.trim()}
+                                        className="w-full h-16 bg-[#4a3426] text-white rounded-[1.5rem] font-black text-lg shadow-xl shadow-[#4a3426]/20 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 transition-all flex items-center justify-center gap-3"
+                                    >
+                                        <div className="w-7 h-7 bg-white/10 rounded-lg flex items-center justify-center">
+                                            <Plus size={18} />
                                         </div>
-                                        <p className="text-[11px] font-bold text-blue-800 leading-relaxed">
-                                            Cet élément sera enregistré de manière permanente et apparaîtra dans vos suggestions de recherche.
-                                        </p>
-                                    </div>
+                                        Confirmer l'Ajout
+                                    </button>
                                 </div>
-
-                                <button
-                                    onClick={handleAddMasterItem}
-                                    disabled={!masterItemName.trim()}
-                                    className="w-full h-16 bg-[#4a3426] text-white rounded-[1.5rem] font-black text-lg shadow-xl shadow-[#4a3426]/20 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 transition-all flex items-center justify-center gap-3"
-                                >
-                                    <div className="w-7 h-7 bg-white/10 rounded-lg flex items-center justify-center">
-                                        <Plus size={18} />
-                                    </div>
-                                    Confirmer l'Ajout
-                                </button>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
+                            </motion.div>
+                        </div>
+                    )
+                }
+            </AnimatePresence >
         </div >
     );
 }
