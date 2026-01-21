@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as faceapi from 'face-api.js';
+import Swal from 'sweetalert2';
 
 // Load face-api models once
 let modelsLoaded = false;
@@ -167,7 +168,12 @@ export default function SettingsPage() {
 
     const handleSaveUser = async () => {
         if (!editingUser && !userForm.password.trim()) {
-            alert('Veuillez saisir un mot de passe pour le nouvel utilisateur');
+            Swal.fire({
+                icon: 'warning',
+                title: 'Mot de passe requis',
+                text: 'Veuillez saisir un mot de passe pour le nouvel utilisateur',
+                confirmButtonColor: '#4a3426'
+            });
             return;
         }
         try {
@@ -182,7 +188,14 @@ export default function SettingsPage() {
                 setUserForm({ username: '', password: '', role: 'caissier', full_name: '', face_data: '' });
                 refetch();
             }
-        } catch (e) { alert('Error saving user'); }
+        } catch (e) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Erreur',
+                text: 'Erreur lors de l\'enregistrement de l\'utilisateur',
+                confirmButtonColor: '#4a3426'
+            });
+        }
     };
 
     const handleSaveDevice = async () => {
@@ -191,19 +204,72 @@ export default function SettingsPage() {
             setIsDeviceModalOpen(false);
             setDeviceForm({ ip: '', name: '', type: 'ZKTeco' });
             refetch();
-        } catch (e) { alert('Error saving device'); }
+        } catch (e) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Erreur',
+                text: 'Erreur lors de l\'enregistrement de l\'appareil',
+                confirmButtonColor: '#4a3426'
+            });
+        }
     };
 
     const handleDelete = async (type: 'user' | 'device', id: number) => {
-        if (!confirm('Êtes-vous sûr ?')) return;
+        const result = await Swal.fire({
+            title: 'Êtes-vous sûr ?',
+            text: type === 'user' ? "Cet utilisateur sera définitivement supprimé." : "Cet appareil sera définitivement supprimé.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#8c8279',
+            confirmButtonText: 'Oui, supprimer',
+            cancelButtonText: 'Annuler',
+            background: '#fcfaf8',
+            customClass: {
+                popup: 'rounded-[2rem] border border-[#e6dace]',
+                confirmButton: 'rounded-xl font-black uppercase text-[12px] px-6 py-3',
+                cancelButton: 'rounded-xl font-black uppercase text-[12px] px-6 py-3'
+            }
+        });
+
+        if (!result.isConfirmed) return;
+
         try {
             if (type === 'user') await deleteUser({ variables: { id } });
             else await deleteDevice({ variables: { id } });
             refetch();
-        } catch (e) { alert('Error deleting'); }
+            Swal.fire({
+                icon: 'success',
+                title: 'Supprimé !',
+                text: 'La suppression a été effectuée avec succès.',
+                timer: 1500,
+                showConfirmButton: false
+            });
+        } catch (e) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Erreur',
+                text: 'Erreur lors de la suppression',
+                confirmButtonColor: '#4a3426'
+            });
+        }
     };
 
     const handleDisconnect = async (username: string) => {
+        const result = await Swal.fire({
+            title: 'Déconnecter l\'utilisateur ?',
+            text: `Voulez-vous vraiment déconnecter ${username} ?`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#f97316',
+            cancelButtonColor: '#8c8279',
+            confirmButtonText: 'Oui, déconnecter',
+            cancelButtonText: 'Annuler',
+            background: '#fcfaf8'
+        });
+
+        if (!result.isConfirmed) return;
+
         try {
             await disconnectUser({
                 variables: { username },
@@ -229,14 +295,42 @@ export default function SettingsPage() {
                 window.location.href = '/';
                 return;
             }
+
+            Swal.fire({
+                icon: 'success',
+                title: 'Déconnecté',
+                text: 'L\'utilisateur a été déconnecté.',
+                timer: 1500,
+                showConfirmButton: false
+            });
         } catch (e) {
             console.error(e);
-            alert('Error disconnecting user');
+            Swal.fire({
+                icon: 'error',
+                title: 'Erreur',
+                text: 'Erreur lors de la déconnexion',
+                confirmButtonColor: '#4a3426'
+            });
             refetch();
         }
     };
 
     const handleToggleBlock = async (username: string, currentStatus: boolean) => {
+        const action = currentStatus ? "Débloquer" : "Bloquer";
+        const result = await Swal.fire({
+            title: `${action} l'utilisateur ?`,
+            text: `Voulez-vous vraiment ${action.toLowerCase()} ${username} ?`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: currentStatus ? '#22c55e' : '#ef4444',
+            cancelButtonColor: '#8c8279',
+            confirmButtonText: `Oui, ${action.toLowerCase()}`,
+            cancelButtonText: 'Annuler',
+            background: '#fcfaf8'
+        });
+
+        if (!result.isConfirmed) return;
+
         try {
             const newStatus = !currentStatus;
             await toggleUserBlock({
@@ -257,31 +351,89 @@ export default function SettingsPage() {
                     }
                 }
             });
+
+            Swal.fire({
+                icon: 'success',
+                title: currentStatus ? 'Débloqué !' : 'Bloqué !',
+                text: `L'utilisateur a été ${currentStatus ? 'débloqué' : 'bloqué'} avec succès.`,
+                timer: 1500,
+                showConfirmButton: false
+            });
         } catch (e) {
             console.error(e);
-            alert('Error toggling block');
+            Swal.fire({
+                icon: 'error',
+                title: 'Erreur',
+                text: 'Erreur lors du changement de statut',
+                confirmButtonColor: '#4a3426'
+            });
             refetch();
         }
     };
 
     const handleClearLogs = async () => {
-        if (!confirm('Effacer tout l\'historique des connexions ?')) return;
+        const result = await Swal.fire({
+            title: 'Effacer l\'historique ?',
+            text: "Cette action effacera tout l'historique des connexions.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#8c8279',
+            confirmButtonText: 'Oui, effacer',
+            cancelButtonText: 'Annuler'
+        });
+
+        if (!result.isConfirmed) return;
+
         try {
             await clearLogs();
             refetch();
-        } catch (e) { alert('Erreur lors de l\'effacement'); }
+            Swal.fire({
+                icon: 'success',
+                title: 'Effacé',
+                text: 'L\'historique a été vidé.',
+                timer: 1500,
+                showConfirmButton: false
+            });
+        } catch (e) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Erreur',
+                text: 'Erreur lors de l\'effacement',
+                confirmButtonColor: '#4a3426'
+            });
+        }
     };
 
     const handleBlockPlatform = async () => {
         if (isSystemBlocked) return; // Already blocked, do nothing
-        if (!confirm('BLOQUER la plateforme ?\n\nCela va déconnecter tous les utilisateurs et bloquer l\'accès à la plateforme.')) return;
+
+        const result = await Swal.fire({
+            title: 'BLOQUER la plateforme ?',
+            text: "Cela va déconnecter tous les utilisateurs et bloquer l'accès à la plateforme.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#8c8279',
+            confirmButtonText: 'Oui, bloquer tout',
+            cancelButtonText: 'Annuler',
+            background: '#fcfaf8'
+        });
+
+        if (!result.isConfirmed) return;
+
         try {
             await toggleSystemBlock({ variables: { isBlocked: true } });
             // Clear local storage and redirect to home (logout current user)
             localStorage.clear();
             window.location.href = '/';
         } catch (e) {
-            alert('Erreur lors du blocage de la plateforme');
+            Swal.fire({
+                icon: 'error',
+                title: 'Erreur',
+                text: 'Erreur lors du blocage de la plateforme',
+                confirmButtonColor: '#4a3426'
+            });
         }
     };
 
@@ -359,7 +511,7 @@ export default function SettingsPage() {
                                             <tr className="bg-[#fcfaf8] border-b border-[#e6dace]">
                                                 <th className="px-6 py-4 text-[10px] font-black uppercase text-[#8c8279] tracking-widest">Utilisateur</th>
                                                 <th className="px-6 py-4 text-[10px] font-black uppercase text-[#8c8279] tracking-widest">Statut / Appareil</th>
-                                                <th className="px-6 py-4 text-[10px] font-black uppercase text-[#8c8279] tracking-widest text-right">Actions</th>
+                                                <th className="px-6 py-4 text-[10px] font-black uppercase text-[#8c8279] tracking-widest text-right min-w-[160px]">Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-[#f9f6f2]">
@@ -408,37 +560,38 @@ export default function SettingsPage() {
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4 text-right">
-                                                        <div className="flex items-center justify-end gap-1 transition-opacity">
+                                                        <div className="flex items-center justify-end gap-1 relative z-10">
                                                             {u.is_online && (
                                                                 <button
-                                                                    onClick={() => handleDisconnect(u.username)}
-                                                                    className="p-2 hover:bg-orange-50 rounded-lg text-orange-400 hover:text-orange-600 border border-transparent hover:border-orange-100"
+                                                                    onClick={(e) => { e.stopPropagation(); handleDisconnect(u.username); }}
+                                                                    className="p-2 hover:bg-orange-50 rounded-lg text-orange-400 hover:text-orange-600 border border-transparent hover:border-orange-100 relative z-20 pointer-events-auto"
                                                                     title="Déconnecter"
                                                                 >
                                                                     <WifiOff size={14} />
                                                                 </button>
                                                             )}
                                                             <button
-                                                                onClick={() => handleToggleBlock(u.username, u.is_blocked_user)}
-                                                                className={`p-2 rounded-lg border border-transparent ${u.is_blocked_user ? 'bg-green-50 text-green-600 hover:bg-green-100' : 'hover:bg-red-50 text-red-400 hover:text-red-600 hover:border-red-100'}`}
+                                                                onClick={(e) => { e.stopPropagation(); handleToggleBlock(u.username, u.is_blocked_user); }}
+                                                                className={`p-2 rounded-lg border border-transparent relative z-20 pointer-events-auto ${u.is_blocked_user ? 'bg-green-50 text-green-600 hover:bg-green-100' : 'hover:bg-red-50 text-red-400 hover:text-red-600 hover:border-red-100'}`}
                                                                 title={u.is_blocked_user ? "Débloquer" : "Bloquer"}
                                                             >
                                                                 {u.is_blocked_user ? <ShieldCheck size={14} /> : <ShieldAlert size={14} />}
                                                             </button>
                                                             <button
-                                                                onClick={() => {
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
                                                                     setEditingUser(u);
                                                                     setUserForm({ ...u, password: '', face_data: u.face_data || '' });
                                                                     setShowPassword(false);
                                                                     setIsUserModalOpen(true);
                                                                 }}
-                                                                className="p-2 hover:bg-white rounded-lg text-[#bba282] hover:text-[#c69f6e] border border-transparent hover:border-[#e6dace]"
+                                                                className="p-2 hover:bg-white rounded-lg text-[#bba282] hover:text-[#c69f6e] border border-transparent hover:border-[#e6dace] relative z-20 pointer-events-auto"
                                                             >
                                                                 <Edit2 size={14} />
                                                             </button>
                                                             <button
-                                                                onClick={() => handleDelete('user', u.id)}
-                                                                className="p-2 hover:bg-red-50 rounded-lg text-red-300 hover:text-red-500 border border-transparent hover:border-red-100"
+                                                                onClick={(e) => { e.stopPropagation(); handleDelete('user', u.id); }}
+                                                                className="p-2 hover:bg-red-50 rounded-lg text-red-300 hover:text-red-500 border border-transparent hover:border-red-100 relative z-20 pointer-events-auto"
                                                             >
                                                                 <Trash2 size={14} />
                                                             </button>
