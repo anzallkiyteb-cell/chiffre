@@ -2389,42 +2389,49 @@ export default function PaiementsPage() {
 
                     </div>
                     {/* Restes Salaires Section */}
-                    <div className="bg-[#f9f6f2] rounded-[2.5rem] p-8 shadow-sm border border-[#e6dace]/50">
-                        <div className="flex flex-wrap gap-4 justify-between items-center mb-8">
-                            <div className="flex items-center gap-3">
-                                <User className="text-[#c69f6e]" size={24} />
-                                <h2 className="text-xl font-black text-[#4a3426] tracking-tight">Restes Salaires</h2>
+                    <div className="bg-[#fcfaf8] rounded-[2.5rem] p-4 md:p-8 shadow-sm border border-[#e6dace]/50">
+                        <div className="flex flex-col lg:flex-row gap-6 justify-between items-start lg:items-center mb-10">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-[#c69f6e] shadow-sm border border-[#e6dace]/50 shrink-0">
+                                    <User size={24} />
+                                </div>
+                                <div>
+                                    <h2 className="text-2xl font-black text-[#4a3426] tracking-tight uppercase">Restes Salaires</h2>
+                                    <p className="text-[10px] font-bold text-[#bba282] uppercase tracking-[0.1em]">Gestion des reliquats</p>
+                                </div>
                             </div>
 
-                            <div className="flex items-center gap-4">
-                                <PremiumMonthPicker
-                                    value={salaryRemainderMonth}
-                                    onChange={(val) => setSalaryRemainderMonth(val)}
-                                />
+                            <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4 w-full lg:w-auto">
+                                <div className="w-full md:w-auto">
+                                    <PremiumMonthPicker
+                                        value={salaryRemainderMonth}
+                                        onChange={(val) => setSalaryRemainderMonth(val)}
+                                    />
+                                </div>
 
-                                <div className="flex gap-2">
+                                <div className="flex gap-2 p-1.5 bg-white rounded-2xl border border-[#e6dace]/50 shadow-sm">
                                     <button
                                         onClick={() => setSalaryRemainderMode('global')}
-                                        className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${salaryRemainderMode === 'global' ? 'bg-red-500 text-white shadow-md shadow-red-500/20' : 'bg-red-50 text-red-500 hover:bg-red-100'}`}
+                                        className={`flex-1 md:flex-none px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${salaryRemainderMode === 'global' ? 'bg-red-500 text-white shadow-md shadow-red-500/20' : 'text-[#8c8279] hover:bg-red-50'}`}
                                     >
                                         Global
                                     </button>
                                     <button
                                         onClick={() => setSalaryRemainderMode('employee')}
-                                        className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${salaryRemainderMode === 'employee' ? 'bg-red-500 text-white shadow-md shadow-red-500/20' : 'bg-red-50 text-red-500 hover:bg-red-100'}`}
+                                        className={`flex-1 md:flex-none px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${salaryRemainderMode === 'employee' ? 'bg-red-500 text-white shadow-md shadow-red-500/20' : 'text-[#8c8279] hover:bg-red-50'}`}
                                     >
                                         Employés
                                     </button>
                                 </div>
 
-                                <div className="relative">
+                                <div className="relative w-full md:w-64">
                                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#c69f6e]" size={16} />
                                     <input
                                         type="text"
                                         placeholder="Filtrer employé..."
                                         value={salaryRemainderSearch}
                                         onChange={(e) => setSalaryRemainderSearch(e.target.value)}
-                                        className="w-64 h-10 bg-white border border-[#e6dace] rounded-xl pl-10 pr-4 text-xs font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all placeholder:text-[#8c8279]/50 shadow-sm"
+                                        className="w-full h-12 bg-white border border-[#e6dace]/60 rounded-2xl pl-11 pr-4 text-xs font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all placeholder:text-[#8c8279]/50 shadow-sm"
                                     />
                                 </div>
                             </div>
@@ -2546,31 +2553,31 @@ export default function PaiementsPage() {
                             </div>
                         ) : (
                             <div className="space-y-4">
-                                <div className="flex justify-end">
+                                <div className="flex justify-center md:justify-end">
                                     <button
                                         onClick={() => setShowAllEmployees(!showAllEmployees)}
-                                        className="px-6 py-2 bg-white border border-[#e6dace] rounded-xl text-[10px] font-black uppercase tracking-widest text-[#8c8279] hover:bg-[#c69f6e] hover:text-white hover:border-[#c69f6e] transition-all shadow-sm flex items-center gap-2"
+                                        className="w-full md:w-auto px-8 py-3 bg-white border border-[#e6dace] rounded-2xl text-[10px] font-black uppercase tracking-widest text-[#8c8279] hover:bg-[#c69f6e] hover:text-white hover:border-[#c69f6e] transition-all shadow-sm flex items-center justify-center gap-3"
                                     >
                                         {showAllEmployees ? (
                                             <>
-                                                <ChevronUp size={14} /> Masquer la liste
+                                                <ChevronUp size={16} /> Masquer la liste
                                             </>
                                         ) : (
                                             <>
-                                                <ChevronDown size={14} /> Voir la liste
+                                                <ChevronDown size={16} /> Voir la liste
                                             </>
                                         )}
                                     </button>
                                 </div>
 
                                 {showAllEmployees && (
-                                    <div className="overflow-hidden rounded-3xl border border-[#e6dace]/30 bg-white">
-                                        <table className="w-full text-left border-collapse">
+                                    <div className="overflow-x-auto rounded-3xl border border-[#e6dace]/30 bg-white no-scrollbar">
+                                        <table className="w-full text-left border-collapse min-w-[600px]">
                                             <thead>
                                                 <tr className="bg-[#fcfaf8] border-b border-[#e6dace]/30">
-                                                    <th className="px-8 py-5 text-[10px] font-black text-[#8c8279] uppercase tracking-[0.2em]">Employé</th>
-                                                    <th className="px-8 py-5 text-[10px] font-black text-[#8c8279] uppercase tracking-[0.2em] text-center">Montant</th>
-                                                    <th className="px-8 py-5 text-[10px] font-black text-[#8c8279] uppercase tracking-[0.2em] text-right">Action</th>
+                                                    <th className="px-6 md:px-8 py-5 text-[10px] font-black text-[#8c8279] uppercase tracking-[0.2em]">Employé</th>
+                                                    <th className="px-6 md:px-8 py-5 text-[10px] font-black text-[#8c8279] uppercase tracking-[0.2em] text-center">Montant</th>
+                                                    <th className="px-6 md:px-8 py-5 text-[10px] font-black text-[#8c8279] uppercase tracking-[0.2em] text-right">Action</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-[#e6dace]/10">
@@ -2592,13 +2599,13 @@ export default function PaiementsPage() {
                                                         const initials = emp.name.split(' ').map((n: any) => n[0]).join('').toUpperCase().substring(0, 2);
                                                         return (
                                                             <tr key={emp.id} className="hover:bg-[#fcfaf8]/50 transition-colors group">
-                                                                <td className="px-8 py-4">
+                                                                <td className="px-6 md:px-8 py-4">
                                                                     <div className="flex items-center gap-4">
-                                                                        <div className="w-10 h-10 rounded-full bg-[#f4ece4] flex items-center justify-center text-[10px] font-black text-[#c69f6e] group-hover:scale-110 transition-transform">{initials}</div>
-                                                                        <span className="font-black text-[#4a3426] tracking-tight text-sm">{emp.name}</span>
+                                                                        <div className="w-10 h-10 rounded-full bg-[#f4ece4] flex items-center justify-center text-[10px] font-black text-[#c69f6e] group-hover:scale-110 transition-transform shrink-0">{initials}</div>
+                                                                        <span className="font-black text-[#4a3426] tracking-tight text-sm truncate">{emp.name}</span>
                                                                     </div>
                                                                 </td>
-                                                                <td className="px-8 py-4">
+                                                                <td className="px-6 md:px-8 py-4">
                                                                     <div className="flex items-center justify-center gap-2 relative">
                                                                         <input
                                                                             id={`salary-input-${emp.id}`}
@@ -2624,7 +2631,7 @@ export default function PaiementsPage() {
                                                                         )}
                                                                     </div>
                                                                 </td>
-                                                                <td className="px-8 py-4 text-right">
+                                                                <td className="px-6 md:px-8 py-4 text-right">
                                                                     <div className="flex items-center justify-end gap-2">
                                                                         <button
                                                                             id={`save-btn-${emp.id}`}
