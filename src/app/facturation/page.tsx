@@ -595,7 +595,7 @@ export default function FacturationPage() {
         setShowConfirm({
             type: 'unpay',
             title: 'Annulation Payement',
-            message: `Voulez-vous vraiment annuler le paiement de cette facture pour ${inv.supplier_name} ? Elle redeviendra "Impayée".`,
+            message: `Voulez-vous vraiment annuler le paiement de cette facture pour ${inv.supplier_name} ? Elle redeviendra "non payée".`,
             color: 'brown',
             onConfirm: async () => {
                 try {
@@ -1123,14 +1123,19 @@ export default function FacturationPage() {
 
                                                         <div className="flex gap-2">
                                                             <button
-                                                                onClick={() => handleUnpay(inv)}
-                                                                className="flex-1 h-11 bg-[#2D6B4E] text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-[#1f4b36] transition-all"
+                                                                onClick={() => user?.role === 'admin' && handleUnpay(inv)}
+                                                                disabled={user?.role !== 'admin'}
+                                                                className={`flex-1 h-11 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${user?.role === 'admin'
+                                                                        ? 'bg-[#2D6B4E] text-white hover:bg-[#1f4b36] cursor-pointer'
+                                                                        : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
+                                                                    }`}
                                                             >
                                                                 <RotateCcw size={18} />
                                                                 <span className="text-xs uppercase">Annuler Payement</span>
                                                             </button>
                                                             <button
                                                                 onClick={() => {
+                                                                    if (user?.role !== 'admin') return;
                                                                     if (lockedDates.includes(inv.paid_date)) {
                                                                         setShowConfirm({
                                                                             type: 'alert',
@@ -1151,13 +1156,21 @@ export default function FacturationPage() {
                                                                         doc_number: inv.doc_number || ''
                                                                     });
                                                                 }}
-                                                                className="w-11 h-11 border-2 border-[#e6dace] text-[#8c8279] hover:text-[#4a3426] hover:border-[#4a3426] rounded-xl flex items-center justify-center transition-all"
+                                                                disabled={user?.role !== 'admin'}
+                                                                className={`w-11 h-11 border-2 rounded-xl flex items-center justify-center transition-all ${user?.role === 'admin'
+                                                                        ? 'border-[#e6dace] text-[#8c8279] hover:text-[#4a3426] hover:border-[#4a3426] cursor-pointer'
+                                                                        : 'border-gray-300 text-gray-400 cursor-not-allowed opacity-50'
+                                                                    }`}
                                                             >
                                                                 <Edit2 size={18} />
                                                             </button>
                                                             <button
-                                                                onClick={() => handleDelete(inv)}
-                                                                className="w-11 h-11 border-2 border-red-200 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500 rounded-xl flex items-center justify-center transition-all"
+                                                                onClick={() => user?.role === 'admin' && handleDelete(inv)}
+                                                                disabled={user?.role !== 'admin'}
+                                                                className={`w-11 h-11 border-2 rounded-xl flex items-center justify-center transition-all ${user?.role === 'admin'
+                                                                        ? 'border-red-200 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500 cursor-pointer'
+                                                                        : 'border-gray-300 text-gray-400 cursor-not-allowed opacity-50'
+                                                                    }`}
                                                             >
                                                                 <Trash2 size={18} />
                                                             </button>

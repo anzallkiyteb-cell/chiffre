@@ -422,7 +422,7 @@ export default function PaiementsPage() {
     const [expMethod, setExpMethod] = useState('Espèces');
     const [expDocType, setExpDocType] = useState('Facture');
     const [expPhoto, setExpPhoto] = useState('');
-    const [expCategory, setExpCategory] = useState('Fournisseur');
+    const [expCategory, setExpCategory] = useState('');
     const [expPhotoCheque, setExpPhotoCheque] = useState('');
     const [expPhotoVerso, setExpPhotoVerso] = useState('');
     const [expInvoiceNumber, setExpInvoiceNumber] = useState('');
@@ -592,12 +592,12 @@ export default function PaiementsPage() {
             title: isDirect ? 'Supprimer la dépense?' : 'Annuler le paiement?',
             text: isDirect
                 ? "Cette dépense (Directe) sera définitivement supprimée de la base de données."
-                : "Cette facture retournera dans la liste des impayés (Facturation).",
+                : "Cette facture retournera dans la liste des non payés (Facturation).",
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: isDirect ? '#ef4444' : '#f59e0b',
             cancelButtonColor: '#8c8279',
-            confirmButtonText: isDirect ? 'Oui, supprimer' : 'Oui, remettre en impayé',
+            confirmButtonText: isDirect ? 'Oui, supprimer' : 'Oui, remettre en non payé',
             cancelButtonText: 'Annuler'
         }).then(async (result) => {
             if (result.isConfirmed) {
@@ -616,7 +616,7 @@ export default function PaiementsPage() {
                         Swal.fire({
                             icon: 'success',
                             title: 'Annulé!',
-                            text: 'Le paiement est annulé, la facture est de nouveau impayée.',
+                            text: 'Le paiement est annulé, la facture est de nouveau non payée.',
                             timer: 1500,
                             showConfirmButton: false
                         });
@@ -936,10 +936,22 @@ export default function PaiementsPage() {
         if (payerType !== 'riadh') {
             const pendingRemainders = data?.getSalaryRemainders || [];
             pendingRemainders.forEach((r: any) => {
+                // Convert updated_at to proper date string if it's a timestamp
+                let dateStr = new Date().toISOString();
+                if (r.updated_at) {
+                    const timestamp = Number(r.updated_at);
+                    if (!isNaN(timestamp)) {
+                        dateStr = new Date(timestamp).toISOString();
+                    } else if (typeof r.updated_at === 'string') {
+                        dateStr = r.updated_at;
+                    }
+                }
+
                 agg.restesSalaires.push({
                     username: r.employee_name,
                     montant: r.amount,
-                    date: r.updated_at || new Date().toISOString(),
+                    date: dateStr,
+                    updated_at: dateStr,
                     isPending: true
                 });
             });
@@ -1068,7 +1080,7 @@ export default function PaiementsPage() {
                     expenseDetails.remainders.reduce((a: number, b: any) => a + b.amount, 0),
                 color: '#6366f1'
             },     // Indigo (Merged Avances + Remainders)
-            { label: 'Doublage', value: expenseDetails.doublages.reduce((a: number, b: any) => a + b.amount, 0), color: '#8b5cf6' },  // Violet
+            { label: 'Doublage', value: expenseDetails.doublages.reduce((a: number, b: any) => a + b.amount, 0), color: '#78716c' },  // Stone/Gray
             { label: 'Extras', value: expenseDetails.extras.reduce((a: number, b: any) => a + b.amount, 0), color: '#ec4899' },      // Pink
             { label: 'Primes', value: expenseDetails.primes.reduce((a: number, b: any) => a + b.amount, 0), color: '#06b6d4' }       // Cyan
         ];
@@ -1333,7 +1345,7 @@ export default function PaiementsPage() {
             setExpPhotoCheque('');
             setExpPhotoVerso('');
             setExpInvoiceNumber('');
-            setExpCategory('Fournisseur');
+            setExpCategory('');
             setShowExpForm(false);
             refetch();
             refetchHistory();
@@ -2161,8 +2173,13 @@ export default function PaiementsPage() {
                                                     </div>
                                                     <button
                                                         onClick={handleExpSubmit}
-                                                        disabled={addingExp}
-                                                        className={`w-full h-11 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg md:mt-auto ${editingHistoryItem ? 'bg-blue-600 shadow-blue-500/20' : 'bg-red-500 shadow-red-500/20'}`}
+                                                        disabled={addingExp || !expCategory}
+                                                        className={`w-full h-11 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg md:mt-auto transition-all ${!expCategory
+                                                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                                                : editingHistoryItem
+                                                                    ? 'bg-blue-600 shadow-blue-500/20 hover:bg-blue-700'
+                                                                    : 'bg-red-500 shadow-red-500/20 hover:bg-red-600'
+                                                            }`}
                                                     >
                                                         {addingExp ? <Loader2 size={16} className="animate-spin mx-auto" /> : (editingHistoryItem ? 'Enregistrer les modifications' : 'Enregistrer la Dépense')}
                                                     </button>
@@ -2880,7 +2897,12 @@ export default function PaiementsPage() {
                                                 <div className="flex gap-4 mt-auto pt-4 items-center">
                                                     <button
                                                         onClick={() => {
-                                                            setPaymentDetails(prev => ({ ...prev, method: '' }));
+                                                            setPaymentDetails({
+                                                                method: '',
+                                                                date: todayStr,
+                                                                photo_cheque_url: '',
+                                                                photo_verso_url: ''
+                                                            });
                                                             setShowPayModal(inv);
                                                         }}
                                                         className="flex-1 h-16 bg-[#ef4444] hover:bg-[#dc2626] text-white rounded-[1.5rem] font-black uppercase text-sm tracking-[0.15em] shadow-xl shadow-red-500/40 flex items-center justify-center gap-3 transition-all active:scale-[0.98] group/pay"
@@ -2920,7 +2942,7 @@ export default function PaiementsPage() {
                                             ) : (
                                                 <>
                                                     <CheckCircle2 size={48} />
-                                                    <p className="font-bold italic">Aucune facture impayée</p>
+                                                    <p className="font-bold italic">Aucune facture non payée</p>
                                                 </>
                                             )}
                                         </div>
@@ -3049,8 +3071,59 @@ export default function PaiementsPage() {
                                         <div className="p-3 bg-yellow-50 rounded-xl border border-yellow-100 text-center">
                                             <p className="text-xs text-yellow-700 font-bold mb-2">Photos Chèque (Optionnel)</p>
                                             <div className="flex gap-2 justify-center">
-                                                <button className="px-3 py-1 bg-white border border-yellow-200 rounded-lg text-[10px] font-bold text-yellow-600 uppercase">Recto</button>
-                                                <button className="px-3 py-1 bg-white border border-yellow-200 rounded-lg text-[10px] font-bold text-yellow-600 uppercase">Verso</button>
+                                                <input
+                                                    type="file"
+                                                    id="cheque-recto-unpaid"
+                                                    accept="image/*"
+                                                    className="hidden"
+                                                    onChange={(e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (file) {
+                                                            const reader = new FileReader();
+                                                            reader.onloadend = () => {
+                                                                setPaymentDetails({ ...paymentDetails, photo_cheque_url: reader.result as string });
+                                                            };
+                                                            reader.readAsDataURL(file);
+                                                        }
+                                                    }}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => document.getElementById('cheque-recto-unpaid')?.click()}
+                                                    className={`px-3 py-1 border rounded-lg text-[10px] font-bold uppercase transition-all ${paymentDetails.photo_cheque_url
+                                                        ? 'bg-green-500 text-white border-green-600 shadow-md'
+                                                        : 'bg-white text-yellow-600 border-yellow-200 hover:bg-yellow-50'
+                                                        }`}
+                                                >
+                                                    {paymentDetails.photo_cheque_url ? '✓ Recto' : 'Recto'}
+                                                </button>
+
+                                                <input
+                                                    type="file"
+                                                    id="cheque-verso-unpaid"
+                                                    accept="image/*"
+                                                    className="hidden"
+                                                    onChange={(e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (file) {
+                                                            const reader = new FileReader();
+                                                            reader.onloadend = () => {
+                                                                setPaymentDetails({ ...paymentDetails, photo_verso_url: reader.result as string });
+                                                            };
+                                                            reader.readAsDataURL(file);
+                                                        }
+                                                    }}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => document.getElementById('cheque-verso-unpaid')?.click()}
+                                                    className={`px-3 py-1 border rounded-lg text-[10px] font-bold uppercase transition-all ${paymentDetails.photo_verso_url
+                                                        ? 'bg-green-500 text-white border-green-600 shadow-md'
+                                                        : 'bg-white text-yellow-600 border-yellow-200 hover:bg-yellow-50'
+                                                        }`}
+                                                >
+                                                    {paymentDetails.photo_verso_url ? '✓ Verso' : 'Verso'}
+                                                </button>
                                             </div>
                                         </div>
                                     )}
@@ -3521,14 +3594,14 @@ export default function PaiementsPage() {
                                 <div className="flex-1 overflow-y-auto px-12 pb-12 custom-scrollbar no-scrollbar">
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
                                         {[
-                                            { title: 'DÉPENSES FOURNISSEURS', subtitle: 'MARCHANDISES & SERVICES', icon: Truck, color: 'text-red-500', iconBg: 'bg-red-50', items: expenseDetails.fournisseurs },
-                                            { title: 'ACCOMPTE', subtitle: 'AVANCES SUR SALAIRES', icon: Calculator, color: 'text-[#a89284]', iconBg: 'bg-[#a89284]/5', items: expenseDetails.avances },
-                                            { title: 'PRIMES', subtitle: 'RÉCOMPENSES & BONUS', icon: Award, color: 'text-[#2d6a4f]', iconBg: 'bg-[#2d6a4f]/5', items: expenseDetails.primes },
-                                            { title: 'DÉPENSES DIVERS', subtitle: 'FRAIS EXCEPTIONNELS', icon: Sparkles, color: 'text-[#c69f6e]', iconBg: 'bg-[#c69f6e]/5', items: expenseDetails.divers },
-                                            { title: 'DOUBLAGE', subtitle: 'HEURES SUPPLÉMENTAIRES', icon: TrendingUp, color: 'text-[#4a3426]', iconBg: 'bg-[#4a3426]/5', items: expenseDetails.doublages },
-                                            { title: 'RESTES SALAIRES', subtitle: 'SALAIRES EN ATTENTE', icon: Banknote, color: 'text-red-500', iconBg: 'bg-red-50', items: expenseDetails.remainders, badge: 'EN ATTENTE' },
-                                            { title: 'DÉPENSES ADMINISTRATIF', subtitle: 'LOYERS, FACTURES & BUREAUX', icon: Layout, color: 'text-purple-500', iconBg: 'bg-purple-50', items: expenseDetails.administratif },
-                                            { title: 'EXTRA', subtitle: "MAIN D'ŒUVRE OCCASIONNELLE", icon: Zap, color: 'text-[#c69f6e]', iconBg: 'bg-[#c69f6e]/5', items: expenseDetails.extras },
+                                            { title: 'DÉPENSES FOURNISSEURS', subtitle: 'MARCHANDISES & SERVICES', icon: Truck, color: 'text-red-500', iconBg: 'bg-red-50', dotColor: '#ef4444', items: expenseDetails.fournisseurs },
+                                            { title: 'ACCOMPTE', subtitle: 'AVANCES SUR SALAIRES', icon: Calculator, color: 'text-[#6366f1]', iconBg: 'bg-[#6366f1]/5', dotColor: '#6366f1', items: expenseDetails.avances },
+                                            { title: 'PRIMES', subtitle: 'RÉCOMPENSES & BONUS', icon: Award, color: 'text-[#06b6d4]', iconBg: 'bg-[#06b6d4]/5', dotColor: '#06b6d4', items: expenseDetails.primes },
+                                            { title: 'DÉPENSES DIVERS', subtitle: 'FRAIS EXCEPTIONNELS', icon: Sparkles, color: 'text-[#f59e0b]', iconBg: 'bg-[#f59e0b]/5', dotColor: '#f59e0b', items: expenseDetails.divers },
+                                            { title: 'DOUBLAGE', subtitle: 'HEURES SUPPLÉMENTAIRES', icon: TrendingUp, color: 'text-[#78716c]', iconBg: 'bg-[#78716c]/5', dotColor: '#78716c', items: expenseDetails.doublages },
+                                            { title: 'RESTES SALAIRES', subtitle: 'SALAIRES EN ATTENTE', icon: Banknote, color: 'text-[#6366f1]', iconBg: 'bg-[#6366f1]/5', dotColor: '#6366f1', items: expenseDetails.remainders, badge: 'EN ATTENTE' },
+                                            { title: 'DÉPENSES ADMINISTRATIF', subtitle: 'LOYERS, FACTURES & BUREAUX', icon: Layout, color: 'text-[#10b981]', iconBg: 'bg-[#10b981]/5', dotColor: '#10b981', items: expenseDetails.administratif },
+                                            { title: 'EXTRA', subtitle: "MAIN D'ŒUVRE OCCASIONNELLE", icon: Zap, color: 'text-[#ec4899]', iconBg: 'bg-[#ec4899]/5', dotColor: '#ec4899', items: expenseDetails.extras },
                                         ].map((cat, idx) => {
                                             const total = (cat.items || []).reduce((sum: number, item: any) => sum + (item.amount || 0), 0);
                                             const labelMap: Record<string, string> = {
@@ -3567,6 +3640,7 @@ export default function PaiementsPage() {
                                                             </div>
                                                             <div>
                                                                 <div className="flex items-center gap-2">
+                                                                    <div className="w-2.5 h-2.5 rounded-full mb-1.5 shadow-sm" style={{ backgroundColor: cat.dotColor }} />
                                                                     <p className="text-[11px] font-black text-[#4a3426] uppercase tracking-tight leading-none mb-1.5">{cat.title}</p>
                                                                     {isSelected && <CheckCircle2 size={14} className="text-[#2d6a4f] mb-1.5 animate-in fade-in zoom-in duration-300" />}
                                                                     {cat.badge && (
@@ -3690,85 +3764,107 @@ export default function PaiementsPage() {
                             {/* Cards Grid */}
                             <div className="p-10 max-h-[65vh] overflow-y-auto custom-scrollbar">
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {selectedEmployeeDetails.items.map((item: any, i: number) => (
-                                        <div key={i} className="bg-white rounded-[2.5rem] p-8 border border-[#e6dace]/30 shadow-[0_10px_40px_rgba(74,52,38,0.03)] flex flex-col h-full hover:shadow-xl transition-all group">
-                                            <div className="flex justify-between items-start mb-6">
-                                                <div className="flex flex-col items-end gap-1">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-[8px] font-black text-[#c69f6e] uppercase tracking-widest">Reçue le</span>
-                                                        <span className="text-[10px] font-black text-[#8c8279] uppercase tracking-widest">
-                                                            {new Date(item.doc_date || item.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }).toUpperCase()}
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-[8px] font-black text-green-600 uppercase tracking-widest">Réglée le</span>
-                                                        <span className="text-[10px] font-black text-[#4a3426] uppercase tracking-widest">
-                                                            {new Date(item.paid_date || item.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }).toUpperCase()}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="text-2xl font-black text-[#4a3426] leading-none mb-1">{maskAmount(item.amount)}</p>
-                                                    <p className="text-[8px] font-black text-[#c69f6e] uppercase tracking-widest opacity-60">DT</p>
-                                                </div>
-                                            </div>
+                                    {selectedEmployeeDetails.items.map((item: any, i: number) => {
+                                        const isRestesSalaires = selectedEmployeeDetails.category === 'RESTES SALAIRES';
+                                        const itemDate = item.date || item.created_at || item.updated_at;
+                                        const displayDate = itemDate ? new Date(itemDate).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }).toUpperCase() : '';
 
-                                            <div className="flex flex-wrap gap-2 mb-8">
-                                                <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-lg">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
-                                                    <span className="text-[9px] font-black text-green-600 uppercase tracking-wider leading-none">Règlement Effectué</span>
+                                        return (
+                                            <div key={i} className="bg-white rounded-[2.5rem] p-8 border border-[#e6dace]/30 shadow-[0_10px_40px_rgba(74,52,38,0.03)] flex flex-col h-full hover:shadow-xl transition-all group">
+                                                <div className="flex justify-between items-start mb-6">
+                                                    <div className="flex flex-col items-end gap-1">
+                                                        {isRestesSalaires ? (
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[8px] font-black text-[#c69f6e] uppercase tracking-widest">Date</span>
+                                                                <span className="text-[10px] font-black text-[#8c8279] uppercase tracking-widest">
+                                                                    {displayDate}
+                                                                </span>
+                                                            </div>
+                                                        ) : (
+                                                            <>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-[8px] font-black text-[#c69f6e] uppercase tracking-widest">Reçue le</span>
+                                                                    <span className="text-[10px] font-black text-[#8c8279] uppercase tracking-widest">
+                                                                        {new Date(item.doc_date || item.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }).toUpperCase()}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-[8px] font-black text-green-600 uppercase tracking-widest">Réglée le</span>
+                                                                    <span className="text-[10px] font-black text-[#4a3426] uppercase tracking-widest">
+                                                                        {new Date(item.paid_date || item.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }).toUpperCase()}
+                                                                    </span>
+                                                                </div>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="text-2xl font-black text-[#4a3426] leading-none mb-1">{maskAmount(item.amount)}</p>
+                                                        <p className="text-[8px] font-black text-[#c69f6e] uppercase tracking-widest opacity-60">DT</p>
+                                                    </div>
                                                 </div>
-                                                <div className="px-3 py-1.5 bg-[#fdfaf7] border border-[#e6dace]/40 rounded-lg">
-                                                    <span className="text-[9px] font-black text-[#8c8279] uppercase tracking-wider leading-none">{item.paymentMethod || item.payment_method || 'ESPÈCES'}</span>
-                                                </div>
-                                                {item.doc_type && (
-                                                    <div className={`px-3 py-1.5 rounded-lg border flex items-center gap-2 ${item.doc_type === 'Facture' ? 'bg-blue-50 border-blue-100' : 'bg-orange-50 border-orange-100'}`}>
-                                                        <div className={`w-1.5 h-1.5 rounded-full ${item.doc_type === 'Facture' ? 'bg-blue-500' : 'bg-orange-500'}`}></div>
-                                                        <span className={`text-[9px] font-black uppercase tracking-wider leading-none ${item.doc_type === 'Facture' ? 'text-blue-600' : 'text-orange-600'}`}>
-                                                            {item.doc_type}
-                                                        </span>
+
+                                                {!isRestesSalaires && (
+                                                    <div className="flex flex-wrap gap-2 mb-8">
+                                                        <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-lg">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                                                            <span className="text-[9px] font-black text-green-600 uppercase tracking-wider leading-none">Règlement Effectué</span>
+                                                        </div>
+                                                        <div className="px-3 py-1.5 bg-[#fdfaf7] border border-[#e6dace]/40 rounded-lg">
+                                                            <span className="text-[9px] font-black text-[#8c8279] uppercase tracking-wider leading-none">{item.paymentMethod || item.payment_method || 'ESPÈCES'}</span>
+                                                        </div>
+                                                        {item.doc_type && (
+                                                            <div className={`px-3 py-1.5 rounded-lg border flex items-center gap-2 ${item.doc_type === 'Facture' ? 'bg-blue-50 border-blue-100' : 'bg-orange-50 border-orange-100'}`}>
+                                                                <div className={`w-1.5 h-1.5 rounded-full ${item.doc_type === 'Facture' ? 'bg-blue-500' : 'bg-orange-500'}`}></div>
+                                                                <span className={`text-[9px] font-black uppercase tracking-wider leading-none ${item.doc_type === 'Facture' ? 'text-blue-600' : 'text-orange-600'}`}>
+                                                                    {item.doc_type}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+
+
+                                                {!isRestesSalaires && (
+                                                    <div className="mt-auto">
+                                                        {(() => {
+                                                            const hasLegacy = !!(item.photo_url && item.photo_url.length > 5);
+                                                            const hasCheque = !!((item.photo_cheque || item.photo_cheque_url || '').length > 5 || (item.photo_verso || item.photo_verso_url || '').length > 5);
+                                                            const hasGallery = Array.isArray(item.invoices) && item.invoices.length > 0;
+                                                            const hasNewPhotos = !!(item.photos && item.photos !== '[]' && item.photos.length > 5);
+
+                                                            if (hasLegacy || hasCheque || hasGallery || hasNewPhotos) {
+                                                                return (
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setSelectedSupplier(selectedEmployeeDetails.name);
+                                                                            // Normalize for viewer
+                                                                            const normalized = {
+                                                                                ...item,
+                                                                                photos: Array.isArray(item.invoices) ? JSON.stringify(item.invoices) : (item.photos || '[]'),
+                                                                                photo_cheque_url: item.photo_cheque || item.photo_cheque_url,
+                                                                                photo_verso_url: item.photo_verso || item.photo_verso_url,
+                                                                                paymentMethod: item.paymentMethod || item.payment_method
+                                                                            };
+                                                                            setViewingData(normalized);
+                                                                        }}
+                                                                        className="w-full py-4 bg-[#4a3426] hover:bg-[#c69f6e] text-white rounded-2xl flex items-center justify-center gap-3 transition-all shadow-lg shadow-[#4a3426]/10"
+                                                                    >
+                                                                        <Eye size={16} />
+                                                                        <span className="text-[11px] font-black uppercase tracking-[0.2em] pt-0.5">Justificatifs</span>
+                                                                    </button>
+                                                                );
+                                                            }
+                                                            return (
+                                                                <div className="w-full py-4 bg-[#fcfaf8] rounded-2xl border border-dashed border-[#e6dace] flex items-center justify-center">
+                                                                    <span className="text-[10px] font-black text-[#8c8279]/30 uppercase tracking-[0.2em]">Aucun Visuel</span>
+                                                                </div>
+                                                            );
+                                                        })()}
                                                     </div>
                                                 )}
                                             </div>
-
-                                            <div className="mt-auto">
-                                                {(() => {
-                                                    const hasLegacy = !!(item.photo_url && item.photo_url.length > 5);
-                                                    const hasCheque = !!((item.photo_cheque || item.photo_cheque_url || '').length > 5 || (item.photo_verso || item.photo_verso_url || '').length > 5);
-                                                    const hasGallery = Array.isArray(item.invoices) && item.invoices.length > 0;
-                                                    const hasNewPhotos = !!(item.photos && item.photos !== '[]' && item.photos.length > 5);
-
-                                                    if (hasLegacy || hasCheque || hasGallery || hasNewPhotos) {
-                                                        return (
-                                                            <button
-                                                                onClick={() => {
-                                                                    setSelectedSupplier(selectedEmployeeDetails.name);
-                                                                    // Normalize for viewer
-                                                                    const normalized = {
-                                                                        ...item,
-                                                                        photos: Array.isArray(item.invoices) ? JSON.stringify(item.invoices) : (item.photos || '[]'),
-                                                                        photo_cheque_url: item.photo_cheque || item.photo_cheque_url,
-                                                                        photo_verso_url: item.photo_verso || item.photo_verso_url,
-                                                                        paymentMethod: item.paymentMethod || item.payment_method
-                                                                    };
-                                                                    setViewingData(normalized);
-                                                                }}
-                                                                className="w-full py-4 bg-[#4a3426] hover:bg-[#c69f6e] text-white rounded-2xl flex items-center justify-center gap-3 transition-all shadow-lg shadow-[#4a3426]/10"
-                                                            >
-                                                                <Eye size={16} />
-                                                                <span className="text-[11px] font-black uppercase tracking-[0.2em] pt-0.5">Justificatifs</span>
-                                                            </button>
-                                                        );
-                                                    }
-                                                    return (
-                                                        <div className="w-full py-4 bg-[#fcfaf8] rounded-2xl border border-dashed border-[#e6dace] flex items-center justify-center">
-                                                            <span className="text-[10px] font-black text-[#8c8279]/30 uppercase tracking-[0.2em]">Aucun Visuel</span>
-                                                        </div>
-                                                    );
-                                                })()}
-                                            </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </motion.div>

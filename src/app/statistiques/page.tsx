@@ -502,38 +502,48 @@ export default function StatistiquesPage() {
         // Generate dynamic unique colors for each supplier
         const colorMap: Record<string, string> = {};
 
-        // Use a fixed set of highly distinct, premium base hues (avoiding reds/oranges)
-        const baseHues = [
-            210, // Deep Blue
-            145, // Emerald Green
-            45,  // Golden Yellow
-            280, // Rich Purple
-            175, // Professional Teal
-            315, // Soft Magenta
-            85,  // Lime Green
-            195, // Bright Cyan
-            255, // Royal Indigo
-            120, // Forest Green
-            225, // Sky Blue
-            295, // Amethyst
-            160, // Mint
-            35,  // Warm Amber
-            200, // Steel Blue
-            130, // Leaf Green
+        // Fixed colors for MAIN D'OEUVRE categories - VERY distinct colors
+        const fixedColors: Record<string, string> = {
+            'DOUBLAGE': '#78716c',      // Stone Gray
+            'EXTRA': '#22c55e',         // Bright Green
+            'ACCOMPTE': '#f97316',      // Orange
+            'PRIMES': '#06b6d4',        // Cyan
+            'TOUS EMPLOYÉS': '#3b82f6', // Blue
+        };
+
+        // Predefined array of VERY distinct colors for dynamic items
+        const distinctColors = [
+            '#ef4444', // Red
+            '#8b5cf6', // Violet
+            '#ec4899', // Pink
+            '#14b8a6', // Teal
+            '#f59e0b', // Amber
+            '#6366f1', // Indigo
+            '#84cc16', // Lime
+            '#0891b2', // Cyan Dark
+            '#d946ef', // Fuchsia
+            '#059669', // Emerald
+            '#dc2626', // Red Dark
+            '#7c3aed', // Purple
+            '#db2777', // Pink Dark
+            '#0d9488', // Teal Dark
+            '#ca8a04', // Yellow Dark
+            '#4f46e5', // Indigo Dark
+            '#65a30d', // Lime Dark
+            '#0e7490', // Cyan Darker
+            '#c026d3', // Fuchsia Dark
+            '#047857', // Emerald Dark
         ];
 
-        orderedSuppliers.forEach((name, idx) => {
-            const h = baseHues[idx % baseHues.length];
-
-            // For items past the first 16, create distinct "shades" by varying saturation/lightness
-            const cycle = Math.floor(idx / baseHues.length);
-
-            // Saturation patterns: Vibrant -> Muted -> Deep
-            const s = [85, 60, 75][cycle % 3];
-            // Lightness patterns: Balanced -> Deep -> Light -> Rich
-            const l = [48, 32, 65, 25][cycle % 4];
-
-            colorMap[name] = `hsl(${h}, ${s}%, ${l}%)`;
+        let dynamicIdx = 0;
+        orderedSuppliers.forEach((name) => {
+            // Use fixed color if available
+            if (fixedColors[name]) {
+                colorMap[name] = fixedColors[name];
+            } else {
+                colorMap[name] = distinctColors[dynamicIdx % distinctColors.length];
+                dynamicIdx++;
+            }
         });
 
         return { data: Object.values(aggregated), suppliers: orderedSuppliers, categoryGroups, colorMap };
@@ -667,16 +677,11 @@ export default function StatistiquesPage() {
 
                     {/* Main Analytics Chart */}
                     <div className="bg-white p-4 md:p-8 rounded-[2rem] md:rounded-[2.5rem] luxury-shadow border border-[#e6dace]/50 relative overflow-hidden">
-                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-10">
-                            <div>
-                                <h3 className="text-xl font-bold text-[#4a3426] flex items-center gap-2">
-                                    <LineChartIcon className="text-[#c69f6e]" /> Evolution du CA & Rentabilité
-                                </h3>
-                                <p className="text-xs text-[#8c8279] mt-1">Analyse détaillée du flux de trésorerie sur la période sélectionnée</p>
-                            </div>
-                            <button className="flex items-center gap-2 text-xs font-bold text-[#c69f6e] hover:text-[#4a3426] transition-colors">
-                                <Download size={16} /> Exporter Rapport
-                            </button>
+                        <div className="mb-10">
+                            <h3 className="text-xl font-bold text-[#4a3426] flex items-center gap-2">
+                                <LineChartIcon className="text-[#c69f6e]" /> Evolution du CA & Rentabilité
+                            </h3>
+                            <p className="text-xs text-[#8c8279] mt-1">Analyse détaillée du flux de trésorerie sur la période sélectionnée</p>
                         </div>
 
                         <div className="h-[300px] md:h-[400px] lg:h-[450px] w-full">

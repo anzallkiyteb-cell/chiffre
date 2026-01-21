@@ -529,7 +529,7 @@ export default function CoutAchatPage() {
                                             <span className="text-xs font-black text-[#4a3426]">{aggregates.stats.facturePaid.toFixed(3)}</span>
                                         </div>
                                         <div className="flex justify-between items-center pb-1 border-b border-[#e6dace]/30">
-                                            <span className="text-[9px] font-black text-[#8c8279] uppercase">Facturé (Impayé)</span>
+                                            <span className="text-[9px] font-black text-[#8c8279] uppercase">Facturé (non payé)</span>
                                             <span className="text-xs font-black text-red-500">{aggregates.stats.factureUnpaid.toFixed(3)}</span>
                                         </div>
                                         <div className="flex justify-between items-center pb-1 border-b border-[#e6dace]/30">
@@ -537,7 +537,7 @@ export default function CoutAchatPage() {
                                             <span className="text-xs font-black text-[#4a3426]">{aggregates.stats.blPaid.toFixed(3)}</span>
                                         </div>
                                         <div className="flex justify-between items-center pb-1 border-b border-[#e6dace]/30">
-                                            <span className="text-[9px] font-black text-[#8c8279] uppercase">BL (Impayé)</span>
+                                            <span className="text-[9px] font-black text-[#8c8279] uppercase">BL (non payé)</span>
                                             <span className="text-xs font-black text-red-500">{aggregates.stats.blUnpaid.toFixed(3)}</span>
                                         </div>
                                         <div className="flex justify-between items-center pb-1 border-b border-[#e6dace]/30">

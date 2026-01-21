@@ -1164,7 +1164,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             setShowConfirm({
                 type: 'unpay',
                 title: 'Annuler Payement',
-                message: `Cette dépense provient d'une facture. Voulez-vous vraiment l'enlever ? Elle redeviendra "Impayée" dans la facturation.`,
+                message: `Cette dépense provient d'une facture. Voulez-vous vraiment l'enlever ? Elle redeviendra "non payée" dans la facturation.`,
                 color: 'red',
                 onConfirm: async () => {
                     try {
@@ -1570,6 +1570,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                             };
                                                             reader.readAsDataURL(file);
                                                         }
+                                                        // Reset input value to allow re-uploading the same file
+                                                        e.target.value = '';
                                                     }}
                                                 />
 
@@ -1586,19 +1588,30 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         </span>
                                                     </label>
                                                 ) : (
-                                                    <div
-                                                        className="relative w-8 h-8 rounded-lg overflow-hidden border border-[#c69f6e]/30 cursor-pointer group"
-                                                        onClick={() => setViewingPhoto(caissePhoto)}
-                                                    >
-                                                        <Image
-                                                            src={caissePhoto}
-                                                            alt="Caisse"
-                                                            fill
-                                                            className="object-cover group-hover:scale-110 transition-transform"
-                                                        />
-                                                        <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                                            <Maximize2 size={12} className="text-white" />
+                                                    <div className="flex items-center gap-2">
+                                                        <div
+                                                            className="relative w-8 h-8 rounded-lg overflow-hidden border border-[#c69f6e]/30 cursor-pointer group"
+                                                            onClick={() => setViewingPhoto(caissePhoto)}
+                                                        >
+                                                            <Image
+                                                                src={caissePhoto}
+                                                                alt="Caisse"
+                                                                fill
+                                                                className="object-cover group-hover:scale-110 transition-transform"
+                                                            />
+                                                            <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <Maximize2 size={12} className="text-white" />
+                                                            </div>
                                                         </div>
+                                                        {!isLocked && (
+                                                            <label
+                                                                htmlFor="caisse-photo-upload"
+                                                                className="cursor-pointer p-1.5 rounded-lg hover:bg-[#2d6a4f]/10 transition-all text-[#2d6a4f]"
+                                                                title="Changer la photo"
+                                                            >
+                                                                <Camera size={14} />
+                                                            </label>
+                                                        )}
                                                     </div>
                                                 )}
                                             </div>
@@ -2840,18 +2853,30 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                 }
             </AnimatePresence >
 
-            {/* Image Modal */}
+            {/* Image Modal - Same style as facturation page */}
             <AnimatePresence>
                 {
                     viewingInvoices && (
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-md flex items-center justify-center p-2" onClick={() => { setViewingInvoices(null); setViewingInvoicesTarget(null); }}>
-                            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-[#fcfaf8] rounded-[2.5rem] p-6 max-w-[98vw] w-full h-[95vh] overflow-y-auto relative border border-white/10 shadow-2xl" onClick={e => e.stopPropagation()}>
-                                <button onClick={() => { setViewingInvoices(null); setViewingInvoicesTarget(null); }} className="absolute top-6 right-6 p-3 bg-white hover:bg-red-50 text-[#4a3426] hover:text-red-500 rounded-full transition-all z-50 shadow-lg border border-[#e6dace]"><LogOut size={24} className="rotate-180" /></button>
-                                <div className="flex items-center justify-between mb-8 px-2">
-                                    <h3 className="text-3xl font-black text-[#4a3426] flex items-center gap-4 uppercase tracking-tight"><Receipt size={32} className="text-[#c69f6e]" /> Reçus & Factures</h3>
-                                    {viewingInvoicesTarget && (
-                                        <div className="flex items-center gap-4 mr-16">
-                                            <label className={`flex items-center gap-3 px-6 py-3 ${isLocked && role !== 'admin' ? 'bg-gray-400 cursor-not-allowed opacity-50' : 'bg-[#2d6a4f] hover:bg-[#1b4332] cursor-pointer'} text-white rounded-2xl text-xs font-black uppercase tracking-[0.2em] transition-all shadow-xl shadow-[#2d6a4f]/20`}>
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center p-8 overflow-y-auto no-scrollbar"
+                            onClick={() => { setViewingInvoices(null); setViewingInvoicesTarget(null); resetView(); }}
+                        >
+                            <div className="w-full max-w-6xl space-y-8 py-10" onClick={e => e.stopPropagation()}>
+                                {/* Header */}
+                                <div className="flex justify-between items-center text-white mb-4">
+                                    <div>
+                                        <h2 className="text-3xl font-black uppercase tracking-tight flex items-center gap-4">
+                                            <Receipt size={32} className="text-[#c69f6e]" /> Reçus & Factures
+                                        </h2>
+                                        <p className="text-sm font-bold opacity-60 uppercase tracking-[0.3em]">{viewingInvoices.length} document{viewingInvoices.length > 1 ? 's' : ''}</p>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        {/* Add Photo Button */}
+                                        {viewingInvoicesTarget && (
+                                            <label className={`flex items-center gap-3 px-6 py-3 ${isLocked && role !== 'admin' ? 'bg-gray-600 cursor-not-allowed opacity-50' : 'bg-[#2d6a4f] hover:bg-[#1b4332] cursor-pointer'} text-white rounded-2xl text-xs font-black uppercase tracking-[0.2em] transition-all`}>
                                                 <Plus size={18} /> Ajouter Photo
                                                 <input
                                                     type="file"
@@ -2887,81 +2912,106 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                     }}
                                                 />
                                             </label>
-                                            <div className="flex bg-white rounded-2xl p-1.5 gap-1 border border-[#e6dace] shadow-lg">
-                                                <button onClick={() => setImgZoom(prev => Math.max(0.5, prev - 0.25))} className="w-10 h-10 hover:bg-[#fcfaf8] rounded-xl flex items-center justify-center transition-all text-[#4a3426]" title="Zoom Arrière"><ZoomOut size={20} /></button>
-                                                <button onClick={() => setImgZoom(prev => Math.min(4, prev + 0.25))} className="w-10 h-10 hover:bg-[#fcfaf8] rounded-xl flex items-center justify-center transition-all text-[#4a3426]" title="Zoom Avant"><ZoomIn size={20} /></button>
-                                                <button onClick={() => setImgRotation(prev => prev + 90)} className="w-10 h-10 hover:bg-[#fcfaf8] rounded-xl flex items-center justify-center transition-all text-[#4a3426]" title="Tourner"><RotateCcw size={20} /></button>
-                                                <button onClick={resetView} className="w-10 h-10 hover:bg-[#fcfaf8] rounded-xl flex items-center justify-center transition-all text-[#4a3426]" title="Réinitialiser"><Maximize2 size={20} /></button>
-                                            </div>
+                                        )}
+                                        {/* Zoom Controls */}
+                                        <div className="flex bg-white/10 rounded-2xl p-1 gap-1 border border-white/10">
+                                            <button onClick={() => setImgZoom(prev => Math.max(0.5, prev - 0.25))} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white" title="Zoom Arrière"><ZoomOut size={20} /></button>
+                                            <div className="w-16 flex items-center justify-center font-black text-xs tabular-nums text-[#c69f6e]">{Math.round(imgZoom * 100)}%</div>
+                                            <button onClick={() => setImgZoom(prev => Math.min(4, prev + 0.25))} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white" title="Zoom Avant"><ZoomIn size={20} /></button>
+                                            <div className="w-px h-6 bg-white/10 self-center mx-1"></div>
+                                            <button onClick={() => setImgRotation(prev => prev + 90)} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white" title="Tourner"><RotateCcw size={20} /></button>
+                                            <button onClick={resetView} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white" title="Réinitialiser"><Maximize2 size={20} /></button>
                                         </div>
-                                    )}
+                                        {/* Close Button */}
+                                        <button onClick={() => { setViewingInvoices(null); setViewingInvoicesTarget(null); resetView(); }} className="w-12 h-12 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-all text-white"><X size={32} /></button>
+                                    </div>
                                 </div>
+
+                                {/* Photos Grid */}
                                 {viewingInvoices.length > 0 ? (
                                     <div className={`grid grid-cols-1 ${viewingInvoices.length > 1 ? 'md:grid-cols-2' : ''} gap-8`}>
                                         {viewingInvoices.map((img, idx) => (
-                                            <div
-                                                key={idx}
-                                                className="relative group rounded-[2.5rem] overflow-hidden border border-white/10 bg-black shadow-2xl h-[75vh]"
-                                                onWheel={(e) => {
-                                                    if (e.deltaY < 0) setImgZoom(prev => Math.min(4, prev + 0.1));
-                                                    else setImgZoom(prev => Math.max(0.5, prev - 0.1));
-                                                }}
-                                            >
-                                                <motion.div
-                                                    className={`w-full h-full flex items-center justify-center p-4 ${imgZoom > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-zoom-in'}`}
-                                                    animate={{ scale: imgZoom, rotate: imgRotation }}
-                                                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                                                    drag={imgZoom > 1}
-                                                    dragConstraints={{ left: -1000, right: 1000, top: -1000, bottom: 1000 }}
-                                                    dragElastic={0.1}
-                                                >
-                                                    {img.startsWith('data:application/pdf') || img.toLowerCase().includes('.pdf') ? (
-                                                        <iframe
-                                                            src={img}
-                                                            className="w-full h-full rounded-xl border-none"
-                                                            title="Document PDF"
-                                                        />
-                                                    ) : (
-                                                        <img
-                                                            src={img}
-                                                            draggable="false"
-                                                            className="max-w-full max-h-full rounded-xl object-contain shadow-2xl"
-                                                            style={{ pointerEvents: 'none', userSelect: 'none' }}
-                                                        />
-                                                    )}
-                                                </motion.div>
-                                                <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                                                    <a href={img} download target="_blank" className="p-2 bg-white/90 hover:bg-white text-[#4a3426] rounded-lg shadow-lg backdrop-blur-sm transition-all hover:scale-110"><Download size={16} /></a>
-                                                    <button onClick={() => handleShareInvoice(img)} className="p-2 bg-white/90 hover:bg-white text-[#4a3426] rounded-lg shadow-lg backdrop-blur-sm transition-all hover:scale-110"><Share2 size={16} /></button>
-                                                    <button
-                                                        onClick={() => {
-                                                            if (isLocked && role !== 'admin') {
-                                                                setShowConfirm({
-                                                                    type: 'alert',
-                                                                    title: 'INTERDIT',
-                                                                    message: 'Cette date est verrouillée. Impossible de supprimer ce reçu.',
-                                                                    color: 'red',
-                                                                    alert: true
-                                                                });
-                                                                return;
-                                                            }
-                                                            handleDeleteInvoice(idx);
-                                                        }}
-                                                        className={`p-2 bg-white/90 hover:bg-white text-red-600 rounded-lg shadow-lg backdrop-blur-sm transition-all hover:scale-110 ${isLocked && role !== 'admin' ? 'opacity-50' : ''}`}
-                                                    >
-                                                        <Trash2 size={16} />
-                                                    </button>
+                                            <div key={idx} className="space-y-4">
+                                                <div className="flex justify-between items-center">
+                                                    <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] italic">Document {idx + 1}</p>
+                                                    <div className="flex items-center gap-2">
+                                                        <a href={img} download target="_blank" className="flex items-center gap-2 text-[9px] font-black text-[#c69f6e] uppercase tracking-widest hover:text-white transition-colors bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">
+                                                            <Download size={12} /> Télécharger
+                                                        </a>
+                                                        <button onClick={() => handleShareInvoice(img)} className="flex items-center gap-2 text-[9px] font-black text-[#c69f6e] uppercase tracking-widest hover:text-white transition-colors bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">
+                                                            <Share2 size={12} /> Partager
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                if (isLocked && role !== 'admin') {
+                                                                    setShowConfirm({
+                                                                        type: 'alert',
+                                                                        title: 'INTERDIT',
+                                                                        message: 'Cette date est verrouillée. Impossible de supprimer ce reçu.',
+                                                                        color: 'red',
+                                                                        alert: true
+                                                                    });
+                                                                    return;
+                                                                }
+                                                                handleDeleteInvoice(idx);
+                                                            }}
+                                                            className={`flex items-center gap-2 text-[9px] font-black text-red-400 uppercase tracking-widest hover:text-red-300 transition-colors bg-white/5 px-3 py-1.5 rounded-lg border border-white/5 ${isLocked && role !== 'admin' ? 'opacity-50' : ''}`}
+                                                        >
+                                                            <Trash2 size={12} /> Supprimer
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                                <div className="absolute bottom-4 left-4 bg-black/40 backdrop-blur-md text-[#c69f6e] text-[10px] font-black px-3 py-1.5 rounded-full border border-[#c69f6e]/20 uppercase tracking-widest">Reçu {idx + 1} • Zoom: {Math.round(imgZoom * 100)}%</div>
+                                                <div
+                                                    className="bg-black rounded-[2rem] border border-white/10 shadow-2xl overflow-hidden group h-[70vh] relative"
+                                                    onWheel={(e) => {
+                                                        e.preventDefault();
+                                                        if (e.deltaY < 0) setImgZoom(prev => Math.min(4, prev + 0.1));
+                                                        else setImgZoom(prev => Math.max(0.5, prev - 0.1));
+                                                    }}
+                                                >
+                                                    <motion.div
+                                                        className={`w-full h-full flex items-center justify-center p-4 ${imgZoom > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-zoom-in'}`}
+                                                        animate={{ scale: imgZoom, rotate: imgRotation }}
+                                                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                                        drag={imgZoom > 1}
+                                                        dragConstraints={{ left: -1000, right: 1000, top: -1000, bottom: 1000 }}
+                                                        dragElastic={0.1}
+                                                    >
+                                                        {img.startsWith('data:application/pdf') || img.toLowerCase().includes('.pdf') ? (
+                                                            <iframe
+                                                                src={img}
+                                                                className="w-full h-full rounded-xl border-none"
+                                                                title="Document PDF"
+                                                            />
+                                                        ) : (
+                                                            <img
+                                                                src={img}
+                                                                draggable="false"
+                                                                className="max-w-full max-h-full rounded-xl object-contain shadow-2xl"
+                                                                style={{ pointerEvents: 'none', userSelect: 'none' }}
+                                                            />
+                                                        )}
+                                                    </motion.div>
+                                                    <div className="absolute top-6 left-6 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <span className="bg-black/60 backdrop-blur-md text-[10px] font-black text-[#c69f6e] px-4 py-2 rounded-full border border-[#c69f6e]/20 shadow-lg uppercase tracking-widest">Loupe: {Math.round(imgZoom * 100)}% • Molette pour zoomer</span>
+                                                    </div>
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
-                                ) : <div className="text-center py-20 text-gray-400"><UploadCloud size={60} className="mx-auto mb-4 opacity-20" /><p>Aucun reçu attaché</p></div>}
-                            </motion.div>
+                                ) : (
+                                    <div className="h-[70vh] bg-white/5 rounded-[2rem] border-2 border-dashed border-white/10 flex items-center justify-center text-white/20 italic font-bold uppercase tracking-widest">
+                                        <div className="text-center">
+                                            <UploadCloud size={60} className="mx-auto mb-4 opacity-40" />
+                                            <p>Aucun reçu attaché</p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </motion.div>
                     )
                 }
-            </AnimatePresence >
+            </AnimatePresence>
 
             {/* Admin Calendar Modal */}
             <AnimatePresence>
@@ -3381,7 +3431,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                         )}
                                     </div>
 
-                                    <div className={`flex gap-4 transition-all duration-300 ${(showJournalierSuggestions && (
+                                    <div className={`flex gap-4 transition-all duration-300 relative z-[100] ${(showJournalierSuggestions && (
                                         (showSupplierModal && newSupplierName.trim().length > 0) ||
                                         (showDiversModal && designationSearch.trim().length > 0)
                                     )) || (showDeptSuggestions) ? 'mt-40' : ''
@@ -3402,6 +3452,10 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                         </button>
                                         <button
                                             onClick={async () => {
+                                                // Close any open suggestions first
+                                                setShowJournalierSuggestions(false);
+                                                setShowDeptSuggestions(false);
+
                                                 const val = showSupplierModal ? newSupplierName : showEmployeeModal ? newEmployeeModalName : designationSearch;
                                                 if (!val.trim()) return;
 
@@ -3414,7 +3468,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         text: `"${val.trim()}" existe déjà dans votre liste.`,
                                                         icon: 'warning',
                                                         confirmButtonColor: '#4a3426',
-                                                        confirmButtonText: 'D’accord'
+                                                        confirmButtonText: "D'accord"
                                                     });
                                                     return;
                                                 }
@@ -3441,11 +3495,11 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                     setToast({ msg: 'Ajouté avec succès', type: 'success' });
                                                     setTimeout(() => setToast(null), 3000);
                                                 } catch (e) {
-                                                    setToast({ msg: 'Erreur lors de l’ajout', type: 'error' });
+                                                    setToast({ msg: "Erreur lors de l'ajout", type: 'error' });
                                                     setTimeout(() => setToast(null), 3000);
                                                 }
                                             }}
-                                            disabled={showSupplierModal ? !newSupplierName.trim() : showEmployeeModal ? !employeeSearch.trim() : !designationSearch.trim()}
+                                            disabled={showSupplierModal ? !newSupplierName.trim() : showEmployeeModal ? !newEmployeeModalName.trim() : !designationSearch.trim()}
                                             className="flex-1 h-14 rounded-2xl bg-[#e2d6c9] text-[#4a3426] font-black uppercase text-xs tracking-[0.2em] hover:bg-[#d6c7b8] transition-all shadow-md disabled:opacity-50"
                                         >
                                             Confirmer
