@@ -9,7 +9,7 @@ import {
     CreditCard, Banknote, Coins, Receipt,
     Trash2, UploadCloud, CheckCircle2,
     Clock, Filter, X, Eye, DollarSign, Bookmark, Edit2, Package, LayoutGrid, Hash,
-    ZoomIn, ZoomOut, RotateCcw, Download, Maximize2
+    ZoomIn, ZoomOut, RotateCcw, Download, Maximize2, ChevronDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Swal from 'sweetalert2';
@@ -134,14 +134,15 @@ const PremiumDatePicker = ({ value, onChange, label, colorMode = 'brown', locked
                 ref={buttonRef}
                 type="button"
                 onClick={() => setIsOpen(!isOpen)}
-                className={`flex items-center gap-3 bg-white hover:bg-white border border-[#e6dace] rounded-2xl px-4 py-1.5 h-12 transition-all w-full group shadow-sm ${theme.hover}`}
+                className={`flex items-center gap-2 sm:gap-3 bg-white hover:bg-white border border-[#e6dace] rounded-xl sm:rounded-2xl px-3 sm:px-4 py-1.5 h-10 sm:h-12 transition-all w-full group shadow-sm ${theme.hover}`}
             >
-                <div className={`p-2 rounded-xl ${theme.bg} bg-opacity-10 ${theme.text}`}>
-                    <Calendar size={18} strokeWidth={2.5} />
+                <div className={`p-1.5 sm:p-2 rounded-lg sm:rounded-xl ${theme.bg} bg-opacity-10 ${theme.text} flex-shrink-0`}>
+                    <Calendar size={14} className="sm:hidden" strokeWidth={2.5} />
+                    <Calendar size={18} className="hidden sm:block" strokeWidth={2.5} />
                 </div>
-                <div className="flex flex-col items-start overflow-hidden">
-                    <span className="text-[9px] font-black uppercase tracking-widest text-[#bba282] opacity-60 leading-none mb-1">{label}</span>
-                    <span className="text-sm font-black text-[#4a3426] tracking-tight truncate leading-none">
+                <div className="flex flex-col items-start overflow-hidden min-w-0">
+                    <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-[#bba282] opacity-60 leading-none mb-0.5 sm:mb-1">{label}</span>
+                    <span className="text-xs sm:text-sm font-black text-[#4a3426] tracking-tight truncate leading-none">
                         {formatDateToDisplay(value)}
                     </span>
                 </div>
@@ -353,6 +354,7 @@ export default function FacturationPage() {
     const [viewingData, setViewingData] = useState<any>(null);
     const [imgZoom, setImgZoom] = useState(1);
     const [imgRotation, setImgRotation] = useState(0);
+    const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
     const resetView = () => {
         setImgZoom(1);
@@ -708,25 +710,42 @@ export default function FacturationPage() {
             <Sidebar role={user.role} />
 
             <div className="flex-1 min-w-0">
-                <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-[#e6dace] py-6 px-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 transition-all">
-                    <div>
-                        <h1 className="text-2xl font-black text-[#4a3426] tracking-tight uppercase">Facturation</h1>
-                        <p className="text-xs text-[#8c8279] font-bold uppercase tracking-widest mt-1">Gestion des factures fournisseurs</p>
+                <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-[#e6dace] py-4 md:py-6 px-4 md:px-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 transition-all">
+                    <div className="flex items-center gap-3 w-full md:w-auto justify-between">
+                        <div>
+                            <h1 className="text-xl md:text-2xl font-black text-[#4a3426] tracking-tight uppercase">Facturation</h1>
+                            <p className="text-[10px] md:text-xs text-[#8c8279] font-bold uppercase tracking-widest mt-1">Gestion des factures fournisseurs</p>
+                        </div>
+
+                        {/* Mobile Filter Toggle Button */}
+                        <button
+                            onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
+                            className="md:hidden flex items-center justify-center w-10 h-10 rounded-xl bg-white border border-[#e6dace] text-[#4a3426] shadow-sm transition-all"
+                        >
+                            <motion.div
+                                animate={{ rotate: mobileFiltersOpen ? 180 : 0 }}
+                                transition={{ duration: 0.2 }}
+                            >
+                                <ChevronDown size={20} />
+                            </motion.div>
+                        </button>
                     </div>
 
-                    <div className="flex items-center gap-3 w-full md:w-auto">
+                    <div className={`items-center gap-3 w-full md:w-auto ${mobileFiltersOpen ? 'flex' : 'hidden md:flex'}`}>
                         <button
                             onClick={() => setShowChoiceModal(true)}
-                            className="flex-1 md:flex-none h-12 px-6 bg-white text-[#4a3426] border border-[#e6dace] rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-[#fcfaf8] transition-all shadow-sm"
+                            className="flex-1 md:flex-none h-10 md:h-12 px-4 md:px-6 bg-white text-[#4a3426] border border-[#e6dace] rounded-2xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#fcfaf8] transition-all shadow-sm"
                         >
-                            <Bookmark size={18} />
+                            <Bookmark size={16} className="md:hidden" />
+                            <Bookmark size={18} className="hidden md:block" />
                             <span>Ajouter Section</span>
                         </button>
                         <button
                             onClick={() => setShowAddModal(true)}
-                            className="flex-1 md:flex-none h-12 px-6 bg-[#4a3426] text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-[#38261b] transition-all shadow-lg shadow-[#4a3426]/10"
+                            className="flex-1 md:flex-none h-10 md:h-12 px-4 md:px-6 bg-[#4a3426] text-white rounded-2xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#38261b] transition-all shadow-lg shadow-[#4a3426]/10"
                         >
-                            <Plus size={20} />
+                            <Plus size={18} className="md:hidden" />
+                            <Plus size={20} className="hidden md:block" />
                             <span>Ajouter Facture</span>
                         </button>
                     </div>
@@ -734,8 +753,8 @@ export default function FacturationPage() {
 
                 <main className="max-w-7xl mx-auto px-4 md:px-8 mt-6 md:mt-8 pb-20">
                     {/* Category Filter */}
-                    <div className="flex justify-center mb-8">
-                        <div className="inline-flex bg-white/50 backdrop-blur-sm p-1.5 rounded-3xl border border-[#e6dace] shadow-sm">
+                    <div className="flex justify-center mb-6 md:mb-8">
+                        <div className="inline-flex bg-white/50 backdrop-blur-sm p-1 md:p-1.5 rounded-2xl md:rounded-3xl border border-[#e6dace] shadow-sm w-full md:w-auto">
                             {[
                                 { id: 'all', label: 'Tous', icon: <LayoutGrid size={14} /> },
                                 { id: 'fournisseur', label: 'Fournisseur', icon: <Package size={14} /> },
@@ -744,13 +763,14 @@ export default function FacturationPage() {
                                 <button
                                     key={cat.id}
                                     onClick={() => setCategoryFilter(cat.id as any)}
-                                    className={`flex items-center gap-2 px-6 py-2.5 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${categoryFilter === cat.id
+                                    className={`flex-1 md:flex-none flex items-center justify-center gap-1.5 md:gap-2 px-3 md:px-6 py-2 md:py-2.5 rounded-xl md:rounded-2xl text-[10px] md:text-[11px] font-black uppercase tracking-wider md:tracking-widest transition-all ${categoryFilter === cat.id
                                         ? 'bg-[#4a3426] text-white shadow-lg'
                                         : 'text-[#8c8279] hover:text-[#4a3426] hover:bg-white'
                                         }`}
                                 >
                                     {cat.icon}
-                                    {cat.label}
+                                    <span className="hidden sm:inline">{cat.label}</span>
+                                    <span className="sm:hidden">{cat.id === 'all' ? 'Tous' : cat.id === 'fournisseur' ? 'Fourn.' : 'Divers'}</span>
                                 </button>
                             ))}
                         </div>
@@ -808,35 +828,41 @@ export default function FacturationPage() {
                     </div>
 
                     {/* Filter Bar */}
-                    <div className="bg-white rounded-[2rem] p-6 mb-8 border border-[#e6dace] shadow-sm flex flex-wrap gap-4 items-end">
-                        <div className="flex-1 min-w-[200px]">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-[#8c8279] mb-2 block ml-1">Fournisseur</label>
+                    <div className="bg-white rounded-2xl md:rounded-[2rem] p-4 md:p-6 mb-6 md:mb-8 border border-[#e6dace] shadow-sm flex flex-col md:flex-row flex-wrap gap-4 items-stretch md:items-end">
+                        <div className="flex-1 min-w-0 md:min-w-[200px]">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-[#8c8279] mb-2 block ml-1">
+                                {categoryFilter === 'divers' ? 'Divers' : categoryFilter === 'fournisseur' ? 'Fournisseur' : 'Recherche'}
+                            </label>
                             <div className="relative">
-                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#c69f6e]" size={18} />
+                                <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 text-[#c69f6e]" size={16} />
                                 <input
                                     type="text"
                                     placeholder="Rechercher (Nom, N°, Montant)..."
                                     value={searchSupplier}
                                     onChange={(e) => setSearchSupplier(e.target.value)}
-                                    className="w-full h-12 pl-12 pr-4 bg-[#f9f6f2] border border-[#e6dace] rounded-xl font-bold text-[#4a3426] outline-none focus:border-[#c69f6e] transition-all"
+                                    className="w-full h-10 md:h-12 pl-10 md:pl-12 pr-4 bg-[#f9f6f2] border border-[#e6dace] rounded-xl font-bold text-sm text-[#4a3426] outline-none focus:border-[#c69f6e] transition-all"
                                 />
                             </div>
                         </div>
                         <div className="w-full md:w-auto">
                             <label className="text-[10px] font-black uppercase tracking-widest text-[#8c8279] mb-2 block ml-1">Période</label>
-                            <div className="flex items-center gap-3">
-                                <PremiumDatePicker
-                                    label="Début"
-                                    value={filterStartDate}
-                                    onChange={setFilterStartDate}
-                                />
-                                <span className="text-[#8c8279] font-black opacity-30 text-xs uppercase">à</span>
-                                <PremiumDatePicker
-                                    label="Fin"
-                                    value={filterEndDate}
-                                    onChange={setFilterEndDate}
-                                    align="right"
-                                />
+                            <div className="flex items-center gap-2 md:gap-3">
+                                <div className="flex-1 md:flex-none">
+                                    <PremiumDatePicker
+                                        label="Début"
+                                        value={filterStartDate}
+                                        onChange={setFilterStartDate}
+                                    />
+                                </div>
+                                <span className="text-[#8c8279] font-black opacity-30 text-xs uppercase hidden sm:block">à</span>
+                                <div className="flex-1 md:flex-none">
+                                    <PremiumDatePicker
+                                        label="Fin"
+                                        value={filterEndDate}
+                                        onChange={setFilterEndDate}
+                                        align="right"
+                                    />
+                                </div>
                             </div>
                         </div>
                         {(statusFilter !== 'all' || searchSupplier || filterStartDate || filterEndDate) && (
@@ -847,7 +873,7 @@ export default function FacturationPage() {
                                     setFilterStartDate('');
                                     setFilterEndDate('');
                                 }}
-                                className="h-12 px-4 bg-[#fcfaf8] border border-[#e6dace] rounded-xl text-[10px] font-black uppercase tracking-widest text-[#c69f6e] hover:bg-[#fff9f2] flex items-center gap-2 transition-all"
+                                className="h-10 md:h-12 px-4 bg-[#fcfaf8] border border-[#e6dace] rounded-xl text-[10px] font-black uppercase tracking-widest text-[#c69f6e] hover:bg-[#fff9f2] flex items-center justify-center gap-2 transition-all"
                             >
                                 <X size={14} /> Réinitialiser
                             </button>

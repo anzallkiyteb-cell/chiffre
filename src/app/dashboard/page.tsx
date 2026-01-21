@@ -106,14 +106,15 @@ const PremiumDatePicker = ({ value, onChange, label, align = 'left' }: { value: 
                 ref={buttonRef}
                 type="button"
                 onClick={() => setIsOpen(!isOpen)}
-                className={`flex items-center gap-3 bg-white hover:bg-[#fcfaf8] border border-[#e6dace] rounded-2xl px-4 py-1.5 h-12 transition-all w-full md:w-44 group shadow-sm hover:border-[#c69f6e]`}
+                className={`flex items-center gap-2 sm:gap-3 bg-white hover:bg-[#fcfaf8] border border-[#e6dace] rounded-2xl px-3 sm:px-4 py-1.5 h-10 sm:h-12 transition-all w-full sm:w-auto md:w-44 group shadow-sm hover:border-[#c69f6e]`}
             >
-                <div className={`w-8 h-8 rounded-xl bg-[#c69f6e]/10 flex items-center justify-center text-[#c69f6e]`}>
-                    <Calendar size={14} strokeWidth={2.5} />
+                <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-[#c69f6e]/10 flex items-center justify-center text-[#c69f6e] flex-shrink-0`}>
+                    <Calendar size={12} className="sm:hidden" strokeWidth={2.5} />
+                    <Calendar size={14} className="hidden sm:block" strokeWidth={2.5} />
                 </div>
-                <div className="flex flex-col items-start overflow-hidden">
-                    <span className="text-[8px] font-black uppercase tracking-widest text-[#bba282] opacity-60 leading-none mb-1">{label}</span>
-                    <span className="text-[11px] font-black text-[#4a3426] tracking-tight truncate leading-none">
+                <div className="flex flex-col items-start overflow-hidden min-w-0">
+                    <span className="text-[7px] sm:text-[8px] font-black uppercase tracking-widest text-[#bba282] opacity-60 leading-none mb-0.5 sm:mb-1">{label}</span>
+                    <span className="text-[10px] sm:text-[11px] font-black text-[#4a3426] tracking-tight truncate leading-none">
                         {formatDateToDisplay(value)}
                     </span>
                 </div>
@@ -187,6 +188,7 @@ export default function DashboardPage() {
     const [isOffresExpanded, setIsOffresExpanded] = useState(false);
     const [imgZoom, setImgZoom] = useState(1);
     const [imgRotation, setImgRotation] = useState(0);
+    const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
     const resetView = () => {
         setImgZoom(1);
@@ -353,12 +355,27 @@ export default function DashboardPage() {
 
             <div className="flex-1 min-w-0">
                 <header className={`sticky top-0 bg-white/90 backdrop-blur-md border-b border-[#e6dace] py-4 md:py-6 px-4 md:px-8 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 transition-all z-40`}>
-                    <div>
-                        <h1 className="text-xl md:text-2xl font-black text-[#4a3426] tracking-tight uppercase leading-tight">Dashboard Analytique</h1>
-                        <p className="text-[10px] md:text-xs text-[#8c8279] font-bold uppercase tracking-widest mt-1">Données du {new Date(startDate).toLocaleDateString('fr-FR')} au {new Date(endDate).toLocaleDateString('fr-FR')}</p>
+                    <div className="flex items-center gap-3 w-full xl:w-auto justify-between">
+                        <div>
+                            <h1 className="text-xl md:text-2xl font-black text-[#4a3426] tracking-tight uppercase leading-tight">Dashboard Analytique</h1>
+                            <p className="text-[10px] md:text-xs text-[#8c8279] font-bold uppercase tracking-widest mt-1">Données du {new Date(startDate).toLocaleDateString('fr-FR')} au {new Date(endDate).toLocaleDateString('fr-FR')}</p>
+                        </div>
+
+                        {/* Mobile Filter Toggle Button */}
+                        <button
+                            onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
+                            className="xl:hidden flex items-center justify-center w-10 h-10 rounded-xl bg-white border border-[#e6dace] text-[#4a3426] shadow-sm transition-all"
+                        >
+                            <motion.div
+                                animate={{ rotate: mobileFiltersOpen ? 180 : 0 }}
+                                transition={{ duration: 0.2 }}
+                            >
+                                <ChevronDown size={20} />
+                            </motion.div>
+                        </button>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full xl:w-auto">
+                    <div className={`flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full xl:w-auto ${mobileFiltersOpen ? 'flex' : 'hidden xl:flex'}`}>
                         {/* Search Input */}
                         <div className="relative flex-1 sm:w-64">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#c69f6e]/50" size={16} />
@@ -372,15 +389,19 @@ export default function DashboardPage() {
                         </div>
 
                         {/* PÉRIODE SELECTION - Standard Start/End Date Pickers */}
-                        <div className="flex items-center gap-2 bg-[#f9f7f5]/80 p-2 rounded-3xl border border-[#e6dace]/50 shadow-sm">
+                        <div className="flex items-center gap-2 bg-[#f9f7f5]/80 p-2 rounded-3xl border border-[#e6dace]/50 shadow-sm w-full sm:w-auto">
                             <div className="hidden lg:block px-3">
                                 <span className="text-[10px] font-black text-[#c69f6e] uppercase tracking-[0.2em]">Période</span>
                             </div>
 
-                            <div className="flex items-center gap-2">
-                                <PremiumDatePicker label="DÉBUT" value={startDate} onChange={setStartDate} />
-                                <div className="text-[#e6dace] font-black text-[10px] opacity-60">À</div>
-                                <PremiumDatePicker label="FIN" value={endDate} onChange={setEndDate} align="right" />
+                            <div className="flex items-center gap-2 w-full sm:w-auto">
+                                <div className="flex-1 sm:flex-none">
+                                    <PremiumDatePicker label="DÉBUT" value={startDate} onChange={setStartDate} />
+                                </div>
+                                <div className="text-[#e6dace] font-black text-[10px] opacity-60 hidden sm:block">À</div>
+                                <div className="flex-1 sm:flex-none">
+                                    <PremiumDatePicker label="FIN" value={endDate} onChange={setEndDate} align="right" />
+                                </div>
                             </div>
 
                             <button
@@ -388,7 +409,7 @@ export default function DashboardPage() {
                                     setStartDate(startOfMonth);
                                     setEndDate(endOfMonth);
                                 }}
-                                className="w-10 h-10 rounded-2xl bg-white border border-[#e6dace] flex items-center justify-center text-[#c69f6e] hover:bg-[#c69f6e] hover:text-white transition-all shadow-sm group"
+                                className="w-10 h-10 rounded-2xl bg-white border border-[#e6dace] flex items-center justify-center text-[#c69f6e] hover:bg-[#c69f6e] hover:text-white transition-all shadow-sm group flex-shrink-0"
                                 title="Réinitialiser (Ce mois)"
                             >
                                 <RotateCcw size={16} className="group-active:rotate-180 transition-transform" />
