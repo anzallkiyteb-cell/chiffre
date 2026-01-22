@@ -1477,11 +1477,10 @@ export default function PaiementsPage() {
                         {/* Mobile Filter Toggle Button */}
                         <button
                             onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
-                            className={`md:hidden flex items-center justify-center w-10 h-10 rounded-xl border shadow-sm transition-all ${
-                                hasNegativeValues
+                            className={`md:hidden flex items-center justify-center w-10 h-10 rounded-xl border shadow-sm transition-all ${hasNegativeValues
                                     ? 'bg-[#942c2a] border-red-900/40 text-white'
                                     : 'bg-white border-[#e6dace] text-[#4a3426]'
-                            }`}
+                                }`}
                         >
                             <motion.div
                                 animate={{ rotate: mobileFiltersOpen ? 180 : 0 }}
@@ -3695,7 +3694,7 @@ export default function PaiementsPage() {
                                             { title: 'PRIMES', subtitle: 'RÉCOMPENSES & BONUS', icon: Award, color: 'text-[#06b6d4]', iconBg: 'bg-[#06b6d4]/5', dotColor: '#06b6d4', items: expenseDetails.primes },
                                             { title: 'DÉPENSES DIVERS', subtitle: 'FRAIS EXCEPTIONNELS', icon: Sparkles, color: 'text-[#f59e0b]', iconBg: 'bg-[#f59e0b]/5', dotColor: '#f59e0b', items: expenseDetails.divers },
                                             { title: 'DOUBLAGE', subtitle: 'HEURES SUPPLÉMENTAIRES', icon: TrendingUp, color: 'text-[#78716c]', iconBg: 'bg-[#78716c]/5', dotColor: '#78716c', items: expenseDetails.doublages },
-                                            { title: 'RESTES SALAIRES', subtitle: 'SALAIRES EN ATTENTE', icon: Banknote, color: 'text-[#6366f1]', iconBg: 'bg-[#6366f1]/5', dotColor: '#6366f1', items: expenseDetails.remainders, badge: 'EN ATTENTE' },
+                                            { title: 'RESTES SALAIRES', subtitle: 'SALAIRES', icon: Banknote, color: 'text-[#6366f1]', iconBg: 'bg-[#6366f1]/5', dotColor: '#6366f1', items: expenseDetails.remainders, badge: '' },
                                             { title: 'DÉPENSES ADMINISTRATIF', subtitle: 'LOYERS, FACTURES & BUREAUX', icon: Layout, color: 'text-[#10b981]', iconBg: 'bg-[#10b981]/5', dotColor: '#10b981', items: expenseDetails.administratif },
                                             { title: 'EXTRA', subtitle: "MAIN D'ŒUVRE OCCASIONNELLE", icon: Zap, color: 'text-[#ec4899]', iconBg: 'bg-[#ec4899]/5', dotColor: '#ec4899', items: expenseDetails.extras },
                                         ].map((cat, idx) => {
