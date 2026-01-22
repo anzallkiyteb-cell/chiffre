@@ -620,6 +620,7 @@ export default function PaiementsPage() {
     const [historyDateRange, setHistoryDateRange] = useState({ start: '', end: '' });
     const [selectedEmployeeDetails, setSelectedEmployeeDetails] = useState<{ name: string, category: string, subtitle: string, total: number, items: any[] } | null>(null);
     const [activeSegment, setActiveSegment] = useState<any>(null);
+    const [showCategoryListModal, setShowCategoryListModal] = useState<{ title: string, subtitle: string, items: any[], dotColor: string, icon: any, color: string, iconBg: string } | null>(null);
     const [activeCAProfitSegment, setActiveCAProfitSegment] = useState<'expenses' | 'personnel' | 'admin' | 'reste' | null>(null);
     const [hideAmounts, setHideAmounts] = useState(false);
 
@@ -1265,9 +1266,17 @@ export default function PaiementsPage() {
         if (seg) setActiveSegment(seg);
 
         if (!hasItems) return;
-        setExpandedCategories(prev =>
-            (prev || []).includes(idx) ? (prev || []).filter((i: number) => i !== idx) : [...(prev || []), idx]
-        );
+
+        // Open full-screen modal instead of expanding inline
+        setShowCategoryListModal({
+            title: cat.title,
+            subtitle: cat.subtitle,
+            items: cat.items || [],
+            dotColor: cat.dotColor,
+            icon: cat.icon,
+            color: cat.color,
+            iconBg: cat.iconBg
+        });
     };
 
     const handleBankSubmit = async () => {
@@ -3759,51 +3768,12 @@ export default function PaiementsPage() {
                                                         </div>
                                                         <div className="flex items-center gap-4">
                                                             {hasItems && (
-                                                                <div className={`w-8 h-8 rounded-full border flex items-center justify-center transition-all duration-300 ${isExpanded ? 'bg-[#c69f6e] border-[#c69f6e] text-white rotate-180' : 'bg-white border-[#e6dace] text-[#8c8279] group-hover:border-[#c69f6e]'}`}>
-                                                                    <ChevronDown size={16} strokeWidth={3} />
+                                                                <div className={`w-8 h-8 rounded-full border flex items-center justify-center transition-all duration-300 bg-white border-[#e6dace] text-[#8c8279] group-hover:border-[#c69f6e] group-hover:bg-[#c69f6e] group-hover:text-white`}>
+                                                                    <ChevronRight size={16} strokeWidth={3} />
                                                                 </div>
                                                             )}
                                                         </div>
                                                     </div>
-
-                                                    {/* Expanded Items List */}
-                                                    <AnimatePresence>
-                                                        {isExpanded && hasItems && (
-                                                            <motion.div
-                                                                initial={{ height: 0, opacity: 0 }}
-                                                                animate={{ height: 'auto', opacity: 1 }}
-                                                                exit={{ height: 0, opacity: 0 }}
-                                                                className="overflow-hidden border-t border-[#e6dace]/30 bg-[#fcfaf8]/50 rounded-b-[2.5rem]"
-                                                            >
-                                                                <div className="p-4 space-y-2">
-                                                                    {(cat.items || []).map((item: any, i: number) => (
-                                                                        <button
-                                                                            key={i}
-                                                                            onClick={() => {
-                                                                                setSelectedSupplier(item.name);
-                                                                                setSelectedEmployeeDetails({
-                                                                                    name: item.name,
-                                                                                    category: cat.title,
-                                                                                    subtitle: cat.subtitle,
-                                                                                    total: item.amount,
-                                                                                    items: item.items
-                                                                                });
-                                                                            }}
-                                                                            className="w-full flex items-center px-6 py-4 bg-white rounded-2xl border border-transparent hover:border-[#c69f6e]/30 shadow-[0_2px_10px_rgba(0,0,0,0.01)] hover:shadow-md transition-all active:scale-[0.98]"
-                                                                        >
-                                                                            <div className="flex flex-col items-start gap-0.5">
-                                                                                <span className="text-[11px] font-black text-[#4a3426] uppercase tracking-tight">{item.name}</span>
-                                                                                <div className="flex items-center gap-1.5 opacity-70">
-                                                                                    <span className="text-sm font-black text-[#4a3426]">{maskAmount(item.amount)}</span>
-                                                                                    <span className="text-[9px] font-black text-[#c69f6e]/30 uppercase tracking-widest">DT</span>
-                                                                                </div>
-                                                                            </div>
-                                                                        </button>
-                                                                    ))}
-                                                                </div>
-                                                            </motion.div>
-                                                        )}
-                                                    </AnimatePresence>
                                                 </div>
                                             );
                                         })}
@@ -3815,104 +3785,206 @@ export default function PaiementsPage() {
                 }
             </AnimatePresence >
 
+            {/* Category List Full-Screen Modal */}
+            <AnimatePresence>
+                {showCategoryListModal && (
+                    <div className="fixed inset-0 z-[450] flex items-center justify-center">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="absolute inset-0 bg-[#4a3426]/60 backdrop-blur-md"
+                            onClick={() => setShowCategoryListModal(null)}
+                        />
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            className="relative w-full h-full md:w-[95%] md:h-[95%] md:max-w-6xl bg-[#fdfaf7] md:rounded-[3rem] shadow-2xl overflow-hidden flex flex-col"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {/* Header */}
+                            <div className="bg-[#4a3426] p-6 md:p-8 flex items-center justify-between md:rounded-t-[3rem]">
+                                <div className="flex items-center gap-4">
+                                    <div className={`w-14 h-14 rounded-2xl ${showCategoryListModal.iconBg} flex items-center justify-center ${showCategoryListModal.color}`}>
+                                        <showCategoryListModal.icon size={28} />
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: showCategoryListModal.dotColor }} />
+                                            <h2 className="text-xl md:text-2xl font-black text-white uppercase tracking-tight">{showCategoryListModal.title}</h2>
+                                        </div>
+                                        <p className="text-[10px] font-bold text-white/50 uppercase tracking-widest mt-1">{showCategoryListModal.subtitle}</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <div className="text-right hidden md:block">
+                                        <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Total</p>
+                                        <p className="text-2xl font-black text-white">
+                                            {maskAmount((showCategoryListModal.items || []).reduce((sum: number, item: any) => sum + (item.amount || 0), 0))}
+                                            <span className="text-sm text-[#c69f6e] ml-1">DT</span>
+                                        </p>
+                                    </div>
+                                    <button
+                                        onClick={() => setShowCategoryListModal(null)}
+                                        className="w-12 h-12 bg-white/10 hover:bg-white/20 rounded-2xl flex items-center justify-center text-white transition-all"
+                                    >
+                                        <X size={24} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Content - Full list without scroll */}
+                            <div className="flex-1 p-6 md:p-8 overflow-y-auto">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                    {(showCategoryListModal.items || []).map((item: any, i: number) => (
+                                        <motion.button
+                                            key={i}
+                                            initial={{ opacity: 0, y: 10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ delay: i * 0.03 }}
+                                            onClick={() => {
+                                                setSelectedSupplier(item.name);
+                                                setSelectedEmployeeDetails({
+                                                    name: item.name,
+                                                    category: showCategoryListModal.title,
+                                                    subtitle: showCategoryListModal.subtitle,
+                                                    total: item.amount,
+                                                    items: item.items
+                                                });
+                                            }}
+                                            className="w-full flex items-center justify-between p-5 bg-white rounded-2xl border border-[#e6dace]/30 hover:border-[#c69f6e] hover:shadow-lg transition-all active:scale-[0.98] group"
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-10 h-10 rounded-xl bg-[#f4ece4] flex items-center justify-center text-[#c69f6e] font-black text-sm">
+                                                    {item.name.substring(0, 2).toUpperCase()}
+                                                </div>
+                                                <div className="text-left">
+                                                    <span className="text-sm font-black text-[#4a3426] uppercase tracking-tight block">{item.name}</span>
+                                                    <span className="text-[10px] font-bold text-[#8c8279]">{item.items?.length || 0} transaction{(item.items?.length || 0) > 1 ? 's' : ''}</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <div className="text-right">
+                                                    <span className="text-lg font-black text-[#4a3426]">{maskAmount(item.amount)}</span>
+                                                    <span className="text-[9px] font-black text-[#c69f6e] ml-1">DT</span>
+                                                </div>
+                                                <ChevronRight size={18} className="text-[#c69f6e] opacity-0 group-hover:opacity-100 transition-opacity" />
+                                            </div>
+                                        </motion.button>
+                                    ))}
+                                </div>
+
+                                {(!showCategoryListModal.items || showCategoryListModal.items.length === 0) && (
+                                    <div className="flex flex-col items-center justify-center py-20">
+                                        <div className={`w-20 h-20 rounded-full ${showCategoryListModal.iconBg} flex items-center justify-center ${showCategoryListModal.color} mb-4 opacity-30`}>
+                                            <showCategoryListModal.icon size={40} />
+                                        </div>
+                                        <p className="text-[#8c8279] font-bold uppercase tracking-widest text-sm">Aucune donnée</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Footer with total on mobile */}
+                            <div className="md:hidden p-4 bg-[#f4ece4] border-t border-[#e6dace]">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-black text-[#8c8279] uppercase tracking-widest">Total {showCategoryListModal.title}</span>
+                                    <span className="text-xl font-black text-[#4a3426]">
+                                        {maskAmount((showCategoryListModal.items || []).reduce((sum: number, item: any) => sum + (item.amount || 0), 0))}
+                                        <span className="text-sm text-[#c69f6e] ml-1">DT</span>
+                                    </span>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
             {/* Supplier Details Modal - IMAGE 1 STYLE */}
             <AnimatePresence>
                 {
                     selectedEmployeeDetails && (
-                        <div className="fixed inset-0 z-[400] flex items-center justify-center p-4">
-                            <motion.div
-                                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                                className="absolute inset-0 bg-[#4a3426]/40 backdrop-blur-md"
-                                onClick={() => setSelectedEmployeeDetails(null)}
-                            />
-                            <motion.div
-                                initial={{ scale: 0.9, opacity: 0, y: 20 }}
-                                animate={{ scale: 1, opacity: 1, y: 0 }}
-                                exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                                className="relative w-full max-w-5xl bg-[#fdfaf7] rounded-[3.5rem] shadow-2xl overflow-hidden border border-white"
-                                onClick={(e) => e.stopPropagation()}
-                            >
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 z-[500] bg-[#fdfaf7] flex flex-col"
+                        >
                                 {/* Header Section */}
-                                <div className="bg-[#4a3426] p-10 flex flex-col md:flex-row md:items-center justify-between gap-8 rounded-t-[3.5rem] relative">
-                                    <div className="flex items-center gap-6">
-                                        <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center border border-white/20 shadow-inner">
-                                            <ImageIcon className="text-white/60" size={32} />
+                                <div className="bg-[#4a3426] px-4 py-3 flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center border border-white/20">
+                                            <ImageIcon className="text-white/60" size={18} />
                                         </div>
                                         <div>
-                                            <h2 className="text-5xl font-black text-white tracking-tighter uppercase leading-none mb-3">
+                                            <h2 className="text-lg md:text-xl font-black text-white tracking-tight uppercase leading-none">
                                                 {selectedEmployeeDetails.name}
                                             </h2>
-                                            <div className="flex items-center gap-6">
-                                                <div className="flex items-center gap-3">
-                                                    <span className="w-2 h-2 rounded-full bg-[#c69f6e]"></span>
-                                                    <p className="text-sm font-black text-white/50 uppercase tracking-[0.3em] leading-none pt-0.5">
-                                                        {new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
-                                                    </p>
-                                                </div>
-                                                <div className="h-8 w-px bg-white/10 hidden md:block"></div>
-                                                <div className="flex flex-col">
-                                                    <span className="text-[8px] font-black text-white/40 uppercase tracking-[0.2em] mb-1">Total Mensuel</span>
-                                                    <div className="flex items-baseline gap-2">
-                                                        <span className="text-3xl font-black text-white tracking-tighter leading-none">
-                                                            {maskAmount(selectedEmployeeDetails.total)}
-                                                        </span>
-                                                        <span className="text-sm font-black text-[#c69f6e]">DT</span>
-                                                    </div>
-                                                </div>
-                                            </div>
+                                            <p className="text-[10px] font-bold text-white/50 uppercase tracking-wide">
+                                                {new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
+                                            </p>
                                         </div>
                                     </div>
-                                    <button
-                                        onClick={() => setSelectedEmployeeDetails(null)}
-                                        className="absolute top-8 right-8 w-12 h-12 bg-white/10 hover:bg-white/20 rounded-2xl flex items-center justify-center text-white transition-all backdrop-blur-sm border border-white/20 group z-10"
-                                    >
-                                        <X size={24} className="group-hover:rotate-90 transition-transform duration-300" />
-                                    </button>
+                                    <div className="flex items-center gap-3">
+                                        <div className="text-right">
+                                            <span className="text-[8px] font-bold text-white/40 uppercase block">Total</span>
+                                            <div className="flex items-baseline gap-1 justify-end">
+                                                <span className="text-lg font-black text-white tracking-tight leading-none">
+                                                    {maskAmount(selectedEmployeeDetails.total)}
+                                                </span>
+                                                <span className="text-[10px] font-bold text-[#c69f6e]">DT</span>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => setSelectedEmployeeDetails(null)}
+                                            className="w-9 h-9 bg-white/10 hover:bg-white/20 rounded-xl flex items-center justify-center text-white transition-all"
+                                        >
+                                            <X size={18} />
+                                        </button>
+                                    </div>
                                 </div>
 
                                 {/* Cards Grid */}
-                                <div className="p-10 max-h-[65vh] overflow-y-auto custom-scrollbar">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                <div className="flex-1 p-3 md:p-4 overflow-y-auto">
+                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                                         {selectedEmployeeDetails.items.map((item: any, i: number) => {
                                             const isRestesSalaires = selectedEmployeeDetails.category === 'RESTES SALAIRES';
                                             const itemDate = item.date || item.created_at || item.updated_at;
                                             const displayDate = itemDate ? new Date(itemDate).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }).toUpperCase() : '';
 
                                             return (
-                                                <div key={i} className="bg-white rounded-[2.5rem] p-8 border border-[#e6dace]/30 shadow-[0_10px_40px_rgba(74,52,38,0.03)] flex flex-col h-full hover:shadow-xl transition-all group">
-                                                    <div className="mb-6">
-                                                        <div className="flex flex-col gap-1 mb-4">
-                                                            <p className="text-[10px] font-black text-[#c69f6e] uppercase tracking-widest opacity-70">
-                                                                {isRestesSalaires ? 'Reste Salaire' : (item.doc_date ? `LE ${new Date(item.doc_date).toLocaleDateString('fr-FR')}` : 'Dépense')}
+                                                <div key={i} className="bg-white rounded-xl p-3 border border-[#e6dace]/30 shadow-sm flex flex-col h-full hover:shadow-md transition-all">
+                                                    <div className="mb-2">
+                                                        <div className="flex flex-col gap-0.5 mb-2">
+                                                            <p className="text-[8px] font-bold text-[#c69f6e] uppercase tracking-wide opacity-70">
+                                                                {isRestesSalaires ? 'Reste Salaire' : (item.doc_date ? `${new Date(item.doc_date).toLocaleDateString('fr-FR')}` : 'Dépense')}
                                                             </p>
-                                                            <div className="flex items-baseline gap-2">
-                                                                <span className="text-4xl font-black text-[#4a3426] tracking-tighter">{maskAmount(item.amount)}</span>
-                                                                <span className="text-sm font-black text-[#c69f6e] uppercase tracking-widest">DT</span>
+                                                            <div className="flex items-baseline gap-1">
+                                                                <span className="text-lg font-black text-[#4a3426] tracking-tight">{maskAmount(item.amount)}</span>
+                                                                <span className="text-[10px] font-bold text-[#c69f6e]">DT</span>
                                                             </div>
                                                             {item.details && (
-                                                                <p className="text-xs text-[#8c8279] font-medium break-words mt-1">{item.details}</p>
+                                                                <p className="text-[9px] text-[#8c8279] font-medium break-words line-clamp-2">{item.details}</p>
                                                             )}
                                                         </div>
 
-                                                        <div className="space-y-1 bg-[#fcfaf8] p-3 rounded-xl border border-[#e6dace]/30">
+                                                        <div className="space-y-0.5 bg-[#fcfaf8] p-2 rounded-lg border border-[#e6dace]/30 text-[8px]">
                                                             {isRestesSalaires ? (
                                                                 <div className="flex items-center justify-between">
-                                                                    <span className="text-[8px] font-black text-[#c69f6e]/60 uppercase tracking-widest">Date :</span>
-                                                                    <span className="text-[10px] font-black text-[#8c8279] uppercase tracking-widest">
-                                                                        {displayDate}
-                                                                    </span>
+                                                                    <span className="font-bold text-[#c69f6e]/60 uppercase">Date:</span>
+                                                                    <span className="font-bold text-[#8c8279]">{displayDate}</span>
                                                                 </div>
                                                             ) : (
                                                                 <>
                                                                     <div className="flex items-center justify-between">
-                                                                        <span className="text-[8px] font-black text-[#c69f6e]/60 uppercase tracking-widest">Reçue le :</span>
-                                                                        <span className="text-[10px] font-black text-[#8c8279] uppercase tracking-widest">
+                                                                        <span className="font-bold text-[#c69f6e]/60 uppercase">Reçue:</span>
+                                                                        <span className="font-bold text-[#8c8279]">
                                                                             {new Date(item.doc_date || item.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }).toUpperCase()}
                                                                         </span>
                                                                     </div>
                                                                     <div className="flex items-center justify-between">
-                                                                        <span className="text-[8px] font-black text-green-600/60 uppercase tracking-widest">Réglée le :</span>
-                                                                        <span className="text-[10px] font-black text-[#4a3426] uppercase tracking-widest">
+                                                                        <span className="font-bold text-green-600/60 uppercase">Réglée:</span>
+                                                                        <span className="font-bold text-[#4a3426]">
                                                                             {new Date(item.paid_date || item.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }).toUpperCase()}
                                                                         </span>
                                                                     </div>
@@ -3922,18 +3994,18 @@ export default function PaiementsPage() {
                                                     </div>
 
                                                     {!isRestesSalaires && (
-                                                        <div className="flex flex-wrap gap-2 mb-8">
-                                                            <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-lg">
-                                                                <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
-                                                                <span className="text-[9px] font-black text-green-600 uppercase tracking-wider leading-none">Règlement Effectué</span>
+                                                        <div className="flex flex-wrap gap-1 mb-2">
+                                                            <div className="flex items-center gap-1 px-1.5 py-0.5 bg-green-50 rounded">
+                                                                <div className="w-1 h-1 rounded-full bg-green-500"></div>
+                                                                <span className="text-[7px] font-bold text-green-600 uppercase">Réglé</span>
                                                             </div>
-                                                            <div className="px-3 py-1.5 bg-[#fdfaf7] border border-[#e6dace]/40 rounded-lg">
-                                                                <span className="text-[9px] font-black text-[#8c8279] uppercase tracking-wider leading-none">{item.paymentMethod || item.payment_method || 'ESPÈCES'}</span>
+                                                            <div className="px-1.5 py-0.5 bg-[#fdfaf7] border border-[#e6dace]/40 rounded">
+                                                                <span className="text-[7px] font-bold text-[#8c8279] uppercase">{item.paymentMethod || item.payment_method || 'ESPÈCES'}</span>
                                                             </div>
                                                             {item.doc_type && (
-                                                                <div className={`px-3 py-1.5 rounded-lg border flex items-center gap-2 ${item.doc_type === 'Facture' ? 'bg-blue-50 border-blue-100' : 'bg-orange-50 border-orange-100'}`}>
-                                                                    <div className={`w-1.5 h-1.5 rounded-full ${item.doc_type === 'Facture' ? 'bg-blue-500' : 'bg-orange-500'}`}></div>
-                                                                    <span className={`text-[9px] font-black uppercase tracking-wider leading-none ${item.doc_type === 'Facture' ? 'text-blue-600' : 'text-orange-600'}`}>
+                                                                <div className={`px-1.5 py-0.5 rounded border flex items-center gap-1 ${item.doc_type === 'Facture' ? 'bg-blue-50 border-blue-100' : 'bg-orange-50 border-orange-100'}`}>
+                                                                    <div className={`w-1 h-1 rounded-full ${item.doc_type === 'Facture' ? 'bg-blue-500' : 'bg-orange-500'}`}></div>
+                                                                    <span className={`text-[7px] font-bold uppercase ${item.doc_type === 'Facture' ? 'text-blue-600' : 'text-orange-600'}`}>
                                                                         {item.doc_type}
                                                                     </span>
                                                                 </div>
@@ -3965,16 +4037,16 @@ export default function PaiementsPage() {
                                                                                 };
                                                                                 setViewingData(normalized);
                                                                             }}
-                                                                            className="w-full py-4 bg-[#4a3426] hover:bg-[#c69f6e] text-white rounded-2xl flex items-center justify-center gap-3 transition-all shadow-lg shadow-[#4a3426]/10"
+                                                                            className="w-full py-2 bg-[#4a3426] hover:bg-[#c69f6e] text-white rounded-lg flex items-center justify-center gap-1.5 transition-all text-[9px] font-bold"
                                                                         >
-                                                                            <Eye size={16} />
-                                                                            <span className="text-[11px] font-black uppercase tracking-[0.2em] pt-0.5">Justificatifs</span>
+                                                                            <Eye size={12} />
+                                                                            <span>Voir</span>
                                                                         </button>
                                                                     );
                                                                 }
                                                                 return (
-                                                                    <div className="w-full py-4 bg-[#fcfaf8] rounded-2xl border border-dashed border-[#e6dace] flex items-center justify-center">
-                                                                        <span className="text-[10px] font-black text-[#8c8279]/30 uppercase tracking-[0.2em]">Aucun Visuel</span>
+                                                                    <div className="w-full py-2 bg-[#fcfaf8] rounded-lg border border-dashed border-[#e6dace] flex items-center justify-center">
+                                                                        <span className="text-[8px] font-bold text-[#8c8279]/30 uppercase">Aucun Visuel</span>
                                                                     </div>
                                                                 );
                                                             })()}
@@ -3985,8 +4057,8 @@ export default function PaiementsPage() {
                                         })}
                                     </div>
                                 </div>
-                            </motion.div>
-                        </div>
+
+                        </motion.div>
                     )
                 }
             </AnimatePresence >
