@@ -1479,8 +1479,8 @@ export default function PaiementsPage() {
                         <button
                             onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
                             className={`md:hidden flex items-center justify-center w-10 h-10 rounded-xl border shadow-sm transition-all ${hasNegativeValues
-                                    ? 'bg-[#942c2a] border-red-900/40 text-white'
-                                    : 'bg-white border-[#e6dace] text-[#4a3426]'
+                                ? 'bg-[#942c2a] border-red-900/40 text-white'
+                                : 'bg-white border-[#e6dace] text-[#4a3426]'
                                 }`}
                         >
                             <motion.div
@@ -3657,10 +3657,13 @@ export default function PaiementsPage() {
                                                 {selectedCategories.length > 0 ? (
                                                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.1 }}>
                                                         <span className="text-lg lg:text-4xl font-black text-[#2d6a4f] leading-none block mb-0.5">
-                                                            {maskAmount(selectedTotal, 0)}
+                                                            {Math.round((selectedTotal / (totals.global || 1)) * 100)}%
                                                         </span>
-                                                        <span className="text-[6px] lg:text-[9px] font-black text-[#c69f6e] uppercase tracking-[0.1em] md:tracking-[0.2em] block">
+                                                        <span className="text-[6px] lg:text-[9px] font-black text-[#c69f6e] uppercase tracking-[0.1em] md:tracking-[0.2em] block leading-none mb-1">
                                                             SÉLECTION
+                                                        </span>
+                                                        <span className="text-[7px] lg:text-[11px] font-black text-[#2d6a4f]/60 block leading-none">
+                                                            {maskAmount(selectedTotal)}
                                                         </span>
                                                     </motion.div>
                                                 ) : activeSegment ? (
@@ -3743,14 +3746,15 @@ export default function PaiementsPage() {
                                                                         <span className="text-[8px] font-black text-red-500 uppercase tracking-tighter bg-red-50 border border-red-100 px-1.5 py-0.5 rounded ml-1">{cat.badge}</span>
                                                                     )}
                                                                 </div>
-                                                                <p className="text-[9px] font-bold text-[#8c8279]/50 uppercase tracking-tighter leading-none">{cat.subtitle}</p>
+                                                                <p className="text-[9px] font-bold text-[#8c8279]/50 uppercase tracking-tighter leading-none mb-2">{cat.subtitle}</p>
+
+                                                                <div className="flex items-baseline gap-1.5">
+                                                                    <span className="text-xl font-black text-[#4a3426] leading-none">{maskAmount(total)}</span>
+                                                                    <span className="text-[9px] font-black text-[#c69f6e] uppercase tracking-widest opacity-60">DT</span>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                         <div className="flex items-center gap-4">
-                                                            <div className="text-right">
-                                                                <p className="text-2xl font-black text-[#4a3426] leading-none mb-1">{maskAmount(total)}</p>
-                                                                <p className="text-[10px] font-black text-[#c69f6e] uppercase tracking-widest opacity-60">DT</p>
-                                                            </div>
                                                             {hasItems && (
                                                                 <div className={`w-8 h-8 rounded-full border flex items-center justify-center transition-all duration-300 ${isExpanded ? 'bg-[#c69f6e] border-[#c69f6e] text-white rotate-180' : 'bg-white border-[#e6dace] text-[#8c8279] group-hover:border-[#c69f6e]'}`}>
                                                                     <ChevronDown size={16} strokeWidth={3} />
@@ -3782,12 +3786,14 @@ export default function PaiementsPage() {
                                                                                     items: item.items
                                                                                 });
                                                                             }}
-                                                                            className="w-full flex justify-between items-center px-6 py-4 bg-white rounded-2xl border border-transparent hover:border-[#c69f6e]/30 shadow-[0_2px_10px_rgba(0,0,0,0.01)] hover:shadow-md transition-all active:scale-[0.98]"
+                                                                            className="w-full flex items-center px-6 py-4 bg-white rounded-2xl border border-transparent hover:border-[#c69f6e]/30 shadow-[0_2px_10px_rgba(0,0,0,0.01)] hover:shadow-md transition-all active:scale-[0.98]"
                                                                         >
-                                                                            <span className="text-[11px] font-black text-[#4a3426] uppercase tracking-tight">{item.name}</span>
-                                                                            <div className="flex items-center gap-1.5">
-                                                                                <span className="text-sm font-black text-[#4a3426]">{maskAmount(item.amount)}</span>
-                                                                                <span className="text-[9px] font-black text-[#c69f6e]/30 uppercase tracking-widest">DT</span>
+                                                                            <div className="flex flex-col items-start gap-0.5">
+                                                                                <span className="text-[11px] font-black text-[#4a3426] uppercase tracking-tight">{item.name}</span>
+                                                                                <div className="flex items-center gap-1.5 opacity-70">
+                                                                                    <span className="text-sm font-black text-[#4a3426]">{maskAmount(item.amount)}</span>
+                                                                                    <span className="text-[9px] font-black text-[#c69f6e]/30 uppercase tracking-widest">DT</span>
+                                                                                </div>
                                                                             </div>
                                                                         </button>
                                                                     ))}
@@ -3824,7 +3830,7 @@ export default function PaiementsPage() {
                                 onClick={(e) => e.stopPropagation()}
                             >
                                 {/* Header Section */}
-                                <div className="bg-[#4a3426] p-10 flex items-center justify-between rounded-t-[3.5rem]">
+                                <div className="bg-[#4a3426] p-10 flex flex-col md:flex-row md:items-center justify-between gap-8 rounded-t-[3.5rem] relative">
                                     <div className="flex items-center gap-6">
                                         <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center border border-white/20 shadow-inner">
                                             <ImageIcon className="text-white/60" size={32} />
@@ -3833,26 +3839,29 @@ export default function PaiementsPage() {
                                             <h2 className="text-5xl font-black text-white tracking-tighter uppercase leading-none mb-3">
                                                 {selectedEmployeeDetails.name}
                                             </h2>
-                                            <div className="flex items-center gap-3">
-                                                <span className="w-2 h-2 rounded-full bg-[#c69f6e]"></span>
-                                                <p className="text-sm font-black text-white/50 uppercase tracking-[0.3em] leading-none pt-0.5">
-                                                    {new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
-                                                </p>
+                                            <div className="flex items-center gap-6">
+                                                <div className="flex items-center gap-3">
+                                                    <span className="w-2 h-2 rounded-full bg-[#c69f6e]"></span>
+                                                    <p className="text-sm font-black text-white/50 uppercase tracking-[0.3em] leading-none pt-0.5">
+                                                        {new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
+                                                    </p>
+                                                </div>
+                                                <div className="h-8 w-px bg-white/10 hidden md:block"></div>
+                                                <div className="flex flex-col">
+                                                    <span className="text-[8px] font-black text-white/40 uppercase tracking-[0.2em] mb-1">Total Mensuel</span>
+                                                    <div className="flex items-baseline gap-2">
+                                                        <span className="text-3xl font-black text-white tracking-tighter leading-none">
+                                                            {maskAmount(selectedEmployeeDetails.total)}
+                                                        </span>
+                                                        <span className="text-sm font-black text-[#c69f6e]">DT</span>
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </div>
-                                    </div>
-                                    <div className="text-right flex flex-col items-end gap-2">
-                                        <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] leading-none">Total Mensuel</p>
-                                        <div className="flex items-baseline gap-2">
-                                            <span className="text-5xl font-black text-white tracking-tighter">
-                                                {maskAmount(selectedEmployeeDetails.total)}
-                                            </span>
-                                            <span className="text-lg font-black text-[#c69f6e]">DT</span>
                                         </div>
                                     </div>
                                     <button
                                         onClick={() => setSelectedEmployeeDetails(null)}
-                                        className="absolute top-8 right-8 w-12 h-12 bg-white/10 hover:bg-white/20 rounded-2xl flex items-center justify-center text-white transition-all backdrop-blur-sm border border-white/20 group"
+                                        className="absolute top-8 right-8 w-12 h-12 bg-white/10 hover:bg-white/20 rounded-2xl flex items-center justify-center text-white transition-all backdrop-blur-sm border border-white/20 group z-10"
                                     >
                                         <X size={24} className="group-hover:rotate-90 transition-transform duration-300" />
                                     </button>
@@ -3868,35 +3877,41 @@ export default function PaiementsPage() {
 
                                             return (
                                                 <div key={i} className="bg-white rounded-[2.5rem] p-8 border border-[#e6dace]/30 shadow-[0_10px_40px_rgba(74,52,38,0.03)] flex flex-col h-full hover:shadow-xl transition-all group">
-                                                    <div className="flex justify-between items-start mb-6">
-                                                        <div className="flex flex-col items-end gap-1">
+                                                    <div className="mb-6">
+                                                        <div className="flex flex-col gap-1 mb-4">
+                                                            <p className="text-[10px] font-black text-[#c69f6e] uppercase tracking-widest opacity-70">
+                                                                {item.details || item.designation || (isRestesSalaires ? 'Reste Salaire' : 'Dépense')}
+                                                            </p>
+                                                            <div className="flex items-baseline gap-2">
+                                                                <span className="text-4xl font-black text-[#4a3426] tracking-tighter">{maskAmount(item.amount)}</span>
+                                                                <span className="text-sm font-black text-[#c69f6e] uppercase tracking-widest">DT</span>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="space-y-1 bg-[#fcfaf8] p-3 rounded-xl border border-[#e6dace]/30">
                                                             {isRestesSalaires ? (
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className="text-[8px] font-black text-[#c69f6e] uppercase tracking-widest">Date</span>
+                                                                <div className="flex items-center justify-between">
+                                                                    <span className="text-[8px] font-black text-[#c69f6e]/60 uppercase tracking-widest">Date :</span>
                                                                     <span className="text-[10px] font-black text-[#8c8279] uppercase tracking-widest">
                                                                         {displayDate}
                                                                     </span>
                                                                 </div>
                                                             ) : (
                                                                 <>
-                                                                    <div className="flex items-center gap-2">
-                                                                        <span className="text-[8px] font-black text-[#c69f6e] uppercase tracking-widest">Reçue le</span>
+                                                                    <div className="flex items-center justify-between">
+                                                                        <span className="text-[8px] font-black text-[#c69f6e]/60 uppercase tracking-widest">Reçue le :</span>
                                                                         <span className="text-[10px] font-black text-[#8c8279] uppercase tracking-widest">
                                                                             {new Date(item.doc_date || item.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }).toUpperCase()}
                                                                         </span>
                                                                     </div>
-                                                                    <div className="flex items-center gap-2">
-                                                                        <span className="text-[8px] font-black text-green-600 uppercase tracking-widest">Réglée le</span>
+                                                                    <div className="flex items-center justify-between">
+                                                                        <span className="text-[8px] font-black text-green-600/60 uppercase tracking-widest">Réglée le :</span>
                                                                         <span className="text-[10px] font-black text-[#4a3426] uppercase tracking-widest">
                                                                             {new Date(item.paid_date || item.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }).toUpperCase()}
                                                                         </span>
                                                                     </div>
                                                                 </>
                                                             )}
-                                                        </div>
-                                                        <div className="text-right">
-                                                            <p className="text-2xl font-black text-[#4a3426] leading-none mb-1">{maskAmount(item.amount)}</p>
-                                                            <p className="text-[8px] font-black text-[#c69f6e] uppercase tracking-widest opacity-60">DT</p>
                                                         </div>
                                                     </div>
 
