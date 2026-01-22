@@ -22,6 +22,39 @@ const formatDateToDisplay = (dateStr: string) => {
     return `${d}/${m}/${y}`;
 };
 
+const compressImage = (base64Str: string, maxWidth = 1200, maxHeight = 1200, quality = 0.6): Promise<string> => {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.src = base64Str;
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
+
+            if (width > height) {
+                if (width > maxWidth) {
+                    height *= maxWidth / width;
+                    width = maxWidth;
+                }
+            } else {
+                if (height > maxHeight) {
+                    width *= maxHeight / height;
+                    height = maxHeight;
+                }
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx?.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = () => {
+            resolve(base64Str); // Fallback to original if error
+        };
+    });
+};
+
 import { createPortal } from 'react-dom';
 
 const PremiumDatePicker = ({ value, onChange, label, colorMode = 'brown', lockedDates = [], allowedDates, align = 'left' }: { value: string, onChange: (val: string) => void, label: string, colorMode?: 'brown' | 'green' | 'red', lockedDates?: string[], allowedDates?: string[], align?: 'left' | 'right' }) => {
@@ -535,7 +568,7 @@ export default function FacturationPage() {
         if (!section) return;
         if (!newInvoice.supplier_name || !newInvoice.amount || !newInvoice.date) return;
         if (lockedDates.includes(newInvoice.date)) {
-            alert("Cette date est verrouillée. Impossible d'ajouter une facture.");
+            Swal.fire({ icon: 'error', title: 'Erreur', text: "Cette date est verrouillée. Impossible d'ajouter une facture." });
             return;
         }
         setShowConfirm({
@@ -545,6 +578,11 @@ export default function FacturationPage() {
             color: 'brown',
             onConfirm: async () => {
                 try {
+                    Swal.fire({
+                        title: 'Ajout en cours...',
+                        allowOutsideClick: false,
+                        didOpen: () => { Swal.showLoading(); }
+                    });
                     await execAddInvoice({
                         variables: {
                             ...newInvoice,
@@ -556,6 +594,7 @@ export default function FacturationPage() {
                             category: section.toLowerCase()
                         }
                     });
+                    Swal.fire({ icon: 'success', title: 'Ajoutée', timer: 1500, showConfirmButton: false });
                     setShowAddModal(false);
                     setNewInvoice({
                         supplier_name: '',
@@ -568,6 +607,7 @@ export default function FacturationPage() {
                     refetch();
                 } catch (e) {
                     console.error(e);
+                    Swal.fire({ icon: 'error', title: 'Erreur', text: "Impossible d'ajouter la facture. Les photos sont peut-être trop lourdes." });
                 }
             }
         });
@@ -576,7 +616,7 @@ export default function FacturationPage() {
     const handlePayInvoice = async () => {
         if (!showPayModal) return;
         if (lockedDates.includes(paymentDetails.date)) {
-            alert("Cette date est verrouillée. Impossible de valider le paiement.");
+            Swal.fire({ icon: 'error', title: 'Erreur', text: "Cette date est verrouillée. Impossible de valider le paiement." });
             return;
         }
         setShowConfirm({
@@ -586,6 +626,11 @@ export default function FacturationPage() {
             color: 'green',
             onConfirm: async () => {
                 try {
+                    Swal.fire({
+                        title: 'Validation du paiement...',
+                        allowOutsideClick: false,
+                        didOpen: () => { Swal.showLoading(); }
+                    });
                     await execPayInvoice({
                         variables: {
                             id: showPayModal.id,
@@ -596,6 +641,7 @@ export default function FacturationPage() {
                             payer: user?.role || 'admin'
                         }
                     });
+                    Swal.fire({ icon: 'success', title: 'Paiement Validé', timer: 1500, showConfirmButton: false });
                     setShowPayModal(null);
                     setPaymentDetails({
                         method: 'Espèces',
@@ -606,6 +652,7 @@ export default function FacturationPage() {
                     refetch();
                 } catch (e) {
                     console.error(e);
+                    Swal.fire({ icon: 'error', title: 'Erreur', text: "Impossible de valider le paiement. Vérifiez la taille des photos (Chèque)." });
                 }
             }
         });
@@ -644,6 +691,11 @@ export default function FacturationPage() {
             color: 'brown',
             onConfirm: async () => {
                 try {
+                    Swal.fire({
+                        title: 'Mise à jour...',
+                        allowOutsideClick: false,
+                        didOpen: () => { Swal.showLoading(); }
+                    });
                     await execUpdateInvoice({
                         variables: {
                             id: invoiceData.id,
@@ -656,9 +708,13 @@ export default function FacturationPage() {
                             doc_number: invoiceData.doc_number || ''
                         }
                     });
+                    Swal.fire({ icon: 'success', title: 'Mis à jour', timer: 1500, showConfirmButton: false });
                     setShowEditModal(null);
                     refetch();
-                } catch (e) { console.error(e); }
+                } catch (e) {
+                    console.error(e);
+                    Swal.fire({ icon: 'error', title: 'Erreur', text: "Impossible de mettre à jour. Les photos sont peut-être trop lourdes." });
+                }
             }
         });
     };
@@ -694,29 +750,28 @@ export default function FacturationPage() {
         const files = e.target.files;
         if (!files || files.length === 0) return;
 
-        if (field === 'invoice') {
-            const filePromises = Array.from(files).map(file => {
-                return new Promise<string>((resolve) => {
-                    const reader = new FileReader();
-                    reader.onloadend = () => resolve(reader.result as string);
-                    reader.readAsDataURL(file);
-                });
+        const processFile = async (file: File) => {
+            return new Promise<string>((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = async () => {
+                    const base64 = reader.result as string;
+                    const compressed = await compressImage(base64);
+                    resolve(compressed);
+                };
+                reader.readAsDataURL(file);
             });
+        };
 
-            const results = await Promise.all(filePromises);
+        if (field === 'invoice') {
+            const results = await Promise.all(Array.from(files).map(processFile));
             setNewInvoice(prev => ({
                 ...prev,
                 photos: [...prev.photos, ...results]
             }));
         } else {
-            const file = files[0];
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                const res = reader.result as string;
-                if (field === 'recto') setPaymentDetails({ ...paymentDetails, photo_cheque_url: res });
-                else if (field === 'verso') setPaymentDetails({ ...paymentDetails, photo_verso_url: res });
-            };
-            reader.readAsDataURL(file);
+            const res = await processFile(files[0]);
+            if (field === 'recto') setPaymentDetails({ ...paymentDetails, photo_cheque_url: res });
+            else if (field === 'verso') setPaymentDetails({ ...paymentDetails, photo_verso_url: res });
         }
     };
 
@@ -1922,17 +1977,20 @@ export default function FacturationPage() {
                                                         onChange={async (e) => {
                                                             const files = e.target.files;
                                                             if (files && files.length > 0) {
-                                                                const filePromises = Array.from(files).map(file => {
+                                                                const results = await Promise.all(Array.from(files).map(file => {
                                                                     return new Promise<string>((resolve) => {
                                                                         const reader = new FileReader();
-                                                                        reader.onloadend = () => resolve(reader.result as string);
+                                                                        reader.onloadend = async () => {
+                                                                            const base64 = reader.result as string;
+                                                                            const compressed = await compressImage(base64);
+                                                                            resolve(compressed);
+                                                                        };
                                                                         reader.readAsDataURL(file);
                                                                     });
-                                                                });
-                                                                const newPhotos = await Promise.all(filePromises);
+                                                                }));
                                                                 setShowEditModal({
                                                                     ...showEditModal,
-                                                                    photos: [...showEditModal.photos, ...newPhotos].slice(0, 5)
+                                                                    photos: [...showEditModal.photos, ...results].slice(0, 5)
                                                                 });
                                                             }
                                                         }}
