@@ -911,48 +911,48 @@ export default function DashboardPage() {
                             <div className="bg-[#1b4332] rounded-[2.5rem] luxury-shadow relative overflow-hidden">
                                 <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full blur-3xl -mr-32 -mt-32"></div>
 
-                                <div className="p-6 md:p-10 border-b border-white/10 relative z-10 flex flex-col gap-6 md:gap-8 items-start">
-                                    <div className="space-y-1 w-full text-white">
-                                        <div className="flex items-center gap-2 mb-2">
+                                <div className="p-6 md:p-8 border-b border-white/10 relative z-10 flex flex-col gap-4 md:gap-6 items-start">
+                                    <div className="space-y-0.5 w-full text-white">
+                                        <div className="flex items-center gap-2 mb-1">
                                             <div className="flex items-center gap-2 opacity-70">
-                                                <Calculator size={18} />
-                                                <span className="text-xs font-black uppercase tracking-[0.2em]">Dépenses Caisse Mensuelle</span>
+                                                <Calculator size={16} />
+                                                <span className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em]">Dépenses Caisse Mensuelle</span>
                                             </div>
                                             <button
                                                 onClick={() => setHideMonthlySummary(!hideMonthlySummary)}
                                                 className="p-1 hover:bg-white/10 rounded-full transition-colors text-white/70"
                                             >
-                                                {hideMonthlySummary ? <EyeOff size={14} /> : <Eye size={14} />}
+                                                {hideMonthlySummary ? <EyeOff size={12} /> : <Eye size={12} />}
                                             </button>
                                         </div>
-                                        <div className="flex items-baseline gap-3">
+                                        <div className="flex items-baseline gap-2">
                                             {hideMonthlySummary ? (
-                                                <span className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tighter">********</span>
+                                                <span className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black tracking-tighter">********</span>
                                             ) : (
-                                                <span className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tighter">{aggregates.total_diponce.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</span>
+                                                <span className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black tracking-tighter">{aggregates.total_diponce.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</span>
                                             )}
-                                            <span className="text-lg md:text-2xl font-black opacity-30 uppercase">DT</span>
+                                            <span className="text-sm md:text-lg font-black opacity-30 uppercase">DT</span>
                                         </div>
-                                        <div className="text-[10px] opacity-40 mt-1 font-medium">
+                                        <div className="text-[9px] opacity-40 font-medium">
                                             Cumulé sur le mois selectionné
                                         </div>
                                     </div>
-                                    <div className="w-full pt-6 border-t border-white/10">
-                                        <div className="flex items-center gap-2 opacity-70 mb-2 text-white">
-                                            <TrendingUp size={20} />
-                                            <span className="text-sm font-black uppercase tracking-[0.2em]">Recette Nette</span>
+                                    <div className="w-full pt-4 border-t border-white/10">
+                                        <div className="flex items-center gap-2 opacity-70 mb-1 text-white">
+                                            <TrendingUp size={18} />
+                                            <span className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em]">Recette Nette</span>
                                         </div>
-                                        <div className="flex items-baseline gap-4 mt-1">
+                                        <div className="flex items-baseline gap-3">
                                             {hideMonthlySummary ? (
-                                                <span className={`text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-black tracking-tighter leading-none transition-all duration-500 text-[#c69f6e]`}>
+                                                <span className={`text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tighter leading-none transition-all duration-500 text-[#c69f6e]`}>
                                                     ********
                                                 </span>
                                             ) : (
-                                                <span className={`text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-black tracking-tighter leading-none transition-all duration-500 ${aggregates.recette_net >= 0 ? 'text-[#c69f6e]' : 'text-red-400'}`}>
+                                                <span className={`text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tighter leading-none transition-all duration-500 ${aggregates.recette_net >= 0 ? 'text-[#c69f6e]' : 'text-red-400'}`}>
                                                     {aggregates.recette_net.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
                                                 </span>
                                             )}
-                                            <span className="text-xl md:text-2xl font-black opacity-20 text-white uppercase shrink-0">DT</span>
+                                            <span className="text-sm md:text-lg font-black opacity-20 text-white uppercase shrink-0">DT</span>
                                         </div>
                                     </div>
                                 </div>
