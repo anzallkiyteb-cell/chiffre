@@ -946,6 +946,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             { designation: 'Salaires', amount: '0', paymentMethod: 'Espèces' }
                         ]);
                         if (!d.expensesDivers) setExpensesDivers([{ designation: '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces', doc_type: 'BL' }]);
+                        setCaissePhotos(d.caissePhotos || []);
                         setHasInteracted(true); // Treat as interacted since we are resuming a custom session
                         setToast({ msg: 'Reprise de votre saisie en cours', type: 'success' });
                         setTimeout(() => setToast(null), 3000);
@@ -974,6 +975,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                 { designation: 'Malika', amount: '0', paymentMethod: 'Espèces' },
                 { designation: 'Salaires', amount: '0', paymentMethod: 'Espèces' }
             ]);
+            setCaissePhotos([]);
             setIsLocked(false);
             setHasInteracted(false);
         }
@@ -1002,7 +1004,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                 expensesDivers,
                 expensesAdmin,
                 offres,
-                offresList
+                offresList,
+                caissePhotos
             };
             const draft = {
                 date,
@@ -1016,7 +1019,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     }, [
         recetteCaisse, expenses, tpe, tpe2, cheque, especes, ticketsRestaurant,
         extra, primes, avancesList, doublagesList, extrasList, primesList,
-        restesSalairesList, expensesDivers, expensesAdmin, offres, offresList, date, hasInteracted
+        restesSalairesList, expensesDivers, expensesAdmin, offres, offresList, caissePhotos, date, hasInteracted
     ]);
 
     // Calculations
@@ -3373,6 +3376,30 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             }}
                         />
 
+                        {/* Hidden file input for adding photos */}
+                        <input
+                            type="file"
+                            accept="image/*"
+                            id="caisse-photo-modal-upload"
+                            className="hidden"
+                            onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file && caissePhotos.length < 3) {
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => {
+                                        const newPhoto = reader.result as string;
+                                        setCaissePhotos(prev => [...prev, newPhoto]);
+                                        setViewingPhoto(newPhoto);
+                                        setHasInteracted(true);
+                                        setToast({ msg: 'Photo ajoutée', type: 'success' });
+                                        setTimeout(() => setToast(null), 3000);
+                                    };
+                                    reader.readAsDataURL(file);
+                                }
+                                e.target.value = '';
+                            }}
+                        />
+
                         {/* Draggable & Zoomable Image Container */}
                         <motion.div
                             className="relative w-full h-full flex items-center justify-center"
@@ -3390,21 +3417,10 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 exit={{ scale: 0.9 }}
                                 src={viewingPhoto}
                                 alt="Caisse Full"
-                                className="max-w-[90vw] max-h-[90vh] object-contain cursor-grab shadow-2xl shadow-black/50 touch-none"
+                                className="max-w-[90vw] max-h-[70vh] object-contain cursor-grab shadow-2xl shadow-black/50 touch-none"
                                 style={{ scale: photoZoom }}
                             />
                         </motion.div>
-
-                        {/* Comparison Badge */}
-                        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-md border border-white/10 p-4 rounded-3xl flex flex-col items-center gap-1 min-w-[200px] pointer-events-none z-50">
-                            <span className="text-[10px] font-black uppercase tracking-widest text-white/60">Recette Caisse Actuelle</span>
-                            <div className="flex items-baseline gap-2 text-white">
-                                <span className="text-3xl font-black tracking-tighter">
-                                    {parseFloat(recetteCaisse || '0').toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
-                                </span>
-                                <span className="text-xs font-bold text-[#c69f6e]">DT</span>
-                            </div>
-                        </div>
 
                         {/* Top Controls */}
                         <div className="absolute top-4 right-4 flex items-center gap-2 z-50">
@@ -3427,24 +3443,78 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             </button>
                         </div>
 
-                        {/* Delete Photo Button */}
-                        {!isLocked && viewingPhoto && caissePhotos.includes(viewingPhoto) && (
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setCaissePhotos(prev => prev.filter(p => p !== viewingPhoto));
-                                    setViewingPhoto(null);
-                                    setPhotoZoom(1);
-                                    setHasInteracted(true);
-                                    setToast({ msg: 'Photo supprimée', type: 'success' });
-                                    setTimeout(() => setToast(null), 3000);
-                                }}
-                                className="absolute bottom-10 right-10 bg-red-500/90 hover:bg-red-600 backdrop-blur-md px-6 py-3 rounded-2xl text-white font-black uppercase tracking-wider text-sm transition-all shadow-lg hover:shadow-xl flex items-center gap-2 z-50"
-                            >
-                                <Trash2 size={18} />
-                                Supprimer Photo
-                            </button>
-                        )}
+                        {/* Bottom Panel with Photos, Add Button, and Delete */}
+                        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-4" onClick={e => e.stopPropagation()}>
+                            {/* Recette Info */}
+                            <div className="bg-black/60 backdrop-blur-md border border-white/10 px-6 py-3 rounded-2xl flex items-center gap-3">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-white/60">Recette Caisse</span>
+                                <span className="text-xl font-black text-white">
+                                    {parseFloat(recetteCaisse || '0').toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                </span>
+                                <span className="text-xs font-bold text-[#c69f6e]">DT</span>
+                            </div>
+
+                            {/* Photos Thumbnails + Add Button */}
+                            <div className="bg-black/60 backdrop-blur-md border border-white/10 p-3 rounded-2xl flex items-center gap-3">
+                                {/* Existing Photos */}
+                                {caissePhotos.map((photo, index) => (
+                                    <div
+                                        key={index}
+                                        onClick={() => { setViewingPhoto(photo); setPhotoZoom(1); }}
+                                        className={`relative w-14 h-14 rounded-xl overflow-hidden cursor-pointer transition-all ${viewingPhoto === photo ? 'ring-2 ring-[#c69f6e] ring-offset-2 ring-offset-black' : 'opacity-60 hover:opacity-100'}`}
+                                    >
+                                        <Image
+                                            src={photo}
+                                            alt={`Photo ${index + 1}`}
+                                            fill
+                                            className="object-cover"
+                                        />
+                                        <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-center py-0.5">
+                                            <span className="text-[8px] font-black text-white">{index + 1}/{caissePhotos.length}</span>
+                                        </div>
+                                    </div>
+                                ))}
+
+                                {/* Add Photo Button - only if less than 3 photos and not locked */}
+                                {caissePhotos.length < 3 && !isLocked && (
+                                    <label
+                                        htmlFor="caisse-photo-modal-upload"
+                                        className="w-14 h-14 rounded-xl border-2 border-dashed border-white/30 flex flex-col items-center justify-center cursor-pointer hover:border-[#c69f6e] hover:bg-white/5 transition-all"
+                                    >
+                                        <Plus size={20} className="text-white/60" />
+                                        <span className="text-[8px] font-black text-white/40 mt-0.5">{caissePhotos.length}/3</span>
+                                    </label>
+                                )}
+
+                                {/* Delete Current Photo Button */}
+                                {!isLocked && viewingPhoto && caissePhotos.includes(viewingPhoto) && (
+                                    <>
+                                        <div className="w-px h-10 bg-white/20 mx-1" />
+                                        <button
+                                            onClick={() => {
+                                                const currentIndex = caissePhotos.indexOf(viewingPhoto);
+                                                setCaissePhotos(prev => prev.filter(p => p !== viewingPhoto));
+                                                setHasInteracted(true);
+                                                // Switch to another photo or close
+                                                if (caissePhotos.length > 1) {
+                                                    const nextIndex = currentIndex > 0 ? currentIndex - 1 : 0;
+                                                    const nextPhoto = caissePhotos.filter(p => p !== viewingPhoto)[nextIndex];
+                                                    setViewingPhoto(nextPhoto || null);
+                                                } else {
+                                                    setViewingPhoto(null);
+                                                }
+                                                setPhotoZoom(1);
+                                                setToast({ msg: 'Photo supprimée', type: 'success' });
+                                                setTimeout(() => setToast(null), 3000);
+                                            }}
+                                            className="w-14 h-14 rounded-xl bg-red-500/20 border border-red-500/30 flex items-center justify-center hover:bg-red-500/40 transition-all"
+                                        >
+                                            <Trash2 size={20} className="text-red-400" />
+                                        </button>
+                                    </>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 )}
             </AnimatePresence>
