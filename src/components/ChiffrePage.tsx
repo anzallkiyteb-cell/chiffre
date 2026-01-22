@@ -272,6 +272,7 @@ const EntryModal = ({ isOpen, onClose, onSubmit, type, employees = [], initialDa
     const [amount, setAmount] = useState('');
     const [nbJours, setNbJours] = useState('');
     const [showDropdown, setShowDropdown] = useState(false);
+    const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
 
     const amountRef = useRef<HTMLInputElement>(null);
     const nbJoursRef = useRef<HTMLInputElement>(null);
@@ -283,15 +284,18 @@ const EntryModal = ({ isOpen, onClose, onSubmit, type, employees = [], initialDa
                 setSearch(initialData.username);
                 setAmount(initialData.montant);
                 setNbJours(initialData.nb_jours || '');
+                const emp = employees.find((e: any) => e.name === initialData.username);
+                setSelectedEmployee(emp || null);
                 setTimeout(() => amountRef.current?.focus(), 100);
             } else {
                 setSearch('');
                 setAmount('');
                 setNbJours('');
+                setSelectedEmployee(null);
                 setTimeout(() => searchRef.current?.focus(), 100);
             }
         }
-    }, [isOpen, initialData]);
+    }, [isOpen, initialData, employees]);
 
     if (!isOpen) return null;
 
@@ -346,6 +350,7 @@ const EntryModal = ({ isOpen, onClose, onSubmit, type, employees = [], initialDa
                                         onKeyDown={(e) => {
                                             if (e.key === 'Enter' && filteredEmployees.length === 1) {
                                                 setSearch(filteredEmployees[0].name);
+                                                setSelectedEmployee(filteredEmployees[0]);
                                                 setShowDropdown(false);
                                                 amountRef.current?.focus();
                                             }
@@ -358,17 +363,27 @@ const EntryModal = ({ isOpen, onClose, onSubmit, type, employees = [], initialDa
                                                     key={emp.id}
                                                     onClick={() => {
                                                         setSearch(emp.name);
+                                                        setSelectedEmployee(emp);
                                                         setShowDropdown(false);
                                                         setTimeout(() => amountRef.current?.focus(), 10);
                                                     }}
-                                                    className="w-full text-left px-5 py-3 hover:bg-[#fcfaf8] font-bold text-[#4a3426] border-b border-[#f9f6f2] last:border-0 transition-colors"
+                                                    className="w-full text-left px-5 py-3 hover:bg-[#fcfaf8] border-b border-[#f9f6f2] last:border-0 transition-colors"
                                                 >
-                                                    {emp.name}
+                                                    <span className="font-bold text-[#4a3426]">{emp.name}</span>
+                                                    {emp.department && (
+                                                        <span className="ml-2 text-xs text-[#c69f6e] font-medium">({emp.department})</span>
+                                                    )}
                                                 </button>
                                             ))}
                                         </div>
                                     )}
                                 </div>
+                                {selectedEmployee?.department && (
+                                    <div className="mt-2 px-4 py-2 bg-[#f4ece4] rounded-xl flex items-center gap-2">
+                                        <span className="text-[10px] font-black text-[#8c8279] uppercase tracking-widest">Département:</span>
+                                        <span className="text-sm font-bold text-[#4a3426]">{selectedEmployee.department}</span>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="relative">
@@ -930,14 +945,17 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                 }
                 setExpensesDivers(JSON.parse(c.diponce_divers || '[]').map((d: any) => ({ ...d, details: d.details || '' })));
 
-                let adminData = JSON.parse(c.diponce_admin || '[]');
-                if (adminData.length === 0) {
-                    adminData = [
-                        { designation: 'Riadh', amount: '0', paymentMethod: 'Espèces' },
-                        { designation: 'Malika', amount: '0', paymentMethod: 'Espèces' },
-                        { designation: 'Salaires', amount: '0', paymentMethod: 'Espèces' }
-                    ];
-                }
+                const savedAdminData = JSON.parse(c.diponce_admin || '[]');
+                const defaultAdminItems = [
+                    { designation: 'Riadh', amount: '0', paymentMethod: 'Espèces' },
+                    { designation: 'Malika', amount: '0', paymentMethod: 'Espèces' },
+                    { designation: 'Salaires', amount: '0', paymentMethod: 'Espèces' }
+                ];
+                // Merge saved data with defaults - ensure all 3 default rows always exist
+                const adminData = defaultAdminItems.map(defaultItem => {
+                    const savedItem = savedAdminData.find((s: any) => s.designation === defaultItem.designation);
+                    return savedItem ? { ...defaultItem, ...savedItem } : defaultItem;
+                });
                 setExpensesAdmin(adminData);
             } else {
                 // Merge logic: ensure items from Facturation are always up-to-date even in draft mode
@@ -1492,8 +1510,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                     offres: ensureValue(offres),
                     offres_data: JSON.stringify(offresList),
                     caisse_photo: JSON.stringify(caissePhotos),
-                    diponce_divers: JSON.stringify(expensesDivers),
-                    diponce_admin: JSON.stringify(expensesAdmin),
+                    diponce_divers: JSON.stringify(expensesDivers.filter(item => item.amount && parseFloat(item.amount) > 0)),
+                    diponce_admin: JSON.stringify(expensesAdmin.filter(item => item.amount && parseFloat(item.amount) > 0)),
                     payer: role
                 }
             });
