@@ -900,7 +900,7 @@ export default function FacturationPage() {
                                         </span>
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                                         <AnimatePresence>
                                             {filteredInvoices.filter((inv: any) => inv.status !== 'paid').map((inv: any) => (
                                                 <motion.div
@@ -944,16 +944,15 @@ export default function FacturationPage() {
                                                     </div>
 
                                                     <div className="p-6">
-                                                        <div className="flex justify-between items-start mb-4">
-                                                            <div>
-                                                                <h3 className="font-black text-2xl text-[#4a3426] tracking-tight">{inv.supplier_name}</h3>
-                                                            </div>
-                                                            <div className="text-right">
-                                                                <div className="text-2xl font-black text-red-600">
+                                                        <div className="flex flex-col gap-2 mb-4">
+                                                            <h3 className="font-black text-lg sm:text-2xl text-[#4a3426] tracking-tight break-words">{inv.supplier_name}</h3>
+
+                                                            <div className="flex flex-wrap items-center gap-3">
+                                                                <div className="text-xl sm:text-2xl font-black text-red-600 whitespace-nowrap">
                                                                     {parseFloat(inv.amount || '0').toFixed(3)}
                                                                     <span className="text-[10px] font-bold text-red-500 uppercase ml-1">DT</span>
                                                                 </div>
-                                                                <div className="flex items-center gap-2 bg-white/60 px-3 py-1.5 rounded-lg border border-red-400/20 mt-2 justify-end">
+                                                                <div className="flex items-center gap-2 bg-white/60 px-3 py-1.5 rounded-lg border border-red-400/20 shadow-sm">
                                                                     <Calendar size={12} className="text-red-600" />
                                                                     <span className="text-[10px] font-black uppercase tracking-widest text-red-600/70">Reçu le:</span>
                                                                     <span className="text-[10px] font-black text-red-900">{new Date(inv.date).toLocaleDateString('fr-FR')}</span>
@@ -1067,7 +1066,7 @@ export default function FacturationPage() {
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                                         <AnimatePresence>
                                             {filteredInvoices.filter((inv: any) => inv.status === 'paid').map((inv: any) => (
                                                 <motion.div
@@ -1117,16 +1116,15 @@ export default function FacturationPage() {
                                                     </div>
 
                                                     <div className="p-6">
-                                                        <div className="flex justify-between items-start mb-4">
-                                                            <div>
-                                                                <h3 className="font-black text-2xl text-[#4a3426] tracking-tight opacity-70">{inv.supplier_name}</h3>
-                                                            </div>
-                                                            <div className="text-right">
-                                                                <div className="text-2xl font-black text-green-700">
+                                                        <div className="flex flex-col gap-2 mb-4">
+                                                            <h3 className="font-black text-lg sm:text-2xl text-[#4a3426] tracking-tight opacity-70 break-words">{inv.supplier_name}</h3>
+
+                                                            <div className="flex flex-wrap items-center gap-3">
+                                                                <div className="text-xl sm:text-2xl font-black text-green-700 whitespace-nowrap">
                                                                     {parseFloat(inv.amount || '0').toFixed(3)}
                                                                     <span className="text-[10px] font-bold text-green-600/60 uppercase ml-1">DT</span>
                                                                 </div>
-                                                                <div className="flex items-center gap-2 bg-white/60 px-3 py-1.5 rounded-lg border border-green-400/20 mt-2 justify-end">
+                                                                <div className="flex items-center gap-2 bg-white/60 px-3 py-1.5 rounded-lg border border-green-400/20 shadow-sm">
                                                                     <Calendar size={12} className="text-green-600" />
                                                                     <span className="text-[10px] font-black uppercase tracking-widest text-green-600/70">Reçu le:</span>
                                                                     <span className="text-[10px] font-black text-green-900">{new Date(inv.date).toLocaleDateString('fr-FR')}</span>
@@ -1149,11 +1147,11 @@ export default function FacturationPage() {
 
                                                         <div className="flex gap-2">
                                                             <button
-                                                                onClick={() => user?.role === 'admin' && handleUnpay(inv)}
-                                                                disabled={user?.role !== 'admin'}
-                                                                className={`flex-1 h-11 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${user?.role === 'admin'
-                                                                        ? 'bg-[#2D6B4E] text-white hover:bg-[#1f4b36] cursor-pointer'
-                                                                        : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
+                                                                onClick={() => (user?.role === 'admin' || !lockedDates.includes(inv.paid_date)) && handleUnpay(inv)}
+                                                                disabled={user?.role !== 'admin' && lockedDates.includes(inv.paid_date)}
+                                                                className={`flex-1 h-11 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${(user?.role === 'admin' || !lockedDates.includes(inv.paid_date))
+                                                                    ? 'bg-[#2D6B4E] text-white hover:bg-[#1f4b36] cursor-pointer'
+                                                                    : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
                                                                     }`}
                                                             >
                                                                 <RotateCcw size={18} />
@@ -1161,7 +1159,7 @@ export default function FacturationPage() {
                                                             </button>
                                                             <button
                                                                 onClick={() => {
-                                                                    if (user?.role !== 'admin') return;
+                                                                    if (user?.role !== 'admin' && lockedDates.includes(inv.paid_date)) return;
                                                                     if (lockedDates.includes(inv.paid_date)) {
                                                                         setShowConfirm({
                                                                             type: 'alert',
@@ -1182,20 +1180,20 @@ export default function FacturationPage() {
                                                                         doc_number: inv.doc_number || ''
                                                                     });
                                                                 }}
-                                                                disabled={user?.role !== 'admin'}
-                                                                className={`w-11 h-11 border-2 rounded-xl flex items-center justify-center transition-all ${user?.role === 'admin'
-                                                                        ? 'border-[#e6dace] text-[#8c8279] hover:text-[#4a3426] hover:border-[#4a3426] cursor-pointer'
-                                                                        : 'border-gray-300 text-gray-400 cursor-not-allowed opacity-50'
+                                                                disabled={user?.role !== 'admin' && lockedDates.includes(inv.paid_date)}
+                                                                className={`w-11 h-11 border-2 rounded-xl flex items-center justify-center transition-all ${(user?.role === 'admin' || !lockedDates.includes(inv.paid_date))
+                                                                    ? 'border-[#e6dace] text-[#8c8279] hover:text-[#4a3426] hover:border-[#4a3426] cursor-pointer'
+                                                                    : 'border-gray-300 text-gray-400 cursor-not-allowed opacity-50'
                                                                     }`}
                                                             >
                                                                 <Edit2 size={18} />
                                                             </button>
                                                             <button
-                                                                onClick={() => user?.role === 'admin' && handleDelete(inv)}
-                                                                disabled={user?.role !== 'admin'}
-                                                                className={`w-11 h-11 border-2 rounded-xl flex items-center justify-center transition-all ${user?.role === 'admin'
-                                                                        ? 'border-red-200 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500 cursor-pointer'
-                                                                        : 'border-gray-300 text-gray-400 cursor-not-allowed opacity-50'
+                                                                onClick={() => (user?.role === 'admin' || !lockedDates.includes(inv.paid_date)) && handleDelete(inv)}
+                                                                disabled={user?.role !== 'admin' && lockedDates.includes(inv.paid_date)}
+                                                                className={`w-11 h-11 border-2 rounded-xl flex items-center justify-center transition-all ${(user?.role === 'admin' || !lockedDates.includes(inv.paid_date))
+                                                                    ? 'border-red-200 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500 cursor-pointer'
+                                                                    : 'border-gray-300 text-gray-400 cursor-not-allowed opacity-50'
                                                                     }`}
                                                             >
                                                                 <Trash2 size={18} />
