@@ -2545,14 +2545,14 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                         {/* 3. Fixes Grid (2x2) */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {/* 2.2 Accompte */}
-                            <div className="bg-white rounded-[2rem] p-6 luxury-shadow relative overflow-hidden border border-[#e6dace]/50">
+                            <div className="bg-white rounded-[2rem] p-6 luxury-shadow relative overflow-hidden border border-[#e6dace]/50 border-t-4 border-t-blue-600">
                                 <div className="flex justify-between items-center mb-4">
                                     <div className="flex items-center gap-3">
                                         <div
                                             className="cursor-pointer group/title"
                                             onClick={() => setShowHistoryModal({ type: 'avance' })}
                                         >
-                                            <h4 className="font-bold text-[#4a3426] text-xs uppercase tracking-wider group-hover/title:text-[#c69f6e] transition-colors">ACCOMPTE</h4>
+                                            <h4 className="font-black text-blue-600 text-xs uppercase tracking-wider group-hover/title:text-blue-700 transition-colors">ACCOMPTE</h4>
                                             <p className="text-[9px] font-bold text-[#8c8279] uppercase tracking-tighter opacity-70">Avances sur salaires</p>
                                         </div>
                                         <button
@@ -2625,14 +2625,14 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             </div>
 
                             {/* 2.3 Doublage */}
-                            <div className="bg-white rounded-[2rem] p-6 luxury-shadow relative overflow-hidden border border-[#e6dace]/50">
+                            <div className="bg-white rounded-[2rem] p-6 luxury-shadow relative overflow-hidden border border-[#e6dace]/50 border-t-4 border-t-orange-600">
                                 <div className="flex justify-between items-center mb-4">
                                     <div className="flex items-center gap-3">
                                         <div
                                             className="cursor-pointer group/title"
                                             onClick={() => setShowHistoryModal({ type: 'doublage' })}
                                         >
-                                            <h4 className="font-bold text-[#4a3426] text-xs uppercase tracking-wider group-hover/title:text-[#c69f6e] transition-colors">DOUBLAGE</h4>
+                                            <h4 className="font-black text-orange-600 text-xs uppercase tracking-wider group-hover/title:text-orange-700 transition-colors">DOUBLAGE</h4>
                                             <p className="text-[9px] font-bold text-[#8c8279] uppercase tracking-tighter opacity-70">Heures supplémentaires</p>
                                         </div>
                                         <button
@@ -2705,15 +2705,15 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             </div>
 
                             {/* 2.4 Extra */}
-                            <div className="bg-white rounded-[2rem] p-6 luxury-shadow relative overflow-hidden border border-[#e6dace]/50">
+                            <div className="bg-white rounded-[2rem] p-6 luxury-shadow relative overflow-hidden border border-[#e6dace]/50 border-t-4 border-t-green-600">
                                 <div className="flex justify-between items-center mb-4">
                                     <div className="flex items-center gap-3">
-                                        <Zap size={16} className="text-[#c69f6e]" />
+                                        <Zap size={16} className="text-green-600" />
                                         <div
                                             className="cursor-pointer group/title"
                                             onClick={() => setShowHistoryModal({ type: 'extra' })}
                                         >
-                                            <h4 className="font-bold text-[#4a3426] text-xs uppercase tracking-wider group-hover/title:text-[#c69f6e] transition-colors">EXTRA</h4>
+                                            <h4 className="font-black text-green-600 text-xs uppercase tracking-wider group-hover/title:text-green-700 transition-colors">EXTRA</h4>
                                             <p className="text-[9px] font-bold text-[#8c8279] uppercase tracking-tighter opacity-70">Main d'œuvre occasionnelle</p>
                                         </div>
                                         <button
@@ -2786,15 +2786,15 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             </div>
 
                             {/* 2.5 Primes */}
-                            <div className="bg-white rounded-[2rem] p-6 luxury-shadow relative overflow-hidden border border-[#e6dace]/50">
+                            <div className="bg-white rounded-[2rem] p-6 luxury-shadow relative overflow-hidden border border-[#e6dace]/50 border-t-4 border-t-purple-600">
                                 <div className="flex justify-between items-center mb-4">
                                     <div className="flex items-center gap-3">
-                                        <Sparkles size={16} className="text-[#2d6a4f]" />
+                                        <Sparkles size={16} className="text-purple-600" />
                                         <div
                                             className="cursor-pointer group/title"
                                             onClick={() => setShowHistoryModal({ type: 'prime' })}
                                         >
-                                            <h4 className="font-bold text-[#4a3426] text-xs uppercase tracking-wider group-hover/title:text-[#c69f6e] transition-colors">PRIMES</h4>
+                                            <h4 className="font-black text-purple-600 text-xs uppercase tracking-wider group-hover/title:text-purple-700 transition-colors">PRIMES</h4>
                                             <p className="text-[9px] font-bold text-[#8c8279] uppercase tracking-tighter opacity-70">Récompenses & bonus</p>
                                         </div>
                                         <button
@@ -2867,15 +2867,15 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             </div>
 
                             {/* 2.6 Restes Salaires */}
-                            <div className="bg-white rounded-[2rem] p-6 luxury-shadow relative overflow-hidden border border-[#e6dace]/50">
+                            <div className="bg-white rounded-[2rem] p-6 luxury-shadow relative overflow-hidden border border-[#e6dace]/50 border-t-4 border-t-pink-600">
                                 <div className="flex justify-between items-center mb-4">
                                     <div className="flex items-center gap-3">
-                                        <Wallet size={16} className="text-[#a67c52]" />
+                                        <Wallet size={16} className="text-pink-600" />
                                         <div
                                             className="cursor-pointer group/title"
                                             onClick={() => setShowHistoryModal({ type: 'restes_salaires' })}
                                         >
-                                            <h4 className="font-bold text-[#4a3426] text-xs uppercase tracking-wider group-hover/title:text-[#c69f6e] transition-colors">RESTES SALAIRES</h4>
+                                            <h4 className="font-black text-pink-600 text-xs uppercase tracking-wider group-hover/title:text-pink-700 transition-colors">RESTES SALAIRES</h4>
                                             <p className="text-[9px] font-bold text-[#8c8279] uppercase tracking-tighter opacity-70">Salaires</p>
                                         </div>
                                         <button
