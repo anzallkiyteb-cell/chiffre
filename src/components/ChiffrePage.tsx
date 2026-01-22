@@ -866,7 +866,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             setRestesSalairesList(c.restes_salaires_details || []);
             setIsLocked(c.is_locked || false);
 
-            // Only overwrite editable fields if user hasn't interacted (is clean)
+            // Update editable fields
             if (!hasInteracted) {
                 setRecetteCaisse(c.recette_de_caisse);
                 setExpenses(JSON.parse(c.diponce || '[]').map((e: any) => ({ ...e, details: e.details || '' })));
@@ -891,7 +891,22 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                     ];
                 }
                 setExpensesAdmin(adminData);
-                setHasInteracted(false);
+            } else {
+                // Merge logic: ensure items from Facturation are always up-to-date even in draft mode
+                const dbExpenses = JSON.parse(c.diponce || '[]');
+                const dbExpensesDivers = JSON.parse(c.diponce_divers || '[]');
+
+                setExpenses(prev => {
+                    const nonFacturationItems = prev.filter(e => !e.isFromFacturation);
+                    const dbFacturationItems = dbExpenses.filter((e: any) => e.isFromFacturation);
+                    return [...nonFacturationItems, ...dbFacturationItems];
+                });
+
+                setExpensesDivers(prev => {
+                    const nonFacturationItems = prev.filter(d => !d.isFromFacturation);
+                    const dbFacturationItems = dbExpensesDivers.filter((d: any) => d.isFromFacturation);
+                    return [...nonFacturationItems, ...dbFacturationItems];
+                });
             }
         } else {
             // Check for draft even if no server data
