@@ -141,31 +141,23 @@ export default function StatistiquesPage() {
     const statsData = useMemo(() => {
         if (!data?.getChiffresByRange) return [];
 
-        const riadhByDate: Record<string, number> = {};
-        (data.getInvoices || []).forEach((inv: any) => {
-            const dStr = inv.paid_date;
-            if (dStr) {
-                riadhByDate[dStr] = (riadhByDate[dStr] || 0) + (parseFloat(inv.amount) || 0);
-            }
-        });
-
         const raw = data.getChiffresByRange;
         if (aggregation === 'day') {
             return raw.map((d: any) => {
-                const riadhAmt = riadhByDate[d.date] || 0;
                 return {
                     name: new Date(d.date).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }),
                     fullDate: d.date,
                     recette: parseFloat(d.recette_de_caisse) || 0,
-                    depenses: (parseFloat(d.total_diponce) || 0) + riadhAmt,
-                    net: (parseFloat(d.recette_net) || 0) - riadhAmt,
+                    depenses: parseFloat(d.total_diponce) || 0,
+                    net: parseFloat(d.recette_net) || 0,
                     tpe: parseFloat(d.tpe) || 0,
                     cheque: parseFloat(d.cheque_bancaire) || 0,
                     especes: parseFloat(d.espaces) || 0,
                     tickets: parseFloat(d.tickets_restaurant) || 0,
                 };
             });
-        } else {
+        }
+        else {
             // Aggregate by month
             const months: Record<string, any> = {};
             raw.forEach((d: any) => {
@@ -176,10 +168,9 @@ export default function StatistiquesPage() {
                         recette: 0, depenses: 0, net: 0, tpe: 0, cheque: 0, especes: 0, tickets: 0, count: 0
                     };
                 }
-                const riadhAmt = riadhByDate[d.date] || 0;
                 months[m].recette += parseFloat(d.recette_de_caisse) || 0;
-                months[m].depenses += (parseFloat(d.total_diponce) || 0) + riadhAmt;
-                months[m].net += (parseFloat(d.recette_net) || 0) - riadhAmt;
+                months[m].depenses += parseFloat(d.total_diponce) || 0;
+                months[m].net += parseFloat(d.recette_net) || 0;
                 months[m].tpe += parseFloat(d.tpe) || 0;
                 months[m].cheque += parseFloat(d.cheque_bancaire) || 0;
                 months[m].especes += parseFloat(d.espaces) || 0;
@@ -190,13 +181,42 @@ export default function StatistiquesPage() {
         }
     }, [data, aggregation]);
 
+    const riadhStatsData = useMemo(() => {
+        if (!data?.getInvoices) return [];
+        const raw = data.getInvoices;
+        const groups: Record<string, any> = {};
+
+        raw.forEach((inv: any) => {
+            const dateStr = inv.paid_date;
+            if (!dateStr) return;
+            const key = aggregation === 'day' ? dateStr : dateStr.substring(0, 7);
+            if (!groups[key]) {
+                groups[key] = {
+                    name: aggregation === 'day'
+                        ? new Date(dateStr).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
+                        : new Date(dateStr).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
+                    depenses: 0,
+                    fullDate: dateStr
+                };
+            }
+            groups[key].depenses += parseFloat(inv.amount) || 0;
+            if (!groups[key].details) groups[key].details = [];
+            groups[key].details.push({
+                supplier: inv.supplier_name,
+                amount: parseFloat(inv.amount) || 0
+            });
+        });
+
+        return Object.values(groups).sort((a: any, b: any) => a.fullDate.localeCompare(b.fullDate));
+    }, [data, aggregation]);
+
     const totals = useMemo(() => {
         if (data?.getPaymentStats) {
             const s = data.getPaymentStats;
             return {
                 recette: parseFloat(s.totalRecetteCaisse) || 0,
-                depenses: (parseFloat(s.totalExpenses) || 0) + (parseFloat(s.totalRiadhExpenses) || 0),
-                net: (parseFloat(s.totalRecetteNette) || 0) - (parseFloat(s.totalRiadhExpenses) || 0),
+                depenses: parseFloat(s.totalExpenses) || 0,
+                net: parseFloat(s.totalRecetteNette) || 0,
                 tpe: parseFloat(s.totalTPE) || 0,
                 cheque: parseFloat(s.totalCheque) || 0,
                 especes: parseFloat(s.totalCash) || 0,
@@ -230,14 +250,6 @@ export default function StatistiquesPage() {
 
         data.getChiffresByRange.forEach((d: any) => {
             processItems(JSON.parse(d.diponce || '[]'));
-        });
-
-        // Add Riadh's invoices
-        (data.getInvoices || []).forEach((inv: any) => {
-            const name = inv.supplier_name || 'Riadh Exp';
-            if (!excluded.includes(name.toUpperCase()) && name !== 'Riadh Exp') {
-                res[name] = (res[name] || 0) + (parseFloat(inv.amount) || 0);
-            }
         });
 
         return Object.entries(res).map(([name, value]) => ({ name, value }))
@@ -325,7 +337,6 @@ export default function StatistiquesPage() {
     const aggregatedExpensesDetailed = useMemo(() => {
         if (!data?.getChiffresByRange) return { data: [], suppliers: [], categoryGroups: [], colorMap: {} };
         let raw = data.getChiffresByRange;
-        let riadhRaw = data.getInvoices || [];
 
         // Separate categories by type
         const diversTotals: Record<string, number> = {};
@@ -370,11 +381,6 @@ export default function StatistiquesPage() {
             payrollTotals['TOUS EMPLOYÉS'] += parseFloat(s.total) || 0;
         });
 
-        // Add Riadh invoices to fournisseurs
-        riadhRaw.forEach((inv: any) => {
-            const name = inv.supplier_name || 'Riadh';
-            fournisseurTotals[name] = (fournisseurTotals[name] || 0) + (parseFloat(inv.amount) || 0);
-        });
 
         // Build ordered supplier list
         const orderedSuppliers: string[] = [];
@@ -456,16 +462,6 @@ export default function StatistiquesPage() {
             aggregated[key].total += extra + doublage + accompte + primes + restes;
         });
 
-        riadhRaw.forEach((inv: any) => {
-            const dStr = inv.paid_date;
-            if (!dStr) return;
-            const key = aggregation === 'day' ? dStr : dStr.substring(0, 7);
-            if (!aggregated[key]) return;
-            const name = inv.supplier_name || 'Riadh';
-            const amt = parseFloat(inv.amount) || 0;
-            aggregated[key][name] += amt;
-            aggregated[key].total += amt;
-        });
 
         // Build category groups for legend
         const categoryGroups: Array<{ title: string, items: string[] }> = [];
@@ -556,9 +552,6 @@ export default function StatistiquesPage() {
             const exps = JSON.parse(d.diponce || '[]');
             exps.forEach((e: any) => e.supplier && s.add(e.supplier));
         });
-        (data.getInvoices || []).forEach((inv: any) => {
-            if (inv.supplier_name) s.add(inv.supplier_name);
-        });
         return Array.from(s).sort();
     }, [data]);
 
@@ -648,9 +641,9 @@ export default function StatistiquesPage() {
                     {/* Top KPIs */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         {[
-                            { label: 'Recette Totale', val: totals.recette, icon: Wallet, color: 'text-green-700', bg: 'bg-green-50' },
-                            { label: 'Dépenses Totales', val: totals.depenses, icon: TrendingDown, color: 'text-red-700', bg: 'bg-red-50' },
-                            { label: 'Reste Nette', val: totals.net, icon: TrendingUp, color: 'text-blue-700', bg: 'bg-blue-50' },
+                            { label: 'Recette Totale', val: totals.recette, icon: Wallet, color: 'text-blue-700', bg: 'bg-blue-50' },
+                            { label: 'Dépenses', val: totals.depenses, icon: TrendingDown, color: 'text-red-700', bg: 'bg-red-50' },
+                            { label: 'Reste net', val: totals.net, icon: TrendingUp, color: 'text-green-700', bg: 'bg-green-50' },
                             { label: 'Moyenne Recette', val: totals.recette / (statsData.length || 1), icon: BarChart3, color: 'text-[#c69f6e]', bg: 'bg-[#f4ece4]' }
                         ].map((s, i) => (
                             <motion.div
@@ -679,7 +672,8 @@ export default function StatistiquesPage() {
                     <div className="bg-white p-4 md:p-8 rounded-[2rem] md:rounded-[2.5rem] luxury-shadow border border-[#e6dace]/50 relative overflow-hidden">
                         <div className="mb-10">
                             <h3 className="text-xl font-bold text-[#4a3426] flex items-center gap-2">
-                                <LineChartIcon className="text-[#c69f6e]" /> Evolution du CA & Rentabilité
+                                <LineChartIcon className="text-[#c69f6e]" /> Evolution du Journalier
+
                             </h3>
                             <p className="text-xs text-[#8c8279] mt-1">Analyse détaillée du flux de trésorerie sur la période sélectionnée</p>
                         </div>
@@ -743,16 +737,116 @@ export default function StatistiquesPage() {
                                         <RechartsTooltip
                                             contentStyle={{ backgroundColor: '#fff', borderRadius: '20px', border: 'none', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.15)', padding: '20px' }}
                                             cursor={{ stroke: '#c69f6e', strokeWidth: 2, strokeDasharray: '5 5' }}
+                                            itemSorter={(item) => {
+                                                const order: Record<string, number> = { 'Recette Totale': 1, 'Dépenses': 2, 'Reste net': 3 };
+                                                return order[item.name as string] || 99;
+                                            }}
                                         />
                                         <Legend verticalAlign="top" height={60} iconType="circle" wrapperStyle={{ paddingBottom: '20px', textTransform: 'uppercase', fontSize: '10px', fontWeight: 'bold' }} />
 
                                         <Bar dataKey="recette" name="Recette Totale" fill="#3b82f6" radius={[10, 10, 0, 0]} barSize={aggregation === 'day' ? 20 : 40} />
                                         <Area type="monotone" dataKey="depenses" name="Dépenses" stroke="#e63946" strokeWidth={2} fillOpacity={0} strokeDasharray="3 3" />
-                                        <Line type="monotone" dataKey="net" name="Bénéfice Net" stroke="#2d6a4f" strokeWidth={4} dot={{ r: 4, fill: '#2d6a4f', strokeWidth: 2, stroke: '#fff' }} />
+                                        <Line type="monotone" dataKey="net" name="Reste net" stroke="#2d6a4f" strokeWidth={4} dot={{ r: 4, fill: '#2d6a4f', strokeWidth: 2, stroke: '#fff' }} />
                                     </ComposedChart>
                                 </ResponsiveContainer>
                             )}
                         </div>
+                    </div>
+
+                    {/* Riadh Analytics Chart */}
+                    <div className="bg-white p-4 md:p-8 rounded-[2rem] md:rounded-[2.5rem] luxury-shadow border border-[#e6dace]/50 relative overflow-hidden">
+                        <div className="mb-10">
+                            <h3 className="text-xl font-bold text-[#4a3426] flex items-center gap-2">
+                                <LineChartIcon className="text-[#c69f6e]" /> Statistique Riadh
+                            </h3>
+                            <p className="text-xs text-[#8c8279] mt-1">Analyse détaillée des dépenses payées par Riadh</p>
+                        </div>
+
+                        <div className="h-[300px] md:h-[400px] lg:h-[450px] w-full">
+                            {loading ? (
+                                <div className="h-full flex flex-col items-center justify-center gap-4">
+                                    <Loader2 className="animate-spin text-[#c69f6e]" size={40} />
+                                    <p className="text-sm font-bold text-[#8c8279]">Chargement...</p>
+                                </div>
+                            ) : (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <ComposedChart data={riadhStatsData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0e6dd" />
+                                        <XAxis
+                                            dataKey="name"
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tick={(props) => {
+                                                const { x, y, payload } = props;
+                                                const dataPoint = riadhStatsData.find((d: any) => d.name === payload.value);
+                                                return (
+                                                    <g transform={`translate(${x},${y})`}>
+                                                        <text
+                                                            x={0}
+                                                            y={0}
+                                                            dy={10}
+                                                            textAnchor="middle"
+                                                            fill="#8c8279"
+                                                            fontSize={11}
+                                                            fontWeight="bold"
+                                                        >
+                                                            {payload.value}
+                                                        </text>
+                                                        {dataPoint && (
+                                                            <text
+                                                                x={0}
+                                                                y={0}
+                                                                dy={24}
+                                                                textAnchor="middle"
+                                                                fill="#e63946"
+                                                                fontSize={10}
+                                                                fontWeight="900"
+                                                            >
+                                                                {dataPoint.depenses.toLocaleString('fr-FR', { maximumFractionDigits: 0 })}
+                                                            </text>
+                                                        )}
+                                                    </g>
+                                                );
+                                            }}
+                                            height={60}
+                                            interval={aggregation === 'day' ? (riadhStatsData.length > 15 ? 2 : 0) : 0}
+                                        />
+                                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#8c8279', fontSize: 11 }} />
+                                        <RechartsTooltip
+                                            cursor={{ stroke: '#c69f6e', strokeWidth: 2, strokeDasharray: '5 5' }}
+                                            content={({ active, payload, label }) => {
+                                                if (active && payload && payload.length) {
+                                                    const data = payload[0].payload;
+                                                    return (
+                                                        <div className="bg-white p-4 rounded-2xl shadow-2xl border border-[#e6dace] min-w-[250px]">
+                                                            <p className="text-[10px] font-black text-[#8c8279] uppercase tracking-widest mb-3 pb-2 border-b border-[#f4ece4]">{label}</p>
+                                                            <div className="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+                                                                {data.details?.map((detail: any, idx: number) => (
+                                                                    <div key={idx} className="flex justify-between items-center gap-4">
+                                                                        <span className="text-[11px] font-bold text-[#4a3426] truncate max-w-[150px]">{detail.supplier}</span>
+                                                                        <span className="text-[11px] font-black text-red-500">{detail.amount.toLocaleString('fr-FR', { minimumFractionDigits: 3 })} DT</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                            <div className="mt-3 pt-2 border-t border-[#f4ece4] flex justify-between">
+                                                                <span className="text-[10px] font-black text-[#4a3426] uppercase">Total</span>
+                                                                <span className="text-[10px] font-black text-red-600 font-bold">{data.depenses.toLocaleString('fr-FR', { minimumFractionDigits: 3 })} DT</span>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+                                                return null;
+                                            }}
+                                        />
+                                        <Legend verticalAlign="top" height={60} iconType="circle" wrapperStyle={{ paddingBottom: '20px', textTransform: 'uppercase', fontSize: '10px', fontWeight: 'bold' }} />
+
+                                        <Area type="monotone" dataKey="depenses" name="Dépenses Riadh" stroke="#e63946" strokeWidth={2} fillOpacity={0.1} fill="#e63946" legendType="none" />
+                                        <Bar dataKey="depenses" name="Dépenses Riadh" fill="#e63946" radius={[10, 10, 0, 0]} barSize={aggregation === 'day' ? 30 : 50} />
+                                    </ComposedChart>
+                                </ResponsiveContainer>
+                            )}
+                        </div>
+
                     </div>
 
                     {/* Multi-charts Row: Suppliers & Divers */}
@@ -1021,9 +1115,9 @@ export default function StatistiquesPage() {
                                 <thead className="bg-[#fcfaf8] border-b border-[#e6dace]">
                                     <tr>
                                         <th className="px-2 md:px-4 xl:px-8 py-4 md:py-5 text-[10px] md:text-xs font-black text-[#8c8279] uppercase tracking-widest">Période</th>
-                                        <th className="px-2 md:px-4 xl:px-8 py-4 md:py-5 text-[10px] md:text-xs font-black text-[#8c8279] uppercase tracking-widest text-right">Recette</th>
+                                        <th className="px-2 md:px-4 xl:px-8 py-4 md:py-5 text-[10px] md:text-xs font-black text-[#8c8279] uppercase tracking-widest text-right">Recette Totale</th>
                                         <th className="px-2 md:px-4 xl:px-8 py-4 md:py-5 text-[10px] md:text-xs font-black text-[#8c8279] uppercase tracking-widest text-right">Dépenses</th>
-                                        <th className="px-2 md:px-4 xl:px-8 py-4 md:py-5 text-[10px] md:text-xs font-black text-[#8c8279] uppercase tracking-widest text-right">Net</th>
+                                        <th className="px-2 md:px-4 xl:px-8 py-4 md:py-5 text-[10px] md:text-xs font-black text-[#8c8279] uppercase tracking-widest text-right">Reste net</th>
                                         <th className="px-2 md:px-4 xl:px-8 py-4 md:py-5 text-[10px] md:text-xs font-black text-[#8c8279] uppercase tracking-widest text-right">Espèces</th>
                                         <th className="px-2 md:px-4 xl:px-8 py-4 md:py-5 text-[10px] md:text-xs font-black text-[#8c8279] uppercase tracking-widest text-right">Chèque</th>
                                         <th className="px-2 md:px-4 xl:px-8 py-4 md:py-5 text-[10px] md:text-xs font-black text-[#8c8279] uppercase tracking-widest text-right">TPE (Carte)</th>
@@ -1037,7 +1131,7 @@ export default function StatistiquesPage() {
                                         return (
                                             <tr key={i} className="border-b border-[#f4ece4] hover:bg-[#fcfaf8] transition-colors">
                                                 <td className="px-2 md:px-4 xl:px-8 py-4 md:py-5 text-[10px] md:text-xs font-bold text-[#4a3426]">{d.name}</td>
-                                                <td className="px-2 md:px-4 xl:px-8 py-4 md:py-5 text-[10px] md:text-xs font-bold text-right">{d.recette.toLocaleString()}</td>
+                                                <td className="px-2 md:px-4 xl:px-8 py-4 md:py-5 text-[10px] md:text-xs font-bold text-right text-blue-700">{d.recette.toLocaleString()}</td>
                                                 <td className="px-2 md:px-4 xl:px-8 py-4 md:py-5 text-[10px] md:text-xs font-bold text-right text-red-500">{d.depenses.toLocaleString()}</td>
                                                 <td className="px-2 md:px-4 xl:px-8 py-4 md:py-5 text-[10px] md:text-xs font-black text-right text-green-700">{d.net.toLocaleString()}</td>
                                                 <td className="px-2 md:px-4 xl:px-8 py-4 md:py-5 text-[10px] md:text-xs font-bold text-right opacity-60">{d.especes.toLocaleString()}</td>

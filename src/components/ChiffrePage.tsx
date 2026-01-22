@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useQuery, useMutation, gql } from '@apollo/client';
 import {
     LayoutDashboard, TrendingDown, TrendingUp, Calendar, ChevronLeft, ChevronRight,
@@ -273,16 +273,22 @@ const EntryModal = ({ isOpen, onClose, onSubmit, type, employees = [], initialDa
     const [nbJours, setNbJours] = useState('');
     const [showDropdown, setShowDropdown] = useState(false);
 
+    const amountRef = useRef<HTMLInputElement>(null);
+    const nbJoursRef = useRef<HTMLInputElement>(null);
+    const searchRef = useRef<HTMLInputElement>(null);
+
     useEffect(() => {
         if (isOpen) {
             if (initialData) {
                 setSearch(initialData.username);
                 setAmount(initialData.montant);
                 setNbJours(initialData.nb_jours || '');
+                setTimeout(() => amountRef.current?.focus(), 100);
             } else {
                 setSearch('');
                 setAmount('');
                 setNbJours('');
+                setTimeout(() => searchRef.current?.focus(), 100);
             }
         }
     }, [isOpen, initialData]);
@@ -329,6 +335,7 @@ const EntryModal = ({ isOpen, onClose, onSubmit, type, employees = [], initialDa
                                 <div className="relative">
                                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[#bba282]"><User size={18} /></div>
                                     <input
+                                        ref={searchRef}
                                         type="text"
                                         placeholder="Rechercher un employé..."
                                         value={search ?? ''}
@@ -336,13 +343,24 @@ const EntryModal = ({ isOpen, onClose, onSubmit, type, employees = [], initialDa
                                         onFocus={() => setShowDropdown(true)}
                                         onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
                                         className="w-full h-14 bg-[#fcfaf8] border border-[#e6dace] rounded-2xl pl-12 pr-4 font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all"
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && filteredEmployees.length === 1) {
+                                                setSearch(filteredEmployees[0].name);
+                                                setShowDropdown(false);
+                                                amountRef.current?.focus();
+                                            }
+                                        }}
                                     />
                                     {showDropdown && search && filteredEmployees.length > 0 && (
                                         <div className="absolute left-0 right-0 top-full mt-2 bg-white rounded-2xl shadow-xl border border-[#e6dace] max-h-48 overflow-y-auto z-[410] custom-scrollbar">
                                             {filteredEmployees.map((emp: any) => (
                                                 <button
                                                     key={emp.id}
-                                                    onClick={() => { setSearch(emp.name); setShowDropdown(false); }}
+                                                    onClick={() => {
+                                                        setSearch(emp.name);
+                                                        setShowDropdown(false);
+                                                        setTimeout(() => amountRef.current?.focus(), 10);
+                                                    }}
                                                     className="w-full text-left px-5 py-3 hover:bg-[#fcfaf8] font-bold text-[#4a3426] border-b border-[#f9f6f2] last:border-0 transition-colors"
                                                 >
                                                     {emp.name}
@@ -358,6 +376,7 @@ const EntryModal = ({ isOpen, onClose, onSubmit, type, employees = [], initialDa
                                 <div className="relative">
                                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[#bba282] font-black">DT</div>
                                     <input
+                                        ref={amountRef}
                                         type="number"
                                         placeholder="0.000"
                                         step="0.001"
@@ -366,6 +385,16 @@ const EntryModal = ({ isOpen, onClose, onSubmit, type, employees = [], initialDa
                                         onFocus={(e) => { if (amount === '0') setAmount(''); }}
                                         onChange={(e) => setAmount(e.target.value)}
                                         className="w-full h-16 bg-[#fcfaf8] border border-[#e6dace] rounded-2xl pl-14 pr-4 font-black text-3xl text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all min-w-[220px]"
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                if (type === 'restes_salaires') {
+                                                    nbJoursRef.current?.focus();
+                                                } else if (search && amount && parseFloat(amount) > 0) {
+                                                    onSubmit(type, search, amount, nbJours, initialData?.id);
+                                                    onClose();
+                                                }
+                                            }
+                                        }}
                                     />
                                 </div>
                             </div>
@@ -377,6 +406,7 @@ const EntryModal = ({ isOpen, onClose, onSubmit, type, employees = [], initialDa
                                 <div className="relative">
                                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[#bba282] font-black"><Calendar size={20} /></div>
                                     <input
+                                        ref={nbJoursRef}
                                         type="number"
                                         placeholder="0"
                                         step="0.5"
@@ -385,6 +415,12 @@ const EntryModal = ({ isOpen, onClose, onSubmit, type, employees = [], initialDa
                                         onFocus={(e) => { if (nbJours === '0') setNbJours(''); }}
                                         onChange={(e) => setNbJours(e.target.value)}
                                         className="w-full h-14 bg-[#fcfaf8] border border-[#e6dace] rounded-2xl pl-12 pr-4 font-black text-2xl text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all"
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && search && amount && parseFloat(amount) > 0) {
+                                                onSubmit(type, search, amount, nbJours, initialData?.id);
+                                                onClose();
+                                            }
+                                        }}
                                     />
                                 </div>
                             </div>

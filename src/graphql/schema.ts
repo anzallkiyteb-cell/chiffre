@@ -89,6 +89,7 @@ export const typeDefs = `#graphql
     origin: String
     category: String
     updated_at: String
+    details: String
   }
 
   type BankDeposit {

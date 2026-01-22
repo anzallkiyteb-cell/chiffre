@@ -180,6 +180,7 @@ const GET_INVOICES = gql`
       doc_number
       payer
       category
+      details
     }
     getSuppliers {
       id
@@ -946,6 +947,9 @@ export default function FacturationPage() {
                                                     <div className="p-6">
                                                         <div className="flex flex-col gap-2 mb-4">
                                                             <h3 className="font-black text-lg sm:text-2xl text-[#4a3426] tracking-tight break-words">{inv.supplier_name}</h3>
+                                                            {inv.details && (
+                                                                <p className="text-xs text-[#8c8279] font-medium -mt-1 break-words">{inv.details}</p>
+                                                            )}
 
                                                             <div className="flex flex-wrap items-center gap-3">
                                                                 <div className="text-xl sm:text-2xl font-black text-red-600 whitespace-nowrap">
@@ -1118,29 +1122,35 @@ export default function FacturationPage() {
                                                     <div className="p-6">
                                                         <div className="flex flex-col gap-2 mb-4">
                                                             <h3 className="font-black text-lg sm:text-2xl text-[#4a3426] tracking-tight opacity-70 break-words">{inv.supplier_name}</h3>
+                                                            {inv.details && (
+                                                                <p className="text-xs text-[#8c8279] font-medium -mt-1 break-words">{inv.details}</p>
+                                                            )}
 
                                                             <div className="flex flex-wrap items-center gap-3">
                                                                 <div className="text-xl sm:text-2xl font-black text-green-700 whitespace-nowrap">
                                                                     {parseFloat(inv.amount || '0').toFixed(3)}
                                                                     <span className="text-[10px] font-bold text-green-600/60 uppercase ml-1">DT</span>
                                                                 </div>
-                                                                <div className="flex items-center gap-2 bg-white/60 px-3 py-1.5 rounded-lg border border-green-400/20 shadow-sm">
-                                                                    <Calendar size={12} className="text-green-600" />
-                                                                    <span className="text-[10px] font-black uppercase tracking-widest text-green-600/70">Reçu le:</span>
-                                                                    <span className="text-[10px] font-black text-green-900">{new Date(inv.date).toLocaleDateString('fr-FR')}</span>
+                                                                <div className="flex flex-col gap-1.5">
+                                                                    <div className="flex items-center gap-2 bg-white/60 px-3 py-1.5 rounded-lg border border-green-400/20 shadow-sm">
+                                                                        <Calendar size={12} className="text-green-600" />
+                                                                        <span className="text-[10px] font-black uppercase tracking-widest text-green-600/70">Reçu le:</span>
+                                                                        <span className="text-[10px] font-black text-green-900">{new Date(inv.date).toLocaleDateString('fr-FR')}</span>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2 bg-white/60 px-3 py-1.5 rounded-lg border border-green-400/20 shadow-sm">
+                                                                        <Calendar size={12} className="text-green-600" />
+                                                                        <span className="text-[10px] font-black uppercase tracking-widest text-green-600/70">Réglé le:</span>
+                                                                        <span className="text-[10px] font-black text-green-900">{new Date(inv.paid_date).toLocaleDateString('fr-FR')}</span>
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         </div>
 
                                                         <div className="bg-green-100 border border-green-200 rounded-2xl p-4 mb-4">
-                                                            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-[0.1em] text-green-700">
+                                                            <div className="flex items-center text-[10px] font-black uppercase tracking-[0.1em] text-green-700">
                                                                 <div className="flex items-center gap-2">
                                                                     <div className="w-1.5 h-1.5 rounded-full bg-green-600"></div>
                                                                     {inv.payment_method}
-                                                                </div>
-                                                                <div className="flex items-center gap-2 bg-white/80 px-3 py-1.5 rounded-lg border border-green-700/20">
-                                                                    <span className="text-green-600/50 font-bold uppercase text-[9px]">Réglé le:</span>
-                                                                    <span className="text-green-800">{new Date(inv.paid_date).toLocaleDateString('fr-FR')}</span>
                                                                 </div>
                                                             </div>
                                                         </div>

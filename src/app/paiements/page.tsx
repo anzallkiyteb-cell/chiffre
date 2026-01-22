@@ -312,6 +312,7 @@ const GET_PAYMENT_DATA = gql`
       status
       doc_type
       doc_number
+      details
     }
     getChiffresByRange(startDate: $startDate, endDate: $endDate) {
       date
@@ -432,6 +433,7 @@ const GET_INVOICES = gql`
       origin
       category
       updated_at
+      details
     }
   }
 `;
@@ -1076,7 +1078,8 @@ export default function PaiementsPage() {
                 category: inv.category,
                 date: inv.paid_date || inv.date,
                 doc_date: inv.date,
-                paid_date: inv.paid_date
+                paid_date: inv.paid_date,
+                details: inv.details
             };
             if (inv.category === 'Divers') agg.divers.push(item);
             else if (inv.category === 'Administratif') agg.administratif.push(item);
@@ -3880,12 +3883,15 @@ export default function PaiementsPage() {
                                                     <div className="mb-6">
                                                         <div className="flex flex-col gap-1 mb-4">
                                                             <p className="text-[10px] font-black text-[#c69f6e] uppercase tracking-widest opacity-70">
-                                                                {item.details || item.designation || (isRestesSalaires ? 'Reste Salaire' : 'Dépense')}
+                                                                {isRestesSalaires ? 'Reste Salaire' : (item.doc_date ? `LE ${new Date(item.doc_date).toLocaleDateString('fr-FR')}` : 'Dépense')}
                                                             </p>
                                                             <div className="flex items-baseline gap-2">
                                                                 <span className="text-4xl font-black text-[#4a3426] tracking-tighter">{maskAmount(item.amount)}</span>
                                                                 <span className="text-sm font-black text-[#c69f6e] uppercase tracking-widest">DT</span>
                                                             </div>
+                                                            {item.details && (
+                                                                <p className="text-xs text-[#8c8279] font-medium break-words mt-1">{item.details}</p>
+                                                            )}
                                                         </div>
 
                                                         <div className="space-y-1 bg-[#fcfaf8] p-3 rounded-xl border border-[#e6dace]/30">
