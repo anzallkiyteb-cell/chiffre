@@ -495,7 +495,9 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
         prime: 'Liste des Primes',
         divers: 'Dépenses Divers',
         admin: 'Dépenses Administratif',
-        supplier: 'Dépenses Fournisseur'
+        supplier: 'Dépenses Fournisseur',
+        offres: 'Historique des Offres',
+        restes_salaires: 'Restes Salaires'
     };
 
     const detailsKeyMap: any = {
@@ -506,7 +508,8 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
         divers: 'diponce_divers',
         admin: 'diponce_admin',
         supplier: 'diponce',
-        restes_salaires: 'restes_salaires_details'
+        restes_salaires: 'restes_salaires_details',
+        offres: 'offres_data'
     };
 
     // Grouping logic
@@ -515,7 +518,7 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
 
     historyData?.getChiffresByRange?.forEach((chiffre: any) => {
         let details = [];
-        const isJsonType = ['divers', 'admin', 'supplier'].includes(type);
+        const isJsonType = ['divers', 'admin', 'supplier', 'offres'].includes(type);
 
         if (isJsonType) {
             try {
@@ -524,7 +527,7 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
             // Normalize for logic reuse (some use 'supplier', some 'designation')
             details = details.map((d: any) => ({
                 ...d,
-                username: d.designation || d.supplier,
+                username: d.designation || d.supplier || d.name,
                 montant: d.amount
             }));
         } else {
@@ -767,10 +770,11 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     const [doublagesList, setDoublagesList] = useState<{ id?: number, username: string, montant: string, created_at?: string }[]>([]);
     const [extrasList, setExtrasList] = useState<{ id?: number, username: string, montant: string, created_at?: string }[]>([]);
     const [primesList, setPrimesList] = useState<{ id?: number, username: string, montant: string, created_at?: string }[]>([]);
-    const [offresList, setOffresList] = useState<{ name: string, amount: string }[]>([]);
+    const [offresList, setOffresList] = useState<{ name: string, amount: string, invoices: string[] }[]>([]);
     const [isOffresExpanded, setIsOffresExpanded] = useState(false);
     const [viewingPhoto, setViewingPhoto] = useState<string | null>(null);
     const [photoZoom, setPhotoZoom] = useState(1);
+    const [photoRotation, setPhotoRotation] = useState(0);
     const [caissePhotos, setCaissePhotos] = useState<string[]>([]);
     const [restesSalairesList, setRestesSalairesList] = useState<{ id?: number, username: string, montant: string, nb_jours?: number, created_at?: string }[]>([]);
 
@@ -792,7 +796,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     const [employeeDepartment, setEmployeeDepartment] = useState('');
     const [showDeptSuggestions, setShowDeptSuggestions] = useState(false);
     const [viewingInvoices, setViewingInvoices] = useState<string[] | null>(null);
-    const [viewingInvoicesTarget, setViewingInvoicesTarget] = useState<{ index: number, type: 'expense' | 'divers' } | null>(null);
+    const [viewingInvoicesTarget, setViewingInvoicesTarget] = useState<{ index: number, type: 'expense' | 'divers' | 'offres' } | null>(null);
     const [selectedInvoiceIndex, setSelectedInvoiceIndex] = useState<'all' | number>('all');
     const [imgZoom, setImgZoom] = useState(1);
     const [imgRotation, setImgRotation] = useState(0);
@@ -800,6 +804,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     const resetView = () => {
         setImgZoom(1);
         setImgRotation(0);
+        setSelectedInvoiceIndex(0);
     };
 
     useEffect(() => {
@@ -879,7 +884,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                 setExtra(c.extra || '0');
                 setPrimes(c.primes || '0');
                 setOffres(c.offres || '0');
-                setOffresList(JSON.parse(c.offres_data || '[]'));
+                setOffresList(JSON.parse(c.offres_data || '[]').map((o: any) => ({ ...o, invoices: o.invoices || [] })));
                 // Handle both old single photo format and new array format
                 try {
                     const parsed = JSON.parse(c.caisse_photo || '[]');
@@ -937,7 +942,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                         setPrimesList(d.primesList);
                         setRestesSalairesList(d.restesSalairesList || []);
                         setOffres(d.offres || '0');
-                        setOffresList(d.offresList || []);
+                        setOffresList((d.offresList || []).map((o: any) => ({ ...o, invoices: o.invoices || [] })));
                         setExpenses(d.expenses.map((e: any) => ({ ...e, details: e.details || '' })));
                         setExpensesDivers((d.expensesDivers || []).map((dv: any) => ({ ...dv, details: dv.details || '' })));
                         setExpensesAdmin(d.expensesAdmin || [
@@ -987,32 +992,54 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
 
         const timer = setTimeout(() => {
             const state = {
-                recetteCaisse,
-                expenses,
-                tpe,
-                tpe2,
-                cheque,
-                especes,
-                ticketsRestaurant,
-                extra,
-                primes,
-                avancesList,
-                doublagesList,
-                extrasList,
-                primesList,
-                restesSalairesList,
-                expensesDivers,
-                expensesAdmin,
-                offres,
-                offresList,
-                caissePhotos
+                recetteCaisse, expenses, tpe, tpe2, cheque, especes, ticketsRestaurant,
+                extra, primes, avancesList, doublagesList, extrasList, primesList,
+                restesSalairesList, expensesDivers, expensesAdmin, offres, offresList, caissePhotos
             };
             const draft = {
                 date,
                 timestamp: new Date().toISOString(),
                 data: state
             };
-            localStorage.setItem(`chiffre_draft_${date}`, JSON.stringify(draft));
+
+            try {
+                // Pre-emptive Cleanup: Remove other dates' drafts to free up space
+                Object.keys(localStorage).forEach(key => {
+                    if (key.startsWith('chiffre_draft_') && key !== `chiffre_draft_${date}`) {
+                        localStorage.removeItem(key);
+                    }
+                });
+
+                localStorage.setItem(`chiffre_draft_${date}`, JSON.stringify(draft));
+            } catch (e) {
+                console.warn("LocalStorage Quota Exceeded, attempting safe save (photos removed)...");
+
+                // Absolute Safe Save: strictly rebuild the object to ensure NO large strings remain
+                const safeState = {
+                    recetteCaisse,
+                    tpe, tpe2, cheque, especes, ticketsRestaurant,
+                    extra, primes, offres,
+                    avancesList, doublagesList, extrasList, primesList, restesSalairesList,
+                    expensesAdmin,
+                    // Strip all photos from these
+                    expenses: expenses.map(e => ({ ...e, invoices: [], photo_cheque: '', photo_verso: '' })),
+                    expensesDivers: expensesDivers.map(d => ({ ...d, invoices: [] })),
+                    offresList: offresList.map(o => ({ ...o, invoices: [] })),
+                    caissePhotos: []
+                };
+
+                try {
+                    localStorage.setItem(`chiffre_draft_${date}`, JSON.stringify({
+                        date,
+                        timestamp: new Date().toISOString(),
+                        data: safeState,
+                        isSafeSave: true
+                    }));
+                    console.log("Safe draft saved successfully.");
+                } catch (innerError) {
+                    console.error("Critical: LocalStorage completely exhausted.", innerError);
+                }
+            }
         }, 500); // Debounce save
 
         return () => clearTimeout(timer);
@@ -1256,7 +1283,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
 
     const handleAddOffre = () => {
         if (isLocked) return;
-        setOffresList([...offresList, { name: '', amount: '0' }]);
+        setOffresList([...offresList, { name: '', amount: '0', invoices: [] }]);
         setHasInteracted(true);
     };
 
@@ -1321,6 +1348,10 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             const list = [...expensesDivers];
             list[viewingInvoicesTarget.index].invoices = newInvoices;
             setExpensesDivers(list);
+        } else if (viewingInvoicesTarget.type === 'offres') {
+            const list = [...offresList];
+            list[viewingInvoicesTarget.index].invoices = newInvoices;
+            setOffresList(list);
         } else {
             const list = [...expenses];
             list[viewingInvoicesTarget.index].invoices = newInvoices;
@@ -1335,7 +1366,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         const files = e.target.files;
         if (!files) return;
 
-        if (type === 'invoice') {
+        if (type === 'invoice' || (type as any) === 'offres') {
             const loaders = Array.from(files).map(file => {
                 return new Promise<string>((resolve) => {
                     const reader = new FileReader();
@@ -1344,16 +1375,22 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                 });
             });
             const base64s = await Promise.all(loaders);
-            if (type === 'invoice') {
+            if (type === 'invoice' || (type as any) === 'offres') {
                 if (isDivers === true) {
                     const newDivers = [...expensesDivers];
                     newDivers[index].invoices = [...newDivers[index].invoices, ...base64s];
                     setExpensesDivers(newDivers);
+                } else if ((type as any) === 'offres') {
+                    const newList = [...offresList];
+                    newList[index].invoices = [...(newList[index].invoices || []), ...base64s];
+                    setOffresList(newList);
                 } else {
                     const newExpenses = [...expenses];
                     newExpenses[index].invoices = [...newExpenses[index].invoices, ...base64s];
                     setExpenses(newExpenses);
                 }
+                setToast({ msg: `${base64s.length} photo(s) ajoutée(s)`, type: 'success' });
+                setTimeout(() => setToast(null), 3000);
             }
         } else {
             const file = files[0];
@@ -1434,6 +1471,33 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             setToast({ msg: "Erreur lors de l'enregistrement", type: 'error' });
             setTimeout(() => setToast(null), 3000);
         }
+    };
+
+    const handleUnlock = async () => {
+        if (role !== 'admin') {
+            setToast({ msg: "Seul l'admin peut déverrouiller une session", type: 'error' });
+            setTimeout(() => setToast(null), 3000);
+            return;
+        }
+
+        setShowConfirm({
+            type: 'unlock',
+            title: 'Déverrouiller',
+            message: 'Voulez-vous vraiment déverrouiller cette session ? Elle sera modifiable à nouveau.',
+            color: 'green',
+            onConfirm: async () => {
+                try {
+                    await unlockChiffre({ variables: { date } });
+                    setToast({ msg: 'Session déverrouillée avec succès', type: 'success' });
+                    setTimeout(() => setToast(null), 3000);
+                    refetchChiffre();
+                } catch (e) {
+                    console.error(e);
+                    setToast({ msg: "Erreur lors du déverrouillage", type: 'error' });
+                    setTimeout(() => setToast(null), 3000);
+                }
+            }
+        });
     };
 
     // Suppliers for dropdown
@@ -1517,6 +1581,14 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                     </h2>
 
                     <div className="flex items-center gap-4 ml-auto">
+                        {isLocked && role === 'admin' && (
+                            <button
+                                onClick={handleUnlock}
+                                className="h-10 px-6 rounded-xl bg-[#2d6a4f] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#1b4332] transition-all flex items-center gap-2 shadow-lg shadow-[#2d6a4f]/20"
+                            >
+                                <Unlock size={14} /> Déverrouiller
+                            </button>
+                        )}
                         {date && (
                             <div className="flex items-center gap-2">
                                 <button
@@ -1572,8 +1644,18 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     <div className="flex items-center justify-center md:justify-start gap-3">
                                         <div className="text-[#2d6a4f] text-[10px] md:text-xs font-black uppercase tracking-[0.4em] opacity-40">Session du</div>
                                         {isLocked && (
-                                            <div className="flex items-center gap-1.5 text-red-600 text-[10px] font-black uppercase tracking-widest">
-                                                <LockIcon size={12} /> Verrouillée
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex items-center gap-1.5 text-red-600 text-[10px] font-black uppercase tracking-widest">
+                                                    <LockIcon size={12} /> Verrouillée
+                                                </div>
+                                                {role === 'admin' && (
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleUnlock(); }}
+                                                        className="px-3 py-1.5 rounded-lg bg-green-500/10 text-green-600 text-[9px] font-black uppercase tracking-widest hover:bg-green-500/20 transition-all flex items-center gap-1.5"
+                                                    >
+                                                        <Unlock size={10} /> Déverrouiller
+                                                    </button>
+                                                )}
                                             </div>
                                         )}
                                     </div>
@@ -1726,17 +1808,18 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                         <div className="w-12 h-12 rounded-2xl bg-[#c69f6e]/10 flex items-center justify-center text-[#c69f6e]">
                                             <Tag size={24} />
                                         </div>
-                                        <div>
+                                        <div className="flex items-center gap-3">
                                             <h3 className="text-lg font-black text-[#4a3426] uppercase tracking-tight">Offres</h3>
-                                            {!isOffresExpanded && (
-                                                <div className="flex items-baseline gap-2 mt-1">
-                                                    <span className="text-xl font-black text-[#4a3426]">{parseFloat(offres).toFixed(3)}</span>
-                                                    <span className="text-xs font-bold text-[#c69f6e]">DT</span>
-                                                </div>
-                                            )}
-                                            {isOffresExpanded && (
-                                                <p className="text-[10px] font-black text-[#bba282] uppercase tracking-[0.2em]">Montant des offres (Informationnel)</p>
-                                            )}
+                                            <div
+                                                className="bg-[#f2efe9] text-[#a67c52] px-3 py-1 rounded-xl font-black text-lg cursor-pointer hover:bg-[#e6dace] transition-colors flex items-center gap-1.5"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setShowHistoryModal({ type: 'offres' });
+                                                }}
+                                            >
+                                                <span>{parseFloat(offres).toFixed(3)}</span>
+                                                <span className="text-[10px] opacity-70">DT</span>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -1757,14 +1840,6 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                             className="overflow-hidden"
                                         >
                                             <div className="pt-6 border-t border-[#e6dace]/50 mt-4 space-y-4">
-                                                <div
-                                                    className="flex justify-between items-center bg-[#fcfaf8] p-3 rounded-2xl border border-[#e6dace]/50 hover:bg-[#f0faf5] hover:border-[#2d6a4f]/30 transition-all cursor-pointer group/total"
-                                                    onClick={() => setShowHistoryModal({ isOpen: true, type: 'offres' })}
-                                                >
-                                                    <span className="text-xs font-black text-[#8c8279] uppercase tracking-widest pl-2 group-hover/total:text-[#2d6a4f]">Total Offres</span>
-                                                    <span className="text-2xl font-black text-[#4a3426]">{parseFloat(offres).toFixed(3)} <span className="text-sm text-[#c69f6e]">DT</span></span>
-                                                </div>
-
                                                 <div className="flex justify-end">
                                                     <button
                                                         onClick={(e) => {
@@ -1790,20 +1865,55 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                                 onChange={(e) => handleOffresChange(index, 'name', e.target.value)}
                                                                 className={`flex-1 min-w-[120px] bg-white border border-[#e6dace] rounded-xl h-12 px-4 font-bold text-[#4a3426] outline-none focus:border-[#c69f6e] ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
                                                             />
-                                                            <div className="flex items-center gap-2 w-full md:w-auto shrink-0 justify-end">
-                                                                <div className="relative w-full md:w-32 lg:w-44">
-                                                                    <input
-                                                                        type="number"
-                                                                        step="0.001"
-                                                                        value={offre.amount ?? ''}
-                                                                        disabled={isLocked}
-                                                                        onFocus={(e) => { if (offre.amount === '0') handleOffresChange(index, 'amount', ''); }}
-                                                                        onBlur={(e) => { if (offre.amount === '') handleOffresChange(index, 'amount', '0'); }}
-                                                                        onChange={(e) => handleOffresChange(index, 'amount', e.target.value)}
-                                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 pl-8 md:pl-8 pr-4 font-black text-lg outline-none focus:border-[#c69f6e] text-center ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
-                                                                    />
-                                                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[#bba282] text-[10px] font-black">DT</span>
+                                                            <div className="relative w-full md:w-32 lg:w-44 shrink-0">
+                                                                <input
+                                                                    type="number"
+                                                                    step="0.001"
+                                                                    value={offre.amount ?? ''}
+                                                                    disabled={isLocked}
+                                                                    onFocus={(e) => { if (offre.amount === '0') handleOffresChange(index, 'amount', ''); }}
+                                                                    onBlur={(e) => { if (offre.amount === '') handleOffresChange(index, 'amount', '0'); }}
+                                                                    onChange={(e) => handleOffresChange(index, 'amount', e.target.value)}
+                                                                    className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 pl-8 md:pl-8 pr-4 font-black text-lg outline-none focus:border-[#c69f6e] text-center ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                                />
+                                                                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[#bba282] text-[10px] font-black">DT</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1 w-full md:w-auto shrink-0 justify-end">
+                                                                <div className="flex items-center gap-1">
+                                                                    {offre.invoices && offre.invoices.length > 0 && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                setViewingInvoices(offre.invoices);
+                                                                                setViewingInvoicesTarget({ index, type: 'offres' });
+                                                                                setSelectedInvoiceIndex(0);
+                                                                                setImgZoom(1);
+                                                                                setImgRotation(0);
+                                                                            }}
+                                                                            className="h-12 w-12 flex items-center justify-center gap-2 rounded-xl bg-[#2d6a4f] text-white hover:bg-[#1f4b36] transition-all shadow-sm"
+                                                                        >
+                                                                            <Eye size={16} />
+                                                                            <span className="text-[10px] font-black">{offre.invoices.length}</span>
+                                                                        </button>
+                                                                    )}
+
+                                                                    {!isLocked && (
+                                                                        <label
+                                                                            className={`h-12 ${offre.invoices && offre.invoices.length > 0 ? 'w-12 text-blue-500 border-blue-200 hover:bg-blue-50' : 'w-12 xl:w-24 border-[#c69f6e]/30 text-[#c69f6e] hover:bg-[#c69f6e]/5 hover:border-[#c69f6e]'} rounded-xl border-2 border-dashed flex items-center justify-center gap-2 cursor-pointer transition-all relative text-[10px]`}
+                                                                        >
+                                                                            <UploadCloud size={16} />
+                                                                            {(!offre.invoices || offre.invoices.length === 0) && <span className="font-black uppercase tracking-widest hidden xl:inline">Photo</span>}
+                                                                            <input
+                                                                                type="file"
+                                                                                multiple
+                                                                                accept="image/*,.pdf"
+                                                                                className="hidden"
+                                                                                onChange={(e) => handleFileUpload(index, e, 'offres' as any)}
+                                                                            />
+                                                                        </label>
+                                                                    )}
                                                                 </div>
+
                                                                 <button
                                                                     onClick={() => handleRemoveOffre(index)}
                                                                     disabled={isLocked}
@@ -1853,7 +1963,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     {expenses.map((expense, index) => (
                                         <div key={index} className={`group flex flex-col p-2 rounded-xl transition-all border ${expense.isFromFacturation ? 'bg-[#f0faf5]/50 border-[#d1e7dd]' : 'hover:bg-[#f9f6f2] border-transparent hover:border-[#e6dace]'}`}>
                                             <div className="flex flex-col md:flex-row items-center gap-2 w-full">
-                                                <div className="w-full md:w-28 lg:w-36 xl:w-48 relative shrink-0">
+                                                <div className="w-full md:w-28 lg:w-36 xl:w-36 relative shrink-0">
                                                     <input
                                                         type="number"
                                                         step="0.001"
@@ -1863,7 +1973,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         onWheel={(e) => e.currentTarget.blur()}
                                                         onFocus={(e) => { if (expense.amount === '0') handleDetailChange(index, 'amount', ''); }}
                                                         onChange={(e) => handleDetailChange(index, 'amount', e.target.value)}
-                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-14 pl-7 md:pl-6 pr-10 md:pr-10 xl:pr-16 font-black text-lg outline-none focus:border-[#c69f6e] text-center ${isLocked ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-14 pl-7 md:pl-6 pr-10 md:pr-10 xl:pr-10 font-black text-lg outline-none focus:border-[#c69f6e] text-center ${isLocked ? 'opacity-70 cursor-not-allowed' : ''}`}
                                                     />
                                                     <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[#bba282] text-[9px] font-black">DT</span>
                                                     <button
@@ -1938,7 +2048,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         setTempDetails(expense.details || '');
                                                         setShowDetailsModal(true);
                                                     }}
-                                                    className={`h-12 xl:w-32 w-12 rounded-xl border flex items-center justify-center gap-2 transition-all shrink-0 ${expense.details ? 'bg-[#2d6a4f] text-white border-[#2d6a4f]' : 'bg-[#fcfaf8] text-[#bba282] border-[#e6dace] hover:border-[#c69f6e] hover:text-[#c69f6e]'} ${isLocked && !expense.details ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                    className={`h-12 xl:w-20 w-12 rounded-xl border flex items-center justify-center gap-2 transition-all shrink-0 ${expense.details ? 'bg-[#2d6a4f] text-white border-[#2d6a4f]' : 'bg-[#fcfaf8] text-[#bba282] border-[#e6dace] hover:border-[#c69f6e] hover:text-[#c69f6e]'} ${isLocked && !expense.details ? 'cursor-not-allowed opacity-50' : ''}`}
                                                 >
                                                     <FileText size={16} />
                                                     <span className="text-[10px] font-black uppercase tracking-widest leading-none hidden xl:inline">{expense.details ? 'Détails OK' : 'Détails'}</span>
@@ -1953,6 +2063,9 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                                 onClick={() => {
                                                                     setViewingInvoices(expense.invoices);
                                                                     setViewingInvoicesTarget({ index, type: 'expense' });
+                                                                    setSelectedInvoiceIndex(0);
+                                                                    setImgZoom(1);
+                                                                    setImgRotation(0);
                                                                 }}
                                                                 className="h-12 w-12 flex items-center justify-center gap-2 rounded-xl bg-[#2d6a4f] text-white hover:bg-[#1f4b36] transition-all shadow-sm"
                                                             >
@@ -1985,6 +2098,10 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                                     onClick={(e) => {
                                                                         if (expense.photo_cheque) {
                                                                             setViewingInvoices([expense.photo_cheque]);
+                                                                            setViewingInvoicesTarget({ index, type: 'expense' });
+                                                                            setSelectedInvoiceIndex(0);
+                                                                            setImgZoom(1);
+                                                                            setImgRotation(0);
                                                                             e.preventDefault();
                                                                         }
                                                                     }}
@@ -1998,6 +2115,10 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                                     onClick={(e) => {
                                                                         if (expense.photo_verso) {
                                                                             setViewingInvoices([expense.photo_verso]);
+                                                                            setViewingInvoicesTarget({ index, type: 'expense' });
+                                                                            setSelectedInvoiceIndex(0);
+                                                                            setImgZoom(1);
+                                                                            setImgRotation(0);
                                                                             e.preventDefault();
                                                                         }
                                                                         if (isLocked) e.preventDefault();
@@ -2092,7 +2213,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     {expensesDivers.map((divers, index) => (
                                         <div key={index} className="group flex flex-col p-2 rounded-xl transition-all border hover:bg-[#f9f6f2] border-transparent hover:border-[#e6dace]">
                                             <div className="flex flex-col md:flex-row items-center gap-2 w-full">
-                                                <div className="w-full md:w-28 lg:w-36 xl:w-48 relative shrink-0">
+                                                <div className="w-full md:w-28 lg:w-36 xl:w-36 relative shrink-0">
                                                     <input
                                                         type="number"
                                                         step="0.001"
@@ -2102,7 +2223,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         onWheel={(e) => e.currentTarget.blur()}
                                                         onFocus={(e) => { if (divers.amount === '0') handleDiversChange(index, 'amount', ''); }}
                                                         onChange={(e) => handleDiversChange(index, 'amount', e.target.value)}
-                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-14 pl-7 md:pl-6 pr-10 md:pr-10 xl:pr-16 font-black text-lg outline-none focus:border-[#c69f6e] text-center ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-14 pl-7 md:pl-6 pr-10 md:pr-10 xl:pr-10 font-black text-lg outline-none focus:border-[#c69f6e] text-center ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
                                                     />
                                                     <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[#bba282] text-[9px] font-black">DT</span>
                                                     <button
@@ -2185,7 +2306,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         setTempDetails(divers.details || '');
                                                         setShowDetailsModal(true);
                                                     }}
-                                                    className={`h-12 xl:w-32 w-12 rounded-xl border flex items-center justify-center gap-2 transition-all shrink-0 ${divers.details ? 'bg-[#2d6a4f] text-white border-[#2d6a4f]' : 'bg-[#fcfaf8] text-[#bba282] border-[#e6dace] hover:border-[#c69f6e] hover:text-[#c69f6e]'} ${isLocked && !divers.details ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                    className={`h-12 xl:w-20 w-12 rounded-xl border flex items-center justify-center gap-2 transition-all shrink-0 ${divers.details ? 'bg-[#2d6a4f] text-white border-[#2d6a4f]' : 'bg-[#fcfaf8] text-[#bba282] border-[#e6dace] hover:border-[#c69f6e] hover:text-[#c69f6e]'} ${isLocked && !divers.details ? 'cursor-not-allowed opacity-50' : ''}`}
                                                 >
                                                     <FileText size={16} />
                                                     <span className="text-[10px] font-black uppercase tracking-widest leading-none hidden xl:inline">{divers.details ? 'Détails OK' : 'Détails'}</span>
@@ -2200,6 +2321,9 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                                 onClick={() => {
                                                                     setViewingInvoices(divers.invoices);
                                                                     setViewingInvoicesTarget({ index, type: 'divers' });
+                                                                    setSelectedInvoiceIndex(0);
+                                                                    setImgZoom(1);
+                                                                    setImgRotation(0);
                                                                 }}
                                                                 className="h-12 w-12 flex items-center justify-center gap-2 rounded-xl bg-[#2d6a4f] text-white hover:bg-[#1f4b36] transition-all shadow-sm"
                                                             >
@@ -3003,6 +3127,12 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                             newDivers[viewingInvoicesTarget.index].invoices = [...currentInvoices, ...base64s];
                                                             setExpensesDivers(newDivers);
                                                             setViewingInvoices(newDivers[viewingInvoicesTarget.index].invoices);
+                                                        } else if (viewingInvoicesTarget.type === 'offres') {
+                                                            const newList = [...offresList];
+                                                            const currentInvoices = newList[viewingInvoicesTarget.index].invoices || [];
+                                                            newList[viewingInvoicesTarget.index].invoices = [...currentInvoices, ...base64s];
+                                                            setOffresList(newList);
+                                                            setViewingInvoices(newList[viewingInvoicesTarget.index].invoices);
                                                         } else {
                                                             const newExpenses = [...expenses];
                                                             const currentInvoices = newExpenses[viewingInvoicesTarget.index].invoices || [];
@@ -3014,11 +3144,10 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                 />
                                             </label>
                                         )}
-                                        {/* Zoom Controls */}
                                         <div className="flex bg-white/10 rounded-2xl p-1 gap-1 border border-white/10">
                                             <button onClick={() => setImgZoom(prev => Math.max(0.5, prev - 0.25))} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white" title="Zoom Arrière"><ZoomOut size={20} /></button>
                                             <div className="w-16 flex items-center justify-center font-black text-xs tabular-nums text-[#c69f6e]">{Math.round(imgZoom * 100)}%</div>
-                                            <button onClick={() => setImgZoom(prev => Math.min(4, prev + 0.25))} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white" title="Zoom Avant"><ZoomIn size={20} /></button>
+                                            <button onClick={() => setImgZoom(prev => Math.min(5, prev + 0.25))} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white" title="Zoom Avant"><ZoomIn size={20} /></button>
                                             <div className="w-px h-6 bg-white/10 self-center mx-1"></div>
                                             <button onClick={() => setImgRotation(prev => prev + 90)} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white" title="Tourner"><RotateCcw size={20} /></button>
                                             <button onClick={resetView} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white" title="Réinitialiser"><Maximize2 size={20} /></button>
@@ -3028,181 +3157,158 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     </div>
                                 </div>
 
-                                {/* Photos Grid */}
+                                {/* Photos Focus View (Matches Recette Caisse Style) */}
                                 {viewingInvoices.length > 0 ? (
                                     <>
-                                        <div className={`grid ${selectedInvoiceIndex === 'all' ? (viewingInvoices.length === 1 ? 'grid-cols-1' : viewingInvoices.length === 2 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3') : 'grid-cols-1'} gap-6 items-start pb-32`}>
+                                        {/* Main Focused Document */}
+                                        <div className="relative w-full h-[65vh] flex items-center justify-center pt-10">
                                             {viewingInvoices.map((img, idx) => {
-                                                if (selectedInvoiceIndex !== 'all' && selectedInvoiceIndex !== idx) return null;
-
+                                                if (selectedInvoiceIndex !== idx) return null;
                                                 return (
-                                                    <div key={idx} className={`space-y-3 ${selectedInvoiceIndex !== 'all' ? 'max-w-4xl mx-auto w-full' : ''}`}>
-                                                        <div className={`flex ${selectedInvoiceIndex === 'all' ? 'flex-col sm:flex-row' : 'flex-row'} justify-between items-start sm:items-center gap-3 bg-white/5 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-white/5 backdrop-blur-sm`}>
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="bg-[#c69f6e] text-white w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl flex items-center justify-center text-xs font-black shadow-lg flex-shrink-0">
-                                                                    {idx + 1}
-                                                                </div>
-                                                                <div>
-                                                                    <p className="text-[9px] sm:text-[10px] font-black text-white/40 uppercase tracking-[0.2em] sm:tracking-[0.3em]">Document {idx + 1} / {viewingInvoices.length}</p>
-                                                                    <p className="text-[8px] sm:text-[9px] font-bold text-[#c69f6e] uppercase tracking-widest mt-0.5">{img.toLowerCase().includes('.pdf') ? 'Fichier PDF' : 'Image Reçue'}</p>
-                                                                </div>
-                                                            </div>
-                                                            <div className={`flex items-center gap-2 ${selectedInvoiceIndex === 'all' ? 'w-full sm:w-auto' : ''}`}>
-                                                                <a href={img} download target="_blank" className={`flex items-center justify-center gap-1.5 sm:gap-2 h-8 sm:h-10 px-2.5 sm:px-4 rounded-lg sm:rounded-xl text-[8px] sm:text-[9px] font-black text-white/80 transition-all bg-white/5 hover:bg-white/10 uppercase tracking-wider sm:tracking-widest border border-white/10 ${selectedInvoiceIndex === 'all' ? 'flex-1 sm:flex-none' : ''}`}>
-                                                                    <Download size={12} className="text-[#c69f6e] sm:hidden" /><Download size={14} className="text-[#c69f6e] hidden sm:block" /> <span className="hidden sm:inline">Télécharger</span>
-                                                                </a>
-                                                                <button onClick={() => handleShareInvoice(img)} className={`flex items-center justify-center gap-1.5 sm:gap-2 h-8 sm:h-10 px-2.5 sm:px-4 rounded-lg sm:rounded-xl text-[8px] sm:text-[9px] font-black text-white/80 transition-all bg-white/5 hover:bg-white/10 uppercase tracking-wider sm:tracking-widest border border-white/10 ${selectedInvoiceIndex === 'all' ? 'flex-1 sm:flex-none' : ''}`}>
-                                                                    <Share2 size={12} className="text-[#c69f6e] sm:hidden" /><Share2 size={14} className="text-[#c69f6e] hidden sm:block" /> <span className="hidden sm:inline">Partager</span>
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => {
-                                                                        if (isLocked && role !== 'admin') {
-                                                                            setShowConfirm({
-                                                                                type: 'alert',
-                                                                                title: 'INTERDIT',
-                                                                                message: 'Cette date est verrouillée. Impossible de supprimer ce reçu.',
-                                                                                color: 'red',
-                                                                                alert: true
-                                                                            });
-                                                                            return;
-                                                                        }
-                                                                        handleDeleteInvoice(idx);
-                                                                        if (selectedInvoiceIndex === idx) setSelectedInvoiceIndex('all');
-                                                                    }}
-                                                                    className={`flex items-center gap-2 h-10 px-4 rounded-xl text-[9px] font-black text-red-400 transition-all bg-red-500/5 hover:bg-red-500/10 uppercase tracking-widest border border-red-500/20 ${isLocked && role !== 'admin' ? 'opacity-50' : ''}`}
-                                                                >
-                                                                    <Trash2 size={14} /> Supprimer
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                        <div
-                                                            className={`${selectedInvoiceIndex === 'all' ? 'aspect-[4/3] max-h-[40vh] sm:max-h-[50vh] hover:border-[#c69f6e]/50 hover:shadow-[0_0_30px_rgba(198,159,110,0.2)] transition-all' : 'h-[75vh]'} bg-black/40 rounded-xl sm:rounded-[2rem] lg:rounded-[2.5rem] border border-white/10 shadow-3xl overflow-hidden group relative flex items-center justify-center`}
+                                                    <motion.div
+                                                        key={idx}
+                                                        className="w-full h-full flex items-center justify-center"
+                                                        initial={{ opacity: 0, scale: 0.95 }}
+                                                        animate={{ opacity: 1, scale: 1 }}
+                                                        exit={{ opacity: 0, scale: 0.95 }}
+                                                    >
+                                                        <motion.div
+                                                            className={`w-full h-full flex items-center justify-center p-4 ${imgZoom > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-zoom-in'}`}
                                                             onWheel={(e) => {
-                                                                if (selectedInvoiceIndex !== 'all') {
-                                                                    e.preventDefault();
-                                                                    if (e.deltaY < 0) setImgZoom(prev => Math.min(4, prev + 0.1));
-                                                                    else setImgZoom(prev => Math.max(0.2, prev - 0.1));
-                                                                }
+                                                                e.preventDefault();
+                                                                if (e.deltaY < 0) setImgZoom(prev => Math.min(5, prev + 0.1));
+                                                                else setImgZoom(prev => Math.max(0.2, prev - 0.1));
                                                             }}
-                                                            onClick={() => {
-                                                                if (selectedInvoiceIndex === 'all') {
-                                                                    setSelectedInvoiceIndex(idx);
-                                                                    resetView();
-                                                                }
-                                                            }}
+                                                            animate={{ scale: imgZoom, rotate: imgRotation }}
+                                                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                                            drag={imgZoom > 1}
+                                                            dragConstraints={{ left: -1500, right: 1500, top: -1500, bottom: 1500 }}
+                                                            dragElastic={0.1}
                                                         >
-                                                            <motion.div
-                                                                className={`w-full h-full flex items-center justify-center p-3 sm:p-4 lg:p-6 ${selectedInvoiceIndex === 'all' ? 'cursor-pointer' : (imgZoom > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-zoom-in')}`}
-                                                                animate={{
-                                                                    scale: selectedInvoiceIndex === 'all' ? 1 : imgZoom,
-                                                                    rotate: selectedInvoiceIndex === 'all' ? 0 : imgRotation
-                                                                }}
-                                                                transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                                                                drag={selectedInvoiceIndex !== 'all' && imgZoom > 1}
-                                                                dragConstraints={{ left: -1500, right: 1500, top: -1500, bottom: 1500 }}
-                                                                dragElastic={0.1}
-                                                            >
-                                                                {img.startsWith('data:application/pdf') || img.toLowerCase().includes('.pdf') ? (
-                                                                    <iframe
-                                                                        src={img}
-                                                                        className="w-full h-full rounded-xl sm:rounded-2xl border-none bg-white"
-                                                                        title="Document PDF"
-                                                                    />
-                                                                ) : (
-                                                                    <img
-                                                                        src={img}
-                                                                        draggable="false"
-                                                                        className="max-w-full max-h-full rounded-xl sm:rounded-2xl object-contain shadow-2xl"
-                                                                        style={{ pointerEvents: 'none', userSelect: 'none' }}
-                                                                    />
-                                                                )}
-                                                            </motion.div>
-                                                            {selectedInvoiceIndex !== 'all' && (
-                                                                <div className="absolute top-8 left-8 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                    <span className="bg-black/80 backdrop-blur-xl text-[10px] font-black text-[#c69f6e] px-6 py-3 rounded-full border border-[#c69f6e]/30 shadow-2xl uppercase tracking-[0.2em]">
-                                                                        Zoom: {Math.round(imgZoom * 100)}% • Molette pour ajuster
-                                                                    </span>
-                                                                </div>
+                                                            {img.startsWith('data:application/pdf') || img.toLowerCase().includes('.pdf') ? (
+                                                                <iframe src={img} className="w-full h-full rounded-2xl border-none bg-white shadow-2xl" title="Document PDF" />
+                                                            ) : (
+                                                                <img src={img} draggable="false" className="max-w-full max-h-full rounded-2xl object-contain shadow-2xl" style={{ pointerEvents: 'none', userSelect: 'none' }} />
                                                             )}
-                                                        </div>
-                                                    </div>
+                                                        </motion.div>
+                                                        {imgZoom !== 1 && (
+                                                            <div className="absolute top-12 left-1/2 -translate-x-1/2 pointer-events-none">
+                                                                <span className="bg-black/80 backdrop-blur-xl text-[10px] font-black text-[#c69f6e] px-6 py-3 rounded-full border border-[#c69f6e]/30 shadow-2xl uppercase tracking-[0.2em]">
+                                                                    Zoom: {Math.round(imgZoom * 100)}% • Rotation: {imgRotation}°
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </motion.div>
                                                 );
                                             })}
                                         </div>
 
-                                        {/* Floating Zoom Controls - Only when viewing single photo */}
-                                        {selectedInvoiceIndex !== 'all' && (
-                                            <div
-                                                className="fixed top-6 left-1/2 -translate-x-1/2 z-[300]"
-                                                onClick={e => e.stopPropagation()}
-                                            >
-                                                <div className="flex bg-black/80 p-1.5 sm:p-2 rounded-2xl sm:rounded-[2rem] border border-white/20 backdrop-blur-2xl shadow-[0_0_50px_rgba(0,0,0,0.5)] items-center gap-1">
-                                                    <button
-                                                        onClick={() => setImgZoom(prev => Math.max(0.5, prev - 0.25))}
-                                                        className="w-9 h-9 sm:w-11 sm:h-11 hover:bg-white/10 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all text-white"
-                                                    >
-                                                        <ZoomOut size={18} className="sm:hidden" />
-                                                        <ZoomOut size={22} className="hidden sm:block" />
-                                                    </button>
-                                                    <div className="w-12 sm:w-16 flex items-center justify-center font-black text-[10px] sm:text-xs tabular-nums text-[#c69f6e]">
-                                                        {Math.round(imgZoom * 100)}%
+                                        {/* Bottom Action Panel (Thumbnails + Info + Add/Delete) */}
+                                        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-4 w-full px-8">
+                                            {/* Expense/Info Badge */}
+                                            {viewingInvoicesTarget && (
+                                                <div className="bg-black/60 backdrop-blur-md border border-white/10 px-8 py-3 rounded-2xl flex items-center gap-4 shadow-2xl">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[9px] font-black uppercase tracking-widest text-white/40">Dépense Associée</span>
+                                                        <span className="text-sm font-black text-white uppercase truncate max-w-[200px]">
+                                                            {viewingInvoicesTarget.type === 'expense'
+                                                                ? expenses[viewingInvoicesTarget.index]?.supplier
+                                                                : viewingInvoicesTarget.type === 'offres'
+                                                                    ? offresList[viewingInvoicesTarget.index]?.name
+                                                                    : expensesDivers[viewingInvoicesTarget.index]?.designation}
+                                                        </span>
                                                     </div>
-                                                    <button
-                                                        onClick={() => setImgZoom(prev => Math.min(4, prev + 0.25))}
-                                                        className="w-9 h-9 sm:w-11 sm:h-11 hover:bg-white/10 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all text-white"
-                                                    >
-                                                        <ZoomIn size={18} className="sm:hidden" />
-                                                        <ZoomIn size={22} className="hidden sm:block" />
-                                                    </button>
-                                                    <div className="w-px h-6 bg-white/10 mx-1"></div>
-                                                    <button
-                                                        onClick={() => setImgRotation(prev => prev + 90)}
-                                                        className="w-9 h-9 sm:w-11 sm:h-11 hover:bg-white/10 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all text-white"
-                                                    >
-                                                        <RotateCcw size={18} className="sm:hidden" />
-                                                        <RotateCcw size={22} className="hidden sm:block" />
-                                                    </button>
-                                                    <button
-                                                        onClick={resetView}
-                                                        className="w-9 h-9 sm:w-11 sm:h-11 hover:bg-white/10 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all text-white"
-                                                    >
-                                                        <Maximize2 size={18} className="sm:hidden" />
-                                                        <Maximize2 size={22} className="hidden sm:block" />
-                                                    </button>
+                                                    <div className="w-px h-8 bg-white/10 mx-2" />
+                                                    <div className="flex flex-col items-end">
+                                                        <span className="text-[9px] font-black uppercase tracking-widest text-[#c69f6e]">Montant</span>
+                                                        <div className="flex items-baseline gap-1">
+                                                            <span className="text-xl font-black text-white">
+                                                                {parseFloat((viewingInvoicesTarget.type === 'expense'
+                                                                    ? expenses[viewingInvoicesTarget.index]?.amount
+                                                                    : expensesDivers[viewingInvoicesTarget.index]?.amount) || '0').toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                                            </span>
+                                                            <span className="text-[10px] font-bold text-[#c69f6e]">DT</span>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        )}
+                                            )}
 
-                                        {/* Floating Bottom Selector Bar */}
-                                        {viewingInvoices.length > 1 && (
-                                            <div
-                                                className="fixed bottom-6 sm:bottom-12 left-1/2 -translate-x-1/2 z-[300]"
-                                                onClick={e => e.stopPropagation()}
-                                            >
-                                                <div className="flex bg-black/80 p-1.5 sm:p-2 rounded-2xl sm:rounded-[2.5rem] border border-white/20 backdrop-blur-2xl shadow-[0_0_50px_rgba(0,0,0,0.5)] items-center gap-1 group/bar">
-                                                    <button
-                                                        onClick={() => { setSelectedInvoiceIndex('all'); resetView(); }}
-                                                        className={`px-4 sm:px-8 h-10 sm:h-14 rounded-xl sm:rounded-[1.8rem] text-[9px] sm:text-[10px] font-black uppercase tracking-wider sm:tracking-widest transition-all flex items-center gap-2 sm:gap-3 ${selectedInvoiceIndex === 'all' ? 'bg-[#c69f6e] text-white shadow-xl' : 'text-white/60 hover:text-white hover:bg-white/10'}`}
+                                            {/* Thumbnail Track + Controls */}
+                                            <div className="bg-black/60 backdrop-blur-md border border-white/10 p-3 rounded-2xl flex items-center gap-3 overflow-x-auto no-scrollbar max-w-full">
+                                                {viewingInvoices.map((photo, index) => (
+                                                    <div
+                                                        key={index}
+                                                        onClick={() => { setSelectedInvoiceIndex(index); setImgZoom(1); setImgRotation(0); }}
+                                                        className={`relative w-14 h-14 rounded-xl overflow-hidden cursor-pointer transition-all flex-shrink-0 ${selectedInvoiceIndex === index ? 'ring-2 ring-[#c69f6e] ring-offset-2 ring-offset-black' : 'opacity-60 hover:opacity-100'}`}
                                                     >
-                                                        <LayoutGrid size={16} className="sm:hidden" />
-                                                        <LayoutGrid size={20} className="hidden sm:block" />
-                                                        Tous
-                                                    </button>
-                                                    <div className="w-px h-6 sm:h-8 bg-white/10 mx-1 sm:mx-2" />
-                                                    <div className="flex gap-1 overflow-x-auto no-scrollbar max-w-[60vw] sm:max-w-[50vw]">
-                                                        {viewingInvoices.map((_, i) => (
-                                                            <button
-                                                                key={i}
-                                                                onClick={() => { setSelectedInvoiceIndex(i); resetView(); }}
-                                                                className={`px-4 sm:px-8 h-10 sm:h-14 rounded-xl sm:rounded-[1.8rem] text-[9px] sm:text-[10px] font-black uppercase tracking-wider sm:tracking-widest transition-all whitespace-nowrap ${selectedInvoiceIndex === i ? 'bg-[#c69f6e] text-white shadow-xl' : 'text-white/60 hover:text-white hover:bg-white/10'}`}
-                                                            >
-                                                                Photo {i + 1}
-                                                            </button>
-                                                        ))}
+                                                        {photo.startsWith('data:application/pdf') || photo.toLowerCase().includes('.pdf') ? (
+                                                            <div className="w-full h-full bg-white flex items-center justify-center text-red-500 font-bold text-[10px]">PDF</div>
+                                                        ) : (
+                                                            <Image src={photo} alt={`Document ${index + 1}`} fill className="object-cover" />
+                                                        )}
+                                                        <div className="absolute inset-0 bg-black/20" />
+                                                        <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-center py-0.5">
+                                                            <span className="text-[8px] font-black text-white">{index + 1}/{viewingInvoices.length}</span>
+                                                        </div>
                                                     </div>
+                                                ))}
+
+                                                {/* Add Photo Button within thumbnail track */}
+                                                {!isLocked && viewingInvoicesTarget && (
+                                                    <label className="w-14 h-14 rounded-xl border-2 border-dashed border-white/30 flex flex-col items-center justify-center cursor-pointer hover:border-[#c69f6e] hover:bg-white/5 transition-all flex-shrink-0">
+                                                        <Plus size={20} className="text-white/60" />
+                                                        <input
+                                                            type="file" multiple accept="image/*,.pdf" className="hidden"
+                                                            onChange={async (e) => {
+                                                                const files = e.target.files; if (!files) return;
+                                                                const loaders = Array.from(files).map(file => new Promise<string>((resolve) => {
+                                                                    const reader = new FileReader();
+                                                                    reader.onloadend = () => resolve(reader.result as string);
+                                                                    reader.readAsDataURL(file);
+                                                                }));
+                                                                const base64s = await Promise.all(loaders);
+                                                                let newList: string[] = [];
+                                                                if (viewingInvoicesTarget.type === 'divers') {
+                                                                    const newDivers = [...expensesDivers];
+                                                                    newList = [...(newDivers[viewingInvoicesTarget.index].invoices || []), ...base64s];
+                                                                    newDivers[viewingInvoicesTarget.index].invoices = newList;
+                                                                    setExpensesDivers(newDivers);
+                                                                } else {
+                                                                    const newExpenses = [...expenses];
+                                                                    newList = [...(newExpenses[viewingInvoicesTarget.index].invoices || []), ...base64s];
+                                                                    newExpenses[viewingInvoicesTarget.index].invoices = newList;
+                                                                    setExpenses(newExpenses);
+                                                                }
+                                                                setViewingInvoices(newList);
+                                                                setSelectedInvoiceIndex(newList.length - 1);
+                                                                setImgZoom(1);
+                                                                setImgRotation(0);
+                                                                setToast({ msg: 'Photo ajoutée', type: 'success' });
+                                                            }}
+                                                        />
+                                                    </label>
+                                                )}
+
+                                                {/* Quick Download/Delete/Share for active thumbnail */}
+                                                <div className="w-px h-10 bg-white/10 mx-1" />
+                                                <div className="flex gap-2">
+                                                    <a href={viewingInvoices[selectedInvoiceIndex as number]} download className="w-11 h-11 bg-white/5 hover:bg-white/10 rounded-xl flex items-center justify-center text-white/60 hover:text-[#c69f6e] transition-all"><Download size={18} /></a>
+                                                    <button onClick={() => handleShareInvoice(viewingInvoices[selectedInvoiceIndex as number])} className="w-11 h-11 bg-white/5 hover:bg-white/10 rounded-xl flex items-center justify-center text-white/60 hover:text-[#c69f6e] transition-all"><Share2 size={18} /></button>
+                                                    {!isLocked && (
+                                                        <button
+                                                            onClick={() => {
+                                                                handleDeleteInvoice(selectedInvoiceIndex as number);
+                                                                const newIdx = Math.max(0, (selectedInvoiceIndex as number) - 1);
+                                                                setSelectedInvoiceIndex(newIdx);
+                                                                setImgZoom(1);
+                                                                setImgRotation(0);
+                                                            }}
+                                                            className="w-11 h-11 bg-red-500/10 hover:bg-red-500/20 rounded-xl flex items-center justify-center text-red-400 transition-all"
+                                                        ><Trash2 size={18} /></button>
+                                                    )}
                                                 </div>
                                             </div>
-                                        )}
+                                        </div>
                                     </>
                                 ) : (
                                     <div className="h-[70vh] bg-white/5 rounded-[2rem] border-2 border-dashed border-white/10 flex items-center justify-center text-white/20 italic font-bold uppercase tracking-widest">
@@ -3365,7 +3471,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                         onWheel={(e) => {
                             e.preventDefault();
                             const delta = e.deltaY > 0 ? -0.1 : 0.1;
-                            setPhotoZoom(Math.max(0.5, Math.min(3, photoZoom + delta)));
+                            setPhotoZoom(Math.max(0.5, Math.min(5, photoZoom + delta)));
                         }}
                     >
                         <div
@@ -3373,6 +3479,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             onClick={() => {
                                 setViewingPhoto(null);
                                 setPhotoZoom(1);
+                                setPhotoRotation(0);
                             }}
                         />
 
@@ -3413,7 +3520,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 dragElastic={0.05}
                                 whileTap={{ cursor: "grabbing" }}
                                 initial={{ scale: 0.9 }}
-                                animate={{ scale: photoZoom }}
+                                animate={{ scale: photoZoom, rotate: photoRotation }}
                                 exit={{ scale: 0.9 }}
                                 src={viewingPhoto}
                                 alt="Caisse Full"
@@ -3424,11 +3531,45 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
 
                         {/* Top Controls */}
                         <div className="absolute top-4 right-4 flex items-center gap-2 z-50">
-                            {/* Zoom Percentage Display */}
-                            <div className="bg-black/60 backdrop-blur-md border border-white/10 rounded-full px-4 py-2">
-                                <span className="text-white text-sm font-bold">
+                            {/* Zoom/Rotate Controls */}
+                            <div className="flex bg-white/10 rounded-2xl p-1 gap-1 border border-white/10 backdrop-blur-md">
+                                <button
+                                    onClick={() => setPhotoZoom(prev => Math.max(0.5, prev - 0.25))}
+                                    className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white"
+                                    title="Zoom Arrière"
+                                >
+                                    <ZoomOut size={20} />
+                                </button>
+
+                                <div className="w-16 flex items-center justify-center font-black text-xs tabular-nums text-[#c69f6e]">
                                     {Math.round(photoZoom * 100)}%
-                                </span>
+                                </div>
+
+                                <button
+                                    onClick={() => setPhotoZoom(prev => Math.min(5, prev + 0.25))}
+                                    className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white"
+                                    title="Zoom Avant"
+                                >
+                                    <ZoomIn size={20} />
+                                </button>
+
+                                <div className="w-px h-6 bg-white/10 self-center mx-1" />
+
+                                <button
+                                    onClick={() => setPhotoRotation(prev => prev + 90)}
+                                    className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white"
+                                    title="Tourner"
+                                >
+                                    <RotateCcw size={20} />
+                                </button>
+
+                                <button
+                                    onClick={() => { setPhotoZoom(1); setPhotoRotation(0); }}
+                                    className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white"
+                                    title="Réinitialiser"
+                                >
+                                    <Maximize2 size={20} />
+                                </button>
                             </div>
 
                             {/* Close Button */}
@@ -3436,6 +3577,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 onClick={() => {
                                     setViewingPhoto(null);
                                     setPhotoZoom(1);
+                                    setPhotoRotation(0);
                                 }}
                                 className="bg-white/10 hover:bg-white/20 backdrop-blur-md p-3 rounded-full text-white transition-colors"
                             >
@@ -3460,7 +3602,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 {caissePhotos.map((photo, index) => (
                                     <div
                                         key={index}
-                                        onClick={() => { setViewingPhoto(photo); setPhotoZoom(1); }}
+                                        onClick={() => { setViewingPhoto(photo); setPhotoZoom(1); setPhotoRotation(0); }}
                                         className={`relative w-14 h-14 rounded-xl overflow-hidden cursor-pointer transition-all ${viewingPhoto === photo ? 'ring-2 ring-[#c69f6e] ring-offset-2 ring-offset-black' : 'opacity-60 hover:opacity-100'}`}
                                     >
                                         <Image
@@ -3504,6 +3646,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                     setViewingPhoto(null);
                                                 }
                                                 setPhotoZoom(1);
+                                                setPhotoRotation(0);
                                                 setToast({ msg: 'Photo supprimée', type: 'success' });
                                                 setTimeout(() => setToast(null), 3000);
                                             }}
