@@ -210,14 +210,42 @@ export default function CoutAchatPage() {
         if (savedUser) {
             const parsed = JSON.parse(savedUser);
             if (parsed.role !== 'admin') {
-                router.push('/');
+                router.replace('/');
+                return;
             } else {
                 setUser(parsed);
             }
         } else {
-            router.push('/');
+            router.replace('/');
+            return;
         }
         setInitializing(false);
+
+        // Handle back button - check if user is still logged in
+        const handlePopState = () => {
+            const currentUser = localStorage.getItem('bb_user');
+            if (!currentUser) {
+                router.replace('/');
+            }
+        };
+
+        // Handle page visibility change
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                const currentUser = localStorage.getItem('bb_user');
+                if (!currentUser) {
+                    router.replace('/');
+                }
+            }
+        };
+
+        window.addEventListener('popstate', handlePopState);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            window.removeEventListener('popstate', handlePopState);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
     }, [router]);
 
     const { data, loading } = useQuery(GET_CHIFFRES_DATA, {

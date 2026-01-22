@@ -163,7 +163,10 @@ export default function Sidebar({ role }: SidebarProps) {
             } catch (e) { console.error('Logout sync error:', e); }
         }
         localStorage.clear();
-        window.location.href = '/';
+        sessionStorage.clear();
+        // Replace current history entry and clear forward history to prevent back navigation
+        window.history.pushState(null, '', '/');
+        window.location.replace('/');
     };
 
     const handlePasswordUpdate = async () => {
@@ -311,7 +314,7 @@ export default function Sidebar({ role }: SidebarProps) {
                     })}
                     <button onClick={handleLogout} className="flex flex-col items-center gap-1 p-3 min-w-[70px] text-red-400">
                         <LogOut size={20} />
-                        <span className="text-[9px] font-black uppercase tracking-tighter">Exit</span>
+                        <span className="text-[9px] font-black uppercase tracking-tighter">Déconnexion</span>
                     </button>
                 </div>
             </nav>

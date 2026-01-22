@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, gql } from '@apollo/client';
 import Sidebar from '@/components/Sidebar';
 import {
@@ -136,11 +137,48 @@ export default function SettingsPage() {
     });
 
     const [currentUser, setCurrentUser] = React.useState<any>(null);
+    const router = useRouter();
 
     React.useEffect(() => {
         const stored = localStorage.getItem('bb_user');
-        if (stored) setCurrentUser(JSON.parse(stored));
-    }, []);
+        if (stored) {
+            const parsed = JSON.parse(stored);
+            if (parsed.role !== 'admin') {
+                router.replace('/');
+                return;
+            }
+            setCurrentUser(parsed);
+        } else {
+            router.replace('/');
+            return;
+        }
+
+        // Handle back button - check if user is still logged in
+        const handlePopState = () => {
+            const currentUser = localStorage.getItem('bb_user');
+            if (!currentUser) {
+                router.replace('/');
+            }
+        };
+
+        // Handle page visibility change
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                const currentUser = localStorage.getItem('bb_user');
+                if (!currentUser) {
+                    router.replace('/');
+                }
+            }
+        };
+
+        window.addEventListener('popstate', handlePopState);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            window.removeEventListener('popstate', handlePopState);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [router]);
     const [upsertUser] = useMutation(UPSERT_USER);
     const [deleteUser] = useMutation(DELETE_USER);
     const [upsertDevice] = useMutation(UPSERT_DEVICE);

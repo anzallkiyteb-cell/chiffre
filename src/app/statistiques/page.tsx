@@ -118,14 +118,42 @@ export default function StatistiquesPage() {
         if (savedUser) {
             const parsed = JSON.parse(savedUser);
             if (parsed.role !== 'admin') {
-                router.push('/');
+                router.replace('/');
+                return;
             } else {
                 setUser(parsed);
             }
         } else {
-            router.push('/');
+            router.replace('/');
+            return;
         }
         setInitializing(false);
+
+        // Handle back button - check if user is still logged in
+        const handlePopState = () => {
+            const currentUser = localStorage.getItem('bb_user');
+            if (!currentUser) {
+                router.replace('/');
+            }
+        };
+
+        // Handle page visibility change
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                const currentUser = localStorage.getItem('bb_user');
+                if (!currentUser) {
+                    router.replace('/');
+                }
+            }
+        };
+
+        window.addEventListener('popstate', handlePopState);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            window.removeEventListener('popstate', handlePopState);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
     }, [router]);
 
     const { data, loading, error } = useQuery(GET_STATS, {
@@ -655,10 +683,7 @@ export default function StatistiquesPage() {
                                     <div className={`p-3 rounded-2xl ${s.bg} ${s.color}`}>
                                         <s.icon size={20} />
                                     </div>
-                                    <div className="flex items-center gap-1 text-[10px] font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full">
-                                        <ArrowUpRight size={12} />
-                                        12%
-                                    </div>
+
                                 </div>
                                 <p className="text-[#8c8279] text-[10px] items-center font-bold uppercase tracking-widest mb-1">{s.label}</p>
                                 <h3 className={`text-2xl font-black text-[#4a3426]`}>

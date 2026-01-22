@@ -31,6 +31,8 @@ export const resolvers = {
                     photo_verso: inv.photo_verso_url,
                     isFromFacturation: true,
                     invoiceId: inv.id,
+                    invoiceDate: inv.date, // Date when invoice was created
+                    invoiceOrigin: inv.origin, // Origin: 'daily_sheet' or 'direct_expense'
                     doc_type: inv.doc_type,
                     doc_number: inv.doc_number,
                     details: inv.details || '',
@@ -225,6 +227,8 @@ export const resolvers = {
                         photo_verso: inv.photo_verso_url,
                         isFromFacturation: true,
                         invoiceId: inv.id,
+                        invoiceDate: inv.date,
+                        invoiceOrigin: inv.origin,
                         doc_type: inv.doc_type,
                         doc_number: inv.doc_number,
                         category: inv.category,
@@ -643,6 +647,8 @@ export const resolvers = {
                         photo_verso: inv.photo_verso_url,
                         isFromFacturation: true,
                         invoiceId: inv.id,
+                        invoiceDate: inv.date,
+                        invoiceOrigin: inv.origin,
                         doc_type: inv.doc_type,
                         doc_number: inv.doc_number,
                         details: inv.details || '',
@@ -835,6 +841,8 @@ export const resolvers = {
                     photo_verso: inv.photo_verso_url,
                     isFromFacturation: true,
                     invoiceId: inv.id,
+                    invoiceDate: inv.date,
+                    invoiceOrigin: inv.origin,
                     doc_type: inv.doc_type,
                     doc_number: inv.doc_number
                 };

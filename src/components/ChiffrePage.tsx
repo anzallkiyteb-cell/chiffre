@@ -190,6 +190,12 @@ const UNPAY_INVOICE = gql`
   }
 `;
 
+const DELETE_INVOICE = gql`
+  mutation DeleteInvoice($id: Int!) {
+    deleteInvoice(id: $id)
+  }
+`;
+
 const GET_EMPLOYEES = gql`
   query GetEmployees {
     getEmployees {
@@ -749,6 +755,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     const [upsertSupplier] = useMutation(UPSERT_SUPPLIER);
     const [upsertDesignation] = useMutation(UPSERT_DESIGNATION);
     const [unpayInvoice] = useMutation(UNPAY_INVOICE);
+    const [deleteInvoice] = useMutation(DELETE_INVOICE);
     const { data: employeesData, refetch: refetchEmployees } = useQuery(GET_EMPLOYEES);
 
     const [upsertEmployee] = useMutation(UPSERT_EMPLOYEE);
@@ -777,6 +784,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         paymentMethod: string,
         isFromFacturation?: boolean,
         invoiceId?: number,
+        invoiceDate?: string,
+        invoiceOrigin?: string,
         doc_type?: string,
         doc_number?: string,
         hasRetenue?: boolean,
@@ -792,6 +801,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         paymentMethod: string,
         isFromFacturation?: boolean,
         invoiceId?: number,
+        invoiceDate?: string,
+        invoiceOrigin?: string,
         doc_type?: string,
         hasRetenue?: boolean,
         originalAmount?: string
@@ -946,17 +957,15 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                 setExpensesDivers(JSON.parse(c.diponce_divers || '[]').map((d: any) => ({ ...d, details: d.details || '' })));
 
                 const savedAdminData = JSON.parse(c.diponce_admin || '[]');
-                const defaultAdminItems = [
-                    { designation: 'Riadh', amount: '0', paymentMethod: 'Espèces' },
-                    { designation: 'Malika', amount: '0', paymentMethod: 'Espèces' },
-                    { designation: 'Salaires', amount: '0', paymentMethod: 'Espèces' }
-                ];
-                // Merge saved data with defaults - ensure all 3 default rows always exist
-                const adminData = defaultAdminItems.map(defaultItem => {
-                    const savedItem = savedAdminData.find((s: any) => s.designation === defaultItem.designation);
-                    return savedItem ? { ...defaultItem, ...savedItem } : defaultItem;
-                });
-                setExpensesAdmin(adminData);
+                if (savedAdminData.length > 0) {
+                    setExpensesAdmin(savedAdminData);
+                } else {
+                    setExpensesAdmin([
+                        { designation: 'Riadh', amount: '0', paymentMethod: 'Espèces' },
+                        { designation: 'Malika', amount: '0', paymentMethod: 'Espèces' },
+                        { designation: 'Salaires', amount: '0', paymentMethod: 'Espèces' }
+                    ]);
+                }
             } else {
                 // Merge logic: ensure items from Facturation are always up-to-date even in draft mode
                 const dbExpenses = JSON.parse(c.diponce || '[]');
@@ -1153,6 +1162,18 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         setExpensesAdmin(newAdmin);
     };
 
+    const handleAddAdmin = () => {
+        if (isLocked) return;
+        setHasInteracted(true);
+        setExpensesAdmin([...expensesAdmin, { designation: '', amount: '0', paymentMethod: 'Espèces' }]);
+    };
+
+    const handleRemoveAdmin = (index: number) => {
+        if (isLocked) return;
+        setHasInteracted(true);
+        setExpensesAdmin(expensesAdmin.filter((_, i) => i !== index));
+    };
+
     const handleAddExpense = () => {
         if (isLocked) {
             setShowConfirm({
@@ -1291,21 +1312,44 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
 
         const expense = expenses[index];
         if (expense.isFromFacturation && expense.invoiceId) {
-            setShowConfirm({
-                type: 'unpay',
-                title: 'Annuler Payement',
-                message: `Cette dépense provient d'une facture. Voulez-vous vraiment l'enlever ? Elle redeviendra "non payée" dans la facturation.`,
-                color: 'red',
-                onConfirm: async () => {
-                    try {
-                        await unpayInvoice({ variables: { id: expense.invoiceId } });
-                        setHasInteracted(true);
-                        setExpenses(expenses.filter((_, i) => i !== index));
-                    } catch (e) {
-                        console.error(e);
+            // Check if invoice was created from Journalier (daily_sheet) or from Facturation page
+            const isFromJournalier = expense.invoiceOrigin === 'daily_sheet';
+
+            if (isFromJournalier) {
+                // Invoice created in Journalier - delete permanently
+                setShowConfirm({
+                    type: 'delete',
+                    title: 'Supprimer Définitivement',
+                    message: `Cette facture a été créée dans le Journalier. Voulez-vous la supprimer définitivement ?`,
+                    color: 'red',
+                    onConfirm: async () => {
+                        try {
+                            await deleteInvoice({ variables: { id: expense.invoiceId } });
+                            setHasInteracted(true);
+                            setExpenses(expenses.filter((_, i) => i !== index));
+                        } catch (e) {
+                            console.error(e);
+                        }
                     }
-                }
-            });
+                });
+            } else {
+                // Invoice came from Facturation page - just unpay (return to non payé)
+                setShowConfirm({
+                    type: 'unpay',
+                    title: 'Annuler Payement',
+                    message: `Cette facture provient de la Facturation. Elle redeviendra "non payée".`,
+                    color: 'red',
+                    onConfirm: async () => {
+                        try {
+                            await unpayInvoice({ variables: { id: expense.invoiceId } });
+                            setHasInteracted(true);
+                            setExpenses(expenses.filter((_, i) => i !== index));
+                        } catch (e) {
+                            console.error(e);
+                        }
+                    }
+                });
+            }
         } else {
             setHasInteracted(true);
             setExpenses(expenses.filter((_, i) => i !== index));
@@ -1322,8 +1366,51 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             });
             return;
         }
-        setHasInteracted(true);
-        setExpensesDivers(expensesDivers.filter((_, i) => i !== index));
+
+        const divers = expensesDivers[index];
+        if (divers.isFromFacturation && divers.invoiceId) {
+            // Check if invoice was created from Journalier (daily_sheet) or from Facturation page
+            const isFromJournalier = divers.invoiceOrigin === 'daily_sheet';
+
+            if (isFromJournalier) {
+                // Invoice created in Journalier - delete permanently
+                setShowConfirm({
+                    type: 'delete',
+                    title: 'Supprimer Définitivement',
+                    message: `Cette facture a été créée dans le Journalier. Voulez-vous la supprimer définitivement ?`,
+                    color: 'red',
+                    onConfirm: async () => {
+                        try {
+                            await deleteInvoice({ variables: { id: divers.invoiceId } });
+                            setHasInteracted(true);
+                            setExpensesDivers(expensesDivers.filter((_, i) => i !== index));
+                        } catch (e) {
+                            console.error(e);
+                        }
+                    }
+                });
+            } else {
+                // Invoice came from Facturation page - just unpay (return to non payé)
+                setShowConfirm({
+                    type: 'unpay',
+                    title: 'Annuler Payement',
+                    message: `Cette facture provient de la Facturation. Elle redeviendra "non payée".`,
+                    color: 'red',
+                    onConfirm: async () => {
+                        try {
+                            await unpayInvoice({ variables: { id: divers.invoiceId } });
+                            setHasInteracted(true);
+                            setExpensesDivers(expensesDivers.filter((_, i) => i !== index));
+                        } catch (e) {
+                            console.error(e);
+                        }
+                    }
+                });
+            }
+        } else {
+            setHasInteracted(true);
+            setExpensesDivers(expensesDivers.filter((_, i) => i !== index));
+        }
     };
 
     const handleOffresChange = (index: number, field: string, value: string) => {
@@ -2459,6 +2546,13 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     <div className="bg-[#4a3426] text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">4</div>
                                     <span>Dépenses Administratif</span>
                                 </h3>
+                                <button
+                                    disabled={isLocked}
+                                    onClick={handleAddAdmin}
+                                    className={`p-2 bg-white border border-[#e6dace] rounded-xl text-[#c69f6e] hover:bg-[#4a3426] hover:text-white hover:border-[#4a3426] shadow-sm transition-all ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                >
+                                    <Plus size={18} />
+                                </button>
                             </div>
 
                             <section className="bg-white rounded-[2rem] p-6 luxury-shadow border border-[#e6dace]/50 space-y-4">
@@ -2492,15 +2586,22 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                     <input
                                                         type="text"
                                                         value={admin.designation ?? ''}
-                                                        readOnly
-                                                        className="w-full bg-[#f9f6f2] border border-[#e6dace] rounded-xl h-12 pl-10 pr-4 outline-none font-bold text-[#4a3426] opacity-70 cursor-not-allowed"
+                                                        disabled={isLocked}
+                                                        placeholder="Désignation"
+                                                        onChange={(e) => handleAdminChange(index, 'designation', e.target.value)}
+                                                        className={`w-full bg-[#f9f6f2] border border-[#e6dace] rounded-xl h-12 pl-10 pr-4 outline-none font-bold text-[#4a3426] focus:border-[#c69f6e] ${isLocked ? 'opacity-70 cursor-not-allowed' : ''}`}
                                                     />
                                                 </div>
 
                                                 <div className="hidden md:flex items-center gap-2 lg:gap-4 shrink-0">
-                                                    <div className="w-8 lg:w-32"></div> {/* Spacing for Détails button */}
-                                                    <div className="w-8 lg:w-24"></div> {/* Spacing for Reçu button */}
-                                                    <div className="w-12"></div> {/* Spacing for Trash button */}
+                                                    {!isLocked && (
+                                                        <button
+                                                            onClick={() => handleRemoveAdmin(index)}
+                                                            className="p-3 text-red-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                                                        >
+                                                            <Trash2 size={18} />
+                                                        </button>
+                                                    )}
                                                 </div>
 
                                             </div>

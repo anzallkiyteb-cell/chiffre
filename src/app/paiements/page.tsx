@@ -3706,13 +3706,13 @@ export default function PaiementsPage() {
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 items-start">
                                         {[
                                             { title: 'DÉPENSES FOURNISSEURS', subtitle: 'MARCHANDISES & SERVICES', icon: Truck, color: 'text-red-500', iconBg: 'bg-red-50', dotColor: '#ef4444', items: expenseDetails.fournisseurs },
-                                            { title: 'AVANCES', subtitle: 'AVANCES SUR SALAIRES', icon: Calculator, color: 'text-[#6366f1]', iconBg: 'bg-[#6366f1]/5', dotColor: '#6366f1', items: expenseDetails.avances },
-                                            { title: 'PRIMES', subtitle: 'RÉCOMPENSES & BONUS', icon: Award, color: 'text-[#06b6d4]', iconBg: 'bg-[#06b6d4]/5', dotColor: '#06b6d4', items: expenseDetails.primes },
                                             { title: 'DÉPENSES DIVERS', subtitle: 'FRAIS EXCEPTIONNELS', icon: Sparkles, color: 'text-[#f59e0b]', iconBg: 'bg-[#f59e0b]/5', dotColor: '#f59e0b', items: expenseDetails.divers },
-                                            { title: 'DOUBLAGE', subtitle: 'HEURES SUPPLÉMENTAIRES', icon: TrendingUp, color: 'text-[#78716c]', iconBg: 'bg-[#78716c]/5', dotColor: '#78716c', items: expenseDetails.doublages },
-                                            { title: 'RESTES SALAIRES', subtitle: 'SALAIRES', icon: Banknote, color: 'text-[#6366f1]', iconBg: 'bg-[#6366f1]/5', dotColor: '#6366f1', items: expenseDetails.remainders, badge: '' },
                                             { title: 'DÉPENSES ADMINISTRATIF', subtitle: 'LOYERS, FACTURES & BUREAUX', icon: Layout, color: 'text-[#10b981]', iconBg: 'bg-[#10b981]/5', dotColor: '#10b981', items: expenseDetails.administratif },
+                                            { title: 'ACCOMPTE', subtitle: 'AVANCES SUR SALAIRES', icon: Calculator, color: 'text-[#6366f1]', iconBg: 'bg-[#6366f1]/5', dotColor: '#6366f1', items: expenseDetails.avances },
+                                            { title: 'PRIMES', subtitle: 'RÉCOMPENSES & BONUS', icon: Award, color: 'text-[#06b6d4]', iconBg: 'bg-[#06b6d4]/5', dotColor: '#06b6d4', items: expenseDetails.primes },
                                             { title: 'EXTRA', subtitle: "MAIN D'ŒUVRE OCCASIONNELLE", icon: Zap, color: 'text-[#ec4899]', iconBg: 'bg-[#ec4899]/5', dotColor: '#ec4899', items: expenseDetails.extras },
+                                            { title: 'RESTES SALAIRES', subtitle: 'SALAIRES', icon: Banknote, color: 'text-[#6366f1]', iconBg: 'bg-[#6366f1]/5', dotColor: '#6366f1', items: expenseDetails.remainders, badge: '' },
+                                            { title: 'DOUBLAGE', subtitle: 'HEURES SUPPLÉMENTAIRES', icon: TrendingUp, color: 'text-[#78716c]', iconBg: 'bg-[#78716c]/5', dotColor: '#78716c', items: expenseDetails.doublages },
                                         ].map((cat, idx) => {
                                             const total = (cat.items || []).reduce((sum: number, item: any) => sum + (item.amount || 0), 0);
                                             const labelMap: Record<string, string> = {
@@ -3733,7 +3733,8 @@ export default function PaiementsPage() {
                                             return (
                                                 <div
                                                     key={idx}
-                                                    className={`group bg-white rounded-[1.5rem] lg:rounded-[2.5rem] border transition-all duration-300 ${isSelected ? 'border-[#2d6a4f] ring-4 ring-[#2d6a4f]/10 shadow-xl bg-[#2d6a4f]/5' : (isExpanded || isActive) ? 'border-[#c69f6e] ring-4 ring-[#c69f6e]/5 shadow-xl' : 'border-[#e6dace]/20 hover:border-[#c69f6e]/30 shadow-sm shadow-[#4a3426]/5'} ${isActive || isSelected ? 'scale-[1.02]' : ''}`}
+                                                    className={`group bg-white rounded-[1.5rem] lg:rounded-[2.5rem] border transition-all duration-300 ${isSelected ? 'border-[#2d6a4f] ring-4 ring-[#2d6a4f]/10 shadow-xl bg-[#2d6a4f]/5' : (isExpanded || isActive) ? 'border-[#c69f6e] ring-4 ring-[#c69f6e]/5 shadow-xl' : 'border-[#e6dace]/20 hover:border-[#c69f6e]/30 shadow-sm shadow-[#4a3426]/5'} ${isActive || isSelected ? 'scale-[1.02]' : ''} relative overflow-hidden`}
+                                                    style={{ borderTop: `4px solid ${cat.dotColor}` }}
                                                 >
                                                     {/* Category Header Card */}
                                                     <div
@@ -3751,8 +3752,7 @@ export default function PaiementsPage() {
                                                             </div>
                                                             <div>
                                                                 <div className="flex items-center gap-2">
-                                                                    <div className="w-2.5 h-2.5 rounded-full mb-1.5 shadow-sm" style={{ backgroundColor: cat.dotColor }} />
-                                                                    <p className="text-[11px] font-black text-[#4a3426] uppercase tracking-tight leading-none mb-1.5">{cat.title}</p>
+                                                                    <p className="text-[11px] font-black uppercase tracking-tight leading-none mb-1.5" style={{ color: cat.dotColor }}>{cat.title}</p>
                                                                     {isSelected && <CheckCircle2 size={14} className="text-[#2d6a4f] mb-1.5 animate-in fade-in zoom-in duration-300" />}
                                                                     {cat.badge && (
                                                                         <span className="text-[8px] font-black text-red-500 uppercase tracking-tighter bg-red-50 border border-red-100 px-1.5 py-0.5 rounded ml-1">{cat.badge}</span>
@@ -3853,23 +3853,25 @@ export default function PaiementsPage() {
                                                     items: item.items
                                                 });
                                             }}
-                                            className="w-full flex items-center justify-between p-4 bg-white rounded-2xl border border-[#e6dace]/30 hover:border-[#c69f6e] hover:shadow-lg transition-all active:scale-[0.98] group"
+                                            className="w-full flex items-center justify-between p-4 bg-white rounded-2xl border border-[#e6dace]/30 hover:border-[#c69f6e] hover:shadow-xl transition-all active:scale-[0.98] group relative overflow-hidden"
+                                            style={{ borderTop: `4px solid ${showCategoryListModal.dotColor}` }}
                                         >
                                             <div className="flex items-center gap-4">
-                                                <div className="w-10 h-10 rounded-xl bg-[#f4ece4] flex items-center justify-center text-[#c69f6e] font-black text-sm">
-                                                    {item.name.substring(0, 2).toUpperCase()}
-                                                </div>
                                                 <div className="text-left">
-                                                    <span className="text-sm font-black text-[#4a3426] uppercase tracking-tight block">{item.name}</span>
-                                                    <span className="text-[10px] font-bold text-[#8c8279]">{item.items?.length || 0} transaction{(item.items?.length || 0) > 1 ? 's' : ''}</span>
+                                                    <span className="text-base font-black uppercase tracking-tight block" style={{ color: showCategoryListModal.dotColor }}>
+                                                        {item.name}
+                                                    </span>
+                                                    <span className="text-[10px] font-bold text-[#8c8279] uppercase tracking-tighter opacity-70">
+                                                        {item.items?.length || 0} transaction{(item.items?.length || 0) > 1 ? 's' : ''}
+                                                    </span>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-3">
-                                                <div className="text-right">
+                                            <div className="flex items-center gap-2">
+                                                <div className="px-3 py-2 bg-[#f4ece4] rounded-2xl flex items-baseline gap-1 shadow-sm border border-[#e6dace]/20">
                                                     <span className="text-lg font-black text-[#4a3426]">{maskAmount(item.amount)}</span>
-                                                    <span className="text-[9px] font-black text-[#c69f6e] ml-1">DT</span>
+                                                    <span className="text-[8px] font-black text-[#4a3426] opacity-60">DT</span>
                                                 </div>
-                                                <ChevronRight size={18} className="text-[#c69f6e] opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                <ChevronRight size={16} className="text-[#c69f6e] opacity-0 group-hover:opacity-100 transition-opacity translate-x-1" />
                                             </div>
                                         </motion.button>
                                     ))}

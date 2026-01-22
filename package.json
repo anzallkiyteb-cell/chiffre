@@ -3,10 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 6001",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -p 6001",
     "lint": "eslint"
+  },
+  "overrides": {
+    "node-fetch": "^2.7.0"
   },
   "dependencies": {
     "@apollo/client": "^3.9.11",

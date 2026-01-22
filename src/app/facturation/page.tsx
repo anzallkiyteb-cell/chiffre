@@ -491,7 +491,8 @@ export default function FacturationPage() {
         if (savedUser) {
             setUser(JSON.parse(savedUser));
         } else {
-            router.push('/');
+            router.replace('/');
+            return;
         }
 
         // Handle supplier filter from URL
@@ -500,6 +501,32 @@ export default function FacturationPage() {
         if (supplier) setSearchSupplier(decodeURIComponent(supplier));
 
         setInitializing(false);
+
+        // Handle back button - check if user is still logged in
+        const handlePopState = () => {
+            const currentUser = localStorage.getItem('bb_user');
+            if (!currentUser) {
+                router.replace('/');
+            }
+        };
+
+        // Handle page visibility change
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                const currentUser = localStorage.getItem('bb_user');
+                if (!currentUser) {
+                    router.replace('/');
+                }
+            }
+        };
+
+        window.addEventListener('popstate', handlePopState);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            window.removeEventListener('popstate', handlePopState);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
     }, [router]);
 
     const lockedDates = data?.getLockedDates || [];
@@ -778,29 +805,31 @@ export default function FacturationPage() {
                     </div>
 
                     {/* Stat Boxes */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            onClick={() => setStatusFilter(statusFilter === 'paid' ? 'all' : 'paid')}
-                            className={`rounded-[2rem] p-6 border transition-all shadow-lg relative overflow-hidden group cursor-pointer ${statusFilter === 'paid' ? 'ring-4 ring-[#2d6a4f]/20 scale-[1.02]' : ''} bg-[#2d6a4f] border-[#2d6a4f] text-white`}
-                        >
-                            <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-125"></div>
-                            <div className="flex items-center gap-4 mb-4 relative z-10">
-                                <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center text-white">
-                                    <CheckCircle2 size={24} />
+                    <div className={`grid grid-cols-1 ${user?.role !== 'caissier' ? 'md:grid-cols-2' : ''} gap-6 mb-8`}>
+                        {user?.role !== 'caissier' && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                onClick={() => setStatusFilter(statusFilter === 'paid' ? 'all' : 'paid')}
+                                className={`rounded-[2rem] p-6 border transition-all shadow-lg relative overflow-hidden group cursor-pointer ${statusFilter === 'paid' ? 'ring-4 ring-[#2d6a4f]/20 scale-[1.02]' : ''} bg-[#2d6a4f] border-[#2d6a4f] text-white`}
+                            >
+                                <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-125"></div>
+                                <div className="flex items-center gap-4 mb-4 relative z-10">
+                                    <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center text-white">
+                                        <CheckCircle2 size={24} />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-black text-white/60 uppercase tracking-widest">Total Payé</p>
+                                        <h3 className="text-2xl font-black text-white">{stats.paid.toFixed(3)} <span className="text-xs opacity-50">DT</span></h3>
+                                    </div>
                                 </div>
-                                <div>
-                                    <p className="text-[10px] font-black text-white/60 uppercase tracking-widest">Total Payé</p>
-                                    <h3 className="text-2xl font-black text-white">{stats.paid.toFixed(3)} <span className="text-xs opacity-50">DT</span></h3>
+                                <div className="flex justify-between items-center text-[10px] font-bold text-white/80 uppercase tracking-wider relative z-10">
+                                    <span>Factures validées</span>
+                                    <span className="bg-white/20 text-white px-2 py-0.5 rounded-full">{stats.countPaid}</span>
                                 </div>
-                            </div>
-                            <div className="flex justify-between items-center text-[10px] font-bold text-white/80 uppercase tracking-wider relative z-10">
-                                <span>Factures validées</span>
-                                <span className="bg-white/20 text-white px-2 py-0.5 rounded-full">{stats.countPaid}</span>
-                            </div>
-                            {statusFilter === 'paid' && <div className="absolute top-4 right-4 text-white/40"><Filter size={14} /></div>}
-                        </motion.div>
+                                {statusFilter === 'paid' && <div className="absolute top-4 right-4 text-white/40"><Filter size={14} /></div>}
+                            </motion.div>
+                        )}
 
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}

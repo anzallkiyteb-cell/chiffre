@@ -719,6 +719,34 @@ export default function Home() {
       }
     }
     setInitializing(false);
+
+    // Handle back button - check if user is still logged in
+    const handlePopState = () => {
+      const currentUser = localStorage.getItem('bb_user');
+      if (!currentUser) {
+        // User is logged out, prevent showing cached content
+        window.history.pushState(null, '', '/');
+        setUser(null);
+      }
+    };
+
+    // Handle page visibility change (when user returns to tab)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        const currentUser = localStorage.getItem('bb_user');
+        if (!currentUser) {
+          setUser(null);
+        }
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   const [getUsersForAuth, { loading: queryLoading }] = useLazyQuery(gql`

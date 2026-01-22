@@ -97,9 +97,36 @@ export default function FournisseursPage() {
         if (savedUser) {
             setUser(JSON.parse(savedUser));
         } else {
-            router.push('/');
+            router.replace('/');
+            return;
         }
         setInitializing(false);
+
+        // Handle back button - check if user is still logged in
+        const handlePopState = () => {
+            const currentUser = localStorage.getItem('bb_user');
+            if (!currentUser) {
+                router.replace('/');
+            }
+        };
+
+        // Handle page visibility change
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                const currentUser = localStorage.getItem('bb_user');
+                if (!currentUser) {
+                    router.replace('/');
+                }
+            }
+        };
+
+        window.addEventListener('popstate', handlePopState);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            window.removeEventListener('popstate', handlePopState);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
     }, [router]);
 
     // Data handling
