@@ -2552,7 +2552,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                             className="cursor-pointer group/title"
                                             onClick={() => setShowHistoryModal({ type: 'avance' })}
                                         >
-                                            <h4 className="font-black text-blue-600 text-xs uppercase tracking-wider group-hover/title:text-blue-700 transition-colors">ACCOMPTE</h4>
+                                            <h4 className="font-black text-blue-600 text-xs uppercase tracking-wider group-hover/title:text-blue-700 transition-colors">Avances</h4>
                                             <p className="text-[9px] font-bold text-[#8c8279] uppercase tracking-tighter opacity-70">Avances sur salaires</p>
                                         </div>
                                         <button
