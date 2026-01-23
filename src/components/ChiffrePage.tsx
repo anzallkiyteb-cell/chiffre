@@ -42,8 +42,8 @@ const formatDisplayDate = (dateValue: any) => {
     }
 };
 
-// Compress image to reduce payload size (max 2MB per image)
-const compressImage = (file: File, maxSizeKB: number = 2000): Promise<string> => {
+// Compress image to reduce payload size (max 150KB per image to stay under 1MB total)
+const compressImage = (file: File, maxSizeKB: number = 150): Promise<string> => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = (e) => {
@@ -53,8 +53,8 @@ const compressImage = (file: File, maxSizeKB: number = 2000): Promise<string> =>
                 let width = img.width;
                 let height = img.height;
 
-                // Scale down if image is too large
-                const maxDimension = 2560;
+                // Scale down aggressively to reduce size
+                const maxDimension = 1200;
                 if (width > maxDimension || height > maxDimension) {
                     if (width > height) {
                         height = Math.round((height * maxDimension) / width);
@@ -74,13 +74,22 @@ const compressImage = (file: File, maxSizeKB: number = 2000): Promise<string> =>
                 }
                 ctx.drawImage(img, 0, 0, width, height);
 
-                // Try different quality levels to get under maxSizeKB
-                let quality = 0.85;
+                // Start with moderate quality and reduce until under limit
+                let quality = 0.7;
                 let result = canvas.toDataURL('image/jpeg', quality);
 
-                while (result.length > maxSizeKB * 1024 * 1.37 && quality > 0.2) { // 1.37 accounts for base64 overhead
+                while (result.length > maxSizeKB * 1024 * 1.37 && quality > 0.1) { // 1.37 accounts for base64 overhead
                     quality -= 0.1;
                     result = canvas.toDataURL('image/jpeg', quality);
+                }
+
+                // If still too large, reduce dimensions further
+                if (result.length > maxSizeKB * 1024 * 1.37) {
+                    const scale = 0.5;
+                    canvas.width = width * scale;
+                    canvas.height = height * scale;
+                    ctx.drawImage(img, 0, 0, width * scale, height * scale);
+                    result = canvas.toDataURL('image/jpeg', 0.6);
                 }
 
                 resolve(result);
@@ -1669,7 +1678,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
 
         if (type === 'invoice' || (type as any) === 'offres') {
             // Compress all images before storing
-            const loaders = Array.from(files).map(file => compressImage(file, 2000));
+            const loaders = Array.from(files).map(file => compressImage(file));
             try {
                 const base64s = await Promise.all(loaders);
                 if (type === 'invoice' || (type as any) === 'offres') {
@@ -1696,7 +1705,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         } else {
             const file = files[0];
             try {
-                const compressed = await compressImage(file, 2000);
+                const compressed = await compressImage(file);
                 const newExpenses = [...expenses];
                 if (type === 'recto') newExpenses[index].photo_cheque = compressed;
                 if (type === 'verso') newExpenses[index].photo_verso = compressed;
@@ -1990,7 +1999,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         const file = e.target.files?.[0];
                                                         if (file && caissePhotos.length < 3) {
                                                             try {
-                                                                const compressed = await compressImage(file, 2000);
+                                                                const compressed = await compressImage(file);
                                                                 setCaissePhotos(prev => [...prev, compressed]);
                                                                 setHasInteracted(true);
                                                                 setToast({ msg: 'Photo caisse ajoutée', type: 'success' });
@@ -3435,7 +3444,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                                         reader.readAsDataURL(file);
                                                                     });
                                                                 }
-                                                                return compressImage(file, 2000);
+                                                                return compressImage(file);
                                                             });
                                                             const base64s = await Promise.all(loaders);
 
@@ -3592,7 +3601,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                                                 reader.readAsDataURL(file);
                                                                             });
                                                                         }
-                                                                        return compressImage(file, 2000);
+                                                                        return compressImage(file);
                                                                     });
                                                                     const base64s = await Promise.all(loaders);
                                                                     let newList: string[] = [];
@@ -3825,7 +3834,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 const file = e.target.files?.[0];
                                 if (file && caissePhotos.length < 3) {
                                     try {
-                                        const compressed = await compressImage(file, 2000);
+                                        const compressed = await compressImage(file);
                                         setCaissePhotos(prev => [...prev, compressed]);
                                         setViewingPhoto(compressed);
                                         setHasInteracted(true);
