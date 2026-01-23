@@ -729,6 +729,115 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
     );
 };
 
+const CalendarModal = ({ isOpen, onClose, value, onChange }: any) => {
+    const [viewDate, setViewDate] = useState(new Date());
+
+    useEffect(() => {
+        if (isOpen && value) {
+            setViewDate(new Date(value));
+        }
+    }, [isOpen, value]);
+
+    if (!isOpen) return null;
+
+    const months = [
+        'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+        'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
+    ];
+
+    const daysInMonth = () => {
+        const year = viewDate.getFullYear();
+        const month = viewDate.getMonth();
+        const firstDay = new Date(year, month, 1).getDay();
+        const days = [];
+        const offset = firstDay === 0 ? 6 : firstDay - 1;
+        for (let i = 0; i < offset; i++) days.push(null);
+        const lastDay = new Date(year, month + 1, 0).getDate();
+        for (let i = 1; i <= lastDay; i++) days.push(new Date(year, month, i));
+        return days;
+    };
+
+    const monthDays = daysInMonth();
+
+    return (
+        <AnimatePresence>
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[700] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
+                onClick={onClose}
+            >
+                <motion.div
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.9, opacity: 0 }}
+                    onClick={e => e.stopPropagation()}
+                    className="bg-white rounded-[2.5rem] w-full max-w-sm overflow-hidden shadow-2xl border border-[#e6dace] p-6"
+                >
+                    <div className="flex justify-between items-center mb-6 px-2">
+                        <button
+                            type="button"
+                            onClick={() => setViewDate(new Date(viewDate.setMonth(viewDate.getMonth() - 1)))}
+                            className="p-3 hover:bg-[#fcfaf8] rounded-2xl text-[#c69f6e] transition-colors"
+                        >
+                            <ChevronLeft size={24} />
+                        </button>
+                        <span className="text-lg font-black text-[#4a3426] uppercase tracking-[0.1em]">
+                            {months[viewDate.getMonth()]} {viewDate.getFullYear()}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => setViewDate(new Date(viewDate.setMonth(viewDate.getMonth() + 1)))}
+                            className="p-3 hover:bg-[#fcfaf8] rounded-2xl text-[#c69f6e] transition-colors"
+                        >
+                            <ChevronRight size={24} />
+                        </button>
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-2 mb-4">
+                        {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((d, i) => (
+                            <div key={i} className="text-xs font-black text-[#bba282] text-center uppercase tracking-widest opacity-60">
+                                {d}
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-2">
+                        {monthDays.map((day, i) => {
+                            if (!day) return <div key={`empty-${i}`} />;
+
+                            const y = day.getFullYear();
+                            const m = String(day.getMonth() + 1).padStart(2, '0');
+                            const d = String(day.getDate()).padStart(2, '0');
+                            const dStr = `${y}-${m}-${d}`;
+                            const isSelected = value === dStr;
+                            const isToday = new Date().toDateString() === day.toDateString();
+
+                            return (
+                                <button
+                                    key={i}
+                                    type="button"
+                                    onClick={() => {
+                                        onChange(dStr);
+                                        onClose();
+                                    }}
+                                    className={`h-10 w-10 text-sm rounded-xl font-black transition-all flex items-center justify-center relative
+                                        ${isSelected ? 'bg-[#4a3426] text-white shadow-lg shadow-[#4a3426]/30' : 'text-[#4a3426] hover:bg-[#fcfaf8] border border-transparent hover:border-[#e6dace]'}
+                                        ${isToday && !isSelected ? 'text-[#c69f6e] bg-[#c69f6e]/10' : ''}
+                                    `}
+                                >
+                                    {day.getDate()}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </motion.div>
+            </motion.div>
+        </AnimatePresence>
+    );
+};
+
 export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     // Global State
     const [date, setDate] = useState<string>('');
@@ -1734,16 +1843,16 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={() => shiftDate(-1)}
-                                    className={`p-2 rounded-full hover:bg-[#ebdccf] text-[#8c8279] hover:text-[#4a3426] transition-all ${role !== 'admin' && new Date(date) <= new Date(Date.now() - 86400000 * 2) ? 'opacity-0 pointer-events-none w-0 p-0 overflow-hidden' : ''}`}
+                                    className="p-2 rounded-full hover:bg-[#ebdccf] text-[#8c8279] hover:text-[#4a3426] transition-all"
                                 >
                                     <ChevronLeft size={20} />
                                 </button>
 
                                 <div
-                                    className={`relative group ${role === 'admin' ? 'cursor-pointer' : ''}`}
-                                    onClick={() => role === 'admin' && setShowCalendar(true)}
+                                    className="relative group cursor-pointer"
+                                    onClick={() => setShowCalendar(true)}
                                 >
-                                    <div className={`flex items-center gap-3 bg-[#f4ece4] px-5 py-2.5 rounded-2xl transition-all border border-transparent ${role === 'admin' ? 'group-hover:bg-[#e6dace] group-hover:border-[#c69f6e]/30' : ''}`}>
+                                    <div className="flex items-center gap-3 bg-[#f4ece4] px-5 py-2.5 rounded-2xl transition-all border border-transparent group-hover:bg-[#e6dace] group-hover:border-[#c69f6e]/30">
                                         <Calendar size={18} className="text-[#c69f6e]" />
                                         <div className="flex flex-col items-start leading-none">
                                             <span className="text-[10px] font-bold text-[#8c8279] uppercase tracking-wider hidden xs:block">Date Sélectionnée</span>
@@ -1756,13 +1865,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
 
                                 <button
                                     onClick={() => shiftDate(1)}
-                                    className={`p-2 rounded-full hover:bg-[#ebdccf] text-[#8c8279] hover:text-[#4a3426] transition-all ${role !== 'admin' && (() => {
-                                        const now = new Date();
-                                        const ty = now.getFullYear();
-                                        const tm = String(now.getMonth() + 1).padStart(2, '0');
-                                        const td = String(now.getDate()).padStart(2, '0');
-                                        return date >= `${ty}-${tm}-${td}`;
-                                    })() ? 'opacity-0 pointer-events-none w-0 p-0 overflow-hidden' : ''}`}
+                                    className="p-2 rounded-full hover:bg-[#ebdccf] text-[#8c8279] hover:text-[#4a3426] transition-all"
                                 >
                                     <ChevronRight size={20} />
                                 </button>
@@ -4346,6 +4449,13 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                 message={showConfirm?.message || ''}
                 color={showConfirm?.color || 'blue'}
                 alert={showConfirm?.alert || showConfirm?.type === 'alert'}
+            />
+
+            <CalendarModal
+                isOpen={showCalendar}
+                onClose={() => setShowCalendar(false)}
+                value={date}
+                onChange={(d: string) => setDate(d)}
             />
         </div >
     );
