@@ -700,6 +700,13 @@ export const resolvers = {
                     restes_salaires_details: restesSalairesByDate[d] || []
                 };
             });
+        },
+        getJournalierPhotos: async (_: any, { date }: { date: string }) => {
+            const res = await query('SELECT * FROM photo_journalier WHERE date = $1', [date]);
+            return res.rows.map(r => ({
+                ...r,
+                photos: typeof r.photos === 'string' ? r.photos : JSON.stringify(r.photos || [])
+            }));
         }
     },
     Mutation: {
@@ -726,11 +733,26 @@ export const resolvers = {
 
             const payerRole = args.payer || 'caissier';
 
+            // Before processing diponce and diponce_divers, fetch temp photos
+            const tempPhotosRes = await query('SELECT * FROM photo_journalier WHERE date = $1', [date]);
+            const tempPhotosMap: Record<string, string[]> = {};
+            tempPhotosRes.rows.forEach(r => {
+                const key = `${r.category}_${r.item_index}`;
+                tempPhotosMap[key] = typeof r.photos === 'string' ? JSON.parse(r.photos) : (Array.isArray(r.photos) ? r.photos : []);
+            });
+
             // Sync Fournisseur expenses to Invoices
             let diponceList = [];
             try {
                 const fullDiponceList = JSON.parse(diponce);
-                for (const d of fullDiponceList) {
+                for (let i = 0; i < fullDiponceList.length; i++) {
+                    const d = fullDiponceList[i];
+                    // Pick up temp photos if they exist for this entry
+                    const temp = tempPhotosMap[`expenses_${i}`];
+                    if (temp && temp.length > 0) {
+                        d.invoices = temp;
+                    }
+
                     if (!d.isFromFacturation && d.supplier && parseFloat(d.amount) > 0) {
                         await query(
                             `INSERT INTO invoices (supplier_name, amount, date, photo_url, photos, photo_cheque_url, photo_verso_url, status, payment_method, paid_date, payer, category, doc_type, doc_number, origin, details, has_retenue, original_amount)
@@ -752,7 +774,14 @@ export const resolvers = {
             let diponceDiversList = [];
             try {
                 const fullDiversList = JSON.parse(diponce_divers);
-                for (const d of fullDiversList) {
+                for (let i = 0; i < fullDiversList.length; i++) {
+                    const d = fullDiversList[i];
+                    // Pick up temp photos if they exist for this entry
+                    const temp = tempPhotosMap[`expensesDivers_${i}`];
+                    if (temp && temp.length > 0) {
+                        d.invoices = temp;
+                    }
+
                     if (!d.isFromFacturation && d.designation && parseFloat(d.amount) > 0) {
                         await query(
                             `INSERT INTO invoices (supplier_name, amount, date, photos, status, payment_method, paid_date, payer, category, doc_type, origin, details, has_retenue, original_amount)
@@ -770,9 +799,26 @@ export const resolvers = {
                 }
             } catch (e) { console.error(e); }
 
+            // Sync Offres photos
+            let offresList = [];
+            try {
+                const fullOffresList = JSON.parse(offres_data || '[]');
+                for (let i = 0; i < fullOffresList.length; i++) {
+                    const o = fullOffresList[i];
+                    const temp = tempPhotosMap[`offres_${i}`];
+                    if (temp && temp.length > 0) {
+                        o.invoices = temp;
+                    }
+                    offresList.push(o);
+                }
+            } catch (e) {
+                try { offresList = JSON.parse(offres_data || '[]'); } catch (ee) { offresList = []; }
+            }
+
             const diponceToSave = JSON.stringify(diponceList);
             const diponceDiversToSave = JSON.stringify(diponceDiversList);
             const diponceAdminToSave = diponce_admin;
+            const offresDataToSave = JSON.stringify(offresList);
 
             // Check if it exists
             const existing = await query('SELECT id, is_locked FROM chiffres WHERE date = $1', [date]);
@@ -805,16 +851,20 @@ export const resolvers = {
             caisse_photo = $16,
             is_locked = true
           WHERE date = $17 RETURNING *`,
-                    [recette_de_caisse, total_diponce, diponceToSave, recette_net, tpe, tpe2, cheque_bancaire, espaces, tickets_restaurant, extra, primes, diponceDiversToSave, diponceAdminToSave, offres || '0', offres_data || '[]', caisse_photo || null, date]
+                    [recette_de_caisse, total_diponce, diponceToSave, recette_net, tpe, tpe2, cheque_bancaire, espaces, tickets_restaurant, extra, primes, diponceDiversToSave, diponceAdminToSave, offres || '0', offresDataToSave, caisse_photo || null, date]
                 );
             } else {
                 // Insert
                 res = await query(
                     `INSERT INTO chiffres (date, recette_de_caisse, total_diponce, diponce, recette_net, tpe, tpe2, cheque_bancaire, espaces, tickets_restaurant, extra, primes, diponce_divers, diponce_admin, offres, offres_data, caisse_photo, is_locked)
            VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb, $14::jsonb, $15, $16::jsonb, $17, true) RETURNING *`,
-                    [date, recette_de_caisse, total_diponce, diponceToSave, recette_net, tpe, tpe2, cheque_bancaire, espaces, tickets_restaurant, extra, primes, diponceDiversToSave, diponceAdminToSave, offres || '0', offres_data || '[]', caisse_photo || null]
+                    [date, recette_de_caisse, total_diponce, diponceToSave, recette_net, tpe, tpe2, cheque_bancaire, espaces, tickets_restaurant, extra, primes, diponceDiversToSave, diponceAdminToSave, offres || '0', offresDataToSave, caisse_photo || null]
                 );
             }
+
+            // After successful move/save, clear the temp photo table for this date
+            await query('DELETE FROM photo_journalier WHERE date = $1', [date]);
+
             const row = res.rows[0];
 
             // After saving, return it with the paid invoices again for the UI
@@ -1234,6 +1284,35 @@ export const resolvers = {
         },
         toggleUserBlock: async (_: any, { username, isBlocked }: any) => {
             await query('UPDATE logins SET is_blocked_user = $1 WHERE LOWER(username) = LOWER($2)', [isBlocked, username]);
+            return true;
+        },
+
+        uploadJournalierPhotos: async (_: any, { date, category, item_index, photos }: any) => {
+            const existing = await query(
+                'SELECT id FROM photo_journalier WHERE date = $1 AND category = $2 AND item_index = $3',
+                [date, category, item_index]
+            );
+
+            let res;
+            if (existing.rows.length > 0) {
+                res = await query(
+                    'UPDATE photo_journalier SET photos = $1::jsonb, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
+                    [photos, existing.rows[0].id]
+                );
+            } else {
+                res = await query(
+                    'INSERT INTO photo_journalier (date, category, item_index, photos) VALUES ($1, $2, $3, $4::jsonb) RETURNING *',
+                    [date, category, item_index, photos]
+                );
+            }
+            const row = res.rows[0];
+            return {
+                ...row,
+                photos: typeof row.photos === 'string' ? row.photos : JSON.stringify(row.photos || [])
+            };
+        },
+        deleteJournalierPhoto: async (_: any, { id }: { id: number }) => {
+            await query('DELETE FROM photo_journalier WHERE id = $1', [id]);
             return true;
         },
     },

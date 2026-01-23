@@ -285,6 +285,17 @@ const initDb = async () => {
       END $$;
     `);
 
+    await query(`
+      CREATE TABLE IF NOT EXISTS public.photo_journalier (
+        id serial PRIMARY KEY,
+        date character varying(255) NOT NULL,
+        category character varying(255) NOT NULL,
+        item_index integer NOT NULL,
+        photos jsonb DEFAULT '[]',
+        updated_at timestamptz DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
     console.log('Database tables initialized');
   } catch (err) {
     console.error('Error initializing database:', err);

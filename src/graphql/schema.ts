@@ -152,6 +152,14 @@ export const typeDefs = `#graphql
     is_blocked: Boolean
   }
 
+  type JournalierPhoto {
+    id: Int
+    date: String
+    category: String
+    item_index: Int
+    photos: String # JSON array
+  }
+
   type Query {
     getChiffreByDate(date: String!): Chiffre
     getChiffresByRange(startDate: String!, endDate: String!): [Chiffre]
@@ -170,6 +178,7 @@ export const typeDefs = `#graphql
     getSystemStatus: SystemStatus
     getUsers: [UserAccount]
     getConnectionLogs: [ConnectionLog]
+    getJournalierPhotos(date: String!): [JournalierPhoto]
   }
 
   type ConnectionLog {
@@ -317,5 +326,8 @@ export const typeDefs = `#graphql
     clearConnectionLogs: Boolean
     disconnectUser(username: String!): Boolean
     toggleUserBlock(username: String!, isBlocked: Boolean!): Boolean
+    
+    uploadJournalierPhotos(date: String!, category: String!, item_index: Int!, photos: String!): JournalierPhoto
+    deleteJournalierPhoto(id: Int!): Boolean
   }
 `;

@@ -1,16 +1,15 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, memo } from 'react';
 import { useQuery, useMutation, gql } from '@apollo/client';
 import {
-    LayoutDashboard, TrendingDown, TrendingUp, Calendar, ChevronLeft, ChevronRight,
-    BarChart3, LineChart, PieChart as PieChartIcon, ArrowUpRight, ArrowDownRight,
-    Download, Filter, DownloadCloud, Loader2, Users, Receipt, CreditCard,
-    Banknote, Coins, Plus, Search, Trash2, FileText, UploadCloud, ChevronDown, Check,
-    LogOut, ZoomIn, ZoomOut, Maximize2, RotateCcw, LockIcon, UnlockIcon, X, PlusCircle, AlertCircle,
-    Wallet, Eye, EyeOff, ChevronsRight, Upload, SlidersHorizontal, ArrowUpDown, Lock, Unlock, Settings,
-    Briefcase, User, MessageSquare, Share2, ExternalLink, List, Pencil, Save, Calculator, Zap, Sparkles, Clock, Tag,
-    Camera, Image as ImageIcon, LayoutGrid
+    LayoutDashboard, Calendar, ChevronLeft, ChevronRight, TrendingUp,
+    Download, Loader2, Users, Receipt, CreditCard, Coins,
+    Plus, Search, Trash2, FileText, UploadCloud, ChevronDown, Check,
+    ZoomIn, ZoomOut, Maximize2, RotateCcw, X, PlusCircle, AlertCircle,
+    Wallet, Eye, EyeOff, Lock, Unlock, Lock as LockIcon, Unlock as UnlockIcon,
+    Briefcase, User, Share2, List, Pencil, Save, Calculator, Zap, Sparkles, Clock, Tag,
+    Camera
 } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -20,31 +19,93 @@ import withReactContent from 'sweetalert2-react-content';
 
 const MySwal = withReactContent(Swal);
 
-const formatDisplayTime = (dateValue: any) => {
+interface Expense {
+    supplier: string;
+    amount: string;
+    details: string;
+    invoices: string[];
+    photo_cheque?: string;
+    photo_verso?: string;
+    paymentMethod: string;
+    isFromFacturation?: boolean;
+    invoiceId?: number;
+    invoiceDate?: string;
+    invoiceOrigin?: string;
+    doc_type?: string;
+    doc_number?: string;
+    hasRetenue?: boolean;
+    originalAmount?: string;
+}
+
+interface ExpenseDivers {
+    designation: string;
+    amount: string;
+    details: string;
+    invoices: string[];
+    paymentMethod: string;
+    isFromFacturation?: boolean;
+    invoiceId?: number;
+    invoiceDate?: string;
+    invoiceOrigin?: string;
+    doc_type?: string;
+    hasRetenue?: boolean;
+    originalAmount?: string;
+}
+
+interface Offre {
+    name: string;
+    amount: string;
+    invoices: string[];
+}
+
+interface Employee {
+    id: number;
+    name: string;
+    department?: string;
+}
+
+interface JournalierEntry {
+    id?: number;
+    username: string;
+    montant: string;
+    created_at?: string;
+    nb_jours?: number;
+}
+
+const formatDisplayTime = (dateValue: string | number | Date | null | undefined): string | null => {
     if (!dateValue) return null;
     try {
         const d = new Date(typeof dateValue === 'string' && !isNaN(Number(dateValue)) ? Number(dateValue) : (typeof dateValue === 'string' ? dateValue.replace(' ', 'T') : dateValue));
         if (isNaN(d.getTime())) return null;
         return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-    } catch (e) {
+    } catch {
         return null;
     }
 };
 
-const formatDisplayDate = (dateValue: any) => {
-    if (!dateValue) return null;
+const formatDisplayDate = (dateValue: string | number | Date | null | undefined): string => {
+    if (!dateValue) return '';
     try {
         const d = new Date(typeof dateValue === 'string' && !isNaN(Number(dateValue)) ? Number(dateValue) : (typeof dateValue === 'string' ? dateValue.replace(' ', 'T') : dateValue));
         if (isNaN(d.getTime())) return String(dateValue);
         return d.toLocaleDateString('fr-FR');
-    } catch (e) {
+    } catch {
         return String(dateValue);
     }
 };
 
-// Compress image to reduce payload size (max 150KB per image to stay under 1MB total)
-const compressImage = (file: File, maxSizeKB: number = 150): Promise<string> => {
+// Compress image to reduce payload size while keeping quality decent
+const compressImage = (file: File, maxSizeKB: number = 800): Promise<string> => {
     return new Promise((resolve, reject) => {
+        // If not an image, just return as base64
+        if (!file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target?.result as string);
+            reader.onerror = () => reject(new Error('Lecture du fichier échouée'));
+            reader.readAsDataURL(file);
+            return;
+        }
+
         const reader = new FileReader();
         reader.onload = (e) => {
             const img = document.createElement('img');
@@ -53,8 +114,8 @@ const compressImage = (file: File, maxSizeKB: number = 150): Promise<string> => 
                 let width = img.width;
                 let height = img.height;
 
-                // Scale down aggressively to reduce size
-                const maxDimension = 1200;
+                // Scale down slightly if massive
+                const maxDimension = 2000;
                 if (width > maxDimension || height > maxDimension) {
                     if (width > height) {
                         height = Math.round((height * maxDimension) / width);
@@ -69,35 +130,27 @@ const compressImage = (file: File, maxSizeKB: number = 150): Promise<string> => 
                 canvas.height = height;
                 const ctx = canvas.getContext('2d');
                 if (!ctx) {
-                    reject(new Error('Canvas context not available'));
+                    resolve(e.target?.result as string); // Fallback to raw if canvas fails
                     return;
                 }
                 ctx.drawImage(img, 0, 0, width, height);
 
-                // Start with moderate quality and reduce until under limit
-                let quality = 0.7;
+                // Start with good quality
+                let quality = 0.8;
                 let result = canvas.toDataURL('image/jpeg', quality);
 
-                while (result.length > maxSizeKB * 1024 * 1.37 && quality > 0.1) { // 1.37 accounts for base64 overhead
-                    quality -= 0.1;
-                    result = canvas.toDataURL('image/jpeg', quality);
-                }
-
-                // If still too large, reduce dimensions further
+                // If still too large, step down quality but not too much
                 if (result.length > maxSizeKB * 1024 * 1.37) {
-                    const scale = 0.5;
-                    canvas.width = width * scale;
-                    canvas.height = height * scale;
-                    ctx.drawImage(img, 0, 0, width * scale, height * scale);
-                    result = canvas.toDataURL('image/jpeg', 0.6);
+                    quality = 0.6;
+                    result = canvas.toDataURL('image/jpeg', quality);
                 }
 
                 resolve(result);
             };
-            img.onerror = () => reject(new Error('Image load failed'));
+            img.onerror = () => resolve(e.target?.result as string); // Fallback to raw if load fails
             img.src = e.target?.result as string;
         };
-        reader.onerror = () => reject(new Error('File read failed'));
+        reader.onerror = () => reject(new Error('Lecture du fichier échouée'));
         reader.readAsDataURL(file);
     });
 };
@@ -228,8 +281,35 @@ const SAVE_CHIFFRE = gql`
       payer: $payer
     ) {
         id
+        date
+        diponce
+        diponce_divers
+        diponce_admin
     }
 }
+`;
+
+const GET_JOURNALIER_PHOTOS = gql`
+  query GetJournalierPhotos($date: String!) {
+    getJournalierPhotos(date: $date) {
+      id
+      date
+      category
+      item_index
+      photos
+    }
+  }
+`;
+
+const UPLOAD_JOURNALIER_PHOTOS = gql`
+  mutation UploadJournalierPhotos($date: String!, $category: String!, $item_index: Int!, $photos: String!) {
+    uploadJournalierPhotos(date: $date, category: $category, item_index: $item_index, photos: $photos) {
+      id
+      category
+      item_index
+      photos
+    }
+  }
 `;
 
 const UPSERT_SUPPLIER = gql`
@@ -244,54 +324,54 @@ const UPSERT_SUPPLIER = gql`
 const UNPAY_INVOICE = gql`
   mutation UnpayInvoice($id: Int!) {
     unpayInvoice(id: $id) {
-      id
-      status
+        id
+        status
     }
-  }
+}
 `;
 
 const DELETE_INVOICE = gql`
   mutation DeleteInvoice($id: Int!) {
     deleteInvoice(id: $id)
-  }
+}
 `;
 
 const GET_EMPLOYEES = gql`
   query GetEmployees {
     getEmployees {
-      id
-      name
-      department
+        id
+        name
+        department
     }
-  }
+}
 `;
 
 const UPSERT_EMPLOYEE = gql`
   mutation UpsertEmployee($name: String!, $department: String) {
     upsertEmployee(name: $name, department: $department) {
-      id
-      name
-      department
+        id
+        name
+        department
     }
-  }
+}
 `;
 
 const UPDATE_EMPLOYEE = gql`
   mutation UpdateEmployee($id: Int!, $name: String!, $department: String) {
     updateEmployee(id: $id, name: $name, department: $department) { id name department }
-  }
+}
 `;
 
 const DELETE_EMPLOYEE = gql`
   mutation DeleteEmployee($id: Int!) {
     deleteEmployee(id: $id)
-  }
+}
 `;
 
 const ADD_AVANCE = gql`
   mutation AddAvance($username: String!, $amount: Float!, $date: String!) {
     addAvance(username: $username, amount: $amount, date: $date) { id username montant }
-  }
+}
 `;
 const DELETE_AVANCE = gql`
   mutation DeleteAvance($id: Int!) { deleteAvance(id: $id) }
@@ -300,7 +380,7 @@ const DELETE_AVANCE = gql`
 const ADD_DOUBLAGE = gql`
   mutation AddDoublage($username: String!, $amount: Float!, $date: String!) {
     addDoublage(username: $username, amount: $amount, date: $date) { id username montant }
-  }
+}
 `;
 const DELETE_DOUBLAGE = gql`
   mutation DeleteDoublage($id: Int!) { deleteDoublage(id: $id) }
@@ -309,7 +389,7 @@ const DELETE_DOUBLAGE = gql`
 const ADD_EXTRA = gql`
   mutation AddExtra($username: String!, $amount: Float!, $date: String!) {
     addExtra(username: $username, amount: $amount, date: $date) { id username montant }
-  }
+}
 `;
 const DELETE_EXTRA = gql`
   mutation DeleteExtra($id: Int!) { deleteExtra(id: $id) }
@@ -318,7 +398,7 @@ const DELETE_EXTRA = gql`
 const ADD_PRIME = gql`
   mutation AddPrime($username: String!, $amount: Float!, $date: String!) {
     addPrime(username: $username, amount: $amount, date: $date) { id username montant }
-  }
+}
 `;
 const DELETE_PRIME = gql`
   mutation DeletePrime($id: Int!) { deletePrime(id: $id) }
@@ -327,18 +407,27 @@ const DELETE_PRIME = gql`
 const ADD_RESTES_SALAIRES = gql`
   mutation AddRestesSalaires($username: String!, $amount: Float!, $nb_jours: Float, $date: String!) {
     addRestesSalaires(username: $username, amount: $amount, nb_jours: $nb_jours, date: $date) { id username montant nb_jours }
-  }
+}
 `;
 const DELETE_RESTES_SALAIRES = gql`
   mutation DeleteRestesSalaires($id: Int!) { deleteRestesSalaires(id: $id) }
 `;
 
-const EntryModal = ({ isOpen, onClose, onSubmit, type, employees = [], initialData = null }: any) => {
+interface EntryModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onSubmit: (data: { username: string, amount: string, nb_jours?: string }) => void;
+    type: string;
+    employees?: Employee[];
+    initialData?: JournalierEntry | null;
+}
+
+const EntryModal = memo(({ isOpen, onClose, onSubmit, type, employees = [], initialData = null }: EntryModalProps) => {
     const [search, setSearch] = useState('');
     const [amount, setAmount] = useState('');
     const [nbJours, setNbJours] = useState('');
     const [showDropdown, setShowDropdown] = useState(false);
-    const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
+    const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
 
     const amountRef = useRef<HTMLInputElement>(null);
     const nbJoursRef = useRef<HTMLInputElement>(null);
@@ -349,8 +438,8 @@ const EntryModal = ({ isOpen, onClose, onSubmit, type, employees = [], initialDa
             if (initialData) {
                 setSearch(initialData.username);
                 setAmount(initialData.montant);
-                setNbJours(initialData.nb_jours || '');
-                const emp = employees.find((e: any) => e.name === initialData.username);
+                setNbJours(initialData.nb_jours?.toString() || '');
+                const emp = employees.find((e: Employee) => e.name === initialData.username);
                 setSelectedEmployee(emp || null);
                 setTimeout(() => amountRef.current?.focus(), 100);
             } else {
@@ -363,13 +452,16 @@ const EntryModal = ({ isOpen, onClose, onSubmit, type, employees = [], initialDa
         }
     }, [isOpen, initialData, employees]);
 
+    const filteredEmployees = useMemo(() => {
+        if (!search) return [];
+        return employees.filter((e: Employee) =>
+            e.name.toLowerCase().includes((search || '').toLowerCase())
+        );
+    }, [employees, search]);
+
     if (!isOpen) return null;
 
-    const filteredEmployees = employees.filter((e: any) =>
-        e.name.toLowerCase().includes(search.toLowerCase())
-    );
-
-    const titleMap: any = {
+    const titleMap: Record<string, string> = {
         avance: initialData ? 'Mettre à jour Accompte' : 'Ajouter Accompte',
         doublage: initialData ? 'Mettre à jour Doublage' : 'Ajouter Doublage',
         extra: initialData ? 'Mettre à jour Extra' : 'Ajouter Extra',
@@ -424,7 +516,7 @@ const EntryModal = ({ isOpen, onClose, onSubmit, type, employees = [], initialDa
                                     />
                                     {showDropdown && search && filteredEmployees.length > 0 && (
                                         <div className="absolute left-0 right-0 top-full mt-2 bg-white rounded-2xl shadow-xl border border-[#e6dace] max-h-48 overflow-y-auto z-[410] custom-scrollbar">
-                                            {filteredEmployees.map((emp: any) => (
+                                            {filteredEmployees.map((emp: Employee) => (
                                                 <button
                                                     key={emp.id}
                                                     onClick={() => {
@@ -471,7 +563,7 @@ const EntryModal = ({ isOpen, onClose, onSubmit, type, employees = [], initialDa
                                                 if (type === 'restes_salaires') {
                                                     nbJoursRef.current?.focus();
                                                 } else if (search && amount && parseFloat(amount) > 0) {
-                                                    onSubmit(type, search, amount, nbJours, initialData?.id);
+                                                    onSubmit({ username: search, amount, nb_jours: nbJours });
                                                     onClose();
                                                 }
                                             }
@@ -498,7 +590,7 @@ const EntryModal = ({ isOpen, onClose, onSubmit, type, employees = [], initialDa
                                         className="w-full h-14 bg-[#fcfaf8] border border-[#e6dace] rounded-2xl pl-12 pr-4 font-black text-2xl text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all"
                                         onKeyDown={(e) => {
                                             if (e.key === 'Enter' && search && amount && parseFloat(amount) > 0) {
-                                                onSubmit(type, search, amount, nbJours, initialData?.id);
+                                                onSubmit({ username: search, amount, nb_jours: nbJours });
                                                 onClose();
                                             }
                                         }}
@@ -508,9 +600,9 @@ const EntryModal = ({ isOpen, onClose, onSubmit, type, employees = [], initialDa
                         )}
 
                         <button
-                            disabled={!search || !amount || parseFloat(amount) <= 0 || !employees.some((e: any) => e.name === search)}
+                            disabled={!search || !amount || parseFloat(amount) <= 0 || !employees.some((e: Employee) => e.name === search)}
                             onClick={() => {
-                                onSubmit(type, search, amount, nbJours, initialData?.id);
+                                onSubmit({ username: search, amount, nb_jours: nbJours });
                                 onClose();
                             }}
                             className="w-full h-14 bg-[#4a3426] text-white rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-lg shadow-[#4a3426]/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-40 disabled:grayscale disabled:scale-100"
@@ -522,14 +614,187 @@ const EntryModal = ({ isOpen, onClose, onSubmit, type, employees = [], initialDa
             </motion.div>
         </AnimatePresence>
     );
-};
+});
+interface QuickAddModalProps {
+    isOpen: boolean;
+    type: 'supplier' | 'employee' | 'divers';
+    onClose: () => void;
+    onSubmit: (value: string, secondary?: string) => Promise<void>;
+    existingEmployeesData?: any;
+    journalierMasterSuggestions: any;
+}
+
+const QuickAddModal = memo(({ isOpen, type, onClose, onSubmit, existingEmployeesData, journalierMasterSuggestions }: QuickAddModalProps) => {
+    const [inputValue, setInputValue] = useState('');
+    const [secondaryValue, setSecondaryValue] = useState('');
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const [showSecondarySuggestions, setShowSecondarySuggestions] = useState(false);
+
+    useEffect(() => {
+        if (isOpen) {
+            setInputValue('');
+            setSecondaryValue('');
+            setShowSuggestions(false);
+            setShowSecondarySuggestions(false);
+        }
+    }, [isOpen]);
+
+    if (!isOpen) return null;
+
+    const currentList = type === 'supplier' ? (journalierMasterSuggestions?.suppliers || []) : type === 'employee' ? (journalierMasterSuggestions?.employees || []) : (journalierMasterSuggestions?.divers || []);
+    const isDuplicate = Array.isArray(currentList) && currentList.some((n: string) => (n || '').toLowerCase() === inputValue.trim().toLowerCase());
+    const filteredSuggestions = Array.isArray(currentList) ? currentList.filter((name: string) => (name || '').toLowerCase().includes(inputValue.toLowerCase())) : [];
+
+    const departments = Array.from(new Set(existingEmployeesData?.getEmployees?.map((e: any) => e.department).filter(Boolean) as string[])) || [];
+    const filteredDepts = departments.filter((d: string) => d.toLowerCase().includes(secondaryValue.toLowerCase()));
+
+    return (
+        <AnimatePresence>
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[500] flex items-center justify-center p-4"
+            >
+                <div className="absolute inset-0 bg-black/40 backdrop-blur-md" onClick={onClose} />
+                <motion.div
+                    initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                    animate={{ scale: 1, opacity: 1, y: 0 }}
+                    exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                    className="relative bg-white rounded-[3rem] w-full max-w-sm shadow-2xl border border-white/20 p-10 z-[501]"
+                    onClick={e => e.stopPropagation()}
+                >
+                    <div className="space-y-8">
+                        <div className="flex flex-col items-center text-center space-y-4">
+                            <div className="w-16 h-16 bg-[#fcfaf8] border border-[#e6dace] rounded-3xl flex items-center justify-center text-[#c69f6e]">
+                                <Plus size={32} />
+                            </div>
+                            <div className="space-y-2">
+                                <h3 className="text-2xl font-black text-[#4a3426]">
+                                    {type === 'supplier' ? 'Nouveau Fournisseur' : type === 'employee' ? 'Nouveau Employé' : 'Nouvelle Désignation'}
+                                </h3>
+                                <p className="text-sm font-bold text-[#8c8279] opacity-60">
+                                    {type === 'supplier' ? 'Ajoutez un partenaire à votre liste.' : type === 'employee' ? 'Ajoutez un collaborateur à votre liste.' : 'Ajoutez une désignation à votre liste.'}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-6">
+                            <div className="space-y-4">
+                                <div className="relative">
+                                    <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-[#bba282]" size={20} />
+                                    <input
+                                        autoFocus
+                                        type="text"
+                                        placeholder={type === 'supplier' ? "Nom du fournisseur..." : type === 'employee' ? "Nom de l'employé..." : "Nom..."}
+                                        value={inputValue}
+                                        onChange={(e) => { setInputValue(e.target.value); setShowSuggestions(true); }}
+                                        onFocus={() => setShowSuggestions(true)}
+                                        className={`w-full h-16 bg-[#fcfaf8] border ${isDuplicate ? 'border-red-400' : 'border-[#e6dace]'} rounded-2xl pl-14 pr-6 font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all placeholder-[#bba282]/50`}
+                                    />
+                                    {isDuplicate && (
+                                        <div className="absolute -bottom-6 left-1 flex items-center gap-1 text-[10px] font-black text-red-500 uppercase">
+                                            <AlertCircle size={12} /> Cet élément existe déjà
+                                        </div>
+                                    )}
+                                    <AnimatePresence>
+                                        {showSuggestions && inputValue.trim().length > 0 && filteredSuggestions.length > 0 && (
+                                            <motion.div
+                                                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
+                                                className="absolute z-[100] top-16 left-0 right-0 mt-3 bg-white rounded-2xl shadow-xl border border-[#e6dace] max-h-52 overflow-y-auto no-scrollbar"
+                                            >
+                                                {filteredSuggestions.map((name: string, i: number) => (
+                                                    <button key={i} type="button" onClick={() => { setInputValue(name); setShowSuggestions(false); }}
+                                                        className="w-full text-left px-5 py-3 hover:bg-[#fcfaf8] text-sm font-bold text-[#4a3426] border-b border-[#f4ece4] last:border-0 transition-colors">
+                                                        {name}
+                                                    </button>
+                                                ))}
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                    {showSuggestions && <div className="fixed inset-0 z-[90]" onClick={() => setShowSuggestions(false)} />}
+                                </div>
+
+                                {type === 'employee' && (
+                                    <div className="relative mt-4">
+                                        <Briefcase className="absolute left-5 top-1/2 -translate-y-1/2 text-[#bba282]" size={20} />
+                                        <div className="relative flex items-center">
+                                            <input
+                                                type="text"
+                                                placeholder="Département..."
+                                                value={secondaryValue}
+                                                onChange={(e) => { setSecondaryValue(e.target.value); setShowSecondarySuggestions(true); }}
+                                                onFocus={() => setShowSecondarySuggestions(true)}
+                                                className="w-full h-16 bg-[#fcfaf8] border border-[#e6dace] rounded-2xl pl-14 pr-6 font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all placeholder-[#bba282]/50"
+                                            />
+                                            <AnimatePresence>
+                                                {showSecondarySuggestions && filteredDepts.length > 0 && (
+                                                    <motion.div
+                                                        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
+                                                        className="absolute z-[110] top-16 left-0 right-0 mt-3 bg-white rounded-2xl shadow-xl border border-[#e6dace] max-h-40 overflow-y-auto no-scrollbar"
+                                                    >
+                                                        {filteredDepts.map((dept, i) => (
+                                                            <button key={i} type="button" onClick={() => { setSecondaryValue(dept); setShowSecondarySuggestions(false); }}
+                                                                className="w-full text-left px-5 py-3 hover:bg-[#fcfaf8] text-sm font-bold text-[#4a3426] border-b border-[#f4ece4] last:border-0 transition-colors">
+                                                                {dept}
+                                                            </button>
+                                                        ))}
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+                                            {showSecondarySuggestions && <div className="fixed inset-0 z-[100]" onClick={() => setShowSecondarySuggestions(false)} />}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex gap-4 mt-8">
+                                <button onClick={onClose} className="flex-1 h-14 rounded-2xl border border-[#e6dace] text-[#8c8279] font-black uppercase text-xs tracking-widest hover:bg-[#fcfaf8] transition-all">Annuler</button>
+                                <button
+                                    onClick={() => onSubmit(inputValue, secondaryValue)}
+                                    disabled={!inputValue.trim() || isDuplicate}
+                                    className="flex-[1.5] h-14 bg-[#4a3426] text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-40"
+                                >
+                                    Valider
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </motion.div>
+            </motion.div>
+        </AnimatePresence>
+    );
+});
 
 interface ChiffrePageProps {
     role: 'admin' | 'caissier';
     onLogout: () => void;
 }
 
-const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message, color = 'brown', alert = false }: any) => {
+interface GroupedHistoryEntry {
+    date: string;
+    amount: number;
+    nb_jours?: number;
+    created_at?: string;
+}
+
+interface GroupedHistoryItem {
+    username: string;
+    total: number;
+    entries: GroupedHistoryEntry[];
+}
+
+interface ConfirmModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onConfirm: () => void;
+    title: string;
+    message: string;
+    color?: string;
+    alert?: boolean;
+}
+
+const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message, color = 'brown', alert = false }: ConfirmModalProps) => {
     if (!isOpen) return null;
     const colors: { [key: string]: string } = {
         brown: 'bg-[#4a3426] hover:bg-[#38261b]',
@@ -592,7 +857,16 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message, color = 'bro
     );
 };
 
-const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }: any) => {
+interface HistoryModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    type: string;
+    startDate: string;
+    endDate: string;
+    targetName?: string;
+}
+
+const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }: HistoryModalProps) => {
     const { data: historyData, loading, error } = useQuery(GET_CHIFFRES_RANGE, {
         variables: { startDate, endDate },
         skip: !isOpen,
@@ -605,7 +879,7 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
         console.error("History Query Error:", error);
     }
 
-    const titleMap: any = {
+    const titleMap: Record<string, string> = {
         avance: 'Liste des Accomptes',
         doublage: 'Liste des Doublages',
         extra: 'Liste des Extras',
@@ -617,7 +891,7 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
         restes_salaires: 'Restes Salaires'
     };
 
-    const detailsKeyMap: any = {
+    const detailsKeyMap: Record<string, string> = {
         avance: 'avances_details',
         doublage: 'doublages_details',
         extra: 'extras_details',
@@ -630,10 +904,10 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
     };
 
     // Grouping logic
-    const groupedData: any = {};
+    const groupedData: Record<string, GroupedHistoryItem> = {};
     let globalTotal = 0;
 
-    historyData?.getChiffresByRange?.forEach((chiffre: any) => {
+    historyData?.getChiffresByRange?.forEach((chiffre: { date: string, [key: string]: any }) => {
         let details = [];
         const isJsonType = ['divers', 'admin', 'supplier', 'offres'].includes(type);
 
@@ -666,7 +940,7 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
             globalTotal += amount;
 
             // Safe Date Formatting
-            const formattedDate = formatDisplayDate(item.date || chiffre.date);
+            const formattedDate = formatDisplayDate(item.date || (chiffre.date as string));
 
             groupedData[item.username].entries.push({
                 date: formattedDate,
@@ -679,9 +953,11 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
 
     let employeesList = Object.values(groupedData).map((emp: any) => ({
         ...emp,
-        entries: emp.entries.sort((a: any, b: any) => {
-            const [da, ma, ya] = a.date.split('/').map(Number);
-            const [db, mb, yb] = b.date.split('/').map(Number);
+        entries: emp.entries.sort((a: GroupedHistoryEntry, b: GroupedHistoryEntry) => {
+            const [da, ma, ya] = (a.date || '').split('/').map(Number);
+            const [db, mb, yb] = (b.date || '').split('/').map(Number);
+            if (!ya || !ma || !da) return 1;
+            if (!yb || !mb || !db) return -1;
             const timeA = new Date(ya, ma - 1, da).getTime();
             const timeB = new Date(yb, mb - 1, db).getTime();
             if (timeA !== timeB) return timeB - timeA;
@@ -692,7 +968,7 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
             }
             return 0;
         })
-    })).sort((a: any, b: any) => b.total - a.total);
+    })).sort((a: GroupedHistoryItem, b: GroupedHistoryItem) => b.total - a.total);
 
     if (targetName) {
         employeesList = employeesList.filter((e: any) => e.username.toLowerCase() === targetName.toLowerCase());
@@ -711,7 +987,7 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
                     initial={{ scale: 0.9, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 0.9, opacity: 0 }}
-                    onClick={e => e.stopPropagation()}
+                    onClick={(e: React.MouseEvent) => e.stopPropagation()}
                     className="bg-white rounded-[2.5rem] w-full max-w-2xl overflow-hidden shadow-2xl border border-[#e6dace] flex flex-col max-h-[90vh]"
                 >
                     <div className="p-8 space-y-4 border-b border-[#f9f6f2]">
@@ -721,7 +997,7 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
                                     <LayoutDashboard size={24} />
                                 </div>
                                 <h3 className="text-2xl font-black text-[#4a3426] tracking-tighter uppercase">
-                                    {targetName ? `Historique: ${targetName}` : titleMap[type]}
+                                    {targetName ? `Historique: ${targetName} ` : titleMap[type]}
                                 </h3>
                             </div>
                             <button onClick={onClose} className="p-2 hover:bg-[#f9f6f2] rounded-xl transition-colors text-[#bba282]"><X size={24} /></button>
@@ -789,7 +1065,14 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
     );
 };
 
-const CalendarModal = ({ isOpen, onClose, value, onChange }: any) => {
+interface CalendarModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    value: string;
+    onChange: (date: string) => void;
+}
+
+const CalendarModal = ({ isOpen, onClose, value, onChange }: CalendarModalProps) => {
     const [viewDate, setViewDate] = useState(new Date());
 
     useEffect(() => {
@@ -865,7 +1148,7 @@ const CalendarModal = ({ isOpen, onClose, value, onChange }: any) => {
 
                     <div className="grid grid-cols-7 gap-2">
                         {monthDays.map((day, i) => {
-                            if (!day) return <div key={`empty-${i}`} />;
+                            if (!day) return <div key={`empty - ${i} `} />;
 
                             const y = day.getFullYear();
                             const m = String(day.getMonth() + 1).padStart(2, '0');
@@ -885,7 +1168,7 @@ const CalendarModal = ({ isOpen, onClose, value, onChange }: any) => {
                                     className={`h-10 w-10 text-sm rounded-xl font-black transition-all flex items-center justify-center relative
                                         ${isSelected ? 'bg-[#4a3426] text-white shadow-lg shadow-[#4a3426]/30' : 'text-[#4a3426] hover:bg-[#fcfaf8] border border-transparent hover:border-[#e6dace]'}
                                         ${isToday && !isSelected ? 'text-[#c69f6e] bg-[#c69f6e]/10' : ''}
-                                    `}
+`}
                                 >
                                     {day.getDate()}
                                 </button>
@@ -941,41 +1224,19 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     const [addRestesSalaires] = useMutation(ADD_RESTES_SALAIRES);
     const [deleteRestesSalaires] = useMutation(DELETE_RESTES_SALAIRES);
 
+    // Photo Management Hooks
+    const [uploadJournalierPhotos] = useMutation(UPLOAD_JOURNALIER_PHOTOS);
+    const { data: journalierPhotosData } = useQuery(GET_JOURNALIER_PHOTOS, {
+        variables: { date },
+        skip: !date
+    });
+
     // Dashboard States
     const [recetteCaisse, setRecetteCaisse] = useState('0');
-    const [expenses, setExpenses] = useState<{
-        supplier: string,
-        amount: string,
-        details: string,
-        invoices: string[],
-        photo_cheque?: string,
-        photo_verso?: string,
-        paymentMethod: string,
-        isFromFacturation?: boolean,
-        invoiceId?: number,
-        invoiceDate?: string,
-        invoiceOrigin?: string,
-        doc_type?: string,
-        doc_number?: string,
-        hasRetenue?: boolean,
-        originalAmount?: string
-    }[]>([
+    const [expenses, setExpenses] = useState<Expense[]>([
         { supplier: '', amount: '0', details: '', invoices: [], photo_cheque: '', photo_verso: '', paymentMethod: 'Espèces', doc_type: 'BL', hasRetenue: false, originalAmount: '0' }
     ]);
-    const [expensesDivers, setExpensesDivers] = useState<{
-        designation: string,
-        amount: string,
-        details: string,
-        invoices: string[],
-        paymentMethod: string,
-        isFromFacturation?: boolean,
-        invoiceId?: number,
-        invoiceDate?: string,
-        invoiceOrigin?: string,
-        doc_type?: string,
-        hasRetenue?: boolean,
-        originalAmount?: string
-    }[]>([
+    const [expensesDivers, setExpensesDivers] = useState<ExpenseDivers[]>([
         { designation: '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces', doc_type: 'BL', hasRetenue: false, originalAmount: '0' }
     ]);
     const [expensesAdmin, setExpensesAdmin] = useState<{
@@ -997,17 +1258,17 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     const [offres, setOffres] = useState('0');
 
     // Bey Details (Now Local)
-    const [avancesList, setAvancesList] = useState<{ id?: number, username: string, montant: string, created_at?: string }[]>([]);
-    const [doublagesList, setDoublagesList] = useState<{ id?: number, username: string, montant: string, created_at?: string }[]>([]);
-    const [extrasList, setExtrasList] = useState<{ id?: number, username: string, montant: string, created_at?: string }[]>([]);
-    const [primesList, setPrimesList] = useState<{ id?: number, username: string, montant: string, created_at?: string }[]>([]);
-    const [offresList, setOffresList] = useState<{ name: string, amount: string, invoices: string[] }[]>([]);
+    const [avancesList, setAvancesList] = useState<JournalierEntry[]>([]);
+    const [doublagesList, setDoublagesList] = useState<JournalierEntry[]>([]);
+    const [extrasList, setExtrasList] = useState<JournalierEntry[]>([]);
+    const [primesList, setPrimesList] = useState<JournalierEntry[]>([]);
+    const [offresList, setOffresList] = useState<Offre[]>([]);
     const [isOffresExpanded, setIsOffresExpanded] = useState(false);
     const [viewingPhoto, setViewingPhoto] = useState<string | null>(null);
     const [photoZoom, setPhotoZoom] = useState(1);
     const [photoRotation, setPhotoRotation] = useState(0);
     const [caissePhotos, setCaissePhotos] = useState<string[]>([]);
-    const [restesSalairesList, setRestesSalairesList] = useState<{ id?: number, username: string, montant: string, nb_jours?: number, created_at?: string }[]>([]);
+    const [restesSalairesList, setRestesSalairesList] = useState<JournalierEntry[]>([]);
 
     // UI States
     const [toast, setToast] = useState<{ msg: string, type: 'success' | 'error' } | null>(null);
@@ -1016,7 +1277,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     const [designationSearch, setDesignationSearch] = useState('');
     const [showSupplierDropdown, setShowSupplierDropdown] = useState<number | null>(null);
     const [showDiversDropdown, setShowDiversDropdown] = useState<number | null>(null);
-    const [showEntryModal, setShowEntryModal] = useState<any>(null); // { type: 'avance' | 'doublage' | 'extra' | 'prime', data: any }
+    const [showEntryModal, setShowEntryModal] = useState<{ type: string, data?: JournalierEntry | null } | null>(null);
     const [showEmployeeList, setShowEmployeeList] = useState(false);
     const [isAddingEmployee, setIsAddingEmployee] = useState(false);
     const [newEmpName, setNewEmpName] = useState('');
@@ -1059,43 +1320,53 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     const [showJournalierSuggestions, setShowJournalierSuggestions] = useState(false);
 
     const journalierMasterSuggestions = useMemo(() => {
-        const sList = (suppliersData?.getSuppliers || []).map((s: any) => s.name);
-        const dList = (designationsData?.getDesignations || []).map((d: any) => d.name);
-        const eList = (employeesData?.getEmployees || []).map((e: any) => e.name);
+        const sList = (suppliersData?.getSuppliers || []).map((s: { name: string }) => s.name);
+        const dList = (designationsData?.getDesignations || []).map((d: { name: string }) => d.name);
+        const eList = (employeesData?.getEmployees || []).map((e: { name: string }) => e.name);
         return { suppliers: sList, divers: dList, employees: eList };
     }, [suppliersData, designationsData, employeesData]);
 
-    const commonDesignations = designationsData?.getDesignations?.map((d: any) => d.name) || ["Fruits", "khodhra", "Entretien", "Outils", "Transport", "Petit déjeuner", "Divers"];
+    const commonDesignations = designationsData?.getDesignations?.map((d: { name: string }) => d.name) || ["Fruits", "khodhra", "Entretien", "Outils", "Transport", "Petit déjeuner", "Divers"];
 
     // Helper to get raw state data
-    const getCurrentState = () => ({
-        recetteCaisse,
-        expenses,
-        tpe,
-        tpe2,
-        cheque,
-        especes,
-        ticketsRestaurant,
-        extra,
-        primes,
-        avancesList,
-        doublagesList,
-        extrasList,
-        primesList,
-        restesSalairesList,
-        expensesDivers,
-        expensesAdmin,
-        offres
-    });
+    const getCurrentState = useCallback(() => {
+        // Strip photos from state for draft/save to avoid 413 or quota errors
+        const safeExpenses = expenses.map(e => ({ ...e, invoices: [] }));
+        const safeDivers = expensesDivers.map(d => ({ ...d, invoices: [] }));
+        const safeOffres = offresList.map(o => ({ ...o, invoices: [] }));
 
-
+        return {
+            recetteCaisse,
+            expenses: safeExpenses,
+            tpe,
+            tpe2,
+            cheque,
+            especes,
+            ticketsRestaurant,
+            extra,
+            primes,
+            avancesList,
+            doublagesList,
+            extrasList,
+            primesList,
+            restesSalairesList,
+            expensesDivers: safeDivers,
+            expensesAdmin,
+            offres,
+            offresList: safeOffres
+        };
+    }, [
+        expenses, expensesDivers, offresList, recetteCaisse, tpe, tpe2, cheque,
+        especes, ticketsRestaurant, extra, primes, avancesList, doublagesList,
+        extrasList, primesList, restesSalairesList, expensesAdmin, offres
+    ]);
 
     // Load Data
+    // Load Data Effect
     useEffect(() => {
-        // PRIORITY 1: Check LocalStorage Draft (if not already interacted)
-        // This ensures that even if server data exists (but is old), we restore the user's unsaved draft.
-        let draftLoaded = false;
+        if (!isClient) return;
 
+        // Block 1: Initial Draft Recovery
         if (!hasInteracted) {
             const savedDraft = localStorage.getItem(`chiffre_draft_${date}`);
             if (savedDraft) {
@@ -1125,60 +1396,31 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             { designation: 'Malika', amount: '0', paymentMethod: 'Espèces' },
                             { designation: 'Salaires', amount: '0', paymentMethod: 'Espèces' }
                         ]);
-                        if (!d.expensesDivers) setExpensesDivers([{ designation: '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces', doc_type: 'BL' }]);
                         setCaissePhotos(d.caissePhotos || []);
-
                         setHasInteracted(true);
-                        draftLoaded = true;
-
                         setToast({ msg: 'Reprise de votre saisie en cours (Brouillon)', type: 'success' });
                         setTimeout(() => setToast(null), 3000);
+                        return; // Exit this run, next run will handle hasInteracted=true
                     }
                 } catch (e) { console.error("Error loading draft", e); }
             }
         }
 
-        if (draftLoaded) {
-            // If draft loaded, we still check server for "isLocked" and to Refresh Facturation Items
-            if (chiffreData?.getChiffreByDate) {
-                const c = chiffreData.getChiffreByDate;
-                setIsLocked(c.is_locked || false);
-
-                // Merge logic: ensure items from Facturation are always up-to-date
-                const dbExpenses = JSON.parse(c.diponce || '[]');
-                const dbExpensesDivers = JSON.parse(c.diponce_divers || '[]');
-
-                setExpenses(prev => {
-                    const nonFacturationItems = prev.filter(e => !e.isFromFacturation);
-                    const dbFacturationItems = dbExpenses.filter((e: any) => e.isFromFacturation);
-                    return [...nonFacturationItems, ...dbFacturationItems];
-                });
-
-                setExpensesDivers(prev => {
-                    const nonFacturationItems = prev.filter(d => !d.isFromFacturation);
-                    const dbFacturationItems = dbExpensesDivers.filter((d: any) => d.isFromFacturation);
-                    return [...nonFacturationItems, ...dbFacturationItems];
-                });
-            }
-            return; // Done
-        }
-
-        // PRIORITY 2: Server Data
+        // Block 2: Server Data Integration
         if (chiffreData?.getChiffreByDate) {
             const c = chiffreData.getChiffreByDate;
+            setIsLocked(c.is_locked || false);
 
-
+            // Personnel sub-lists are server-managed (immediate sync)
             setAvancesList(c.avances_details || []);
             setDoublagesList(c.doublages_details || []);
             setExtrasList(c.extras_details || []);
             setPrimesList(c.primes_details || []);
             setRestesSalairesList(c.restes_salaires_details || []);
-            setIsLocked(c.is_locked || false);
 
-            // Update editable fields
             if (!hasInteracted) {
+                // First-time server load
                 setRecetteCaisse(c.recette_de_caisse);
-                setExpenses(JSON.parse(c.diponce || '[]').map((e: any) => ({ ...e, details: e.details || '' })));
                 setTpe(c.tpe);
                 setTpe2(c.tpe2 || '0');
                 setCheque(c.cheque_bancaire);
@@ -1187,47 +1429,50 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                 setExtra(c.extra || '0');
                 setPrimes(c.primes || '0');
                 setOffres(c.offres || '0');
+                setExpenses(JSON.parse(c.diponce || '[]').map((e: any) => ({ ...e, details: e.details || '' })));
+                setExpensesDivers(JSON.parse(c.diponce_divers || '[]').map((d: any) => ({ ...d, details: d.details || '' })));
                 setOffresList(JSON.parse(c.offres_data || '[]').map((o: any) => ({ ...o, invoices: o.invoices || [] })));
-                // Handle both old single photo format and new array format
+
                 try {
                     const parsed = JSON.parse(c.caisse_photo || '[]');
                     setCaissePhotos(Array.isArray(parsed) ? parsed : (c.caisse_photo ? [c.caisse_photo] : []));
                 } catch {
                     setCaissePhotos(c.caisse_photo ? [c.caisse_photo] : []);
                 }
-                setExpensesDivers(JSON.parse(c.diponce_divers || '[]').map((d: any) => ({ ...d, details: d.details || '' })));
 
                 const savedAdminData = JSON.parse(c.diponce_admin || '[]');
-                if (savedAdminData.length > 0) {
-                    setExpensesAdmin(savedAdminData);
-                } else {
-                    setExpensesAdmin([
-                        { designation: 'Riadh', amount: '0', paymentMethod: 'Espèces' },
-                        { designation: 'Malika', amount: '0', paymentMethod: 'Espèces' },
-                        { designation: 'Salaires', amount: '0', paymentMethod: 'Espèces' }
-                    ]);
-                }
+                setExpensesAdmin(savedAdminData.length > 0 ? savedAdminData : [
+                    { designation: 'Riadh', amount: '0', paymentMethod: 'Espèces' },
+                    { designation: 'Malika', amount: '0', paymentMethod: 'Espèces' },
+                    { designation: 'Salaires', amount: '0', paymentMethod: 'Espèces' }
+                ]);
             } else {
-                // Merge logic: ensure items from Facturation are always up-to-date even in draft mode
+                // Merge logic for Facturation items when in draft mode
                 const dbExpenses = JSON.parse(c.diponce || '[]');
                 const dbExpensesDivers = JSON.parse(c.diponce_divers || '[]');
 
+                const dbFacturationOnly = dbExpenses.filter((e: any) => e.isFromFacturation);
+                const dbDiversFacturationOnly = dbExpensesDivers.filter((d: any) => d.isFromFacturation);
+
                 setExpenses(prev => {
-                    const nonFacturationItems = prev.filter(e => !e.isFromFacturation);
-                    const dbFacturationItems = dbExpenses.filter((e: any) => e.isFromFacturation);
-                    return [...nonFacturationItems, ...dbFacturationItems];
+                    const currentNonFacturation = prev.filter(e => !e.isFromFacturation);
+                    // Avoid duplicating by matching invoiceId if possible
+                    const filteredFacturation = dbFacturationOnly.filter((df: any) =>
+                        !currentNonFacturation.some(cf => cf.invoiceId && cf.invoiceId === df.invoiceId)
+                    );
+                    return [...currentNonFacturation, ...filteredFacturation];
                 });
 
                 setExpensesDivers(prev => {
-                    const nonFacturationItems = prev.filter(d => !d.isFromFacturation);
-                    const dbFacturationItems = dbExpensesDivers.filter((d: any) => d.isFromFacturation);
-                    return [...nonFacturationItems, ...dbFacturationItems];
+                    const currentNonFacturation = prev.filter(d => !d.isFromFacturation);
+                    const filteredFacturation = dbDiversFacturationOnly.filter((df: any) =>
+                        !currentNonFacturation.some(cf => cf.invoiceId && cf.invoiceId === df.invoiceId)
+                    );
+                    return [...currentNonFacturation, ...filteredFacturation];
                 });
             }
-        } else {
-            // PRIORITY 3: Reset only if no draft and no server data
-            // (Note: Draft check was already done at the top)
-
+        } else if (!hasInteracted) {
+            // Absolute reset if no server data and no draft
             setRecetteCaisse('0');
             setExpenses([{ supplier: '', amount: '0', details: '', invoices: [], photo_cheque: '', photo_verso: '', paymentMethod: 'Espèces', doc_type: 'BL' }]);
             setTpe('0');
@@ -1241,6 +1486,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             setDoublagesList([]);
             setExtrasList([]);
             setPrimesList([]);
+            setRestesSalairesList([]);
             setExpensesDivers([{ designation: '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces', doc_type: 'BL' }]);
             setExpensesAdmin([
                 { designation: 'Riadh', amount: '0', paymentMethod: 'Espèces' },
@@ -1249,24 +1495,75 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             ]);
             setCaissePhotos([]);
             setIsLocked(false);
-            setHasInteracted(false);
         }
-    }, [chiffreData, date]);
+    }, [chiffreData, date, hasInteracted, isClient]);
+
+    // Load Temporary Photos Effect
+    useEffect(() => {
+        if (!isClient) return;
+        if (journalierPhotosData?.getJournalierPhotos && !isLocked) {
+            const tempPhotos = journalierPhotosData.getJournalierPhotos;
+
+            setExpenses(prev => {
+                let changed = false;
+                const newList = prev.map((item, idx) => {
+                    const match = tempPhotos.find((p: any) => p.category === 'expenses' && p.item_index === idx);
+                    if (match) {
+                        const photos = typeof match.photos === 'string' ? JSON.parse(match.photos) : match.photos;
+                        if (JSON.stringify(item.invoices) !== JSON.stringify(photos)) {
+                            changed = true;
+                            return { ...item, invoices: photos };
+                        }
+                    }
+                    return item;
+                });
+                return changed ? newList : prev;
+            });
+
+            setExpensesDivers(prev => {
+                let changed = false;
+                const newList = prev.map((item, idx) => {
+                    const match = tempPhotos.find((p: any) => p.category === 'expensesDivers' && p.item_index === idx);
+                    if (match) {
+                        const photos = typeof match.photos === 'string' ? JSON.parse(match.photos) : match.photos;
+                        if (JSON.stringify(item.invoices) !== JSON.stringify(photos)) {
+                            changed = true;
+                            return { ...item, invoices: photos };
+                        }
+                    }
+                    return item;
+                });
+                return changed ? newList : prev;
+            });
+
+            setOffresList(prev => {
+                let changed = false;
+                const newList = prev.map((item, idx) => {
+                    const match = tempPhotos.find((p: any) => p.category === 'offres' && p.item_index === idx);
+                    if (match) {
+                        const photos = typeof match.photos === 'string' ? JSON.parse(match.photos) : match.photos;
+                        if (JSON.stringify(item.invoices) !== JSON.stringify(photos)) {
+                            changed = true;
+                            return { ...item, invoices: photos };
+                        }
+                    }
+                    return item;
+                });
+                return changed ? newList : prev;
+            });
+        }
+    }, [journalierPhotosData, isLocked, isClient]);
 
     // Auto-save Draft to LocalStorage
     useEffect(() => {
-        if (!date || !hasInteracted) return;
+        if (!date || !isClient) return;
 
         const timer = setTimeout(() => {
-            const state = {
-                recetteCaisse, expenses, tpe, tpe2, cheque, especes, ticketsRestaurant,
-                extra, primes, avancesList, doublagesList, extrasList, primesList,
-                restesSalairesList, expensesDivers, expensesAdmin, offres, offresList, caissePhotos
-            };
+            const currentState = getCurrentState();
             const draft = {
                 date,
                 timestamp: new Date().toISOString(),
-                data: state
+                data: currentState
             };
 
             try {
@@ -1313,21 +1610,25 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     }, [
         recetteCaisse, expenses, tpe, tpe2, cheque, especes, ticketsRestaurant,
         extra, primes, avancesList, doublagesList, extrasList, primesList,
-        restesSalairesList, expensesDivers, expensesAdmin, offres, offresList, caissePhotos, date, hasInteracted
+        restesSalairesList, expensesDivers, expensesAdmin, offres, offresList, caissePhotos, date, hasInteracted, getCurrentState
     ]);
 
-    // Calculations
-    const acompte = avancesList.reduce((acc, curr) => acc + (parseFloat(curr.montant) || 0), 0);
-    const doublage = doublagesList.reduce((acc, curr) => acc + (parseFloat(curr.montant) || 0), 0);
-    const extraTotal = extrasList.reduce((acc, curr) => acc + (parseFloat(curr.montant) || 0), 0);
-    const primesTotal = primesList.reduce((acc, curr) => acc + (parseFloat(curr.montant) || 0), 0);
-    const restesSalairesTotal = restesSalairesList.reduce((acc, curr) => acc + (parseFloat(curr.montant) || 0), 0);
+    // Memoized Calculations
+    const acompte = useMemo(() => avancesList.reduce((acc: number, curr: JournalierEntry) => acc + (parseFloat(curr.montant) || 0), 0), [avancesList]);
+    const doublage = useMemo(() => doublagesList.reduce((acc: number, curr: JournalierEntry) => acc + (parseFloat(curr.montant) || 0), 0), [doublagesList]);
+    const extraTotal = useMemo(() => extrasList.reduce((acc: number, curr: JournalierEntry) => acc + (parseFloat(curr.montant) || 0), 0), [extrasList]);
+    const primesTotal = useMemo(() => primesList.reduce((acc: number, curr: JournalierEntry) => acc + (parseFloat(curr.montant) || 0), 0), [primesList]);
+    const restesSalairesTotal = useMemo(() => restesSalairesList.reduce((acc: number, curr: JournalierEntry) => acc + (parseFloat(curr.montant) || 0), 0), [restesSalairesList]);
 
-    const totalExpensesDynamic = expenses.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
-    const totalExpensesDivers = expensesDivers.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
-    const totalExpensesAdmin = expensesAdmin.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
-    const totalExpenses = totalExpensesDynamic + totalExpensesDivers + totalExpensesAdmin + acompte + doublage + extraTotal + primesTotal + restesSalairesTotal;
-    const recetteNett = (parseFloat(recetteCaisse) || 0) - totalExpenses;
+    const totalExpensesDynamic = useMemo(() => expenses.reduce((acc: number, curr: Expense) => acc + (parseFloat(curr.amount) || 0), 0), [expenses]);
+    const totalExpensesDivers = useMemo(() => expensesDivers.reduce((acc: number, curr: ExpenseDivers) => acc + (parseFloat(curr.amount) || 0), 0), [expensesDivers]);
+    const totalExpensesAdmin = useMemo(() => expensesAdmin.reduce((acc: number, curr: { amount: string }) => acc + (parseFloat(curr.amount) || 0), 0), [expensesAdmin]);
+
+    const totalExpenses = useMemo(() => totalExpensesDynamic + totalExpensesDivers + totalExpensesAdmin + acompte + doublage + extraTotal + primesTotal + restesSalairesTotal, [
+        totalExpensesDynamic, totalExpensesDivers, totalExpensesAdmin, acompte, doublage, extraTotal, primesTotal, restesSalairesTotal
+    ]);
+
+    const recetteNett = useMemo(() => (parseFloat(recetteCaisse) || 0) - totalExpenses, [recetteCaisse, totalExpenses]);
 
     // Auto-balance logic
     useEffect(() => {
@@ -1339,32 +1640,40 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         const remainder = net - t - t2 - c - tr;
         let espVal = remainder.toFixed(3);
         if (espVal.endsWith('.000')) espVal = espVal.replace('.000', '');
-        setEspeces(espVal);
-    }, [recetteCaisse, totalExpenses, tpe, tpe2, cheque, ticketsRestaurant]);
+
+        if (espVal !== especes) {
+            setEspeces(espVal);
+        }
+    }, [recetteCaisse, totalExpenses, tpe, tpe2, cheque, ticketsRestaurant, especes]);
 
 
     // Handlers
-    const handleDetailChange = (index: number, field: string, value: any) => {
+    const handleDetailChange = useCallback((index: number, field: string, value: any) => {
         setHasInteracted(true);
-        const newExpenses = [...expenses];
-        (newExpenses[index] as any)[field] = value;
-        setExpenses(newExpenses);
-    };
+        setExpenses(prev => {
+            const newList = [...prev];
+            (newList[index] as any)[field] = value;
+            return newList;
+        });
+    }, []);
 
-    const handleDiversChange = (index: number, field: string, value: any) => {
+    const handleDiversChange = useCallback((index: number, field: string, value: any) => {
         setHasInteracted(true);
-        const newDivers = [...expensesDivers];
-        (newDivers[index] as any)[field] = value;
-        setExpensesDivers(newDivers);
-    };
+        setExpensesDivers(prev => {
+            const newList = [...prev];
+            (newList[index] as any)[field] = value;
+            return newList;
+        });
+    }, []);
 
-
-    const handleAdminChange = (index: number, field: string, value: any) => {
+    const handleAdminChange = useCallback((index: number, field: string, value: any) => {
         setHasInteracted(true);
-        const newAdmin = [...expensesAdmin];
-        (newAdmin[index] as any)[field] = value;
-        setExpensesAdmin(newAdmin);
-    };
+        setExpensesAdmin(prev => {
+            const newList = [...prev];
+            (newList[index] as any)[field] = value;
+            return newList;
+        });
+    }, []);
 
     const handleAddAdmin = () => {
         if (isLocked) return;
@@ -1524,7 +1833,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                 setShowConfirm({
                     type: 'delete',
                     title: 'Supprimer Définitivement',
-                    message: `Cette facture a été créée dans le Journalier. Voulez-vous la supprimer définitivement ?`,
+                    message: `Cette facture a été créée dans le Journalier.Voulez-vous la supprimer définitivement ? `,
                     color: 'red',
                     onConfirm: async () => {
                         try {
@@ -1541,7 +1850,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                 setShowConfirm({
                     type: 'unpay',
                     title: 'Annuler Payement',
-                    message: `Cette facture provient de la Facturation. Elle redeviendra "non payée".`,
+                    message: `Cette facture provient de la Facturation.Elle redeviendra "non payée".`,
                     color: 'red',
                     onConfirm: async () => {
                         try {
@@ -1581,7 +1890,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                 setShowConfirm({
                     type: 'delete',
                     title: 'Supprimer Définitivement',
-                    message: `Cette facture a été créée dans le Journalier. Voulez-vous la supprimer définitivement ?`,
+                    message: `Cette facture a été créée dans le Journalier.Voulez-vous la supprimer définitivement ? `,
                     color: 'red',
                     onConfirm: async () => {
                         try {
@@ -1598,7 +1907,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                 setShowConfirm({
                     type: 'unpay',
                     title: 'Annuler Payement',
-                    message: `Cette facture provient de la Facturation. Elle redeviendra "non payée".`,
+                    message: `Cette facture provient de la Facturation.Elle redeviendra "non payée".`,
                     color: 'red',
                     onConfirm: async () => {
                         try {
@@ -1684,24 +1993,44 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         }
     };
 
-    const handleDeleteInvoice = (idx: number) => {
+    const handleDeleteInvoice = async (idx: number) => {
         if (!viewingInvoicesTarget || !viewingInvoices) return;
         const newInvoices = [...viewingInvoices];
         newInvoices.splice(idx, 1);
 
+        let category = 'expenses';
+        const itemIndex = viewingInvoicesTarget.index;
+
         if (viewingInvoicesTarget.type === 'divers') {
+            category = 'expensesDivers';
             const list = [...expensesDivers];
-            list[viewingInvoicesTarget.index].invoices = newInvoices;
+            list[itemIndex].invoices = newInvoices;
             setExpensesDivers(list);
         } else if (viewingInvoicesTarget.type === 'offres') {
+            category = 'offres';
             const list = [...offresList];
-            list[viewingInvoicesTarget.index].invoices = newInvoices;
+            list[itemIndex].invoices = newInvoices;
             setOffresList(list);
         } else {
             const list = [...expenses];
-            list[viewingInvoicesTarget.index].invoices = newInvoices;
+            list[itemIndex].invoices = newInvoices;
             setExpenses(list);
         }
+
+        // Update temporary storage on server
+        try {
+            await uploadJournalierPhotos({
+                variables: {
+                    date,
+                    category,
+                    item_index: itemIndex,
+                    photos: JSON.stringify(newInvoices)
+                }
+            });
+        } catch (e) {
+            console.error("Failed to update temporary photos on server", e);
+        }
+
         setViewingInvoices(newInvoices.length > 0 ? newInvoices : null);
         if (newInvoices.length === 0) setViewingInvoicesTarget(null);
     };
@@ -1712,29 +2041,58 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         if (!files) return;
 
         if (type === 'invoice' || (type as any) === 'offres') {
-            // Compress all images before storing
-            const loaders = Array.from(files).map(file => compressImage(file));
             try {
-                const base64s = await Promise.all(loaders);
-                if (type === 'invoice' || (type as any) === 'offres') {
+                const base64s: string[] = [];
+                for (const file of Array.from(files)) {
+                    try {
+                        const compressed = await compressImage(file);
+                        base64s.push(compressed);
+                    } catch (err) {
+                        console.error("Compression error for file", file.name, err);
+                        // Skip this file or handle error, but don't stop the whole batch
+                    }
+                }
+
+                if (base64s.length > 0) {
+                    let category = 'expenses';
+                    let currentPhotos: string[] = [];
+
                     if (isDivers === true) {
+                        category = 'expensesDivers';
                         const newDivers = [...expensesDivers];
                         newDivers[index].invoices = [...newDivers[index].invoices, ...base64s];
+                        currentPhotos = newDivers[index].invoices;
                         setExpensesDivers(newDivers);
                     } else if ((type as any) === 'offres') {
+                        category = 'offres';
                         const newList = [...offresList];
                         newList[index].invoices = [...(newList[index].invoices || []), ...base64s];
+                        currentPhotos = newList[index].invoices;
                         setOffresList(newList);
                     } else {
+                        category = 'expenses';
                         const newExpenses = [...expenses];
                         newExpenses[index].invoices = [...newExpenses[index].invoices, ...base64s];
+                        currentPhotos = newExpenses[index].invoices;
                         setExpenses(newExpenses);
                     }
+
+                    // Save to temporary database immediately
+                    await uploadJournalierPhotos({
+                        variables: {
+                            date,
+                            category,
+                            item_index: index,
+                            photos: JSON.stringify(currentPhotos)
+                        }
+                    });
+
                     setToast({ msg: `${base64s.length} photo(s) ajoutée(s)`, type: 'success' });
                     setTimeout(() => setToast(null), 3000);
                 }
-            } catch (err) {
-                setToast({ msg: "Erreur lors de la compression de l'image", type: 'error' });
+            } catch (err: any) {
+                console.error("Upload error:", err);
+                setToast({ msg: err.message || "Erreur lors de l'ajout des images", type: 'error' });
                 setTimeout(() => setToast(null), 3000);
             }
         } else {
@@ -1746,7 +2104,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                 if (type === 'verso') newExpenses[index].photo_verso = compressed;
                 setExpenses(newExpenses);
             } catch (err) {
-                setToast({ msg: "Erreur lors de la compression de l'image", type: 'error' });
+                setToast({ msg: (err as any).message || "Erreur lors du traitement de l'image", type: 'error' });
                 setTimeout(() => setToast(null), 3000);
             }
         }
@@ -1786,12 +2144,19 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         };
 
         try {
+            // Strip photos from main payload to avoid 413 error
+            const safeExpenses = expenses.map(e => ({ ...e, invoices: [] }));
+            const safeDivers = expensesDivers
+                .filter(item => item.amount && parseFloat(item.amount) > 0)
+                .map(d => ({ ...d, invoices: [] }));
+            const safeOffres = offresList.map(o => ({ ...o, invoices: [] }));
+
             await saveChiffre({
                 variables: {
                     date,
                     recette_de_caisse: ensureValue(recetteCaisse),
                     total_diponce: totalExpenses.toString(),
-                    diponce: JSON.stringify(expenses),
+                    diponce: JSON.stringify(safeExpenses),
                     recette_net: recetteNett.toString(),
                     tpe: ensureValue(tpe),
                     tpe2: ensureValue(tpe2),
@@ -1801,9 +2166,9 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                     extra: ensureValue(extra),
                     primes: ensureValue(primes),
                     offres: ensureValue(offres),
-                    offres_data: JSON.stringify(offresList),
+                    offres_data: JSON.stringify(safeOffres),
                     caisse_photo: JSON.stringify(caissePhotos),
-                    diponce_divers: JSON.stringify(expensesDivers.filter(item => item.amount && parseFloat(item.amount) > 0)),
+                    diponce_divers: JSON.stringify(safeDivers),
                     diponce_admin: JSON.stringify(expensesAdmin.filter(item => item.amount && parseFloat(item.amount) > 0)),
                     payer: role
                 }
@@ -1848,8 +2213,10 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     };
 
     // Suppliers for dropdown
-    const suppliers = suppliersData?.getSuppliers || [];
-    const filteredSuppliers = suppliers.filter((s: any) => s.name.toLowerCase().includes(supplierSearch.toLowerCase()));
+    const suppliers = useMemo(() => suppliersData?.getSuppliers || [], [suppliersData]);
+    const filteredSuppliers = useMemo(() =>
+        suppliers.filter((s: any) => s.name.toLowerCase().includes(supplierSearch.toLowerCase())),
+        [suppliers, supplierSearch]);
 
     // Date Navigation
     const changeMonth = (delta: number) => {
@@ -1909,9 +2276,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     return (
         <div className="min-h-screen bg-[#f8f5f2] text-[#2d241e] font-sans flex">
             {/* Styles */}
-            <style jsx global>{`
+            <style>{`
                 .luxury-shadow { box-shadow: 0 20px 40px -10px rgba(60, 45, 30, 0.08); }
-                .gold-gradient { background: linear-gradient(135deg, #c69f6e 0%, #a67c52 100%); }
             `}</style>
 
             {/* Sidebar */}
@@ -1921,7 +2287,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             <div className="flex-1 min-w-0 pb-32">
 
                 {/* Header */}
-                <header className={`sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-[#e6dace] py-4 px-4 md:px-12 flex justify-between items-center transition-all duration-300`}>
+                <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-[#e6dace] py-4 px-4 md:px-12 flex justify-between items-center transition-all duration-300">
 
                     <h2 className="text-xl font-black text-[#4a3426] uppercase tracking-widest">
                         Journalier
@@ -1933,7 +2299,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 onClick={handleUnlock}
                                 className="h-10 px-6 rounded-xl bg-[#2d6a4f] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#1b4332] transition-all flex items-center gap-2 shadow-lg shadow-[#2d6a4f]/20"
                             >
-                                <Unlock size={14} /> Déverrouiller
+                                <UnlockIcon size={14} /> Déverrouiller
                             </button>
                         )}
                         {date && (
@@ -1994,7 +2360,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         onClick={(e) => { e.stopPropagation(); handleUnlock(); }}
                                                         className="px-3 py-1.5 rounded-lg bg-green-500/10 text-green-600 text-[9px] font-black uppercase tracking-widest hover:bg-green-500/20 transition-all flex items-center gap-1.5"
                                                     >
-                                                        <Unlock size={10} /> Déverrouiller
+                                                        <UnlockIcon size={10} /> Déverrouiller
                                                     </button>
                                                 )}
                                             </div>
@@ -2040,7 +2406,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                                 setToast({ msg: 'Photo caisse ajoutée', type: 'success' });
                                                                 setTimeout(() => setToast(null), 3000);
                                                             } catch (err) {
-                                                                setToast({ msg: "Erreur lors de la compression de l'image", type: 'error' });
+                                                                setToast({ msg: (err as any).message || "Erreur lors du traitement de l'image", type: 'error' });
                                                                 setTimeout(() => setToast(null), 3000);
                                                             }
                                                         }
@@ -2058,7 +2424,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                             >
                                                                 <Image
                                                                     src={photo}
-                                                                    alt={`Caisse ${index + 1}`}
+                                                                    alt={`Caisse ${index + 1} `}
                                                                     fill
                                                                     className="object-cover group-hover:scale-110 transition-transform"
                                                                 />
@@ -2088,7 +2454,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         <label
                                                             htmlFor="caisse-photo-upload"
                                                             className="cursor-pointer w-8 h-8 rounded-lg border-2 border-dashed border-[#2d6a4f]/30 flex items-center justify-center hover:bg-[#2d6a4f]/5 hover:border-[#2d6a4f]/50 transition-all"
-                                                            title={`Ajouter photo (${caissePhotos.length}/3)`}
+                                                            title={`Ajouter photo(${caissePhotos.length} /3)`}
                                                         >
                                                             <Camera size={14} className="text-[#2d6a4f]/60" />
                                                         </label>
@@ -2124,7 +2490,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                     onFocus={(e) => { if (recetteCaisse === '0') setRecetteCaisse(''); }}
                                                     onBlur={(e) => { if (e.target.value === '' || e.target.value === null) setRecetteCaisse('0'); }}
                                                     onChange={(e) => { setRecetteCaisse(e.target.value); setHasInteracted(true); }}
-                                                    className={`text-5xl md:text-6xl lg:text-7xl font-black bg-transparent text-[#4a3426] outline-none placeholder-[#e6dace] text-center md:text-right w-full md:w-auto min-w-[280px] ${isLocked ? 'cursor-not-allowed opacity-50 pointer-events-none' : ''}`}
+                                                    className={`text-5xl md:text-6xl lg:text-7xl font-black bg-transparent text-[#4a3426] outline-none placeholder-[#e6dace] text-center md:text-right w-full md:w-auto min-w-[280px] ${isLocked ? 'cursor-not-allowed opacity-50 pointer-events-none' : ''} `}
                                                     placeholder="0"
                                                 />
                                                 <span className="text-xl md:text-2xl lg:text-3xl font-black text-[#c69f6e] shrink-0">DT</span>
@@ -2142,7 +2508,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             className="bg-white rounded-[2rem] p-6 luxury-shadow border border-[#e6dace]/50 transition-all"
                         >
                             <div className="flex flex-col">
-                                {/* Header / Summary View */}
+                                {/* Header /Summary View */}
                                 <div
                                     className="flex items-center justify-between cursor-pointer"
                                     onClick={() => setIsOffresExpanded(!isOffresExpanded)}
@@ -2167,7 +2533,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     </div>
 
                                     <div className="flex items-center gap-3">
-                                        <div className={`p-2 rounded-full transition-transform duration-300 ${isOffresExpanded ? 'rotate-180 bg-[#c69f6e]/10 text-[#c69f6e]' : 'text-[#bba282]'}`}>
+                                        <div className={`p-2 rounded-full transition-transform duration-300 ${isOffresExpanded ? 'rotate-180 bg-[#c69f6e]/10 text-[#c69f6e]' : 'text-[#bba282]'} `}>
                                             <ChevronDown size={20} />
                                         </div>
                                     </div>
@@ -2190,7 +2556,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                             handleAddOffre();
                                                         }}
                                                         disabled={isLocked}
-                                                        className={`flex items-center gap-2 px-6 py-2 bg-white border border-[#e6dace] rounded-full text-[11px] font-bold uppercase tracking-widest text-[#c69f6e] shadow-sm hover:shadow-md hover:bg-[#fcfaf8] transition-all ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                        className={`flex items-center gap-2 px-6 py-2 bg-white border border-[#e6dace] rounded-full text-[11px] font-bold uppercase tracking-widest text-[#c69f6e] shadow-sm hover:shadow-md hover:bg-[#fcfaf8] transition-all ${isLocked ? 'opacity-50 cursor-not-allowed' : ''} `}
                                                     >
                                                         <Plus size={14} />
                                                         Ajouter Offre
@@ -2206,7 +2572,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                                 value={offre.name ?? ''}
                                                                 disabled={isLocked}
                                                                 onChange={(e) => handleOffresChange(index, 'name', e.target.value)}
-                                                                className={`flex-1 min-w-[120px] bg-white border border-[#e6dace] rounded-xl h-12 px-4 font-bold text-[#4a3426] outline-none focus:border-[#c69f6e] ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                                className={`flex-1 min-w-[120px] bg-white border border-[#e6dace] rounded-xl h-12 px-4 font-bold text-[#4a3426] outline-none focus:border-[#c69f6e] ${isLocked ? 'cursor-not-allowed opacity-50' : ''} `}
                                                             />
                                                             <div className="relative w-full md:w-32 lg:w-44 shrink-0">
                                                                 <input
@@ -2217,7 +2583,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                                     onFocus={(e) => { if (offre.amount === '0') handleOffresChange(index, 'amount', ''); }}
                                                                     onBlur={(e) => { if (offre.amount === '') handleOffresChange(index, 'amount', '0'); }}
                                                                     onChange={(e) => handleOffresChange(index, 'amount', e.target.value)}
-                                                                    className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 pl-8 md:pl-8 pr-4 font-black text-lg outline-none focus:border-[#c69f6e] text-center ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                                    className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 pl-8 md:pl-8 pr-4 font-black text-lg outline-none focus:border-[#c69f6e] text-center ${isLocked ? 'cursor-not-allowed opacity-50' : ''} `}
                                                                 />
                                                                 <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[#bba282] text-[10px] font-black">DT</span>
                                                             </div>
@@ -2260,7 +2626,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                                 <button
                                                                     onClick={() => handleRemoveOffre(index)}
                                                                     disabled={isLocked}
-                                                                    className={`w-12 h-12 rounded-xl border border-red-200 text-red-300 hover:text-red-500 hover:bg-red-50 hover:border-red-300 flex items-center justify-center transition-all ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                                    className={`w-12 h-12 rounded-xl border border-red-200 text-red-300 hover:text-red-500 hover:bg-red-50 hover:border-red-300 flex items-center justify-center transition-all ${isLocked ? 'opacity-50 cursor-not-allowed' : ''} `}
                                                                 >
                                                                     <Trash2 size={18} />
                                                                 </button>
@@ -2293,7 +2659,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                         setNewSupplierName('');
                                         setShowSupplierModal(true);
                                     }}
-                                    className={`flex items-center gap-2 px-6 py-2 bg-white border border-[#e6dace] rounded-full text-[11px] font-bold uppercase tracking-widest text-[#c69f6e] shadow-sm hover:shadow-md hover:bg-[#fcfaf8] transition-all ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    className={`flex items-center gap-2 px-6 py-2 bg-white border border-[#e6dace] rounded-full text-[11px] font-bold uppercase tracking-widest text-[#c69f6e] shadow-sm hover:shadow-md hover:bg-[#fcfaf8] transition-all ${isLocked ? 'opacity-50 cursor-not-allowed' : ''} `}
                                 >
                                     <Plus size={14} />
                                     <span className="hidden xs:inline">Ajouter Fournisseur</span>
@@ -2304,7 +2670,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             <section className="bg-white rounded-[2rem] p-6 luxury-shadow border border-[#e6dace]/50 space-y-4">
                                 <div className="space-y-3">
                                     {expenses.map((expense, index) => (
-                                        <div key={index} className={`group flex flex-col p-2 rounded-xl transition-all border ${expense.isFromFacturation ? 'bg-[#f0faf5]/50 border-[#d1e7dd]' : 'hover:bg-[#f9f6f2] border-transparent hover:border-[#e6dace]'}`}>
+                                        <div key={index} className={`group flex flex-col p-2 rounded-xl transition-all border ${expense.isFromFacturation ? 'bg-[#f0faf5]/50 border-[#d1e7dd]' : 'hover:bg-[#f9f6f2] border-transparent hover:border-[#e6dace]'} `}>
                                             <div className="flex flex-col md:flex-row items-center gap-2 w-full">
                                                 <div className="w-full md:w-28 lg:w-36 xl:w-36 relative shrink-0">
                                                     <input
@@ -2316,13 +2682,13 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         onWheel={(e) => e.currentTarget.blur()}
                                                         onFocus={(e) => { if (expense.amount === '0') handleDetailChange(index, 'amount', ''); }}
                                                         onChange={(e) => handleDetailChange(index, 'amount', e.target.value)}
-                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-14 pl-7 md:pl-6 pr-10 md:pr-10 xl:pr-10 font-black text-lg outline-none focus:border-[#c69f6e] text-center ${isLocked ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-14 pl-7 md:pl-6 pr-10 md:pr-10 xl:pr-10 font-black text-lg outline-none focus:border-[#c69f6e] text-center ${isLocked ? 'opacity-70 cursor-not-allowed' : ''} `}
                                                     />
                                                     <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[#bba282] text-[9px] font-black">DT</span>
                                                     <button
                                                         type="button"
                                                         onClick={() => handleToggleRetenue(index, 'expense')}
-                                                        className={`absolute right-1 top-1/2 -translate-y-1/2 h-8 px-1.5 xl:px-3 rounded-lg text-[9px] xl:text-xs font-black transition-all ${expense.hasRetenue ? 'bg-orange-500 text-white shadow-lg' : 'bg-[#f4ece4] text-[#8c8279] hover:bg-[#e6dace]'} ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                        className={`absolute right-1 top-1 /2 -translate-y - 1 /2 h-8 px-1.5 xl:px-3 rounded-lg text-[9px] xl:text-xs font-black transition-all ${expense.hasRetenue ? 'bg-orange-500 text-white shadow-lg' : 'bg-[#f4ece4] text-[#8c8279] hover:bg-[#e6dace]'} ${isLocked ? 'cursor-not-allowed opacity-50' : ''} `}
                                                     >
                                                         1%
                                                     </button>
@@ -2344,14 +2710,14 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         }}
                                                         onBlur={() => setTimeout(() => setShowSupplierDropdown(null), 200)}
                                                         onChange={(e) => { handleDetailChange(index, 'supplier', e.target.value); setSupplierSearch(e.target.value); }}
-                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 xl:pl-12 pl-4 pr-10 focus:border-[#c69f6e] outline-none font-medium transition-all ${isLocked ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 xl:pl-12 pl-4 pr-10 focus:border-[#c69f6e] outline-none font-medium transition-all ${isLocked ? 'opacity-70 cursor-not-allowed' : ''} `}
                                                     />
                                                     <button
                                                         onClick={() => {
                                                             if (isLocked) return;
                                                             setShowSupplierDropdown(showSupplierDropdown === index ? null : index);
                                                         }}
-                                                        className={`absolute right-3 top-1/2 -translate-y-1/2 text-[#bba282] hover:text-[#c69f6e] transition-colors ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                        className={`absolute right-3 top-1 /2 -translate-y - 1 /2 text-[#bba282] hover:text-[#c69f6e] transition-colors ${isLocked ? 'cursor-not-allowed opacity-50' : ''} `}
                                                     >
                                                         <ChevronDown size={18} />
                                                     </button>
@@ -2378,7 +2744,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                             type="button"
                                                             disabled={isLocked}
                                                             onClick={() => handleDetailChange(index, 'doc_type', t)}
-                                                            className={`px-1.5 lg:px-2 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${expense.doc_type === t ? (t === 'Facture' ? 'bg-[#3182ce]' : 'bg-[#e53e3e]') + ' text-white shadow-sm' : 'text-[#8c8279] hover:bg-white/50'} ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                            className={`px-1.5 lg:px-2 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${expense.doc_type === t ? (t === 'Facture' ? 'bg-[#3182ce]' : 'bg-[#e53e3e]') + ' text-white shadow-sm' : 'text-[#8c8279] hover:bg-white/50'} ${isLocked ? 'cursor-not-allowed opacity-50' : ''} `}
                                                         >
                                                             {t === 'Facture' ? 'Fact' : 'BL'}
                                                         </button>
@@ -2391,7 +2757,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         setTempDetails(expense.details || '');
                                                         setShowDetailsModal(true);
                                                     }}
-                                                    className={`h-12 xl:w-20 w-12 rounded-xl border flex items-center justify-center gap-2 transition-all shrink-0 ${expense.details ? 'bg-[#2d6a4f] text-white border-[#2d6a4f]' : 'bg-[#fcfaf8] text-[#bba282] border-[#e6dace] hover:border-[#c69f6e] hover:text-[#c69f6e]'} ${isLocked && !expense.details ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                    className={`h-12 xl:w-20 w-12 rounded-xl border flex items-center justify-center gap-2 transition-all shrink-0 ${expense.details ? 'bg-[#2d6a4f] text-white border-[#2d6a4f]' : 'bg-[#fcfaf8] text-[#bba282] border-[#e6dace] hover:border-[#c69f6e] hover:text-[#c69f6e]'} ${isLocked && !expense.details ? 'cursor-not-allowed opacity-50' : ''} `}
                                                 >
                                                     <FileText size={16} />
                                                     <span className="text-[10px] font-black uppercase tracking-widest leading-none hidden xl:inline">{expense.details ? 'Détails OK' : 'Détails'}</span>
@@ -2448,7 +2814,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                                             e.preventDefault();
                                                                         }
                                                                     }}
-                                                                    className={`h-12 w-12 xl:w-20 rounded-xl border border-dashed flex items-center justify-center gap-2 cursor-pointer transition-colors relative whitespace-nowrap text-[10px] ${expense.photo_cheque ? 'border-[#c69f6e] text-[#c69f6e] bg-[#c69f6e]/5' : 'border-red-200 text-red-300 hover:bg-red-50'}`}
+                                                                    className={`h-12 w-12 xl:w-20 rounded-xl border border-dashed flex items-center justify-center gap-2 cursor-pointer transition-colors relative whitespace-nowrap text-[10px] ${expense.photo_cheque ? 'border-[#c69f6e] text-[#c69f6e] bg-[#c69f6e]/5' : 'border-red-200 text-red-300 hover:bg-red-50'} `}
                                                                 >
                                                                     <UploadCloud size={14} />
                                                                     <span className="font-black uppercase tracking-widest hidden xl:inline">{expense.photo_cheque ? 'Recto' : 'Recto'}</span>
@@ -2466,7 +2832,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                                         }
                                                                         if (isLocked) e.preventDefault();
                                                                     }}
-                                                                    className={`h-12 w-12 xl:w-20 rounded-xl border border-dashed flex items-center justify-center gap-2 cursor-pointer transition-colors relative whitespace-nowrap text-[10px] ${expense.photo_verso ? 'border-[#c69f6e] text-[#c69f6e] bg-[#c69f6e]/5' : 'border-red-200 text-red-300 hover:bg-red-50'} ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                                    className={`h-12 w-12 xl:w-20 rounded-xl border border-dashed flex items-center justify-center gap-2 cursor-pointer transition-colors relative whitespace-nowrap text-[10px] ${expense.photo_verso ? 'border-[#c69f6e] text-[#c69f6e] bg-[#c69f6e]/5' : 'border-red-200 text-red-300 hover:bg-red-50'} ${isLocked ? 'opacity-50 cursor-not-allowed' : ''} `}
                                                                 >
                                                                     <UploadCloud size={14} />
                                                                     <span className="font-black uppercase tracking-widest hidden xl:inline">{expense.photo_verso ? 'Verso' : 'Verso'}</span>
@@ -2517,7 +2883,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 <button
                                     onClick={handleAddExpense}
                                     disabled={isLocked}
-                                    className={`mt-4 w-full py-3 border-2 border-dashed border-[#e6dace] rounded-xl text-[#bba282] font-bold flex items-center justify-center gap-2 hover:border-[#c69f6e] hover:text-[#c69f6e] transition-all ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    className={`mt-4 w-full py-3 border-2 border-dashed border-[#e6dace] rounded-xl text-[#bba282] font-bold flex items-center justify-center gap-2 hover:border-[#c69f6e] hover:text-[#c69f6e] transition-all ${isLocked ? 'opacity-50 cursor-not-allowed' : ''} `}
                                 >
                                     <Plus size={18} /> Nouvelle Ligne
                                 </button>
@@ -2543,7 +2909,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                         if (isLocked) return;
                                         setShowDiversModal(true);
                                     }}
-                                    className={`flex items-center gap-2 px-6 py-2 bg-white border border-[#e6dace] rounded-full text-[11px] font-bold uppercase tracking-widest text-[#c69f6e] shadow-sm hover:shadow-md hover:bg-[#fcfaf8] transition-all ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    className={`flex items-center gap-2 px-6 py-2 bg-white border border-[#e6dace] rounded-full text-[11px] font-bold uppercase tracking-widest text-[#c69f6e] shadow-sm hover:shadow-md hover:bg-[#fcfaf8] transition-all ${isLocked ? 'opacity-50 cursor-not-allowed' : ''} `}
                                 >
                                     <Plus size={14} />
                                     <span className="hidden xs:inline">Ajouter Divers</span>
@@ -2566,13 +2932,13 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         onWheel={(e) => e.currentTarget.blur()}
                                                         onFocus={(e) => { if (divers.amount === '0') handleDiversChange(index, 'amount', ''); }}
                                                         onChange={(e) => handleDiversChange(index, 'amount', e.target.value)}
-                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-14 pl-7 md:pl-6 pr-10 md:pr-10 xl:pr-10 font-black text-lg outline-none focus:border-[#c69f6e] text-center ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-14 pl-7 md:pl-6 pr-10 md:pr-10 xl:pr-10 font-black text-lg outline-none focus:border-[#c69f6e] text-center ${isLocked ? 'cursor-not-allowed opacity-50' : ''} `}
                                                     />
                                                     <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[#bba282] text-[9px] font-black">DT</span>
                                                     <button
                                                         type="button"
                                                         onClick={() => handleToggleRetenue(index, 'divers')}
-                                                        className={`absolute right-1 top-1/2 -translate-y-1/2 h-8 px-1.5 xl:px-3 rounded-lg text-[9px] xl:text-xs font-black transition-all ${divers.hasRetenue ? 'bg-orange-500 text-white shadow-lg' : 'bg-[#f4ece4] text-[#8c8279] hover:bg-[#e6dace]'} ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                        className={`absolute right-1 top-1 /2 -translate-y - 1 /2 h-8 px-1.5 xl:px-3 rounded-lg text-[9px] xl:text-xs font-black transition-all ${divers.hasRetenue ? 'bg-orange-500 text-white shadow-lg' : 'bg-[#f4ece4] text-[#8c8279] hover:bg-[#e6dace]'} ${isLocked ? 'cursor-not-allowed opacity-50' : ''} `}
                                                     >
                                                         1%
                                                     </button>
@@ -2592,14 +2958,14 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                             handleDiversChange(index, 'designation', e.target.value);
                                                             setDesignationSearch(e.target.value);
                                                         }}
-                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 pl-4 pr-10 focus:border-[#c69f6e] outline-none font-medium transition-all ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-12 pl-4 pr-10 focus:border-[#c69f6e] outline-none font-medium transition-all ${isLocked ? 'cursor-not-allowed opacity-50' : ''} `}
                                                     />
                                                     <button
                                                         onClick={() => {
                                                             if (isLocked) return;
                                                             setShowDiversDropdown(showDiversDropdown === index ? null : index);
                                                         }}
-                                                        className={`absolute right-3 top-1/2 -translate-y-1/2 text-[#bba282] hover:text-[#c69f6e] transition-colors ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                        className={`absolute right-3 top-1 /2 -translate-y - 1 /2 text-[#bba282] hover:text-[#c69f6e] transition-colors ${isLocked ? 'cursor-not-allowed opacity-50' : ''} `}
                                                     >
                                                         <ChevronDown size={18} />
                                                     </button>
@@ -2636,7 +3002,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                             type="button"
                                                             disabled={isLocked}
                                                             onClick={() => handleDiversChange(index, 'doc_type', t)}
-                                                            className={`px-1.5 lg:px-2 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${divers.doc_type === t ? (t === 'Facture' ? 'bg-[#3182ce]' : 'bg-[#e53e3e]') + ' text-white shadow-sm' : 'text-[#8c8279] hover:bg-white/50'} ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                            className={`px-1.5 lg:px-2 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${divers.doc_type === t ? (t === 'Facture' ? 'bg-[#3182ce]' : 'bg-[#e53e3e]') + ' text-white shadow-sm' : 'text-[#8c8279] hover:bg-white/50'} ${isLocked ? 'cursor-not-allowed opacity-50' : ''} `}
                                                         >
                                                             {t === 'Facture' ? 'Fact' : 'BL'}
                                                         </button>
@@ -2649,7 +3015,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         setTempDetails(divers.details || '');
                                                         setShowDetailsModal(true);
                                                     }}
-                                                    className={`h-12 xl:w-20 w-12 rounded-xl border flex items-center justify-center gap-2 transition-all shrink-0 ${divers.details ? 'bg-[#2d6a4f] text-white border-[#2d6a4f]' : 'bg-[#fcfaf8] text-[#bba282] border-[#e6dace] hover:border-[#c69f6e] hover:text-[#c69f6e]'} ${isLocked && !divers.details ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                    className={`h-12 xl:w-20 w-12 rounded-xl border flex items-center justify-center gap-2 transition-all shrink-0 ${divers.details ? 'bg-[#2d6a4f] text-white border-[#2d6a4f]' : 'bg-[#fcfaf8] text-[#bba282] border-[#e6dace] hover:border-[#c69f6e] hover:text-[#c69f6e]'} ${isLocked && !divers.details ? 'cursor-not-allowed opacity-50' : ''} `}
                                                 >
                                                     <FileText size={16} />
                                                     <span className="text-[10px] font-black uppercase tracking-widest leading-none hidden xl:inline">{divers.details ? 'Détails OK' : 'Détails'}</span>
@@ -2729,7 +3095,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 <button
                                     onClick={() => handleAddDivers()}
                                     disabled={isLocked}
-                                    className={`mt-4 w-full py-3 border-2 border-dashed border-[#e6dace] rounded-xl text-[#bba282] font-bold flex items-center justify-center gap-2 hover:border-[#c69f6e] hover:text-[#c69f6e] transition-all ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    className={`mt-4 w-full py-3 border-2 border-dashed border-[#e6dace] rounded-xl text-[#bba282] font-bold flex items-center justify-center gap-2 hover:border-[#c69f6e] hover:text-[#c69f6e] transition-all ${isLocked ? 'opacity-50 cursor-not-allowed' : ''} `}
                                 >
                                     <Plus size={18} /> Nouvelle Ligne (Divers)
                                 </button>
@@ -2751,7 +3117,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 <button
                                     disabled={isLocked}
                                     onClick={handleAddAdmin}
-                                    className={`p-2 bg-white border border-[#e6dace] rounded-xl text-[#c69f6e] hover:bg-[#4a3426] hover:text-white hover:border-[#4a3426] shadow-sm transition-all ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    className={`p-2 bg-white border border-[#e6dace] rounded-xl text-[#c69f6e] hover:bg-[#4a3426] hover:text-white hover:border-[#4a3426] shadow-sm transition-all ${isLocked ? 'opacity-50 cursor-not-allowed' : ''} `}
                                 >
                                     <Plus size={18} />
                                 </button>
@@ -2772,7 +3138,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         onWheel={(e) => e.currentTarget.blur()}
                                                         onFocus={(e) => { if (admin.amount === '0') handleAdminChange(index, 'amount', ''); }}
                                                         onChange={(e) => handleAdminChange(index, 'amount', e.target.value)}
-                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-14 pl-8 md:pl-8 pr-4 lg:pr-4 font-black text-lg outline-none focus:border-[#c69f6e] text-center ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                        className={`w-full bg-white border border-[#e6dace] rounded-xl h-14 pl-8 md:pl-8 pr-4 lg:pr-4 font-black text-lg outline-none focus:border-[#c69f6e] text-center ${isLocked ? 'cursor-not-allowed opacity-50' : ''} `}
                                                     />
                                                     <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[#bba282] text-[10px] font-black">DT</span>
                                                 </div>
@@ -2791,7 +3157,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         disabled={isLocked}
                                                         placeholder="Désignation"
                                                         onChange={(e) => handleAdminChange(index, 'designation', e.target.value)}
-                                                        className={`w-full bg-[#f9f6f2] border border-[#e6dace] rounded-xl h-12 pl-10 pr-4 outline-none font-bold text-[#4a3426] focus:border-[#c69f6e] ${isLocked ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                                        className={`w-full bg-[#f9f6f2] border border-[#e6dace] rounded-xl h-12 pl-10 pr-4 outline-none font-bold text-[#4a3426] focus:border-[#c69f6e] ${isLocked ? 'opacity-70 cursor-not-allowed' : ''} `}
                                                     />
                                                 </div>
 
@@ -2836,7 +3202,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                         setNewEmployeeModalName('');
                                         setShowEmployeeModal(true);
                                     }}
-                                    className={`flex items-center gap-2 px-6 py-2 bg-white border border-[#e6dace] rounded-full text-[11px] font-bold uppercase tracking-widest text-[#c69f6e] shadow-sm hover:shadow-md hover:bg-[#fcfaf8] transition-all ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    className={`flex items-center gap-2 px-6 py-2 bg-white border border-[#e6dace] rounded-full text-[11px] font-bold uppercase tracking-widest text-[#c69f6e] shadow-sm hover:shadow-md hover:bg-[#fcfaf8] transition-all ${isLocked ? 'opacity-50 cursor-not-allowed' : ''} `}
                                 >
                                     <Plus size={14} />
                                     <span className="hidden xs:inline">Ajouter Employé</span>
@@ -2874,7 +3240,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     </span>
                                 </div>
                                 <div className="space-y-2 text-sm text-[#4a3426]">
-                                    {avancesList.length > 0 ? avancesList.map((a, i) => (
+                                    {avancesList.length > 0 ? avancesList.map((a: JournalierEntry, i: number) => (
                                         <div key={i} className="flex justify-between p-3 bg-[#f9f6f2] rounded-2xl items-center group">
                                             <div className="flex items-center gap-2">
                                                 <div className="flex flex-col">
@@ -2954,7 +3320,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     </span>
                                 </div>
                                 <div className="space-y-2 text-sm text-[#4a3426]">
-                                    {doublagesList.length > 0 ? doublagesList.map((a, i) => (
+                                    {doublagesList.length > 0 ? doublagesList.map((a: JournalierEntry, i: number) => (
                                         <div key={i} className="flex justify-between p-3 bg-[#f9f6f2] rounded-2xl items-center group">
                                             <div className="flex items-center gap-2">
                                                 <div className="flex flex-col">
@@ -3035,7 +3401,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     </span>
                                 </div>
                                 <div className="space-y-2 text-sm text-[#4a3426]">
-                                    {extrasList.length > 0 ? extrasList.map((a, i) => (
+                                    {extrasList.length > 0 ? extrasList.map((a: JournalierEntry, i: number) => (
                                         <div key={i} className="flex justify-between p-3 bg-[#f9f6f2] rounded-2xl items-center group">
                                             <div className="flex items-center gap-2">
                                                 <div className="flex flex-col">
@@ -3116,7 +3482,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     </span>
                                 </div>
                                 <div className="space-y-2 text-sm text-[#4a3426]">
-                                    {primesList.length > 0 ? primesList.map((p, i) => (
+                                    {primesList.length > 0 ? primesList.map((p: JournalierEntry, i: number) => (
                                         <div key={i} className="flex justify-between p-3 bg-[#f9f6f2] rounded-2xl items-center group">
                                             <div className="flex items-center gap-2">
                                                 <div className="flex flex-col">
@@ -3193,11 +3559,11 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                         className="bg-[#f2efe9] text-[#a67c52] px-4 py-2 rounded-2xl font-black text-xl cursor-pointer hover:bg-[#e6dace] transition-colors"
                                         onClick={() => setShowHistoryModal({ type: 'restes_salaires' })}
                                     >
-                                        {restesSalairesList.reduce((acc, curr) => acc + (parseFloat(curr.montant) || 0), 0).toFixed(3)} <span className="text-xs">DT</span>
+                                        {restesSalairesList.reduce((acc: number, curr: JournalierEntry) => acc + (parseFloat(curr.montant) || 0), 0).toFixed(3)} <span className="text-xs">DT</span>
                                     </span>
                                 </div>
                                 <div className="space-y-2 text-sm text-[#4a3426]">
-                                    {restesSalairesList.length > 0 ? restesSalairesList.map((p, i) => (
+                                    {restesSalairesList.length > 0 ? restesSalairesList.map((p: JournalierEntry, i: number) => (
                                         <div key={i} className="flex justify-between p-3 bg-[#f9f6f2] rounded-2xl items-center group">
                                             <div className="flex items-center gap-2">
                                                 <div className="flex flex-col">
@@ -3281,7 +3647,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                         </div>
                                         {!hideRecetteCaisse && (
                                             <div className="text-[10px] md:text-xs opacity-40 mt-1 text-white">
-                                                (Fournisseurs: {totalExpensesDynamic.toFixed(3)} + Divers: {totalExpensesDivers.toFixed(3)} + Admin: {totalExpensesAdmin.toFixed(3)} + Fixes: {(acompte + doublage + extraTotal + primesTotal + restesSalairesList.reduce((acc, curr) => acc + (parseFloat(curr.montant) || 0), 0)).toFixed(3)})
+                                                (Fournisseurs: {totalExpensesDynamic.toFixed(3)} + Divers: {totalExpensesDivers.toFixed(3)} + Admin: {totalExpensesAdmin.toFixed(3)} + Fixes: {(acompte + doublage + extraTotal + primesTotal + restesSalairesList.reduce((acc: number, curr: JournalierEntry) => acc + (parseFloat(curr.montant) || 0), 0)).toFixed(3)})
                                             </div>
                                         )}
                                     </div>
@@ -3293,11 +3659,11 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                         </div>
                                         <div className="flex items-baseline gap-3 mt-1">
                                             {hideRecetteCaisse ? (
-                                                <span className={`text-6xl md:text-7xl lg:text-8xl font-black tracking-tighter text-[#c69f6e]`}>
+                                                <span className="text-6xl md:text-7xl lg:text-8xl font-black tracking-tighter text-[#c69f6e]">
                                                     ********
                                                 </span>
                                             ) : (
-                                                <span className={`text-6xl md:text-7xl lg:text-8xl font-black tracking-tighter transition-all duration-500 ${recetteNett >= 0 ? 'text-[#c69f6e]' : 'text-red-400'}`}>
+                                                <span className={`text-6xl md:text-7xl lg:text-8xl font-black tracking-tighter transition-all duration-500 ${recetteNett >= 0 ? 'text-[#c69f6e]' : 'text-red-400'} `}>
                                                     {recetteNett.toFixed(3)}
                                                 </span>
                                             )}
@@ -3342,7 +3708,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                             onFocus={(e) => { if (m.val === '0') m.set(''); }}
                                                             onBlur={(e) => { if (e.target.value === '' || e.target.value === null) m.set('0'); }}
                                                             onChange={(e) => { m.set(e.target.value); setHasInteracted(true); }}
-                                                            className={`w-full h-20 rounded-2xl pl-11 pr-3 font-black text-2xl md:text-3xl text-white outline-none transition-all shadow-inner ${isLocked ? 'bg-white/20 border-white/30 cursor-not-allowed' : 'bg-white/10 border border-white/10 focus:bg-white/20 focus:border-white/40'}`}
+                                                            className={`w-full h-20 rounded-2xl pl-11 pr-3 font-black text-2xl md:text-3xl text-white outline-none transition-all shadow-inner ${isLocked ? 'bg-white/20 border-white/30 cursor-not-allowed' : 'bg-white/10 border border-white/10 focus:bg-white/20 focus:border-white/40'} `}
                                                         />
                                                     )}
                                                 </div>
@@ -3372,7 +3738,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                             onFocus={(e) => { if (m.val === '0') m.set(''); }}
                                                             onBlur={(e) => { if (e.target.value === '' || e.target.value === null) m.set('0'); }}
                                                             onChange={(e) => { m.set(e.target.value); setHasInteracted(true); }}
-                                                            className={`w-full h-20 rounded-2xl pl-11 pr-3 font-black text-2xl md:text-3xl text-white outline-none transition-all shadow-inner ${(m.label === 'Espèces' || isLocked) ? 'bg-white/20 border-white/30 cursor-not-allowed' : 'bg-white/10 border border-white/10 focus:bg-white/20 focus:border-white/40'}`}
+                                                            className={`w-full h-20 rounded-2xl pl-11 pr-3 font-black text-2xl md:text-3xl text-white outline-none transition-all shadow-inner ${(m.label === 'Espèces' || isLocked) ? 'bg-white/20 border-white/30 cursor-not-allowed' : 'bg-white/10 border border-white/10 focus:bg-white/20 focus:border-white/40'} `}
                                                         />
                                                     )}
                                                 </div>
@@ -3414,7 +3780,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 )}
                                 <button
                                     onClick={handleSave}
-                                    className={`${isLocked ? 'bg-gray-500/50 opacity-50 hover:bg-red-500' : 'gold-gradient'} text-white px-12 py-5 rounded-[2.5rem] shadow-2xl shadow-[#c69f6e]/30 flex items-center gap-3 font-black text-xl hover:scale-105 active:scale-95 transition-all flex-1 justify-center border border-white/20`}
+                                    className={`${isLocked ? 'bg-gray-500/50 opacity-50 hover:bg-red-500' : 'bg-gradient-to-br from-[#c69f6e] to-[#a67c52]'} text-white px-12 py-5 rounded-[2.5rem] shadow-2xl shadow-[#c69f6e]/30 flex items-center gap-3 font-black text-xl hover:scale-105 active:scale-95 transition-all flex-1 justify-center border border-white/20`}
                                     disabled={saving}
                                 >
                                     {saving ? <Loader2 className="animate-spin" /> : (isLocked ? <LockIcon size={24} /> : <Save size={24} />)}
@@ -3430,7 +3796,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             <AnimatePresence>
                 {
                     toast && (
-                        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className={`fixed top-6 left-0 right-0 mx-auto w-max z-50 px-6 py-3 rounded-full font-bold shadow-xl flex items-center gap-2 ${toast.type === 'success' ? 'bg-[#2d6a4f] text-white' : 'bg-red-600 text-white'}`}>{toast.msg}</motion.div>
+                        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className={`fixed top-6 left-0 right-0 mx-auto w-max z-50 px-6 py-3 rounded-full font-bold shadow-xl flex items-center gap-2 ${toast.type === 'success' ? 'bg-[#2d6a4f] text-white' : 'bg-red-600 text-white'} `}>{toast.msg}</motion.div>
                     )
                 }
             </AnimatePresence >
@@ -3470,40 +3836,56 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         const files = e.target.files;
                                                         if (!files) return;
                                                         try {
-                                                            // Compress images, but handle PDFs differently
-                                                            const loaders = Array.from(files).map(async (file) => {
-                                                                if (file.type === 'application/pdf') {
-                                                                    return new Promise<string>((resolve) => {
-                                                                        const reader = new FileReader();
-                                                                        reader.onloadend = () => resolve(reader.result as string);
-                                                                        reader.readAsDataURL(file);
-                                                                    });
+                                                            const base64s: string[] = [];
+                                                            for (const file of Array.from(files)) {
+                                                                try {
+                                                                    const compressed = await compressImage(file);
+                                                                    base64s.push(compressed);
+                                                                } catch (err) {
+                                                                    console.error("Processing error for file", file.name, err);
                                                                 }
-                                                                return compressImage(file);
-                                                            });
-                                                            const base64s = await Promise.all(loaders);
-
-                                                            if (viewingInvoicesTarget.type === 'divers') {
-                                                                const newDivers = [...expensesDivers];
-                                                                const currentInvoices = newDivers[viewingInvoicesTarget.index].invoices || [];
-                                                                newDivers[viewingInvoicesTarget.index].invoices = [...currentInvoices, ...base64s];
-                                                                setExpensesDivers(newDivers);
-                                                                setViewingInvoices(newDivers[viewingInvoicesTarget.index].invoices);
-                                                            } else if (viewingInvoicesTarget.type === 'offres') {
-                                                                const newList = [...offresList];
-                                                                const currentInvoices = newList[viewingInvoicesTarget.index].invoices || [];
-                                                                newList[viewingInvoicesTarget.index].invoices = [...currentInvoices, ...base64s];
-                                                                setOffresList(newList);
-                                                                setViewingInvoices(newList[viewingInvoicesTarget.index].invoices);
-                                                            } else {
-                                                                const newExpenses = [...expenses];
-                                                                const currentInvoices = newExpenses[viewingInvoicesTarget.index].invoices || [];
-                                                                newExpenses[viewingInvoicesTarget.index].invoices = [...currentInvoices, ...base64s];
-                                                                setExpenses(newExpenses);
-                                                                setViewingInvoices(newExpenses[viewingInvoicesTarget.index].invoices);
                                                             }
-                                                        } catch (err) {
-                                                            setToast({ msg: "Erreur lors de la compression de l'image", type: 'error' });
+
+                                                            if (base64s.length > 0) {
+                                                                let currentPhotos: string[] = [];
+                                                                let category = 'expenses';
+                                                                if (viewingInvoicesTarget.type === 'divers') {
+                                                                    category = 'expensesDivers';
+                                                                    const newDivers = [...expensesDivers];
+                                                                    currentPhotos = [...(newDivers[viewingInvoicesTarget.index].invoices || []), ...base64s];
+                                                                    newDivers[viewingInvoicesTarget.index].invoices = currentPhotos;
+                                                                    setExpensesDivers(newDivers);
+                                                                    setViewingInvoices(currentPhotos);
+                                                                } else if (viewingInvoicesTarget.type === 'offres') {
+                                                                    category = 'offres';
+                                                                    const newList = [...offresList];
+                                                                    currentPhotos = [...(newList[viewingInvoicesTarget.index].invoices || []), ...base64s];
+                                                                    newList[viewingInvoicesTarget.index].invoices = currentPhotos;
+                                                                    setOffresList(newList);
+                                                                    setViewingInvoices(currentPhotos);
+                                                                } else {
+                                                                    category = 'expenses';
+                                                                    const newExpenses = [...expenses];
+                                                                    currentPhotos = [...(newExpenses[viewingInvoicesTarget.index].invoices || []), ...base64s];
+                                                                    newExpenses[viewingInvoicesTarget.index].invoices = currentPhotos;
+                                                                    setExpenses(newExpenses);
+                                                                    setViewingInvoices(currentPhotos);
+                                                                }
+
+                                                                // Sync with temporary database
+                                                                await uploadJournalierPhotos({
+                                                                    variables: {
+                                                                        date,
+                                                                        category,
+                                                                        item_index: viewingInvoicesTarget.index,
+                                                                        photos: JSON.stringify(currentPhotos)
+                                                                    }
+                                                                });
+                                                                setToast({ msg: `${base64s.length} photo(s) ajoutée(s)`, type: 'success' });
+                                                                setTimeout(() => setToast(null), 3000);
+                                                            }
+                                                        } catch (err: any) {
+                                                            setToast({ msg: (err as any).message || "Erreur lors du traitement de l'image", type: 'error' });
                                                             setTimeout(() => setToast(null), 3000);
                                                         }
                                                     }}
@@ -3539,7 +3921,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         exit={{ opacity: 0, scale: 0.95 }}
                                                     >
                                                         <motion.div
-                                                            className={`w-full h-full flex items-center justify-center p-4 ${imgZoom > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-zoom-in'}`}
+                                                            className={`w-full h-full flex items-center justify-center p-4 ${imgZoom > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-zoom-in'} `}
                                                             onWheel={(e) => {
                                                                 e.preventDefault();
                                                                 if (e.deltaY < 0) setImgZoom(prev => Math.min(5, prev + 0.1));
@@ -3605,12 +3987,12 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                     <div
                                                         key={index}
                                                         onClick={() => { setSelectedInvoiceIndex(index); setImgZoom(1); setImgRotation(0); }}
-                                                        className={`relative w-14 h-14 rounded-xl overflow-hidden cursor-pointer transition-all flex-shrink-0 ${selectedInvoiceIndex === index ? 'ring-2 ring-[#c69f6e] ring-offset-2 ring-offset-black' : 'opacity-60 hover:opacity-100'}`}
+                                                        className={`relative w-14 h-14 rounded-xl overflow-hidden cursor-pointer transition-all flex-shrink-0 ${selectedInvoiceIndex === index ? 'ring-2 ring-[#c69f6e] ring-offset-2 ring-offset-black' : 'opacity-60 hover:opacity-100'} `}
                                                     >
                                                         {photo.startsWith('data:application/pdf') || photo.toLowerCase().includes('.pdf') ? (
                                                             <div className="w-full h-full bg-white flex items-center justify-center text-red-500 font-bold text-[10px]">PDF</div>
                                                         ) : (
-                                                            <Image src={photo} alt={`Document ${index + 1}`} fill className="object-cover" />
+                                                            <Image src={photo} alt={`Document ${index + 1} `} fill className="object-cover" />
                                                         )}
                                                         <div className="absolute inset-0 bg-black/20" />
                                                         <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-center py-0.5">
@@ -3628,36 +4010,58 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                             onChange={async (e) => {
                                                                 const files = e.target.files; if (!files) return;
                                                                 try {
-                                                                    const loaders = Array.from(files).map(async (file) => {
-                                                                        if (file.type === 'application/pdf') {
-                                                                            return new Promise<string>((resolve) => {
-                                                                                const reader = new FileReader();
-                                                                                reader.onloadend = () => resolve(reader.result as string);
-                                                                                reader.readAsDataURL(file);
-                                                                            });
+                                                                    const base64s: string[] = [];
+                                                                    for (const file of Array.from(files)) {
+                                                                        try {
+                                                                            const compressed = await compressImage(file);
+                                                                            base64s.push(compressed);
+                                                                        } catch (err) {
+                                                                            console.error("Processing error for file", file.name, err);
                                                                         }
-                                                                        return compressImage(file);
-                                                                    });
-                                                                    const base64s = await Promise.all(loaders);
-                                                                    let newList: string[] = [];
-                                                                    if (viewingInvoicesTarget.type === 'divers') {
-                                                                        const newDivers = [...expensesDivers];
-                                                                        newList = [...(newDivers[viewingInvoicesTarget.index].invoices || []), ...base64s];
-                                                                        newDivers[viewingInvoicesTarget.index].invoices = newList;
-                                                                        setExpensesDivers(newDivers);
-                                                                    } else {
-                                                                        const newExpenses = [...expenses];
-                                                                        newList = [...(newExpenses[viewingInvoicesTarget.index].invoices || []), ...base64s];
-                                                                        newExpenses[viewingInvoicesTarget.index].invoices = newList;
-                                                                        setExpenses(newExpenses);
                                                                     }
-                                                                    setViewingInvoices(newList);
-                                                                    setSelectedInvoiceIndex(newList.length - 1);
-                                                                    setImgZoom(1);
-                                                                    setImgRotation(0);
-                                                                    setToast({ msg: 'Photo ajoutée', type: 'success' });
-                                                                } catch (err) {
-                                                                    setToast({ msg: "Erreur lors de la compression de l'image", type: 'error' });
+
+                                                                    if (base64s.length > 0) {
+                                                                        let newList: string[] = [];
+                                                                        let category = 'expenses';
+                                                                        if (viewingInvoicesTarget.type === 'divers') {
+                                                                            category = 'expensesDivers';
+                                                                            const newDivers = [...expensesDivers];
+                                                                            newList = [...(newDivers[viewingInvoicesTarget.index].invoices || []), ...base64s];
+                                                                            newDivers[viewingInvoicesTarget.index].invoices = newList;
+                                                                            setExpensesDivers(newDivers);
+                                                                        } else if (viewingInvoicesTarget.type === 'offres') {
+                                                                            category = 'offres';
+                                                                            const currentOffres = [...offresList];
+                                                                            newList = [...(currentOffres[viewingInvoicesTarget.index].invoices || []), ...base64s];
+                                                                            currentOffres[viewingInvoicesTarget.index].invoices = newList;
+                                                                            setOffresList(currentOffres);
+                                                                        } else {
+                                                                            category = 'expenses';
+                                                                            const newExpenses = [...expenses];
+                                                                            newList = [...(newExpenses[viewingInvoicesTarget.index].invoices || []), ...base64s];
+                                                                            newExpenses[viewingInvoicesTarget.index].invoices = newList;
+                                                                            setExpenses(newExpenses);
+                                                                        }
+
+                                                                        // Sync with temporary database
+                                                                        await uploadJournalierPhotos({
+                                                                            variables: {
+                                                                                date,
+                                                                                category,
+                                                                                item_index: viewingInvoicesTarget.index,
+                                                                                photos: JSON.stringify(newList)
+                                                                            }
+                                                                        });
+
+                                                                        setViewingInvoices(newList);
+                                                                        setSelectedInvoiceIndex(newList.length - 1);
+                                                                        setImgZoom(1);
+                                                                        setImgRotation(0);
+                                                                        setToast({ msg: `${base64s.length} photo(s) ajoutée(s)`, type: 'success' });
+                                                                        setTimeout(() => setToast(null), 3000);
+                                                                    }
+                                                                } catch (err: any) {
+                                                                    setToast({ msg: err.message || "Erreur lors du traitement de l'image", type: 'error' });
                                                                     setTimeout(() => setToast(null), 3000);
                                                                 }
                                                             }}
@@ -3725,7 +4129,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                             setDate(`${ny}-${nm}-${nd}`);
                                             setShowCalendar(false);
                                             window.scrollTo({ top: 0, behavior: 'smooth' });
-                                        }} className={`h-9 w-9 rounded-full flex items-center justify-center text-sm font-semibold transition-all ${isSelected ? 'bg-[#4a3426] text-white shadow-lg' : 'text-[#4a3426] hover:bg-[#f4ece4] hover:text-[#c69f6e]'}`}>{day}</button>);
+                                        }} className={`h-9 w-9 rounded-full flex items-center justify-center text-sm font-semibold transition-all ${isSelected ? 'bg-[#4a3426] text-white shadow-lg' : 'text-[#4a3426] hover:bg-[#f4ece4] hover:text-[#c69f6e]'} `}>{day}</button>);
                                     })}
                                 </div>
                             </motion.div>
@@ -3767,8 +4171,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     <h3 className="text-2xl font-black text-[#4a3426] tracking-tight">Ajouter des détails</h3>
                                     <p className="text-[10px] text-[#c69f6e] font-black uppercase tracking-[0.2em] mt-1">
                                         {modalDetailsTarget.type === 'divers'
-                                            ? `Catégorie : ${expensesDivers[modalDetailsTarget.index]?.designation || ''}`
-                                            : `Fournisseur : ${expenses[modalDetailsTarget.index]?.supplier || ''}`}
+                                            ? `Catégorie: ${expensesDivers[modalDetailsTarget.index]?.designation || ''} `
+                                            : `Fournisseur: ${expenses[modalDetailsTarget.index]?.supplier || ''} `}
                                     </p>
                                 </div>
                             </div>
@@ -3794,7 +4198,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                 }
                                             }}
                                             placeholder={isLocked ? "Aucun détail supplémentaire." : "Notez ici les détails de la dépense..."}
-                                            className={`w-full bg-[#fcfaf8] border border-[#e6dace] rounded-3xl p-6 text-base font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none min-h-[160px] resize-none transition-all shadow-inner placeholder-[#bba282]/30 ${isLocked ? 'cursor-default opacity-80' : ''}`}
+                                            className={`w-full bg-[#fcfaf8] border border-[#e6dace] rounded-3xl p-6 text-base font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none min-h-[160px] resize-none transition-all shadow-inner placeholder-[#bba282] /30 ${isLocked ? 'cursor-default opacity-80' : ''} `}
                                         />
                                     </div>
                                 </div>
@@ -3829,7 +4233,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                             setModalDetailsTarget(null);
                                             setHasInteracted(true);
                                         }}
-                                        className={`flex-[2] py-5 rounded-[1.5rem] font-black uppercase tracking-widest text-[10px] text-white shadow-xl transition-all ${isLocked ? 'bg-[#8c8279] hover:bg-[#4a3426]' : 'bg-[#c69f6e] hover:bg-[#b08d5d] shadow-[#c69f6e]/20'}`}
+                                        className={`flex-[2] py-5 rounded-[1.5rem] font-black uppercase tracking-widest text-[10px] text-white shadow-xl transition-all ${isLocked ? 'bg-[#8c8279] hover:bg-[#4a3426]' : 'bg-[#c69f6e] hover:bg-[#b08d5d] shadow-[#c69f6e]/20'} `}
                                     >
                                         {isLocked ? 'Fermer' : 'Enregistrer les détails'}
                                     </button>
@@ -3876,7 +4280,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                         setToast({ msg: 'Photo ajoutée', type: 'success' });
                                         setTimeout(() => setToast(null), 3000);
                                     } catch (err) {
-                                        setToast({ msg: "Erreur lors de la compression de l'image", type: 'error' });
+                                        setToast({ msg: (err as any).message || "Erreur lors du traitement de l'image", type: 'error' });
                                         setTimeout(() => setToast(null), 3000);
                                     }
                                 }
@@ -3980,11 +4384,11 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     <div
                                         key={index}
                                         onClick={() => { setViewingPhoto(photo); setPhotoZoom(1); setPhotoRotation(0); }}
-                                        className={`relative w-14 h-14 rounded-xl overflow-hidden cursor-pointer transition-all ${viewingPhoto === photo ? 'ring-2 ring-[#c69f6e] ring-offset-2 ring-offset-black' : 'opacity-60 hover:opacity-100'}`}
+                                        className={`relative w-14 h-14 rounded-xl overflow-hidden cursor-pointer transition-all ${viewingPhoto === photo ? 'ring-2 ring-[#c69f6e] ring-offset-2 ring-offset-black' : 'opacity-60 hover:opacity-100'} `}
                                     >
                                         <Image
                                             src={photo}
-                                            alt={`Photo ${index + 1}`}
+                                            alt={`Photo ${index + 1} `}
                                             fill
                                             className="object-cover"
                                         />
@@ -4099,7 +4503,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                     (showEmployeeModal && journalierMasterSuggestions.employees.some((n: string) => n.toLowerCase() === newEmployeeModalName.trim().toLowerCase())) ||
                                                     (showDiversModal && journalierMasterSuggestions.divers.some((n: string) => n.toLowerCase() === designationSearch.trim().toLowerCase()))
                                                     ? 'border-red-400' : 'border-[#e6dace]'
-                                                    } rounded-2xl pl-14 pr-6 font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all placeholder-[#bba282]/50`}
+                                                    } rounded-2xl pl-14 pr-6 font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all placeholder-[#bba282] /50`}
                                             />
 
                                             {/* Proactive Alert Text */}
@@ -4146,7 +4550,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                         </div>
 
                                         {showEmployeeModal && (
-                                            <div className={`relative animate-in fade-in slide-in-from-top-4 duration-300 ${showJournalierSuggestions && (showEmployeeModal ? newEmployeeModalName.trim() : '').length > 0 ? 'mt-32' : 'mt-4'}`}>
+                                            <div className={`relative animate-in fade-in slide-in -from-top-4 duration-300 ${showJournalierSuggestions && (showEmployeeModal ? newEmployeeModalName.trim() : '').length > 0 ? 'mt-32' : 'mt-4'} `}>
                                                 <Briefcase className="absolute left-5 top-1/2 -translate-y-1/2 text-[#bba282]" size={20} />
                                                 <div className="relative flex items-center">
                                                     <input
@@ -4227,7 +4631,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                         (showSupplierModal && newSupplierName.trim().length > 0) ||
                                         (showDiversModal && designationSearch.trim().length > 0)
                                     )) || (showDeptSuggestions) ? 'mt-40' : ''
-                                        }`}>
+                                        } `}>
                                         <button
                                             onClick={() => {
                                                 setShowSupplierModal(false);
@@ -4305,8 +4709,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             <EntryModal
                 isOpen={!!showEntryModal}
                 onClose={() => setShowEntryModal(null)}
-                onSubmit={handleEntrySubmit}
-                type={showEntryModal?.type}
+                onSubmit={(data) => handleEntrySubmit(showEntryModal?.type || '', data.username, data.amount, data.nb_jours, showEntryModal?.data?.id)}
+                type={showEntryModal?.type || ''}
                 initialData={showEntryModal?.data}
                 employees={employeesData?.getEmployees}
             />
@@ -4346,7 +4750,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                 setNewEmpName('');
                                                 setNewEmpDept('');
                                             }}
-                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${isAddingEmployee ? 'bg-[#4a3426] text-white' : 'bg-[#f4ece4] text-[#c69f6e] hover:bg-[#ece6df]'}`}
+                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${isAddingEmployee ? 'bg-[#4a3426] text-white' : 'bg-[#f4ece4] text-[#c69f6e] hover:bg-[#ece6df]'} `}
                                         >
                                             {isAddingEmployee ? <X size={14} /> : <Plus size={14} />}
                                             {isAddingEmployee ? 'Annuler' : 'Nouveau'}
@@ -4398,7 +4802,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         <button
                                                             key={dept}
                                                             onClick={() => setNewEmpDept(dept)}
-                                                            className={`text-[9px] font-black uppercase px-2 py-1 rounded-lg border transition-all ${newEmpDept === dept ? 'bg-[#c69f6e] text-white border-[#c69f6e]' : 'bg-white text-[#8c8279] border-[#e6dace] hover:border-[#c69f6e]'}`}
+                                                            className={`text-[9px] font-black uppercase px-2 py-1 rounded-lg border transition-all ${newEmpDept === dept ? 'bg-[#c69f6e] text-white border-[#c69f6e]' : 'bg-white text-[#8c8279] border-[#e6dace] hover:border-[#c69f6e]'} `}
                                                         >
                                                             {dept}
                                                         </button>
@@ -4472,8 +4876,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         const { value: formValues } = await MySwal.fire({
                                                             title: 'Modifier Employé',
                                                             html:
-                                                                `<input id="swal-input1" class="swal2-input" placeholder="Nom" value="${emp.name}">` +
-                                                                `<input id="swal-input2" class="swal2-input" placeholder="Département" value="${emp.department || ''}">`,
+                                                                `< input id = "swal-input1" class="swal2-input" placeholder = "Nom" value = "${emp.name}" > ` +
+                                                                `< input id = "swal-input2" class="swal2-input" placeholder = "Département" value = "${emp.department || ''}" > `,
                                                             focusConfirm: false,
                                                             showCancelButton: true,
                                                             confirmButtonText: 'Enregistrer',

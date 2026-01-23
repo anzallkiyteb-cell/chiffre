@@ -3516,7 +3516,7 @@ export default function PaiementsPage() {
                                 <div className="p-4 md:p-8 pb-2 md:pb-4 flex flex-col lg:flex-row items-center lg:items-center justify-between gap-2 md:gap-4 overflow-y-auto lg:overflow-visible no-scrollbar flex-shrink-0 relative">
                                     <button
                                         onClick={() => setShowExpensesDetails(false)}
-                                        className="absolute top-5 right-5 lg:static w-10 h-10 md:w-14 md:h-14 bg-white rounded-2xl flex items-center justify-center text-[#8c8279] hover:bg-red-50 hover:text-red-500 transition-all border border-[#e6dace]/30 shadow-sm shrink-0 z-[10]"
+                                        className="absolute top-5 right-5 w-10 h-10 md:w-14 md:h-14 bg-white rounded-2xl flex items-center justify-center text-[#8c8279] hover:bg-red-50 hover:text-red-500 transition-all border border-[#e6dace]/30 shadow-sm shrink-0 z-[10]"
                                     >
                                         <X size={20} className="md:size-7" />
                                     </button>
@@ -3706,13 +3706,13 @@ export default function PaiementsPage() {
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 items-start">
                                         {[
                                             { title: 'DÉPENSES FOURNISSEURS', subtitle: 'MARCHANDISES & SERVICES', icon: Truck, color: 'text-red-500', iconBg: 'bg-red-50', dotColor: '#ef4444', items: expenseDetails.fournisseurs },
-                                            { title: 'DÉPENSES DIVERS', subtitle: 'FRAIS EXCEPTIONNELS', icon: Sparkles, color: 'text-[#f59e0b]', iconBg: 'bg-[#f59e0b]/5', dotColor: '#f59e0b', items: expenseDetails.divers },
-                                            { title: 'DÉPENSES ADMINISTRATIF', subtitle: 'LOYERS, FACTURES & BUREAUX', icon: Layout, color: 'text-[#10b981]', iconBg: 'bg-[#10b981]/5', dotColor: '#10b981', items: expenseDetails.administratif },
                                             { title: 'ACCOMPTE', subtitle: 'AVANCES SUR SALAIRES', icon: Calculator, color: 'text-[#6366f1]', iconBg: 'bg-[#6366f1]/5', dotColor: '#6366f1', items: expenseDetails.avances },
                                             { title: 'PRIMES', subtitle: 'RÉCOMPENSES & BONUS', icon: Award, color: 'text-[#06b6d4]', iconBg: 'bg-[#06b6d4]/5', dotColor: '#06b6d4', items: expenseDetails.primes },
-                                            { title: 'EXTRA', subtitle: "MAIN D'ŒUVRE OCCASIONNELLE", icon: Zap, color: 'text-[#ec4899]', iconBg: 'bg-[#ec4899]/5', dotColor: '#ec4899', items: expenseDetails.extras },
-                                            { title: 'RESTES SALAIRES', subtitle: 'SALAIRES', icon: Banknote, color: 'text-[#6366f1]', iconBg: 'bg-[#6366f1]/5', dotColor: '#6366f1', items: expenseDetails.remainders, badge: '' },
+                                            { title: 'DÉPENSES DIVERS', subtitle: 'FRAIS EXCEPTIONNELS', icon: Sparkles, color: 'text-[#f59e0b]', iconBg: 'bg-[#f59e0b]/5', dotColor: '#f59e0b', items: expenseDetails.divers },
                                             { title: 'DOUBLAGE', subtitle: 'HEURES SUPPLÉMENTAIRES', icon: TrendingUp, color: 'text-[#78716c]', iconBg: 'bg-[#78716c]/5', dotColor: '#78716c', items: expenseDetails.doublages },
+                                            { title: 'RESTES SALAIRES', subtitle: 'SALAIRES', icon: Banknote, color: 'text-[#6366f1]', iconBg: 'bg-[#6366f1]/5', dotColor: '#6366f1', items: expenseDetails.remainders, badge: '' },
+                                            { title: 'DÉPENSES ADMINISTRATIF', subtitle: 'LOYERS, FACTURES & BUREAUX', icon: Layout, color: 'text-[#10b981]', iconBg: 'bg-[#10b981]/5', dotColor: '#10b981', items: expenseDetails.administratif },
+                                            { title: 'EXTRA', subtitle: "MAIN D'ŒUVRE OCCASIONNELLE", icon: Zap, color: 'text-[#ec4899]', iconBg: 'bg-[#ec4899]/5', dotColor: '#ec4899', items: expenseDetails.extras },
                                         ].map((cat, idx) => {
                                             const total = (cat.items || []).reduce((sum: number, item: any) => sum + (item.amount || 0), 0);
                                             const labelMap: Record<string, string> = {
