@@ -4,6 +4,10 @@ import { typeDefs } from '@/graphql/schema';
 import { resolvers } from '@/graphql/resolvers';
 import initDb from '@/lib/initDb';
 
+// For Next.js App Router - increase body size limit
+export const maxDuration = 60; // seconds
+export const dynamic = 'force-dynamic';
+
 // Initialize DB tables
 initDb();
 

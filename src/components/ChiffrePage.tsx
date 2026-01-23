@@ -42,6 +42,57 @@ const formatDisplayDate = (dateValue: any) => {
     }
 };
 
+// Compress image to reduce payload size (max 2MB per image)
+const compressImage = (file: File, maxSizeKB: number = 2000): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = document.createElement('img');
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+
+                // Scale down if image is too large
+                const maxDimension = 2560;
+                if (width > maxDimension || height > maxDimension) {
+                    if (width > height) {
+                        height = Math.round((height * maxDimension) / width);
+                        width = maxDimension;
+                    } else {
+                        width = Math.round((width * maxDimension) / height);
+                        height = maxDimension;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    reject(new Error('Canvas context not available'));
+                    return;
+                }
+                ctx.drawImage(img, 0, 0, width, height);
+
+                // Try different quality levels to get under maxSizeKB
+                let quality = 0.85;
+                let result = canvas.toDataURL('image/jpeg', quality);
+
+                while (result.length > maxSizeKB * 1024 * 1.37 && quality > 0.2) { // 1.37 accounts for base64 overhead
+                    quality -= 0.1;
+                    result = canvas.toDataURL('image/jpeg', quality);
+                }
+
+                resolve(result);
+            };
+            img.onerror = () => reject(new Error('Image load failed'));
+            img.src = e.target?.result as string;
+        };
+        reader.onerror = () => reject(new Error('File read failed'));
+        reader.readAsDataURL(file);
+    });
+};
+
 const GET_CHIFFRES_RANGE = gql`
   query GetChiffresRange($startDate: String!, $endDate: String!) {
     getChiffresByRange(startDate: $startDate, endDate: $endDate) {
@@ -1617,41 +1668,43 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         if (!files) return;
 
         if (type === 'invoice' || (type as any) === 'offres') {
-            const loaders = Array.from(files).map(file => {
-                return new Promise<string>((resolve) => {
-                    const reader = new FileReader();
-                    reader.onloadend = () => resolve(reader.result as string);
-                    reader.readAsDataURL(file);
-                });
-            });
-            const base64s = await Promise.all(loaders);
-            if (type === 'invoice' || (type as any) === 'offres') {
-                if (isDivers === true) {
-                    const newDivers = [...expensesDivers];
-                    newDivers[index].invoices = [...newDivers[index].invoices, ...base64s];
-                    setExpensesDivers(newDivers);
-                } else if ((type as any) === 'offres') {
-                    const newList = [...offresList];
-                    newList[index].invoices = [...(newList[index].invoices || []), ...base64s];
-                    setOffresList(newList);
-                } else {
-                    const newExpenses = [...expenses];
-                    newExpenses[index].invoices = [...newExpenses[index].invoices, ...base64s];
-                    setExpenses(newExpenses);
+            // Compress all images before storing
+            const loaders = Array.from(files).map(file => compressImage(file, 2000));
+            try {
+                const base64s = await Promise.all(loaders);
+                if (type === 'invoice' || (type as any) === 'offres') {
+                    if (isDivers === true) {
+                        const newDivers = [...expensesDivers];
+                        newDivers[index].invoices = [...newDivers[index].invoices, ...base64s];
+                        setExpensesDivers(newDivers);
+                    } else if ((type as any) === 'offres') {
+                        const newList = [...offresList];
+                        newList[index].invoices = [...(newList[index].invoices || []), ...base64s];
+                        setOffresList(newList);
+                    } else {
+                        const newExpenses = [...expenses];
+                        newExpenses[index].invoices = [...newExpenses[index].invoices, ...base64s];
+                        setExpenses(newExpenses);
+                    }
+                    setToast({ msg: `${base64s.length} photo(s) ajoutée(s)`, type: 'success' });
+                    setTimeout(() => setToast(null), 3000);
                 }
-                setToast({ msg: `${base64s.length} photo(s) ajoutée(s)`, type: 'success' });
+            } catch (err) {
+                setToast({ msg: "Erreur lors de la compression de l'image", type: 'error' });
                 setTimeout(() => setToast(null), 3000);
             }
         } else {
             const file = files[0];
-            const reader = new FileReader();
-            reader.onloadend = () => {
+            try {
+                const compressed = await compressImage(file, 2000);
                 const newExpenses = [...expenses];
-                if (type === 'recto') newExpenses[index].photo_cheque = reader.result as string;
-                if (type === 'verso') newExpenses[index].photo_verso = reader.result as string;
+                if (type === 'recto') newExpenses[index].photo_cheque = compressed;
+                if (type === 'verso') newExpenses[index].photo_verso = compressed;
                 setExpenses(newExpenses);
-            };
-            reader.readAsDataURL(file);
+            } catch (err) {
+                setToast({ msg: "Erreur lors de la compression de l'image", type: 'error' });
+                setTimeout(() => setToast(null), 3000);
+            }
         }
     };
 
@@ -1933,17 +1986,19 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                     accept="image/*"
                                                     id="caisse-photo-upload"
                                                     className="hidden"
-                                                    onChange={(e) => {
+                                                    onChange={async (e) => {
                                                         const file = e.target.files?.[0];
                                                         if (file && caissePhotos.length < 3) {
-                                                            const reader = new FileReader();
-                                                            reader.onloadend = () => {
-                                                                setCaissePhotos(prev => [...prev, reader.result as string]);
+                                                            try {
+                                                                const compressed = await compressImage(file, 2000);
+                                                                setCaissePhotos(prev => [...prev, compressed]);
                                                                 setHasInteracted(true);
                                                                 setToast({ msg: 'Photo caisse ajoutée', type: 'success' });
                                                                 setTimeout(() => setToast(null), 3000);
-                                                            };
-                                                            reader.readAsDataURL(file);
+                                                            } catch (err) {
+                                                                setToast({ msg: "Erreur lors de la compression de l'image", type: 'error' });
+                                                                setTimeout(() => setToast(null), 3000);
+                                                            }
                                                         }
                                                         e.target.value = '';
                                                     }}
@@ -3370,33 +3425,42 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                     onChange={async (e) => {
                                                         const files = e.target.files;
                                                         if (!files) return;
-                                                        const loaders = Array.from(files).map(file => {
-                                                            return new Promise<string>((resolve) => {
-                                                                const reader = new FileReader();
-                                                                reader.onloadend = () => resolve(reader.result as string);
-                                                                reader.readAsDataURL(file);
+                                                        try {
+                                                            // Compress images, but handle PDFs differently
+                                                            const loaders = Array.from(files).map(async (file) => {
+                                                                if (file.type === 'application/pdf') {
+                                                                    return new Promise<string>((resolve) => {
+                                                                        const reader = new FileReader();
+                                                                        reader.onloadend = () => resolve(reader.result as string);
+                                                                        reader.readAsDataURL(file);
+                                                                    });
+                                                                }
+                                                                return compressImage(file, 2000);
                                                             });
-                                                        });
-                                                        const base64s = await Promise.all(loaders);
+                                                            const base64s = await Promise.all(loaders);
 
-                                                        if (viewingInvoicesTarget.type === 'divers') {
-                                                            const newDivers = [...expensesDivers];
-                                                            const currentInvoices = newDivers[viewingInvoicesTarget.index].invoices || [];
-                                                            newDivers[viewingInvoicesTarget.index].invoices = [...currentInvoices, ...base64s];
-                                                            setExpensesDivers(newDivers);
-                                                            setViewingInvoices(newDivers[viewingInvoicesTarget.index].invoices);
-                                                        } else if (viewingInvoicesTarget.type === 'offres') {
-                                                            const newList = [...offresList];
-                                                            const currentInvoices = newList[viewingInvoicesTarget.index].invoices || [];
-                                                            newList[viewingInvoicesTarget.index].invoices = [...currentInvoices, ...base64s];
-                                                            setOffresList(newList);
-                                                            setViewingInvoices(newList[viewingInvoicesTarget.index].invoices);
-                                                        } else {
-                                                            const newExpenses = [...expenses];
-                                                            const currentInvoices = newExpenses[viewingInvoicesTarget.index].invoices || [];
-                                                            newExpenses[viewingInvoicesTarget.index].invoices = [...currentInvoices, ...base64s];
-                                                            setExpenses(newExpenses);
-                                                            setViewingInvoices(newExpenses[viewingInvoicesTarget.index].invoices);
+                                                            if (viewingInvoicesTarget.type === 'divers') {
+                                                                const newDivers = [...expensesDivers];
+                                                                const currentInvoices = newDivers[viewingInvoicesTarget.index].invoices || [];
+                                                                newDivers[viewingInvoicesTarget.index].invoices = [...currentInvoices, ...base64s];
+                                                                setExpensesDivers(newDivers);
+                                                                setViewingInvoices(newDivers[viewingInvoicesTarget.index].invoices);
+                                                            } else if (viewingInvoicesTarget.type === 'offres') {
+                                                                const newList = [...offresList];
+                                                                const currentInvoices = newList[viewingInvoicesTarget.index].invoices || [];
+                                                                newList[viewingInvoicesTarget.index].invoices = [...currentInvoices, ...base64s];
+                                                                setOffresList(newList);
+                                                                setViewingInvoices(newList[viewingInvoicesTarget.index].invoices);
+                                                            } else {
+                                                                const newExpenses = [...expenses];
+                                                                const currentInvoices = newExpenses[viewingInvoicesTarget.index].invoices || [];
+                                                                newExpenses[viewingInvoicesTarget.index].invoices = [...currentInvoices, ...base64s];
+                                                                setExpenses(newExpenses);
+                                                                setViewingInvoices(newExpenses[viewingInvoicesTarget.index].invoices);
+                                                            }
+                                                        } catch (err) {
+                                                            setToast({ msg: "Erreur lors de la compression de l'image", type: 'error' });
+                                                            setTimeout(() => setToast(null), 3000);
                                                         }
                                                     }}
                                                 />
@@ -3519,29 +3583,39 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                             type="file" multiple accept="image/*,.pdf" className="hidden"
                                                             onChange={async (e) => {
                                                                 const files = e.target.files; if (!files) return;
-                                                                const loaders = Array.from(files).map(file => new Promise<string>((resolve) => {
-                                                                    const reader = new FileReader();
-                                                                    reader.onloadend = () => resolve(reader.result as string);
-                                                                    reader.readAsDataURL(file);
-                                                                }));
-                                                                const base64s = await Promise.all(loaders);
-                                                                let newList: string[] = [];
-                                                                if (viewingInvoicesTarget.type === 'divers') {
-                                                                    const newDivers = [...expensesDivers];
-                                                                    newList = [...(newDivers[viewingInvoicesTarget.index].invoices || []), ...base64s];
-                                                                    newDivers[viewingInvoicesTarget.index].invoices = newList;
-                                                                    setExpensesDivers(newDivers);
-                                                                } else {
-                                                                    const newExpenses = [...expenses];
-                                                                    newList = [...(newExpenses[viewingInvoicesTarget.index].invoices || []), ...base64s];
-                                                                    newExpenses[viewingInvoicesTarget.index].invoices = newList;
-                                                                    setExpenses(newExpenses);
+                                                                try {
+                                                                    const loaders = Array.from(files).map(async (file) => {
+                                                                        if (file.type === 'application/pdf') {
+                                                                            return new Promise<string>((resolve) => {
+                                                                                const reader = new FileReader();
+                                                                                reader.onloadend = () => resolve(reader.result as string);
+                                                                                reader.readAsDataURL(file);
+                                                                            });
+                                                                        }
+                                                                        return compressImage(file, 2000);
+                                                                    });
+                                                                    const base64s = await Promise.all(loaders);
+                                                                    let newList: string[] = [];
+                                                                    if (viewingInvoicesTarget.type === 'divers') {
+                                                                        const newDivers = [...expensesDivers];
+                                                                        newList = [...(newDivers[viewingInvoicesTarget.index].invoices || []), ...base64s];
+                                                                        newDivers[viewingInvoicesTarget.index].invoices = newList;
+                                                                        setExpensesDivers(newDivers);
+                                                                    } else {
+                                                                        const newExpenses = [...expenses];
+                                                                        newList = [...(newExpenses[viewingInvoicesTarget.index].invoices || []), ...base64s];
+                                                                        newExpenses[viewingInvoicesTarget.index].invoices = newList;
+                                                                        setExpenses(newExpenses);
+                                                                    }
+                                                                    setViewingInvoices(newList);
+                                                                    setSelectedInvoiceIndex(newList.length - 1);
+                                                                    setImgZoom(1);
+                                                                    setImgRotation(0);
+                                                                    setToast({ msg: 'Photo ajoutée', type: 'success' });
+                                                                } catch (err) {
+                                                                    setToast({ msg: "Erreur lors de la compression de l'image", type: 'error' });
+                                                                    setTimeout(() => setToast(null), 3000);
                                                                 }
-                                                                setViewingInvoices(newList);
-                                                                setSelectedInvoiceIndex(newList.length - 1);
-                                                                setImgZoom(1);
-                                                                setImgRotation(0);
-                                                                setToast({ msg: 'Photo ajoutée', type: 'success' });
                                                             }}
                                                         />
                                                     </label>
@@ -3747,19 +3821,20 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             accept="image/*"
                             id="caisse-photo-modal-upload"
                             className="hidden"
-                            onChange={(e) => {
+                            onChange={async (e) => {
                                 const file = e.target.files?.[0];
                                 if (file && caissePhotos.length < 3) {
-                                    const reader = new FileReader();
-                                    reader.onloadend = () => {
-                                        const newPhoto = reader.result as string;
-                                        setCaissePhotos(prev => [...prev, newPhoto]);
-                                        setViewingPhoto(newPhoto);
+                                    try {
+                                        const compressed = await compressImage(file, 2000);
+                                        setCaissePhotos(prev => [...prev, compressed]);
+                                        setViewingPhoto(compressed);
                                         setHasInteracted(true);
                                         setToast({ msg: 'Photo ajoutée', type: 'success' });
                                         setTimeout(() => setToast(null), 3000);
-                                    };
-                                    reader.readAsDataURL(file);
+                                    } catch (err) {
+                                        setToast({ msg: "Erreur lors de la compression de l'image", type: 'error' });
+                                        setTimeout(() => setToast(null), 3000);
+                                    }
                                 }
                                 e.target.value = '';
                             }}
