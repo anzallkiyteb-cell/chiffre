@@ -1092,6 +1092,78 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
 
     // Load Data
     useEffect(() => {
+        // PRIORITY 1: Check LocalStorage Draft (if not already interacted)
+        // This ensures that even if server data exists (but is old), we restore the user's unsaved draft.
+        let draftLoaded = false;
+
+        if (!hasInteracted) {
+            const savedDraft = localStorage.getItem(`chiffre_draft_${date}`);
+            if (savedDraft) {
+                try {
+                    const draft = JSON.parse(savedDraft);
+                    if (draft.date === date) {
+                        const d = draft.data;
+                        setRecetteCaisse(d.recetteCaisse);
+                        setTpe(d.tpe);
+                        setTpe2(d.tpe2 || '0');
+                        setCheque(d.cheque);
+                        setEspeces(d.especes);
+                        setTicketsRestaurant(d.ticketsRestaurant);
+                        setExtra(d.extra);
+                        setPrimes(d.primes);
+                        setAvancesList(d.avancesList);
+                        setDoublagesList(d.doublagesList);
+                        setExtrasList(d.extrasList);
+                        setPrimesList(d.primesList);
+                        setRestesSalairesList(d.restesSalairesList || []);
+                        setOffres(d.offres || '0');
+                        setOffresList((d.offresList || []).map((o: any) => ({ ...o, invoices: o.invoices || [] })));
+                        setExpenses(d.expenses.map((e: any) => ({ ...e, details: e.details || '' })));
+                        setExpensesDivers((d.expensesDivers || []).map((dv: any) => ({ ...dv, details: dv.details || '' })));
+                        setExpensesAdmin(d.expensesAdmin || [
+                            { designation: 'Riadh', amount: '0', paymentMethod: 'Espèces' },
+                            { designation: 'Malika', amount: '0', paymentMethod: 'Espèces' },
+                            { designation: 'Salaires', amount: '0', paymentMethod: 'Espèces' }
+                        ]);
+                        if (!d.expensesDivers) setExpensesDivers([{ designation: '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces', doc_type: 'BL' }]);
+                        setCaissePhotos(d.caissePhotos || []);
+
+                        setHasInteracted(true);
+                        draftLoaded = true;
+
+                        setToast({ msg: 'Reprise de votre saisie en cours (Brouillon)', type: 'success' });
+                        setTimeout(() => setToast(null), 3000);
+                    }
+                } catch (e) { console.error("Error loading draft", e); }
+            }
+        }
+
+        if (draftLoaded) {
+            // If draft loaded, we still check server for "isLocked" and to Refresh Facturation Items
+            if (chiffreData?.getChiffreByDate) {
+                const c = chiffreData.getChiffreByDate;
+                setIsLocked(c.is_locked || false);
+
+                // Merge logic: ensure items from Facturation are always up-to-date
+                const dbExpenses = JSON.parse(c.diponce || '[]');
+                const dbExpensesDivers = JSON.parse(c.diponce_divers || '[]');
+
+                setExpenses(prev => {
+                    const nonFacturationItems = prev.filter(e => !e.isFromFacturation);
+                    const dbFacturationItems = dbExpenses.filter((e: any) => e.isFromFacturation);
+                    return [...nonFacturationItems, ...dbFacturationItems];
+                });
+
+                setExpensesDivers(prev => {
+                    const nonFacturationItems = prev.filter(d => !d.isFromFacturation);
+                    const dbFacturationItems = dbExpensesDivers.filter((d: any) => d.isFromFacturation);
+                    return [...nonFacturationItems, ...dbFacturationItems];
+                });
+            }
+            return; // Done
+        }
+
+        // PRIORITY 2: Server Data
         if (chiffreData?.getChiffreByDate) {
             const c = chiffreData.getChiffreByDate;
 
@@ -1153,46 +1225,9 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                 });
             }
         } else {
-            // Check for draft even if no server data
-            const savedDraft = localStorage.getItem(`chiffre_draft_${date}`);
-            if (savedDraft) {
-                try {
-                    const draft = JSON.parse(savedDraft);
-                    if (draft.date === date) {
-                        const d = draft.data;
-                        setRecetteCaisse(d.recetteCaisse);
-                        setTpe(d.tpe);
-                        setTpe2(d.tpe2 || '0');
-                        setCheque(d.cheque);
-                        setEspeces(d.especes);
-                        setTicketsRestaurant(d.ticketsRestaurant);
-                        setExtra(d.extra);
-                        setPrimes(d.primes);
-                        setAvancesList(d.avancesList);
-                        setDoublagesList(d.doublagesList);
-                        setExtrasList(d.extrasList);
-                        setPrimesList(d.primesList);
-                        setRestesSalairesList(d.restesSalairesList || []);
-                        setOffres(d.offres || '0');
-                        setOffresList((d.offresList || []).map((o: any) => ({ ...o, invoices: o.invoices || [] })));
-                        setExpenses(d.expenses.map((e: any) => ({ ...e, details: e.details || '' })));
-                        setExpensesDivers((d.expensesDivers || []).map((dv: any) => ({ ...dv, details: dv.details || '' })));
-                        setExpensesAdmin(d.expensesAdmin || [
-                            { designation: 'Riadh', amount: '0', paymentMethod: 'Espèces' },
-                            { designation: 'Malika', amount: '0', paymentMethod: 'Espèces' },
-                            { designation: 'Salaires', amount: '0', paymentMethod: 'Espèces' }
-                        ]);
-                        if (!d.expensesDivers) setExpensesDivers([{ designation: '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces', doc_type: 'BL' }]);
-                        setCaissePhotos(d.caissePhotos || []);
-                        setHasInteracted(true); // Treat as interacted since we are resuming a custom session
-                        setToast({ msg: 'Reprise de votre saisie en cours', type: 'success' });
-                        setTimeout(() => setToast(null), 3000);
-                        return;
-                    }
-                } catch (e) { }
-            }
+            // PRIORITY 3: Reset only if no draft and no server data
+            // (Note: Draft check was already done at the top)
 
-            // Reset if no data found for date and no draft
             setRecetteCaisse('0');
             setExpenses([{ supplier: '', amount: '0', details: '', invoices: [], photo_cheque: '', photo_verso: '', paymentMethod: 'Espèces', doc_type: 'BL' }]);
             setTpe('0');
