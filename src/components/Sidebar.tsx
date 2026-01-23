@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -65,13 +65,44 @@ export default function Sidebar({ role }: SidebarProps) {
     const [sendHeartbeat] = useMutation(HEARTBEAT);
     const [disconnectUser] = useMutation(DISCONNECT_USER);
 
+    const handleLogout = useCallback(async () => {
+        if (user?.username) {
+            try {
+                await disconnectUser({ variables: { username: user.username } });
+            } catch (e) { console.error('Logout sync error:', e); }
+        }
+        localStorage.clear();
+        sessionStorage.clear();
+        // Replace current history entry and clear forward history to prevent back navigation
+        window.history.pushState(null, '', '/');
+        window.location.replace('/');
+    }, [user, disconnectUser]);
+
     // Note: Removed auto-disconnect on tab close/reload
     // User session persists until explicit logout or inactivity timeout
+
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                const stored = localStorage.getItem('bb_user');
+                if (stored) {
+                    handleLogout();
+                }
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }, [handleLogout]);
 
     useEffect(() => {
         const stored = localStorage.getItem('bb_user');
         const userData = stored ? JSON.parse(stored) : null;
         if (userData) setUser(userData);
+    }, []);
+
+    useEffect(() => {
+        if (!user) return;
 
         const getDeviceInfo = () => {
             const ua = navigator.userAgent;
@@ -107,11 +138,10 @@ export default function Sidebar({ role }: SidebarProps) {
         };
 
         const pulse = async () => {
-            const hbUsername = userData?.username || userData?.role;
+            const hbUsername = user?.username || user?.role;
             if (!hbUsername) return;
 
             try {
-                // Fetch public IP with timeout
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 5000);
 
@@ -135,12 +165,10 @@ export default function Sidebar({ role }: SidebarProps) {
             } catch (e) { console.error('HB Error:', e); }
         };
 
-        if (userData) {
-            pulse();
-            const interval = setInterval(pulse, 15000);
-            return () => clearInterval(interval);
-        }
-    }, [sendHeartbeat]);
+        pulse();
+        const interval = setInterval(pulse, 15000);
+        return () => clearInterval(interval);
+    }, [user, sendHeartbeat, handleLogout]);
 
     const navItems = [
         { name: 'Journalier', icon: LayoutDashboard, href: '/' },
@@ -155,19 +183,6 @@ export default function Sidebar({ role }: SidebarProps) {
         navItems.push({ name: 'Paiements', icon: CreditCard, href: '/paiements' });
         navItems.push({ name: 'Paramètres', icon: Settings, href: '/admin/settings' });
     }
-
-    const handleLogout = async () => {
-        if (user?.username) {
-            try {
-                await disconnectUser({ variables: { username: user.username } });
-            } catch (e) { console.error('Logout sync error:', e); }
-        }
-        localStorage.clear();
-        sessionStorage.clear();
-        // Replace current history entry and clear forward history to prevent back navigation
-        window.history.pushState(null, '', '/');
-        window.location.replace('/');
-    };
 
     const handlePasswordUpdate = async () => {
         if (!newPass) return;

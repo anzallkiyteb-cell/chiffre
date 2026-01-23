@@ -543,22 +543,10 @@ export default function FacturationPage() {
             }
         };
 
-        // Handle page visibility change
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible') {
-                const currentUser = localStorage.getItem('bb_user');
-                if (!currentUser) {
-                    router.replace('/');
-                }
-            }
-        };
-
         window.addEventListener('popstate', handlePopState);
-        document.addEventListener('visibilitychange', handleVisibilityChange);
 
         return () => {
             window.removeEventListener('popstate', handlePopState);
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
     }, [router]);
 
