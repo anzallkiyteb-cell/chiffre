@@ -316,34 +316,70 @@ export default function Sidebar({ role }: SidebarProps) {
                 </div>
             </aside>
 
-            {/* Mobile Bottom Navigation - Static for simplicity here, but can be updated similarly */}
-            <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md border-t border-[#e6dace] py-2 flex items-center z-[60] shadow-[0_-10px_30px_-5px_rgba(0,0,0,0.05)] overflow-x-auto scrollbar-hide px-4 gap-2 no-scrollbar">
-                <div className="flex items-center gap-0.5 min-w-max mx-auto">
-                    <div className="flex flex-col items-center gap-1 p-3 px-4 min-w-max opacity-80">
-                        <div className="w-6 h-6 rounded-lg bg-[#4a3426] flex items-center justify-center text-white text-[10px] font-black uppercase ring-2 ring-white shadow-sm">
-                            {user?.full_name?.charAt(0) || user?.username?.charAt(0) || 'U'}
-                        </div>
-                        <span className="text-[9px] font-black uppercase tracking-tighter text-center">Profil</span>
-                    </div>
-                    {navItems.map((item) => {
+            {/* Mobile Navigation - Sleek & Premium */}
+            <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-[100] px-4 pb-6 pt-2 pointer-events-none">
+                <div className="max-w-md mx-auto h-16 bg-[#4a3426]/95 backdrop-blur-xl rounded-2xl shadow-[0_20px_50px_rgba(74,52,38,0.3)] border border-white/10 flex items-center justify-around px-2 pointer-events-auto ring-1 ring-white/5">
+                    {navItems.slice(0, 4).map((item) => {
                         const isActive = pathname === item.href;
                         return (
                             <Link
                                 key={item.name}
                                 href={item.href}
-                                className={`flex flex-col items-center gap-1 p-3 px-4 min-w-max rounded-2xl transition-all ${isActive ? 'text-[#4a3426] bg-[#fcf8f4]' : 'text-[#a89284]'}`}
+                                className={`flex flex-col items-center justify-center flex-1 h-full relative transition-all duration-300 ${isActive ? 'text-white scale-110' : 'text-white/40 hover:text-white/60'}`}
                             >
-                                <item.icon size={20} className={isActive ? 'scale-110' : ''} />
-                                <span className="text-[9px] font-black uppercase tracking-tighter text-center max-w-[80px] leading-[1.1]">{item.name}</span>
+                                <item.icon size={20} strokeWidth={isActive ? 2.5 : 2} />
+                                <span className={`text-[8px] mt-1 font-black uppercase tracking-tighter ${isActive ? 'opacity-100' : 'opacity-60'}`}>
+                                    {item.name.split(' ')[0]}
+                                </span>
+                                {isActive && (
+                                    <motion.div
+                                        layoutId="mobile-nav-indicator"
+                                        className="absolute -bottom-1 w-1 h-1 bg-[#c69f6e] rounded-full shadow-[0_0_10px_#c69f6e]"
+                                    />
+                                )}
                             </Link>
                         );
                     })}
-                    <button onClick={handleLogout} className="flex flex-col items-center gap-1 p-3 min-w-[70px] text-red-400">
+
+                    {/* More Menu / Actions */}
+                    <button
+                        onClick={handleLogout}
+                        className="flex flex-col items-center justify-center flex-1 h-full text-red-400/80 hover:text-red-400 transition-all"
+                    >
                         <LogOut size={20} />
-                        <span className="text-[9px] font-black uppercase tracking-tighter">Déconnexion</span>
+                        <span className="text-[8px] mt-1 font-black uppercase tracking-tighter opacity-60">Sortir</span>
                     </button>
+
+                    {/* User Mini Profile */}
+                    <div
+                        onClick={() => setIsPasswordModalOpen(true)}
+                        className="flex flex-col items-center justify-center flex-1 h-full cursor-pointer group"
+                    >
+                        <div className="w-8 h-8 rounded-xl bg-[#c69f6e]/20 border border-[#c69f6e]/30 flex items-center justify-center text-[#c69f6e] group-hover:bg-[#c69f6e]/30 transition-all shadow-inner">
+                            {user?.full_name?.charAt(0) || user?.username?.charAt(0) || 'U'}
+                        </div>
+                        <span className="text-[8px] mt-1 font-black uppercase tracking-tighter text-white/40 group-hover:text-white/60">Moi</span>
+                    </div>
                 </div>
             </nav>
+
+            {/* In case there are more than 4 items, we need a way to show them or scroll */}
+            {navItems.length > 4 && (
+                <div className="lg:hidden fixed bottom-24 left-1/2 -translate-x-1/2 z-[100] flex gap-2">
+                    {navItems.slice(4).map((item) => {
+                        const isActive = pathname === item.href;
+                        return (
+                            <Link
+                                key={item.name}
+                                href={item.href}
+                                className={`p-2 rounded-xl backdrop-blur-md border ${isActive ? 'bg-[#c69f6e] text-white border-[#c69f6e]' : 'bg-white/80 text-[#4a3426] border-[#e6dace]'} shadow-lg transition-all active:scale-95`}
+                            >
+                                <item.icon size={16} />
+                            </Link>
+                        );
+                    })}
+                </div>
+            )}
 
             {/* Password Modal */}
             <AnimatePresence>

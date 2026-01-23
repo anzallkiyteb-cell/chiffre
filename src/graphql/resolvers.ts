@@ -741,16 +741,56 @@ export const resolvers = {
                 tempPhotosMap[key] = typeof r.photos === 'string' ? JSON.parse(r.photos) : (Array.isArray(r.photos) ? r.photos : []);
             });
 
+            // Fetch existing photos from the invoices table and the chiffres table for this date
+            // This prevents overwriting with empty arrays when the frontend strips photos to avoid 413 Body Too Large errors
+            const [existingInvRes, existingChiffreRes] = await Promise.all([
+                query('SELECT id, photos, photo_cheque_url, photo_verso_url FROM invoices WHERE paid_date = $1', [date]),
+                query('SELECT offres_data FROM chiffres WHERE date = $1', [date])
+            ]);
+
+            const dbInvoicesPhotos: Record<number, { photos: string[], recto: string | null, verso: string | null }> = {};
+            existingInvRes.rows.forEach(r => {
+                dbInvoicesPhotos[r.id] = {
+                    photos: typeof r.photos === 'string' ? JSON.parse(r.photos) : (Array.isArray(r.photos) ? r.photos : []),
+                    recto: r.photo_cheque_url,
+                    verso: r.photo_verso_url
+                };
+            });
+
+            const dbOffresPhotos: Record<number, string[]> = {};
+            if (existingChiffreRes.rows.length > 0) {
+                try {
+                    const oldOffres = JSON.parse(existingChiffreRes.rows[0].offres_data || '[]');
+                    oldOffres.forEach((o: any, i: number) => {
+                        if (o.invoices) dbOffresPhotos[i] = o.invoices;
+                    });
+                } catch (e) { }
+            }
+
             // Sync Fournisseur expenses to Invoices
             let diponceList = [];
             try {
                 const fullDiponceList = JSON.parse(diponce);
                 for (let i = 0; i < fullDiponceList.length; i++) {
                     const d = fullDiponceList[i];
-                    // Pick up temp photos if they exist for this entry
+
+                    // Photo Priority:
+                    // 1. Temp photos from current session (upload/delete)
+                    // 2. Existing photos in the database (for re-saves)
+                    // 3. Frontend payload (usually empty for existing items)
                     const temp = tempPhotosMap[`expenses_${i}`];
-                    if (temp && temp.length > 0) {
+                    const dbData = d.invoiceId ? dbInvoicesPhotos[d.invoiceId] : null;
+
+                    if (temp !== undefined) {
                         d.invoices = temp;
+                    } else if (d.isFromFacturation && dbData && (!d.invoices || d.invoices.length === 0)) {
+                        d.invoices = dbData.photos;
+                    }
+
+                    // Handle Cheque Photos similarly
+                    if (d.isFromFacturation && dbData) {
+                        if (!d.photo_cheque && dbData.recto) d.photo_cheque = dbData.recto;
+                        if (!d.photo_verso && dbData.verso) d.photo_verso = dbData.verso;
                     }
 
                     if (!d.isFromFacturation && d.supplier && parseFloat(d.amount) > 0) {
@@ -761,8 +801,8 @@ export const resolvers = {
                         );
                     } else if (d.isFromFacturation && d.invoiceId) {
                         await query(
-                            `UPDATE invoices SET photos = $1::jsonb, details = $2, supplier_name = $3, amount = $4, doc_type = $5, has_retenue = $6, original_amount = $7 WHERE id = $8`,
-                            [JSON.stringify(d.invoices || []), d.details || '', d.supplier, d.amount, d.doc_type, d.hasRetenue || false, d.originalAmount || d.amount, d.invoiceId]
+                            `UPDATE invoices SET photos = $1::jsonb, details = $2, supplier_name = $3, amount = $4, doc_type = $5, has_retenue = $6, original_amount = $7, photo_cheque_url = $8, photo_verso_url = $9 WHERE id = $10`,
+                            [JSON.stringify(d.invoices || []), d.details || '', d.supplier, d.amount, d.doc_type, d.hasRetenue || false, d.originalAmount || d.amount, d.photo_cheque || null, d.photo_verso || null, d.invoiceId]
                         );
                     } else if (!d.isFromFacturation) {
                         diponceList.push(d);
@@ -776,10 +816,15 @@ export const resolvers = {
                 const fullDiversList = JSON.parse(diponce_divers);
                 for (let i = 0; i < fullDiversList.length; i++) {
                     const d = fullDiversList[i];
-                    // Pick up temp photos if they exist for this entry
+
+                    // Photo Priority logic
                     const temp = tempPhotosMap[`expensesDivers_${i}`];
-                    if (temp && temp.length > 0) {
+                    const dbData = d.invoiceId ? dbInvoicesPhotos[d.invoiceId] : null;
+
+                    if (temp !== undefined) {
                         d.invoices = temp;
+                    } else if (d.isFromFacturation && dbData && (!d.invoices || d.invoices.length === 0)) {
+                        d.invoices = dbData.photos;
                     }
 
                     if (!d.isFromFacturation && d.designation && parseFloat(d.amount) > 0) {
@@ -805,10 +850,15 @@ export const resolvers = {
                 const fullOffresList = JSON.parse(offres_data || '[]');
                 for (let i = 0; i < fullOffresList.length; i++) {
                     const o = fullOffresList[i];
+
+                    // Priority: Temp > Existing DB > Frontend Array
                     const temp = tempPhotosMap[`offres_${i}`];
-                    if (temp && temp.length > 0) {
+                    if (temp !== undefined) {
                         o.invoices = temp;
+                    } else if (!o.invoices || o.invoices.length === 0) {
+                        o.invoices = dbOffresPhotos[i] || [];
                     }
+
                     offresList.push(o);
                 }
             } catch (e) {

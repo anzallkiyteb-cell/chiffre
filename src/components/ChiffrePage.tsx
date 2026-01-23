@@ -5,7 +5,7 @@ import { useQuery, useMutation, gql } from '@apollo/client';
 import {
     LayoutDashboard, Calendar, ChevronLeft, ChevronRight, TrendingUp,
     Download, Loader2, Users, Receipt, CreditCard, Coins,
-    Plus, Search, Trash2, FileText, UploadCloud, ChevronDown, Check,
+    Plus, Search, Trash2, FileText, UploadCloud, ChevronDown, Check, CheckCircle2,
     ZoomIn, ZoomOut, Maximize2, RotateCcw, X, PlusCircle, AlertCircle,
     Wallet, Eye, EyeOff, Lock, Unlock, Lock as LockIcon, Unlock as UnlockIcon,
     Briefcase, User, Share2, List, Pencil, Save, Calculator, Zap, Sparkles, Clock, Tag,
@@ -1501,7 +1501,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     // Load Temporary Photos Effect
     useEffect(() => {
         if (!isClient) return;
-        if (journalierPhotosData?.getJournalierPhotos && !isLocked) {
+        if (journalierPhotosData?.getJournalierPhotos) {
             const tempPhotos = journalierPhotosData.getJournalierPhotos;
 
             setExpenses(prev => {
@@ -2286,55 +2286,58 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             {/* Main Content */}
             <div className="flex-1 min-w-0 pb-32">
 
-                {/* Header */}
-                <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-[#e6dace] py-4 px-4 md:px-12 flex justify-between items-center transition-all duration-300">
+                {/* Header - Optimized for Mobile & Desktop */}
+                <header className="sticky top-0 z-[60] bg-white/90 backdrop-blur-xl border-b border-[#e6dace] py-3 px-4 md:px-12 flex flex-col sm:flex-row justify-between items-center gap-3 transition-all duration-300">
+                    <div className="flex items-center justify-between w-full sm:w-auto">
+                        <h2 className="text-lg md:text-xl font-black text-[#4a3426] uppercase tracking-[0.2em]">
+                            Journalier
+                        </h2>
+                        <div className="sm:hidden flex items-center gap-2">
+                            {isLocked && role === 'admin' && (
+                                <button onClick={handleUnlock} className="p-2 rounded-xl bg-green-500/10 text-green-600">
+                                    <UnlockIcon size={18} />
+                                </button>
+                            )}
+                        </div>
+                    </div>
 
-                    <h2 className="text-xl font-black text-[#4a3426] uppercase tracking-widest">
-                        Journalier
-                    </h2>
-
-                    <div className="flex items-center gap-4 ml-auto">
+                    <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto justify-center sm:justify-end">
                         {isLocked && role === 'admin' && (
                             <button
                                 onClick={handleUnlock}
-                                className="h-10 px-6 rounded-xl bg-[#2d6a4f] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#1b4332] transition-all flex items-center gap-2 shadow-lg shadow-[#2d6a4f]/20"
+                                className="hidden sm:flex h-10 px-6 rounded-xl bg-[#2d6a4f] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#1b4332] transition-all items-center gap-2 shadow-lg shadow-[#2d6a4f]/20"
                             >
                                 <UnlockIcon size={14} /> Déverrouiller
                             </button>
                         )}
                         {date && (
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5 sm:gap-2 bg-[#f4ece4]/50 p-1.5 rounded-2xl border border-[#e6dace]/50">
                                 <button
                                     onClick={() => shiftDate(-1)}
-                                    className="p-2 rounded-full hover:bg-[#ebdccf] text-[#8c8279] hover:text-[#4a3426] transition-all"
+                                    className="p-1.5 sm:p-2 rounded-xl hover:bg-[#ebdccf] text-[#8c8279] hover:text-[#4a3426] transition-all"
                                 >
-                                    <ChevronLeft size={20} />
+                                    <ChevronLeft size={18} />
                                 </button>
 
-                                <div
-                                    className="relative group cursor-pointer"
+                                <button
                                     onClick={() => setShowCalendar(true)}
+                                    className="flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-white border border-[#e6dace] hover:border-[#c69f6e]/50 hover:bg-[#fcfaf8] transition-all shadow-sm group"
                                 >
-                                    <div className="flex items-center gap-3 bg-[#f4ece4] px-5 py-2.5 rounded-2xl transition-all border border-transparent group-hover:bg-[#e6dace] group-hover:border-[#c69f6e]/30">
-                                        <Calendar size={18} className="text-[#c69f6e]" />
-                                        <div className="flex flex-col items-start leading-none">
-                                            <span className="text-[10px] font-bold text-[#8c8279] uppercase tracking-wider hidden xs:block">Date Sélectionnée</span>
-                                            <span className="text-xs sm:text-sm font-bold text-[#4a3426] capitalize mt-0.5">
-                                                {new Date(date).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
+                                    <Calendar size={14} className="text-[#c69f6e]" />
+                                    <span className="text-[10px] sm:text-xs font-black text-[#4a3426] uppercase whitespace-nowrap">
+                                        {new Date(date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                                    </span>
+                                </button>
 
                                 <button
                                     onClick={() => shiftDate(1)}
-                                    className="p-2 rounded-full hover:bg-[#ebdccf] text-[#8c8279] hover:text-[#4a3426] transition-all"
+                                    className="p-1.5 sm:p-2 rounded-xl hover:bg-[#ebdccf] text-[#8c8279] hover:text-[#4a3426] transition-all"
                                 >
-                                    <ChevronRight size={20} />
+                                    <ChevronRight size={18} />
                                 </button>
                             </div>
                         )}
-                        <div className="w-px h-8 bg-[#e6dace] mx-2"></div>
+                        <div className="hidden sm:block w-px h-8 bg-[#e6dace] mx-2"></div>
                     </div>
                 </header>
 
@@ -2366,7 +2369,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                             </div>
                                         )}
                                     </div>
-                                    <div className="text-3xl md:text-4xl lg:text-5xl font-black text-[#2d6a4f] leading-none tracking-tighter flex items-center gap-4">
+                                    <div className="text-2xl md:text-4xl lg:text-5xl font-black text-[#2d6a4f] leading-none tracking-tighter flex items-center gap-4">
                                         <span className="md:hidden">
                                             {new Date(date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
                                         </span>
@@ -2463,7 +2466,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                             </div>
                                         </div>
                                         {hideRecetteCaisse ? (
-                                            <div className="text-6xl md:text-7xl lg:text-8xl font-black text-[#4a3426] py-1">
+                                            <div className="text-4xl md:text-7xl lg:text-8xl font-black text-[#4a3426] py-1 text-center md:text-right">
                                                 ********
                                             </div>
                                         ) : (
@@ -2490,10 +2493,10 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                     onFocus={(e) => { if (recetteCaisse === '0') setRecetteCaisse(''); }}
                                                     onBlur={(e) => { if (e.target.value === '' || e.target.value === null) setRecetteCaisse('0'); }}
                                                     onChange={(e) => { setRecetteCaisse(e.target.value); setHasInteracted(true); }}
-                                                    className={`text-5xl md:text-6xl lg:text-7xl font-black bg-transparent text-[#4a3426] outline-none placeholder-[#e6dace] text-center md:text-right w-full md:w-auto min-w-[280px] ${isLocked ? 'cursor-not-allowed opacity-50 pointer-events-none' : ''} `}
+                                                    className={`text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-black bg-transparent text-[#4a3426] outline-none placeholder-[#e6dace] text-center md:text-right w-full md:w-auto min-w-[200px] sm:min-w-[280px] ${isLocked ? 'cursor-not-allowed opacity-50 pointer-events-none' : ''} `}
                                                     placeholder="0"
                                                 />
-                                                <span className="text-xl md:text-2xl lg:text-3xl font-black text-[#c69f6e] shrink-0">DT</span>
+                                                <span className="text-lg md:text-2xl lg:text-3xl font-black text-[#c69f6e] shrink-0">DT</span>
                                             </div>
                                         )}
                                     </div>
@@ -3792,14 +3795,26 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                 </main >
             </div >
 
-            {/* Toast */}
+            {/* Toast - Enhanced visibility and contrast */}
             <AnimatePresence>
-                {
-                    toast && (
-                        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className={`fixed top-6 left-0 right-0 mx-auto w-max z-50 px-6 py-3 rounded-full font-bold shadow-xl flex items-center gap-2 ${toast.type === 'success' ? 'bg-[#2d6a4f] text-white' : 'bg-red-600 text-white'} `}>{toast.msg}</motion.div>
-                    )
-                }
-            </AnimatePresence >
+                {toast && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -40 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -40 }}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className={`fixed top-8 left-0 right-0 mx-auto w-max z-[99999] px-8 py-4 rounded-2xl font-black shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] flex items-center gap-3 border border-white/10 backdrop-blur-md ${toast.type === 'success' ? 'bg-[#1b4332] text-white' : 'bg-red-950 text-red-50'} `}
+                    >
+                        {toast.type === 'success' ? (
+                            <CheckCircle2 size={20} className="text-green-400" />
+                        ) : (
+                            <AlertCircle size={20} className="text-red-400" />
+                        )}
+                        <span className="text-xs uppercase tracking-[0.2em]">{toast.msg}</span>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {/* Image Modal - Same style as facturation page */}
             <AnimatePresence>

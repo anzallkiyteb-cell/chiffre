@@ -408,100 +408,84 @@ export default function CoutAchatPage() {
             <Sidebar role={user.role} />
 
             <div className="flex-1 min-w-0">
-                <header className="sticky top-0 bg-white/90 backdrop-blur-md border-b border-[#e6dace] py-4 md:py-6 px-4 md:px-8 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 transition-all z-40">
-                    <div className="flex items-center gap-3 w-full xl:w-auto justify-between">
-                        <div>
-                            <h1 className="text-xl md:text-2xl font-black text-[#4a3426] tracking-tight uppercase leading-tight">Coût d'achat & Dépenses</h1>
-                            <p className="text-[10px] md:text-xs text-[#8c8279] font-bold uppercase tracking-widest mt-1">Analyse détaillée du {new Date(startDate).toLocaleDateString('fr-FR')} au {new Date(endDate).toLocaleDateString('fr-FR')}</p>
+                <header className="sticky top-0 z-[60] bg-white/80 backdrop-blur-xl border-b border-[#e6dace] py-3 md:py-6 px-4 md:px-8 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-3 md:gap-4 transition-all">
+                    <div className="flex items-center justify-between w-full xl:w-auto">
+                        <div className="flex flex-col">
+                            <h1 className="text-lg md:text-2xl font-black text-[#4a3426] tracking-tight uppercase leading-tight">Coût d'achat & Dépenses</h1>
+                            <p className="text-[8px] md:text-xs text-[#8c8279] font-bold uppercase tracking-widest mt-1 opacity-60">Analyse détaillée du flux</p>
                         </div>
 
                         {/* Mobile Filter Toggle Button */}
                         <button
                             onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
-                            className="xl:hidden flex items-center justify-center w-10 h-10 rounded-xl bg-white border border-[#e6dace] text-[#4a3426] shadow-sm transition-all"
+                            className="xl:hidden flex items-center justify-center h-10 px-4 rounded-xl bg-[#4a3426] text-white shadow-lg shadow-[#4a3426]/20 transition-all active:scale-95"
                         >
+                            <span className="text-[10px] font-black uppercase tracking-widest mr-2">{mobileFiltersOpen ? 'Fermer' : 'Filtres'}</span>
                             <motion.div
                                 animate={{ rotate: mobileFiltersOpen ? 180 : 0 }}
                                 transition={{ duration: 0.2 }}
                             >
-                                <ChevronDown size={20} />
+                                <ChevronDown size={14} />
                             </motion.div>
                         </button>
                     </div>
 
-                    <div className={`flex-col lg:flex-row items-stretch lg:items-center gap-4 w-full xl:w-auto flex-wrap ${mobileFiltersOpen ? 'flex' : 'hidden xl:flex'}`}>
-                        <div className="relative w-full lg:w-64">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#c69f6e]/50" size={16} />
+                    <div className={`flex-col xl:flex-row items-stretch xl:items-center gap-3 w-full xl:w-auto ${mobileFiltersOpen ? 'flex animate-slide-up' : 'hidden xl:flex'}`}>
+                        <div className="relative flex-1 xl:w-64">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#c69f6e]" size={16} />
                             <input
                                 type="text"
                                 placeholder="Rechercher..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full h-11 md:h-12 pl-10 pr-4 bg-[#fcfaf8] border border-[#e6dace] rounded-2xl text-xs font-bold text-[#4a3426] outline-none focus:border-[#c69f6e] transition-all"
+                                className="w-full h-11 bg-white border border-[#e6dace] rounded-2xl text-[11px] font-bold text-[#4a3426] outline-none focus:border-[#c69f6e] pl-11 pr-4 shadow-sm"
                             />
                         </div>
 
-                        <div className="flex items-center gap-1 bg-[#f9f7f5] p-1.5 rounded-2xl border border-[#e6dace]/50 shadow-sm overflow-x-auto no-scrollbar">
-                            {[
-                                { id: 'tous', label: 'Tous', icon: LayoutGrid },
-                                { id: 'fournisseur', label: 'Fournisseur', icon: ShoppingBag },
-                                { id: 'divers', label: 'Divers', icon: Receipt }
-                            ].map((tab) => (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => setCategoryFilter(tab.id as any)}
-                                    className={`
-                                        flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap
-                                        ${categoryFilter === tab.id
-                                            ? 'bg-[#4a3426] text-white shadow-lg'
-                                            : 'text-[#8c8279] hover:bg-white hover:text-[#4a3426]'
-                                        }
-                                    `}
-                                >
-                                    <tab.icon size={14} />
-                                    <span>{tab.label}</span>
-                                </button>
-                            ))}
-                        </div>
-
-                        <div className="flex bg-[#f9f7f5] p-1 rounded-xl border border-[#e6dace]/50 shadow-sm overflow-x-auto no-scrollbar">
-                            {[
-                                { id: 'tous', label: 'Tous' },
-                                { id: 'bl', label: 'BL' },
-                                { id: 'facture', label: 'Facture' }
-                            ].map((tab) => (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => setDocTypeFilter(tab.id as any)}
-                                    className={`
-                                        px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap
-                                        ${docTypeFilter === tab.id
-                                            ? 'bg-[#c69f6e] text-white shadow-md'
-                                            : 'text-[#8c8279] hover:bg-white hover:text-[#4a3426]'
-                                        }
-                                    `}
-                                >
-                                    <span>{tab.label}</span>
-                                </button>
-                            ))}
-                        </div>
-
-                        <div className="flex items-center gap-2 bg-[#f9f7f5]/80 p-2 rounded-3xl border border-[#e6dace]/50 shadow-sm w-full sm:w-auto">
-                            <div className="flex items-center gap-2 w-full sm:w-auto">
-                                <div className="flex-1 sm:flex-none">
-                                    <PremiumDatePicker label="DÉBUT" value={startDate} onChange={setStartDate} />
-                                </div>
-                                <div className="text-[#e6dace] font-black text-[10px] opacity-60 hidden sm:block">À</div>
-                                <div className="flex-1 sm:flex-none">
-                                    <PremiumDatePicker label="FIN" value={endDate} onChange={setEndDate} align="right" />
-                                </div>
-                                <button
-                                    onClick={() => { setStartDate(startOfMonth); setEndDate(endOfMonth); }}
-                                    className="w-10 h-10 rounded-2xl bg-white border border-[#e6dace] flex items-center justify-center text-[#c69f6e] hover:bg-[#c69f6e] hover:text-white transition-all shadow-sm flex-shrink-0"
-                                >
-                                    <RotateCcw size={16} />
-                                </button>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex bg-[#fcfaf8] p-1 rounded-2xl border border-[#e6dace] shadow-inner">
+                                {[
+                                    { id: 'tous', label: 'Tous' },
+                                    { id: 'fournisseur', label: 'Fourn.' },
+                                    { id: 'divers', label: 'Divers' }
+                                ].map((tab) => (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setCategoryFilter(tab.id as any)}
+                                        className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${categoryFilter === tab.id ? 'bg-[#4a3426] text-white shadow-md' : 'text-[#8c8279]'}`}
+                                    >
+                                        {tab.label}
+                                    </button>
+                                ))}
                             </div>
+
+                            <div className="flex bg-[#fcfaf8] p-1 rounded-2xl border border-[#e6dace] shadow-inner">
+                                {[
+                                    { id: 'tous', label: 'Tous' },
+                                    { id: 'bl', label: 'BL' },
+                                    { id: 'facture', label: 'Facture' }
+                                ].map((tab) => (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setDocTypeFilter(tab.id as any)}
+                                        className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${docTypeFilter === tab.id ? 'bg-[#c69f6e] text-white shadow-md' : 'text-[#8c8279]'}`}
+                                    >
+                                        {tab.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 bg-[#fcfaf8] p-1.5 rounded-2xl border border-[#e6dace] shadow-inner">
+                            <PremiumDatePicker label="DÉBUT" value={startDate} onChange={setStartDate} />
+                            <div className="text-[#e6dace] font-black text-[10px] opacity-40">/</div>
+                            <PremiumDatePicker label="FIN" value={endDate} onChange={setEndDate} align="right" />
+                            <button
+                                onClick={() => { setStartDate(startOfMonth); setEndDate(endOfMonth); }}
+                                className="w-10 h-10 rounded-xl bg-white border border-[#e6dace] flex items-center justify-center text-[#c69f6e] hover:bg-[#c69f6e] hover:text-white transition-all shadow-sm group"
+                            >
+                                <RotateCcw size={16} className="group-active:rotate-180 transition-transform" />
+                            </button>
                         </div>
                     </div>
                 </header>

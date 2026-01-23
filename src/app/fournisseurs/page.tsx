@@ -232,40 +232,40 @@ export default function FournisseursPage() {
             <Sidebar role={user.role} />
 
             <div className="flex-1 min-w-0 pb-24 lg:pb-0">
-                {/* Header */}
-                <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-[#e6dace] py-4 md:py-6 px-4 md:px-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-1">
-                            <div className="bg-[#4a3426] p-2 rounded-xl text-white">
+                {/* Header - Optimized for Mobile & Desktop */}
+                <header className="sticky top-0 z-[60] bg-white/80 backdrop-blur-xl border-b border-[#e6dace] py-3 md:py-6 px-4 md:px-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 md:gap-4 transition-all transition-all duration-300">
+                    <div className="flex items-center justify-between w-full sm:w-auto">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-[#4a3426] p-2 rounded-xl text-white shadow-lg shadow-[#4a3426]/20">
                                 {activeTab === 'suppliers' ? <Truck size={18} /> : <Bookmark size={18} />}
                             </div>
                             <div>
-                                <h1 className="text-xl md:text-2xl font-black text-[#4a3426] tracking-tight">
-                                    {activeTab === 'suppliers' ? 'Partenaires' : 'Catégories'}
+                                <h1 className="text-lg md:text-2xl font-black text-[#4a3426] tracking-tight uppercase leading-tight">
+                                    {activeTab === 'suppliers' ? 'Fournisseurs' : 'Catégories'}
                                 </h1>
-                                <p className="text-[10px] text-[#8c8279] font-bold uppercase tracking-widest leading-none">
-                                    {activeTab === 'suppliers' ? 'Fournisseurs & Prestataires' : 'Désignations Dépenses'}
+                                <p className="text-[8px] md:text-xs text-[#8c8279] font-bold uppercase tracking-widest mt-1 opacity-60">
+                                    {activeTab === 'suppliers' ? 'Gestion des Partenaires' : 'Gestion des divers'}
                                 </p>
                             </div>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-3 w-full md:w-auto">
-                        <div className="relative flex-1 md:w-64">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#bba282]" size={16} />
+                    <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+                        <div className="relative flex-1 sm:w-64">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#c69f6e]" size={16} />
                             <input
                                 type="text"
                                 placeholder="Rechercher..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full bg-[#f4ece4] border border-transparent focus:border-[#c69f6e]/30 focus:bg-white rounded-2xl h-11 pl-10 pr-4 outline-none font-medium transition-all"
+                                className="w-full h-11 bg-white border border-[#e6dace] rounded-2xl text-[11px] font-bold text-[#4a3426] outline-none focus:border-[#c69f6e] pl-11 pr-4 shadow-sm"
                             />
                         </div>
                         <button
                             onClick={() => setIsAdding(true)}
-                            className="bg-[#4a3426] text-white px-5 h-11 rounded-2xl font-bold flex items-center gap-2 hover:bg-[#2d241e] shadow-lg shadow-[#4a3426]/10 transition-all whitespace-nowrap"
+                            className="bg-[#c69f6e] text-white h-11 px-6 rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 shadow-xl shadow-[#c69f6e]/20 hover:scale-[1.02] active:scale-95 transition-all whitespace-nowrap"
                         >
-                            <Plus size={18} /> <span className="hidden sm:inline">Ajouter</span>
+                            <Plus size={16} /> <span className="hidden sm:inline">Ajouter</span>
                         </button>
                     </div>
                 </header>
@@ -348,7 +348,7 @@ export default function FournisseursPage() {
                                             </div>
                                         </div>
 
-                                        <div className="flex items-center gap-1 md:gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                                        <div className="flex items-center gap-1 md:gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all shrink-0">
                                             {activeTab === 'suppliers' && (
                                                 <button
                                                     onClick={() => router.push(`/facturation?supplier=${encodeURIComponent(item.name)}`)}

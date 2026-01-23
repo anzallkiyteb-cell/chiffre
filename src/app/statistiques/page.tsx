@@ -595,13 +595,33 @@ export default function StatistiquesPage() {
 
             <div className="flex-1 min-w-0 pb-24 lg:pb-0">
                 {/* Header */}
-                <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-[#e6dace] py-4 md:py-6 px-4 md:px-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    <div>
-                        <h1 className="text-xl md:text-2xl font-black text-[#4a3426] tracking-tight">Analytique Bey</h1>
-                        <p className="text-[10px] md:text-xs text-[#8c8279] font-bold uppercase tracking-widest mt-1">Intelligence & Performance</p>
+                <header className="sticky top-0 z-[60] bg-white/80 backdrop-blur-xl border-b border-[#e6dace] py-3 md:py-6 px-4 md:px-8 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-3 md:gap-4 transition-all">
+                    <div className="flex items-center justify-between w-full xl:w-auto">
+                        <div className="flex flex-col">
+                            <h1 className="text-lg md:text-2xl font-black text-[#4a3426] tracking-tight uppercase leading-tight">Analytique Bey</h1>
+                            <p className="text-[8px] md:text-xs text-[#8c8279] font-bold uppercase tracking-widest mt-1 opacity-60">Intelligence & Performance</p>
+                        </div>
+
+                        {/* Mobile Stats Toggle (Placeholder if needed) */}
+                        <div className="xl:hidden flex items-center gap-2">
+                            <div className="flex bg-[#f4ece4] p-1 rounded-xl">
+                                <button
+                                    onClick={() => setAggregation('day')}
+                                    className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${aggregation === 'day' ? 'bg-[#4a3426] text-white' : 'text-[#8c8279]'}`}
+                                >
+                                    Jour
+                                </button>
+                                <button
+                                    onClick={() => setAggregation('month')}
+                                    className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${aggregation === 'month' ? 'bg-[#4a3426] text-white' : 'text-[#8c8279]'}`}
+                                >
+                                    Mois
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                    <div className="flex flex-wrap items-center gap-2 md:gap-3 w-full xl:w-auto">
                         {intelligentInsights && (
                             <div className="hidden lg:flex items-center gap-4 mr-4 px-4 py-2 bg-[#2d6a4f]/5 rounded-2xl border border-[#2d6a4f]/10">
                                 <div className="flex flex-col">
@@ -616,23 +636,23 @@ export default function StatistiquesPage() {
                             </div>
                         )}
 
-                        <div className="flex items-center gap-2 bg-[#f4ece4] p-1.5 rounded-2xl border border-[#e6dace]">
+                        <div className="flex-1 min-w-[200px] flex items-center gap-2 bg-[#f4ece4] p-1.5 rounded-2xl border border-[#e6dace]">
                             <button
                                 onClick={() => { setPickingDate('start'); setViewDate(new Date(startDate)); }}
-                                className="bg-transparent text-sm font-bold text-[#4a3426] p-1 px-3 hover:text-[#c69f6e] transition-colors"
+                                className="flex-1 bg-white border border-[#e6dace]/50 rounded-xl text-[11px] font-black text-[#4a3426] py-1.5 shadow-sm"
                             >
                                 {formatDateDisplay(startDate)}
                             </button>
-                            <ChevronRight size={14} className="text-[#c69f6e]" />
+                            <ChevronRight size={12} className="text-[#c69f6e] shrink-0" />
                             <button
                                 onClick={() => { setPickingDate('end'); setViewDate(new Date(endDate)); }}
-                                className="bg-transparent text-sm font-bold text-[#4a3426] p-1 px-3 hover:text-[#c69f6e] transition-colors"
+                                className="flex-1 bg-white border border-[#e6dace]/50 rounded-xl text-[11px] font-black text-[#4a3426] py-1.5 shadow-sm"
                             >
                                 {formatDateDisplay(endDate)}
                             </button>
                         </div>
 
-                        <div className="flex bg-[#f4ece4] p-1 rounded-xl">
+                        <div className="hidden xl:flex bg-[#f4ece4] p-1 rounded-xl">
                             <button
                                 onClick={() => setAggregation('day')}
                                 className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${aggregation === 'day' ? 'bg-[#4a3426] text-white shadow-md' : 'text-[#8c8279]'}`}
@@ -647,18 +667,18 @@ export default function StatistiquesPage() {
                             </button>
                         </div>
 
-                        <div className="relative">
+                        <div className="relative flex-1 md:flex-none min-w-[140px]">
                             <select
                                 value={selectedSupplier}
                                 onChange={(e) => setSelectedSupplier(e.target.value)}
-                                className="bg-[#f4ece4] border border-[#e6dace] rounded-xl h-10 px-4 text-xs font-bold text-[#4a3426] outline-none appearance-none cursor-pointer pr-10"
+                                className="w-full bg-[#f4ece4] border border-[#e6dace] rounded-2xl h-11 px-4 text-[11px] font-black uppercase text-[#4a3426] outline-none appearance-none cursor-pointer pr-10 shadow-sm transition-all focus:border-[#c69f6e]"
                             >
-                                <option value="Tous">Tous les Fournisseurs</option>
+                                <option value="Tous">Tous Fournisseurs</option>
                                 {allAvailableSuppliers.map(s => (
                                     <option key={s} value={s}>{s}</option>
                                 ))}
                             </select>
-                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none opacity-40">
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[#c69f6e]">
                                 <Filter size={14} />
                             </div>
                         </div>
