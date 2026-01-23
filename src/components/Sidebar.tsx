@@ -83,10 +83,21 @@ export default function Sidebar({ role }: SidebarProps) {
 
     useEffect(() => {
         const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible') {
-                const stored = localStorage.getItem('bb_user');
-                if (stored) {
-                    handleLogout();
+            if (document.visibilityState === 'hidden') {
+                localStorage.setItem('bb_last_hidden_time', Date.now().toString());
+            } else if (document.visibilityState === 'visible') {
+                const lastHidden = localStorage.getItem('bb_last_hidden_time');
+                if (lastHidden) {
+                    const elapsed = Date.now() - parseInt(lastHidden);
+                    // 10 minutes = 10 * 60 * 1000 = 600000 ms
+                    if (elapsed > 10 * 60 * 1000) {
+                        const stored = localStorage.getItem('bb_user');
+                        if (stored) {
+                            console.log('App in background for >10 mins. Logging out.');
+                            handleLogout();
+                        }
+                    }
+                    localStorage.removeItem('bb_last_hidden_time');
                 }
             }
         };
