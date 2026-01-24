@@ -3,7 +3,8 @@ import { beyQuery } from '@/lib/beyDb';
 
 export const resolvers = {
     Query: {
-        getChiffreByDate: async (_: any, { date }: { date: string }) => {
+        getChiffreByDate: async (_: any, { date: inputDate }: { date: string }) => {
+            const date = inputDate.split('T')[0]; // Ensure we only have YYYY-MM-DD
             const res = await query('SELECT * FROM chiffres WHERE date = $1', [date]);
 
             // Fetch paid invoices for this date, excluding those paid via the paiements page (payer = 'riadh')

@@ -1516,10 +1516,26 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     const [newSupplierName, setNewSupplierName] = useState('');
     const [hasInteracted, setHasInteracted] = useState(false);
 
-    // Reset interaction state when date changes to allow loading new date data from server/draft
+    // Reset interaction state and clear vital states when date changes to allow loading new date data
     useEffect(() => {
-        console.log(`[DEBUG UI] Date changed to: ${date}. Resetting hasInteracted.`);
+        console.log(`[DEBUG UI] Date changed to: ${date}. Resetting state.`);
         setHasInteracted(false);
+        setRecetteCaisse('0');
+        setTpe('0');
+        setTpe2('0');
+        setCheque('0');
+        setEspeces('0');
+        setTicketsRestaurant('0');
+        setExtra('0');
+        setPrimes('0');
+        setExpenses([]);
+        setExpensesDivers([]);
+        setOffres('0');
+        setExpensesAdmin([
+            { designation: 'Riadh', amount: '0', paymentMethod: 'Espèces' },
+            { designation: 'Malika', amount: '0', paymentMethod: 'Espèces' },
+            { designation: 'Salaires', amount: '0', paymentMethod: 'Espèces' }
+        ]);
     }, [date]);
     const [isLocked, setIsLocked] = useState(false);
 
@@ -1644,6 +1660,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
 
             if (!hasInteracted) {
                 // First-time server load or sync after save
+                console.log(`[DEBUG UI] Applying server data. Recette: ${c.recette_de_caisse}`);
                 setRecetteCaisse(c.recette_de_caisse || '0');
                 setTpe(c.tpe || '0');
                 setTpe2(c.tpe2 || '0');
@@ -2390,7 +2407,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                 .map(d => ({ ...d, invoices: [] }));
             const safeOffres = offresList.map(o => ({ ...o, invoices: [] }));
 
-            await saveChiffre({
+            const { data: saveResult } = await saveChiffre({
                 variables: {
                     date,
                     recette_de_caisse: ensureValue(recetteCaisse),
@@ -2412,12 +2429,19 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                     payer: role
                 }
             });
+
             setToast({ msg: 'Session enregistrée avec succès', type: 'success' });
             localStorage.removeItem(`chiffre_draft_${date}`); // Clear draft on save
             setHasInteracted(false); // Signal that we match server state
-            setTimeout(() => setToast(null), 3000);
 
-            // Refetch to sync any dynamically calculated fields from server
+            if (saveResult?.saveChiffre) {
+                const c = saveResult.saveChiffre;
+                setRecetteCaisse(c.recette_de_caisse || '0');
+                setTpe(c.tpe || '0');
+                setEspeces(c.espaces || '0');
+            }
+
+            setTimeout(() => setToast(null), 3000);
             await refetchChiffre();
         } catch (e) {
             console.error(e);
@@ -2725,10 +2749,10 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     </div>
                                     <div className="text-2xl md:text-4xl lg:text-5xl font-black text-[#2d6a4f] leading-none tracking-tighter flex items-center gap-4">
                                         <span className="md:hidden">
-                                            {new Date(date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+                                            {formatDisplayDate(date)} {chiffreData?.getChiffreByDate?.id ? `(#${chiffreData.getChiffreByDate.id})` : ''}
                                         </span>
                                         <span className="hidden md:inline">
-                                            {new Date(date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                                            {formatDisplayDate(date)} {chiffreData?.getChiffreByDate?.id ? `(#${chiffreData.getChiffreByDate.id})` : ''}
                                         </span>
                                     </div>
                                 </div>
