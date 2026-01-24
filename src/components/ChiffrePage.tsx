@@ -1602,13 +1602,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             const c = chiffreData.getChiffreByDate;
 
             // Critical check: only sync if the data matches the currently active date
-            if (c.date !== date) {
-                console.log(`[DEBUG UI] Date mismatch in server data. Expected ${date}, got ${c.date}. Ignoring.`);
-                return;
-            }
-
             if (!hasInteracted) {
-                console.log(`[DEBUG UI] Loading server data for ${date}. ID: ${c.id}, Caisse: ${c.recette_de_caisse}`);
                 setIsLocked(c.is_locked || false);
                 setRecetteCaisse(c.recette_de_caisse || '0');
                 setTpe(c.tpe || '0');
@@ -1685,7 +1679,6 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                 try {
                     const draft = JSON.parse(savedDraft);
                     if (draft.date === date) {
-                        console.log(`[DEBUG UI] No server ID found for ${date}. Loading local draft.`);
                         const d = draft.data;
                         setRecetteCaisse(d.recetteCaisse);
                         setTpe(d.tpe);
@@ -2714,10 +2707,10 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     </div>
                                     <div className="text-2xl md:text-4xl lg:text-5xl font-black text-[#2d6a4f] leading-none tracking-tighter flex items-center gap-4">
                                         <span className="md:hidden">
-                                            {formatDisplayDate(date)} ✅ {chiffreData?.getChiffreByDate?.id ? `(#${chiffreData.getChiffreByDate.id} val:${chiffreData.getChiffreByDate.recette_de_caisse})` : ''} [v1]
+                                            {formatDisplayDate(date)}
                                         </span>
                                         <span className="hidden md:inline">
-                                            {formatDisplayDate(date)} ✅ {chiffreData?.getChiffreByDate?.id ? `(#${chiffreData.getChiffreByDate.id} val:${chiffreData.getChiffreByDate.recette_de_caisse})` : ''} [v1]
+                                            {formatDisplayDate(date)}
                                         </span>
                                     </div>
                                 </div>
