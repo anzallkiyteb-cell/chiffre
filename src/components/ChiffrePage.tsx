@@ -1401,7 +1401,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     // GraphQL
     const { data: chiffreData, refetch: refetchChiffre } = useQuery(GET_CHIFFRE, {
         variables: { date },
-        skip: !date
+        skip: !date,
+        fetchPolicy: 'network-only'
     });
     const { data: suppliersData, refetch: refetchSuppliers } = useQuery(GET_SUPPLIERS);
     const { data: designationsData, refetch: refetchDesignations } = useQuery(GET_DESIGNATIONS);
@@ -1514,6 +1515,11 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     const [hideRecetteCaisse, setHideRecetteCaisse] = useState(false);
     const [newSupplierName, setNewSupplierName] = useState('');
     const [hasInteracted, setHasInteracted] = useState(false);
+
+    // Reset interaction state when date changes to allow loading new date data from server/draft
+    useEffect(() => {
+        setHasInteracted(false);
+    }, [date]);
     const [isLocked, setIsLocked] = useState(false);
 
     // Modal Details States
