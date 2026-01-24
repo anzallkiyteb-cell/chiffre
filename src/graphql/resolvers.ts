@@ -59,54 +59,72 @@ export const resolvers = {
             const primesDetails = primes.rows;
             const restesSalairesDetails = await query('SELECT id, employee_name as username, montant, nb_jours, created_at FROM restes_salaires_daily WHERE date = $1 ORDER BY id DESC', [date]);
 
-            let data = res.rows.length > 0 ? { ...res.rows[0] } : { date };
+            const existingData = res.rows.length > 0 ? res.rows[0] : {};
 
-            // Merge existing diponce with paid invoices
+            // Re-calculate totals based on both manual entries and paid invoices
+            const dayAvances = avances.rows.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant || '0'), created_at: r.created_at }));
+            const dayDoublages = doublages.rows.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant || '0'), created_at: r.created_at }));
+            const dayExtras = extraDetails.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant || '0'), created_at: r.created_at }));
+            const dayPrimes = primesDetails.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant || '0'), created_at: r.created_at }));
+            const dayRestesSalaires = restesSalairesDetails.rows.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant || '0'), nb_jours: parseFloat(r.nb_jours || '0'), date, created_at: r.created_at }));
+
+            // Initial manual lists from DB row
             let existingDiponce = [];
             try {
-                existingDiponce = typeof data.diponce === 'string' ? JSON.parse(data.diponce) : (data.diponce || []);
-            } catch (e) {
-                existingDiponce = [];
-            }
+                const raw = existingData.diponce;
+                existingDiponce = typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []);
+            } catch (e) { existingDiponce = []; }
 
-            // Initial lists from DB columns
-            let diversListEntries: any[] = [];
-            let adminList: any[] = [];
-            try { diversListEntries = typeof data.diponce_divers === 'string' ? JSON.parse(data.diponce_divers) : (data.diponce_divers || []); } catch (e) { }
-            try { adminList = typeof data.diponce_admin === 'string' ? JSON.parse(data.diponce_admin) : (data.diponce_admin || []); } catch (e) { }
+            let diversListEntries = [];
+            try {
+                const raw = existingData.diponce_divers;
+                diversListEntries = typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []);
+            } catch (e) { diversListEntries = []; }
 
-            // Re-calculate combined lists with invoices
+            let adminList = [];
+            try {
+                const raw = existingData.diponce_admin;
+                adminList = typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []);
+            } catch (e) { adminList = []; }
+
+            // Combine with dynamic invoices
             const finalCombinedDiponce = [...existingDiponce, ...paidSuppliers];
             const finalCombinedDivers = [...diversListEntries, ...paidDivers];
 
+            // Dynamic sums
             const sumDiponce = finalCombinedDiponce.reduce((s: number, i: any) => s + (parseFloat(i.amount) || 0), 0);
             const sumDivers = finalCombinedDivers.reduce((s: number, i: any) => s + (parseFloat(i.amount) || 0), 0);
             const sumAdmin = adminList.reduce((s: number, i: any) => s + (parseFloat(i.amount) || 0), 0);
+            const sumFixes = dayAvances.reduce((s: number, r: any) => s + r.montant, 0) +
+                dayDoublages.reduce((s: number, r: any) => s + r.montant, 0) +
+                dayExtras.reduce((s: number, r: any) => s + r.montant, 0) +
+                dayPrimes.reduce((s: number, r: any) => s + r.montant, 0) +
+                dayRestesSalaires.reduce((s: number, r: any) => s + r.montant, 0);
 
-            const dayAvances = avances.rows.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant), created_at: r.created_at }));
-            const dayDoublages = doublages.rows.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant), created_at: r.created_at }));
-            const dayExtras = extraDetails.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant), created_at: r.created_at }));
-            const dayPrimes = primesDetails.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant), created_at: r.created_at }));
-            const dayRestesSalaires = restesSalairesDetails.rows.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant), nb_jours: parseFloat(r.nb_jours || '0'), date, created_at: r.created_at }));
-
-            const totalDiponce = sumDiponce + sumDivers + sumAdmin +
-                dayAvances.reduce((s, r) => s + r.montant, 0) +
-                dayDoublages.reduce((s, r) => s + r.montant, 0) +
-                dayExtras.reduce((s, r) => s + r.montant, 0) +
-                dayPrimes.reduce((s, r) => s + r.montant, 0) +
-                dayRestesSalaires.reduce((s, r) => s + r.montant, 0);
-
-            const recetteCaisse = parseFloat(data.recette_de_caisse) || 0;
-            const recetteNet = recetteCaisse - totalDiponce;
+            const totalDiponceVal = sumDiponce + sumDivers + sumAdmin + sumFixes;
+            const recetteCaisseVal = parseFloat(existingData.recette_de_caisse || '0');
+            const recetteNetVal = recetteCaisseVal - totalDiponceVal;
 
             return {
-                ...data,
-                is_locked: data.is_locked,
-                total_diponce: totalDiponce.toString(),
-                recette_net: recetteNet.toString(),
+                id: existingData.id || null,
+                date: date,
+                recette_de_caisse: recetteCaisseVal.toString(),
+                total_diponce: totalDiponceVal.toString(),
+                recette_net: recetteNetVal.toString(),
+                tpe: existingData.tpe || '0',
+                tpe2: existingData.tpe2 || '0',
+                cheque_bancaire: existingData.cheque_bancaire || '0',
+                espaces: existingData.espaces || '0',
+                tickets_restaurant: existingData.tickets_restaurant || '0',
+                extra: existingData.extra || '0',
+                primes: existingData.primes || '0',
+                offres: existingData.offres || '0',
+                offres_data: typeof existingData.offres_data === 'string' ? existingData.offres_data : JSON.stringify(existingData.offres_data || []),
+                caisse_photo: existingData.caisse_photo || null,
+                is_locked: !!existingData.is_locked,
                 diponce: JSON.stringify(finalCombinedDiponce),
                 diponce_divers: JSON.stringify(finalCombinedDivers),
-                diponce_admin: typeof data.diponce_admin === 'string' ? data.diponce_admin : JSON.stringify(data.diponce_admin || []),
+                diponce_admin: JSON.stringify(adminList),
                 avances_details: dayAvances,
                 doublages_details: dayDoublages,
                 extras_details: dayExtras,

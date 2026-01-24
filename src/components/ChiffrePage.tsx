@@ -1617,6 +1617,10 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         // Block 2: Server Data Integration
         if (chiffreData?.getChiffreByDate) {
             const c = chiffreData.getChiffreByDate;
+
+            // Critical check: only sync if the data matches the currently active date
+            if (c.date !== date) return;
+
             setIsLocked(c.is_locked || false);
 
             // Personnel sub-lists are server-managed (immediate sync)
@@ -1627,12 +1631,12 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             setRestesSalairesList(c.restes_salaires_details || []);
 
             if (!hasInteracted) {
-                // First-time server load
-                setRecetteCaisse(c.recette_de_caisse);
-                setTpe(c.tpe);
+                // First-time server load or sync after save
+                setRecetteCaisse(c.recette_de_caisse || '0');
+                setTpe(c.tpe || '0');
                 setTpe2(c.tpe2 || '0');
-                setCheque(c.cheque_bancaire);
-                setEspeces(c.espaces);
+                setCheque(c.cheque_bancaire || '0');
+                setEspeces(c.espaces || '0');
                 setTicketsRestaurant(c.tickets_restaurant || '0');
                 setExtra(c.extra || '0');
                 setPrimes(c.primes || '0');
@@ -1649,11 +1653,26 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                 }
 
                 const savedAdminData = JSON.parse(c.diponce_admin || '[]');
-                setExpensesAdmin(savedAdminData.length > 0 ? savedAdminData : [
+                const defaultAdmin = [
                     { designation: 'Riadh', amount: '0', paymentMethod: 'Espèces' },
                     { designation: 'Malika', amount: '0', paymentMethod: 'Espèces' },
                     { designation: 'Salaires', amount: '0', paymentMethod: 'Espèces' }
-                ]);
+                ];
+
+                // Merge saved data into defaults to ensure Riadh, Malika, Salaires always exist in UI
+                const finalAdmin = defaultAdmin.map(def => {
+                    const found = savedAdminData.find((s: any) => s.designation === def.designation);
+                    return found ? { ...def, ...found } : def;
+                });
+
+                // Keep any additional manual admin designations
+                savedAdminData.forEach((s: any) => {
+                    if (!defaultAdmin.find(def => def.designation === s.designation)) {
+                        finalAdmin.push(s);
+                    }
+                });
+
+                setExpensesAdmin(finalAdmin);
             } else {
                 // Merge logic for Facturation items when in draft mode
                 const dbExpenses = JSON.parse(c.diponce || '[]');
@@ -2383,9 +2402,11 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             });
             setToast({ msg: 'Session enregistrée avec succès', type: 'success' });
             localStorage.removeItem(`chiffre_draft_${date}`); // Clear draft on save
-            setHasInteracted(false); // Validated state matches server
+            setHasInteracted(false); // Signal that we match server state
             setTimeout(() => setToast(null), 3000);
-            refetchChiffre();
+
+            // Refetch to sync any dynamically calculated fields from server
+            await refetchChiffre();
         } catch (e) {
             console.error(e);
             setToast({ msg: "Erreur lors de l'enregistrement", type: 'error' });
