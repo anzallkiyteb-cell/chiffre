@@ -372,8 +372,8 @@ const DELETE_BANK_DEPOSIT = gql`
 `;
 
 const ADD_PAID_INVOICE = gql`
-  mutation AddPaidInvoice($supplier_name: String!, $amount: String!, $date: String!, $photo_url: String, $photo_cheque_url: String, $photo_verso_url: String, $payment_method: String!, $paid_date: String!, $payer: String, $doc_type: String, $doc_number: String, $category: String) {
-    addPaidInvoice(supplier_name: $supplier_name, amount: $amount, date: $date, photo_url: $photo_url, photo_cheque_url: $photo_cheque_url, photo_verso_url: $photo_verso_url, payment_method: $payment_method, paid_date: $paid_date, payer: $payer, doc_type: $doc_type, doc_number: $doc_number, category: $category) {
+  mutation AddPaidInvoice($supplier_name: String!, $amount: String!, $date: String!, $photo_url: String, $photo_cheque_url: String, $photo_verso_url: String, $payment_method: String!, $paid_date: String!, $payer: String, $doc_type: String, $doc_number: String, $category: String, $details: String) {
+    addPaidInvoice(supplier_name: $supplier_name, amount: $amount, date: $date, photo_url: $photo_url, photo_cheque_url: $photo_cheque_url, photo_verso_url: $photo_verso_url, payment_method: $payment_method, paid_date: $paid_date, payer: $payer, doc_type: $doc_type, doc_number: $doc_number, category: $category, details: $details) {
       id
     }
   }
@@ -406,8 +406,8 @@ const UNPAY_INVOICE = gql`
 `;
 
 const UPDATE_INVOICE = gql`
-  mutation UpdateInvoice($id: Int!, $supplier_name: String, $amount: String, $date: String, $payment_method: String, $paid_date: String, $category: String, $doc_type: String, $doc_number: String) {
-    updateInvoice(id: $id, supplier_name: $supplier_name, amount: $amount, date: $date, payment_method: $payment_method, paid_date: $paid_date, category: $category, doc_type: $doc_type, doc_number: $doc_number) {
+  mutation UpdateInvoice($id: Int!, $supplier_name: String, $amount: String, $date: String, $payment_method: String, $paid_date: String, $category: String, $doc_type: String, $doc_number: String, $details: String) {
+    updateInvoice(id: $id, supplier_name: $supplier_name, amount: $amount, date: $date, payment_method: $payment_method, paid_date: $paid_date, category: $category, doc_type: $doc_type, doc_number: $doc_number, details: $details) {
       id
     }
   }
@@ -515,6 +515,7 @@ export default function PaiementsPage() {
     const [expPhotoCheque, setExpPhotoCheque] = useState('');
     const [expPhotoVerso, setExpPhotoVerso] = useState('');
     const [expInvoiceNumber, setExpInvoiceNumber] = useState('');
+    const [expDetails, setExpDetails] = useState('');
     const [showExpForm, setShowExpForm] = useState(false);
     const [showSalaryRemaindersModal, setShowSalaryRemaindersModal] = useState(false);
     const [editingSalaryId, setEditingSalaryId] = useState<number | string | null>(null);
@@ -758,6 +759,7 @@ export default function PaiementsPage() {
         setExpDocType(inv.doc_type || 'Facture');
         setExpInvoiceNumber(inv.doc_number || '');
         setExpCategory(inv.category || 'Fournisseur');
+        setExpDetails(inv.details || '');
         setShowExpForm(true);
         setShowUnpaidModal(false);
         // Scroll to the form
@@ -1420,7 +1422,8 @@ export default function PaiementsPage() {
                         paid_date: expDate,
                         doc_type: expDocType,
                         doc_number: expInvoiceNumber,
-                        category: expCategory || editingHistoryItem.category
+                        category: expCategory || editingHistoryItem.category,
+                        details: expDetails
                     }
                 });
                 Swal.fire('Mis à jour!', 'Dépense mise à jour avec succès.', 'success');
@@ -1439,7 +1442,8 @@ export default function PaiementsPage() {
                         payer: 'riadh',
                         doc_type: expDocType,
                         doc_number: expInvoiceNumber,
-                        category: expCategory
+                        category: expCategory,
+                        details: expDetails
                     }
                 });
                 Swal.fire('Ajouté!', 'Dépense ajoutée avec succès.', 'success');
@@ -1450,6 +1454,7 @@ export default function PaiementsPage() {
             setExpPhotoCheque('');
             setExpPhotoVerso('');
             setExpInvoiceNumber('');
+            setExpDetails('');
             setExpCategory('');
             setShowExpForm(false);
             refetch();
@@ -1975,6 +1980,7 @@ export default function PaiementsPage() {
                                                     setExpPhotoCheque('');
                                                     setExpPhotoVerso('');
                                                     setExpInvoiceNumber('');
+                                                    setExpDetails('');
                                                 }
                                                 setShowExpForm(!showExpForm);
                                             }}
@@ -2139,28 +2145,26 @@ export default function PaiementsPage() {
                                                             {showExpSuggestions && <div className="fixed inset-0 z-[90]" onClick={() => setShowExpSuggestions(false)} />}
                                                         </div>
                                                     </div>
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
-                                                        <div>
-                                                            <label className="text-[10px] font-black text-red-700/50 uppercase ml-1">Montant (DT)</label>
-                                                            <input
-                                                                type="number"
-                                                                step="0.001"
-                                                                value={expAmount}
-                                                                onChange={(e) => setExpAmount(e.target.value)}
-                                                                onWheel={(e) => e.currentTarget.blur()}
-                                                                className="w-full h-12 bg-white border border-red-100 rounded-xl px-4 font-black text-xl outline-none focus:border-red-400 min-w-[180px]"
-                                                                placeholder="0.000"
-                                                            />
-                                                        </div>
-                                                        <div className="space-y-1">
-                                                            <label className="text-[10px] font-black text-red-700/50 uppercase ml-1">Date</label>
-                                                            <PremiumDatePicker
-                                                                label="Date"
-                                                                value={expDate}
-                                                                onChange={setExpDate}
-                                                                align="right"
-                                                            />
-                                                        </div>
+                                                    <div>
+                                                        <label className="text-[10px] font-black text-red-700/50 uppercase ml-1">Montant (DT)</label>
+                                                        <input
+                                                            type="number"
+                                                            step="0.001"
+                                                            value={expAmount}
+                                                            onChange={(e) => setExpAmount(e.target.value)}
+                                                            onWheel={(e) => e.currentTarget.blur()}
+                                                            className="w-full h-12 bg-white border border-red-100 rounded-xl px-4 font-black text-xl outline-none focus:border-red-400 min-w-[180px]"
+                                                            placeholder="0.000"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <label className="text-[10px] font-black text-red-700/50 uppercase ml-1">Date</label>
+                                                        <PremiumDatePicker
+                                                            label="Date"
+                                                            value={expDate}
+                                                            onChange={setExpDate}
+                                                            align="right"
+                                                        />
                                                     </div>
                                                 </div>
                                                 <div className="space-y-3">
@@ -2211,6 +2215,15 @@ export default function PaiementsPage() {
                                                                 📋 BL
                                                             </button>
                                                         </div>
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-[10px] font-black text-red-700/50 uppercase ml-1">Détails / Notes</label>
+                                                        <textarea
+                                                            value={expDetails}
+                                                            onChange={(e) => setExpDetails(e.target.value)}
+                                                            className="w-full h-20 bg-white border border-red-100 rounded-xl px-4 py-3 font-bold text-sm outline-none focus:border-red-400 no-scrollbar custom-scrollbar resize-none"
+                                                            placeholder="Informations complémentaires..."
+                                                        />
                                                     </div>
                                                     <div className="space-y-3">
                                                         <div>
@@ -3385,6 +3398,11 @@ export default function PaiementsPage() {
                                                                 <h3 className="font-extrabold text-[#4a3426] text-[22px] uppercase tracking-[0.2em] group-hover:text-[#c69f6e] transition-colors">
                                                                     {inv.supplier_name}
                                                                 </h3>
+                                                                {inv.details && (
+                                                                    <p className="text-[10px] font-bold text-[#8c8279] uppercase tracking-widest mt-2 bg-[#f4ece4] px-4 py-1.5 rounded-xl border border-[#e6dace]/50 inline-block text-center max-w-[80%] mx-auto">
+                                                                        {inv.details}
+                                                                    </p>
+                                                                )}
                                                             </div>
 
                                                             <div className="flex items-center gap-12">

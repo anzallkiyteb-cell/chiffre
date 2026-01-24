@@ -255,6 +255,7 @@ export const typeDefs = `#graphql
       payment_method: String
       paid_date: String
       category: String
+      details: String
     ): Invoice
     
     addBankDeposit(
@@ -286,6 +287,7 @@ export const typeDefs = `#graphql
       doc_number: String
       payer: String
       category: String
+      details: String
     ): Invoice
 
     unlockChiffre(date: String!): Chiffre
@@ -329,5 +331,8 @@ export const typeDefs = `#graphql
     
     uploadJournalierPhotos(date: String!, category: String!, item_index: Int!, photos: String!): JournalierPhoto
     deleteJournalierPhoto(id: Int!): Boolean
+    
+    clearChiffreData(date: String!): Boolean
+    replaceChiffreDate(oldDate: String!, newDate: String!): Boolean
   }
 `;

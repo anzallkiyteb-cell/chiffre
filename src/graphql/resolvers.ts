@@ -1002,7 +1002,7 @@ export const resolvers = {
                 photos: typeof row.photos === 'string' ? row.photos : JSON.stringify(row.photos || [])
             };
         },
-        updateInvoice: async (_: any, { id, supplier_name, amount, date, photo_url, photos, doc_type, doc_number, payment_method, paid_date, category }: any) => {
+        updateInvoice: async (_: any, { id, supplier_name, amount, date, photo_url, photos, doc_type, doc_number, payment_method, paid_date, category, details }: any) => {
             const fields = [];
             const params = [];
             if (supplier_name !== undefined) { params.push(supplier_name); fields.push(`supplier_name = $${params.length}`); }
@@ -1015,6 +1015,7 @@ export const resolvers = {
             if (payment_method !== undefined) { params.push(payment_method); fields.push(`payment_method = $${params.length}`); }
             if (paid_date !== undefined) { params.push(paid_date); fields.push(`paid_date = $${params.length}`); }
             if (category !== undefined) { params.push(category); fields.push(`category = $${params.length}`); }
+            if (details !== undefined) { params.push(details); fields.push(`details = $${params.length}`); }
 
             if (fields.length === 0) {
                 const r = await query('SELECT * FROM invoices WHERE id = $1', [id]);
@@ -1098,10 +1099,10 @@ export const resolvers = {
             return true;
         },
         addPaidInvoice: async (_: any, args: any) => {
-            const { supplier_name, amount, date, photo_url, photos, photo_cheque_url, photo_verso_url, payment_method, paid_date, doc_type, doc_number, payer, category } = args;
+            const { supplier_name, amount, date, photo_url, photos, photo_cheque_url, photo_verso_url, payment_method, paid_date, doc_type, doc_number, payer, category, details } = args;
             const res = await query(
-                "INSERT INTO invoices (supplier_name, amount, date, photo_url, photos, photo_cheque_url, photo_verso_url, status, payment_method, paid_date, doc_type, doc_number, payer, origin, category, updated_at) VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, 'paid', $8, $9, $10, $11, $12, 'direct_expense', $13, CURRENT_TIMESTAMP) RETURNING *",
-                [supplier_name, amount, date, photo_url, photos || '[]', photo_cheque_url, photo_verso_url, payment_method, paid_date, doc_type || 'Facture', doc_number, payer, category]
+                "INSERT INTO invoices (supplier_name, amount, date, photo_url, photos, photo_cheque_url, photo_verso_url, status, payment_method, paid_date, doc_type, doc_number, payer, origin, category, details, updated_at) VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, 'paid', $8, $9, $10, $11, $12, 'direct_expense', $13, $14, CURRENT_TIMESTAMP) RETURNING *",
+                [supplier_name, amount, date, photo_url, photos || '[]', photo_cheque_url, photo_verso_url, payment_method, paid_date, doc_type || 'Facture', doc_number, payer, category, details]
             );
             const row = res.rows[0];
             return {
@@ -1363,6 +1364,42 @@ export const resolvers = {
         },
         deleteJournalierPhoto: async (_: any, { id }: { id: number }) => {
             await query('DELETE FROM photo_journalier WHERE id = $1', [id]);
+            return true;
+        },
+        clearChiffreData: async (_: any, { date }: { date: string }) => {
+            // Delete from all associated tables for this date
+            await query('DELETE FROM chiffres WHERE date = $1', [date]);
+            await query('DELETE FROM advances WHERE date = $1', [date]);
+            await query('DELETE FROM doublages WHERE date = $1', [date]);
+            await query('DELETE FROM extras WHERE date = $1', [date]);
+            await query('DELETE FROM primes WHERE date = $1', [date]);
+            await query('DELETE FROM restes_salaires_daily WHERE date = $1', [date]);
+            await query('DELETE FROM photo_journalier WHERE date = $1', [date]);
+
+            // Handle invoices:
+            // 1. Delete invoices created directly in/for the daily sheet
+            await query("DELETE FROM invoices WHERE origin = 'daily_sheet' AND (paid_date = $1 OR date = $1)", [date]);
+            // 2. Unpay ANY other invoices paid on that date that might show up in journalier
+            await query("UPDATE invoices SET status = 'unpaid', paid_date = NULL, payment_method = NULL WHERE status = 'paid' AND paid_date = $1 AND (payer IS NULL OR payer != 'riadh')", [date]);
+
+            return true;
+        },
+        replaceChiffreDate: async (_: any, { oldDate, newDate }: { oldDate: string, newDate: string }) => {
+            // Update all associated tables
+            await query('UPDATE chiffres SET date = $1 WHERE date = $2', [newDate, oldDate]);
+            await query('UPDATE advances SET date = $1 WHERE date = $2', [newDate, oldDate]);
+            await query('UPDATE doublages SET date = $1 WHERE date = $2', [newDate, oldDate]);
+            await query('UPDATE extras SET date = $1 WHERE date = $2', [newDate, oldDate]);
+            await query('UPDATE primes SET date = $1 WHERE date = $2', [newDate, oldDate]);
+            await query('UPDATE restes_salaires_daily SET date = $1 WHERE date = $2', [newDate, oldDate]);
+            await query('UPDATE photo_journalier SET date = $1 WHERE date = $2', [newDate, oldDate]);
+
+            // Handle invoices:
+            // Update paid_date for all invoices paid on that date (that are visible in journalier)
+            await query("UPDATE invoices SET paid_date = $1 WHERE paid_date = $2 AND (payer IS NULL OR payer != 'riadh')", [newDate, oldDate]);
+            // Also update the creation date for invoices created in/for the daily sheet
+            await query("UPDATE invoices SET date = $1 WHERE date = $2 AND origin = 'daily_sheet'", [newDate, oldDate]);
+
             return true;
         },
     },

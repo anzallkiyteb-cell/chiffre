@@ -168,6 +168,7 @@ const GET_CHIFFRES_RANGE = gql`
         diponce_divers
         diponce_admin
         restes_salaires_details { id username montant nb_jours date created_at }
+        is_locked
     }
   }
 `;
@@ -411,6 +412,18 @@ const ADD_RESTES_SALAIRES = gql`
 `;
 const DELETE_RESTES_SALAIRES = gql`
   mutation DeleteRestesSalaires($id: Int!) { deleteRestesSalaires(id: $id) }
+`;
+
+const CLEAR_CHIFFRE_DATA = gql`
+  mutation ClearChiffreData($date: String!) {
+    clearChiffreData(date: $date)
+  }
+`;
+
+const REPLACE_CHIFFRE_DATE = gql`
+  mutation ReplaceChiffreDate($oldDate: String!, $newDate: String!) {
+    replaceChiffreDate(oldDate: $oldDate, newDate: $newDate)
+  }
 `;
 
 interface EntryModalProps {
@@ -1181,6 +1194,192 @@ const CalendarModal = ({ isOpen, onClose, value, onChange }: CalendarModalProps)
     );
 };
 
+const TransferModal = ({ isOpen, onClose, value, onConfirm }: { isOpen: boolean, onClose: () => void, value: string, onConfirm: (date: string) => void }) => {
+    const [selectedDate, setSelectedDate] = useState(value);
+    const [viewDate, setViewDate] = useState(new Date(value));
+
+    // Fetch range data for the current view month to show locked dates
+    const startRange = useMemo(() => {
+        const start = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
+        return start.toISOString().split('T')[0];
+    }, [viewDate]);
+    const endRange = useMemo(() => {
+        const end = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0);
+        return end.toISOString().split('T')[0];
+    }, [viewDate]);
+
+    const { data: rangeData } = useQuery(GET_CHIFFRES_RANGE, {
+        variables: { startDate: startRange, endDate: endRange },
+        skip: !isOpen
+    });
+
+    const lockedDates = useMemo(() => {
+        const map: Record<string, boolean> = {};
+        if (rangeData?.getChiffresByRange) {
+            rangeData.getChiffresByRange.forEach((item: any) => {
+                if (item.is_locked) map[item.date] = true;
+            });
+        }
+        return map;
+    }, [rangeData]);
+
+    useEffect(() => {
+        if (isOpen && value) {
+            setSelectedDate(value);
+            const initialViewDate = new Date(value);
+            if (!isNaN(initialViewDate.getTime())) {
+                setViewDate(initialViewDate);
+            }
+        }
+    }, [isOpen, value]);
+
+    if (!isOpen) return null;
+
+    const months = [
+        'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+        'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
+    ];
+
+    const daysInMonth = () => {
+        const year = viewDate.getFullYear();
+        const month = viewDate.getMonth();
+        const firstDay = new Date(year, month, 1).getDay();
+        const days = [];
+        const offset = firstDay === 0 ? 6 : firstDay - 1;
+        for (let i = 0; i < offset; i++) days.push(null);
+        const lastDay = new Date(year, month + 1, 0).getDate();
+        for (let i = 1; i <= lastDay; i++) days.push(new Date(year, month, i));
+        return days;
+    };
+
+    const monthDays = daysInMonth();
+    const displayDate = selectedDate.split('-').reverse().join('/');
+    const isSelectedLocked = lockedDates[selectedDate];
+
+    return (
+        <AnimatePresence>
+            <div className="fixed inset-0 z-[750] flex items-center justify-center p-4">
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="absolute inset-0 bg-[#4a3426]/60 backdrop-blur-sm"
+                    onClick={onClose}
+                />
+                <motion.div
+                    initial={{ scale: 0.9, opacity: 0, y: 30 }}
+                    animate={{ scale: 1, opacity: 1, y: 0 }}
+                    exit={{ scale: 0.9, opacity: 0, y: 30 }}
+                    onClick={e => e.stopPropagation()}
+                    className="relative bg-white rounded-[2.5rem] w-full max-w-sm overflow-hidden shadow-[0_30px_60px_-12px_rgba(0,0,0,0.3)] border border-white/20 flex flex-col"
+                >
+                    <div className="bg-[#4a3426] p-8 text-white text-center relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl" />
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.3em] mb-2 opacity-50 relative z-10 text-[#c69f6e]">Transférer vers la date</h3>
+                        <div className="text-4xl font-black tracking-tighter text-white relative z-10">
+                            {displayDate}
+                        </div>
+                    </div>
+
+                    <div className="p-6">
+                        <div className="flex justify-between items-center mb-6">
+                            <button
+                                type="button"
+                                onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1))}
+                                className="p-3 hover:bg-[#fcfaf8] rounded-2xl text-[#c69f6e] transition-colors"
+                            >
+                                <ChevronLeft size={24} />
+                            </button>
+                            <span className="text-sm font-black text-[#4a3426] uppercase tracking-widest">
+                                {months[viewDate.getMonth()]} {viewDate.getFullYear()}
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1))}
+                                className="p-3 hover:bg-[#fcfaf8] rounded-2xl text-[#c69f6e] transition-colors"
+                            >
+                                <ChevronRight size={24} />
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-7 gap-1 mb-4">
+                            {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((d, i) => (
+                                <div key={i} className="text-[10px] font-black text-[#bba282] text-center uppercase tracking-widest opacity-40">
+                                    {d}
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="grid grid-cols-7 gap-1">
+                            {monthDays.map((day, i) => {
+                                if (!day) return <div key={`empty-${i}`} />;
+                                const dStr = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
+                                const isSelected = selectedDate === dStr;
+                                const isToday = new Date().toDateString() === day.toDateString();
+                                const isLocked = lockedDates[dStr];
+
+                                return (
+                                    <button
+                                        key={i}
+                                        type="button"
+                                        disabled={isLocked}
+                                        onClick={() => setSelectedDate(dStr)}
+                                        className={`h-11 w-11 text-xs rounded-xl font-black transition-all flex items-center justify-center relative
+                                            ${isSelected
+                                                ? 'bg-[#c69f6e] text-white shadow-lg shadow-[#c69f6e]/30'
+                                                : isLocked
+                                                    ? 'text-red-300 opacity-50 cursor-not-allowed bg-red-50/50'
+                                                    : 'text-[#4a3426] hover:bg-[#fcfaf8] border border-transparent hover:border-[#e6dace]'
+                                            }
+                                            ${isToday && !isSelected ? 'text-[#c69f6e] bg-[#c69f6e]/10' : ''}
+                                        `}
+                                    >
+                                        <span>{day.getDate()}</span>
+                                        {isLocked && (
+                                            <div className="absolute top-1 right-1">
+                                                <LockIcon size={8} className="text-red-500" />
+                                            </div>
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    <div className="p-6 pt-0 flex flex-col gap-3">
+                        {isSelectedLocked && (
+                            <div className="flex items-center gap-2 text-red-500 text-[10px] font-black uppercase tracking-widest bg-red-50 p-3 rounded-2xl border border-red-100 mb-2">
+                                <AlertCircle size={14} />
+                                <span>Date verrouillée : Transfert impossible</span>
+                            </div>
+                        )}
+                        <button
+                            type="button"
+                            disabled={isSelectedLocked}
+                            onClick={() => onConfirm(selectedDate)}
+                            className={`w-full py-5 rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-[11px] text-white shadow-xl transition-all
+                                ${isSelectedLocked
+                                    ? 'bg-red-300 shadow-none cursor-not-allowed grayscale'
+                                    : 'bg-blue-600 shadow-blue-600/20 hover:bg-blue-700 hover:scale-[1.02] active:scale-95'
+                                }
+                            `}
+                        >
+                            {isSelectedLocked ? 'Transfert Bloqué' : 'Confirmer le transfert'}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="w-full py-4 rounded-[1.5rem] font-black uppercase tracking-[0.1em] text-[10px] text-[#8c8279] hover:bg-[#fcfaf8] transition-all"
+                        >
+                            Annuler
+                        </button>
+                    </div>
+                </motion.div>
+            </div>
+        </AnimatePresence>
+    );
+};
+
 export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     // Global State
     const [date, setDate] = useState<string>('');
@@ -1223,6 +1422,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     const [deletePrime] = useMutation(DELETE_PRIME);
     const [addRestesSalaires] = useMutation(ADD_RESTES_SALAIRES);
     const [deleteRestesSalaires] = useMutation(DELETE_RESTES_SALAIRES);
+    const [clearChiffreData] = useMutation(CLEAR_CHIFFRE_DATA);
+    const [replaceChiffreDate] = useMutation(REPLACE_CHIFFRE_DATE);
 
     // Photo Management Hooks
     const [uploadJournalierPhotos] = useMutation(UPLOAD_JOURNALIER_PHOTOS);
@@ -1314,6 +1515,9 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     // Modal Details States
     const [showDetailsModal, setShowDetailsModal] = useState(false);
     const [modalDetailsTarget, setModalDetailsTarget] = useState<{ index: number, type: 'expense' | 'divers' } | null>(null);
+    const [showReplaceDateModal, setShowReplaceDateModal] = useState(false);
+    const [replaceDateValue, setReplaceDateValue] = useState('');
+    const [replaceCalendarViewDate, setReplaceCalendarViewDate] = useState<Date>(new Date());
     const [tempDetails, setTempDetails] = useState('');
     const [lastFocusedValue, setLastFocusedValue] = useState('');
 
@@ -2253,6 +2457,99 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
+    const handleClearSheet = () => {
+        MySwal.fire({
+            title: 'Réinitialiser le Journalier ?',
+            text: 'Toutes les données sauvegardées sur le serveur pour cette date seront également supprimées.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Oui, tout effacer',
+            cancelButtonText: 'Annuler',
+            confirmButtonColor: '#ef4444',
+            background: '#fff',
+            customClass: {
+                popup: 'rounded-[2rem]',
+                confirmButton: 'rounded-xl font-black uppercase tracking-widest text-xs px-6 py-3',
+                cancelButton: 'rounded-xl font-black uppercase tracking-widest text-xs px-6 py-3'
+            }
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                try {
+                    // 1. Clear on server
+                    await clearChiffreData({ variables: { date } });
+
+                    // 2. Clear current draft
+                    localStorage.removeItem(`chiffre_draft_${date}`);
+
+                    // 3. Reset local interaction state – this allows useEffect to pull fresh (empty) server data
+                    setHasInteracted(false);
+
+                    setToast({ msg: 'Journalier réinitialisé sur le serveur et localement', type: 'success' });
+                    setTimeout(() => setToast(null), 3000);
+                    refetchChiffre();
+                } catch (err) {
+                    console.error("Clear error", err);
+                    setToast({ msg: 'Erreur lors de la réinitialisation sur le serveur', type: 'error' });
+                    setTimeout(() => setToast(null), 3000);
+                }
+            }
+        });
+    };
+
+    const handleReplaceDate = () => {
+        setReplaceDateValue(date);
+        setReplaceCalendarViewDate(new Date(date));
+        setShowReplaceDateModal(true);
+    };
+
+    const onConfirmReplaceDate = async (newDate: string) => {
+        if (newDate === date) {
+            setShowReplaceDateModal(false);
+            return;
+        }
+
+        MySwal.fire({
+            title: 'Confirmer le transfert ?',
+            text: `Toutes les données (y compris TPE, Chèque, etc.) seront sauvegardées puis déplacées vers le ${formatDisplayDate(newDate)}.`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sauvegarder et Transférer',
+            cancelButtonText: 'Annuler',
+            confirmButtonColor: '#3b82f6',
+            background: '#fff',
+            customClass: {
+                popup: 'rounded-[2rem]',
+                confirmButton: 'rounded-xl font-black uppercase tracking-widest text-xs px-6 py-3',
+                cancelButton: 'rounded-xl font-black uppercase tracking-widest text-xs px-6 py-3'
+            }
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                try {
+                    // CRITICAL: First save everything to the current date to ensure manual inputs are in the DB
+                    await handleSave();
+
+                    // THEN perform the date replacement in the DB
+                    await replaceChiffreDate({ variables: { oldDate: date, newDate } });
+
+                    // 2. Clear current draft
+                    localStorage.removeItem(`chiffre_draft_${date}`);
+
+                    // 3. Sync state: update local date and reset interaction to trigger initial server pull
+                    setDate(newDate);
+                    setHasInteracted(false);
+                    setShowReplaceDateModal(false);
+
+                    setToast({ msg: `Données transférées vers le ${newDate}`, type: 'success' });
+                    setTimeout(() => setToast(null), 5000);
+                } catch (err) {
+                    console.error("Replace date error", err);
+                    setToast({ msg: 'Erreur lors du transfert sur le serveur', type: 'error' });
+                    setTimeout(() => setToast(null), 3000);
+                }
+            }
+        });
+    };
+
     const generateCalendarDays = (currentDateStr: string) => {
         const curr = new Date(currentDateStr);
         const startDay = new Date(curr.getFullYear(), curr.getMonth(), 1).getDay();
@@ -2337,6 +2634,26 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 </button>
                             </div>
                         )}
+
+                        {!isLocked && (
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={handleReplaceDate}
+                                    className="h-10 px-4 rounded-xl bg-blue-50 text-blue-600 text-[9px] font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all flex items-center gap-2 border border-blue-100 shadow-sm"
+                                    title="Déplacer vers une autre date"
+                                >
+                                    <Calendar size={14} /> <span className="hidden md:inline">Transférer</span>
+                                </button>
+                                <button
+                                    onClick={handleClearSheet}
+                                    className="h-10 px-4 rounded-xl bg-red-50 text-red-600 text-[9px] font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all flex items-center gap-2 border border-red-100 shadow-sm"
+                                    title="Remettre à zéro"
+                                >
+                                    <RotateCcw size={14} /> <span className="hidden md:inline">Remettre à zéro</span>
+                                </button>
+                            </div>
+                        )}
+
                         <div className="hidden sm:block w-px h-8 bg-[#e6dace] mx-2"></div>
                     </div>
                 </header>
@@ -3988,7 +4305,9 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                             <span className="text-xl font-black text-white">
                                                                 {parseFloat((viewingInvoicesTarget.type === 'expense'
                                                                     ? expenses[viewingInvoicesTarget.index]?.amount
-                                                                    : expensesDivers[viewingInvoicesTarget.index]?.amount) || '0').toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                                                    : viewingInvoicesTarget.type === 'offres'
+                                                                        ? offresList[viewingInvoicesTarget.index]?.amount
+                                                                        : expensesDivers[viewingInvoicesTarget.index]?.amount) || '0').toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
                                                             </span>
                                                             <span className="text-[10px] font-bold text-[#c69f6e]">DT</span>
                                                         </div>
@@ -4994,6 +5313,13 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                 onClose={() => setShowCalendar(false)}
                 value={date}
                 onChange={(d: string) => setDate(d)}
+            />
+
+            <TransferModal
+                isOpen={showReplaceDateModal}
+                onClose={() => setShowReplaceDateModal(false)}
+                value={replaceDateValue}
+                onConfirm={onConfirmReplaceDate}
             />
         </div >
     );
