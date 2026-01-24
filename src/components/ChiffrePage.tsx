@@ -389,7 +389,7 @@ const ADD_AVANCE = gql`
 }
 `;
 const DELETE_AVANCE = gql`
-  mutation DeleteAvance($id: Int!) { deleteAvance(id: $id) }
+  mutation DeleteAvance($id: String!) { deleteAvance(id: $id) }
 `;
 
 const ADD_DOUBLAGE = gql`
@@ -398,7 +398,7 @@ const ADD_DOUBLAGE = gql`
 }
 `;
 const DELETE_DOUBLAGE = gql`
-  mutation DeleteDoublage($id: Int!) { deleteDoublage(id: $id) }
+  mutation DeleteDoublage($id: String!) { deleteDoublage(id: $id) }
 `;
 
 const ADD_EXTRA = gql`
@@ -407,7 +407,7 @@ const ADD_EXTRA = gql`
 }
 `;
 const DELETE_EXTRA = gql`
-  mutation DeleteExtra($id: Int!) { deleteExtra(id: $id) }
+  mutation DeleteExtra($id: String!) { deleteExtra(id: $id) }
 `;
 
 const ADD_PRIME = gql`
@@ -416,7 +416,7 @@ const ADD_PRIME = gql`
 }
 `;
 const DELETE_PRIME = gql`
-  mutation DeletePrime($id: Int!) { deletePrime(id: $id) }
+  mutation DeletePrime($id: String!) { deletePrime(id: $id) }
 `;
 
 const ADD_RESTES_SALAIRES = gql`
@@ -425,7 +425,7 @@ const ADD_RESTES_SALAIRES = gql`
 }
 `;
 const DELETE_RESTES_SALAIRES = gql`
-  mutation DeleteRestesSalaires($id: Int!) { deleteRestesSalaires(id: $id) }
+  mutation DeleteRestesSalaires($id: String!) { deleteRestesSalaires(id: $id) }
 `;
 
 const CLEAR_CHIFFRE_DATA = gql`

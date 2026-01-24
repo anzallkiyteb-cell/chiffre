@@ -369,15 +369,22 @@ export default function CoutAchatPage() {
         const totalPaidUnified = topPaid.reduce((a, b) => a + b.amount, 0);
         const totalUnpaidUnified = topUnpaid.reduce((a, b) => a + b.amount, 0);
 
+        // Calculate stats from ALL paid invoices (fournisseur + divers)
+        const allPaidInvoicesForStats = paidInvoices;
+        const allUnpaidInvoicesForStats = unpaidInvoices;
+
         const stats = {
-            facturePaid: paidSupplierInvoices.filter((i: any) => (i.doc_type || '').toLowerCase() === 'facture').reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0),
-            factureUnpaid: unpaidSupplierInvoices.filter((i: any) => (i.doc_type || '').toLowerCase() === 'facture').reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0),
-            blPaid: paidSupplierInvoices.filter((i: any) => (i.doc_type || '').toLowerCase() === 'bl').reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0),
-            blUnpaid: unpaidSupplierInvoices.filter((i: any) => (i.doc_type || '').toLowerCase() === 'bl').reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0),
+            facturePaid: allPaidInvoicesForStats.filter((i: any) => (i.doc_type || '').toLowerCase() === 'facture').reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0),
+            factureUnpaid: allUnpaidInvoicesForStats.filter((i: any) => (i.doc_type || '').toLowerCase() === 'facture').reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0),
+            blPaid: allPaidInvoicesForStats.filter((i: any) => (i.doc_type || '').toLowerCase() === 'bl').reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0),
+            blUnpaid: allUnpaidInvoicesForStats.filter((i: any) => (i.doc_type || '').toLowerCase() === 'bl').reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0),
         };
 
-        const totalDivers = topDivers.reduce((a, b) => a + b.amount, 0);
-        const totalDirectManual = topFournisseurs.reduce((a, b) => a + b.amount, 0);
+        // Calculate totals for divers (only manual divers from diponce_divers, not from facturation)
+        const totalDivers = base.manualDiversOnly.reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0);
+
+        // Calculate totals for direct manual expenses (only from diponce, not facturation)
+        const totalDirectManual = base.allExpenses.reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0);
 
         return {
             fournisseurs: filterByName(topFournisseurs),

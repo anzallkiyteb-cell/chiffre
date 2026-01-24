@@ -1,6 +1,20 @@
 import { query } from '@/lib/db';
 import { beyQuery } from '@/lib/beyDb';
 
+const parseAmount = (val: any): number => {
+    if (val === null || val === undefined) return 0;
+    if (typeof val === 'number') return val;
+    const str = val.toString().trim().replace(/\s/g, '').replace(/,/g, '.');
+    // Handle multiple dots (e.g. 13.246.000 -> 13246.0)
+    const parts = str.split('.');
+    if (parts.length > 2) {
+        const decimalPart = parts.pop();
+        const integerPart = parts.join('');
+        return parseFloat(`${integerPart}.${decimalPart}`) || 0;
+    }
+    return parseFloat(str) || 0;
+};
+
 export const resolvers = {
     Query: {
         getChiffreByDate: async (_: any, { date: inputDate }: { date: string }) => {
@@ -41,7 +55,8 @@ export const resolvers = {
                     originalAmount: inv.original_amount || inv.amount
                 };
 
-                if (inv.category === 'divers') {
+                const catStr = (inv.category || '').toLowerCase();
+                if (catStr === 'divers') {
                     paidDivers.push(item);
                 } else {
                     paidSuppliers.push(item);
@@ -94,28 +109,28 @@ export const resolvers = {
 
             // Dynamic sums
             const sumDiponce = finalCombinedDiponce.reduce((s: number, i: any) => {
-                const val = parseFloat(i.amount);
+                const val = parseAmount(i.amount);
                 return s + (isNaN(val) ? 0 : val);
             }, 0);
 
             const sumDivers = finalCombinedDivers.reduce((s: number, i: any) => {
-                const val = parseFloat(i.amount);
+                const val = parseAmount(i.amount);
                 return s + (isNaN(val) ? 0 : val);
             }, 0);
 
             const sumAdmin = adminList.reduce((s: number, i: any) => {
-                const val = parseFloat(i.amount);
+                const val = parseAmount(i.amount);
                 return s + (isNaN(val) ? 0 : val);
             }, 0);
 
-            const sumFixes = dayAvances.reduce((s: number, r: any) => s + (parseFloat(r.montant) || 0), 0) +
-                dayDoublages.reduce((s: number, r: any) => s + (parseFloat(r.montant) || 0), 0) +
-                dayExtras.reduce((s: number, r: any) => s + (parseFloat(r.montant) || 0), 0) +
-                dayPrimes.reduce((s: number, r: any) => s + (parseFloat(r.montant) || 0), 0) +
-                dayRestesSalaires.reduce((s: number, r: any) => s + (parseFloat(r.montant) || 0), 0);
+            const sumFixes = dayAvances.reduce((s: number, r: any) => s + (parseAmount(r.montant) || 0), 0) +
+                dayDoublages.reduce((s: number, r: any) => s + (parseAmount(r.montant) || 0), 0) +
+                dayExtras.reduce((s: number, r: any) => s + (parseAmount(r.montant) || 0), 0) +
+                dayPrimes.reduce((s: number, r: any) => s + (parseAmount(r.montant) || 0), 0) +
+                dayRestesSalaires.reduce((s: number, r: any) => s + (parseAmount(r.montant) || 0), 0);
 
             const totalDiponceVal = sumDiponce + sumDivers + sumAdmin + sumFixes;
-            const recetteCaisseVal = parseFloat(existingData.recette_de_caisse || '0');
+            const recetteCaisseVal = parseAmount(existingData.recette_de_caisse || '0');
             const recetteNetVal = (isNaN(recetteCaisseVal) ? 0 : recetteCaisseVal) - totalDiponceVal;
 
             return {
@@ -196,28 +211,28 @@ export const resolvers = {
         },
         getChiffresByRange: async (_: any, { startDate, endDate }: { startDate: string, endDate: string }) => {
             const [res, avances, doublages, extras, primes, paidInvoicesRes, restesSalaires, allPaidInvoicesRes] = await Promise.all([
-                query('SELECT * FROM chiffres WHERE date >= $1 AND date <= $2 ORDER BY date ASC', [startDate, endDate]),
-                query('SELECT id, date, employee_name as username, montant FROM advances WHERE date >= $1 AND date <= $2 ORDER BY id DESC', [startDate, endDate]),
-                query('SELECT id, date, employee_name as username, montant FROM doublages WHERE date >= $1 AND date <= $2 ORDER BY id DESC', [startDate, endDate]),
-                query('SELECT id, date, employee_name as username, montant FROM extras WHERE date >= $1 AND date <= $2 ORDER BY id DESC', [startDate, endDate]),
-                query('SELECT id, date, employee_name as username, montant FROM primes WHERE date >= $1 AND date <= $2 ORDER BY id DESC', [startDate, endDate]),
-                query(`SELECT * FROM invoices WHERE status = 'paid' AND paid_date >= $1 AND paid_date <= $2 AND (payer IS NULL OR payer != 'riadh')`, [startDate, endDate]),
-                query('SELECT id, date, employee_name as username, montant, nb_jours, created_at FROM restes_salaires_daily WHERE date >= $1 AND date <= $2 ORDER BY id DESC', [startDate, endDate]),
-                query(`SELECT paid_date FROM invoices WHERE status = 'paid' AND paid_date >= $1 AND paid_date <= $2`, [startDate, endDate])
+                query('SELECT * FROM chiffres WHERE date::text >= $1 AND date::text <= $2 ORDER BY date::text ASC', [startDate, endDate]),
+                query('SELECT id, date, employee_name as username, montant, created_at FROM advances WHERE date::text >= $1 AND date::text <= $2 ORDER BY id DESC', [startDate, endDate]),
+                query('SELECT id, date, employee_name as username, montant, created_at FROM doublages WHERE date::text >= $1 AND date::text <= $2 ORDER BY id DESC', [startDate, endDate]),
+                query('SELECT id, date, employee_name as username, montant, created_at FROM extras WHERE date::text >= $1 AND date::text <= $2 ORDER BY id DESC', [startDate, endDate]),
+                query('SELECT id, date, employee_name as username, montant, created_at FROM primes WHERE date::text >= $1 AND date::text <= $2 ORDER BY id DESC', [startDate, endDate]),
+                query(`SELECT * FROM invoices WHERE status = 'paid' AND paid_date::text >= $1 AND paid_date::text <= $2`, [startDate, endDate]),
+                query('SELECT id, date, employee_name as username, montant, nb_jours, created_at FROM restes_salaires_daily WHERE date::text >= $1 AND date::text <= $2 ORDER BY id DESC', [startDate, endDate]),
+                query(`SELECT paid_date FROM invoices WHERE status = 'paid' AND paid_date::text >= $1 AND paid_date::text <= $2`, [startDate, endDate])
             ]);
 
             const normalizeDate = (d: any) => {
                 if (!d) return null;
-                try {
-                    const dateObj = new Date(d);
-                    if (isNaN(dateObj.getTime())) return null;
-                    const y = dateObj.getFullYear();
-                    const mn = String(dateObj.getMonth() + 1).padStart(2, '0');
-                    const dy = String(dateObj.getDate()).padStart(2, '0');
+                if (d instanceof Date) {
+                    const y = d.getFullYear();
+                    const mn = String(d.getMonth() + 1).padStart(2, '0');
+                    const dy = String(d.getDate()).padStart(2, '0');
                     return `${y}-${mn}-${dy}`;
-                } catch (e) {
-                    return null;
                 }
+                const str = d.toString().trim();
+                // If it's YYYY-MM-DD or similar, just take the date part
+                if (str.length >= 10) return str.substring(0, 10).replace(/\//g, '-');
+                return str;
             };
 
             // Create a unique set of all dates that have any activity
@@ -249,10 +264,13 @@ export const resolvers = {
                     }
 
                     paidInvoicesByDate[d].push({
+                        id: inv.id,
                         supplier: inv.supplier_name,
+                        supplier_name: inv.supplier_name,
                         designation: inv.supplier_name,
                         amount: inv.amount,
                         paymentMethod: inv.payment_method,
+                        payer: inv.payer,
                         invoices: photos,
                         photo_cheque: inv.photo_cheque_url,
                         photo_verso: inv.photo_verso_url,
@@ -297,8 +315,26 @@ export const resolvers = {
                 const dayPrimes = primes.rows.filter(r => normalizeDate(r.date) === dayStr);
                 const dayRestesSalaires = restesSalaires.rows.filter(r => normalizeDate(r.date) === dayStr);
                 const dayPaidInvoices = paidInvoicesByDate[dayStr] || [];
-                const dayPaidSuppliers = dayPaidInvoices.filter((inv: any) => !inv.category || inv.category === 'fournisseur');
-                const dayPaidDivers = dayPaidInvoices.filter((inv: any) => inv.category === 'divers');
+                const dayPaidSuppliers = dayPaidInvoices.filter((inv: any) => {
+                    const c = (inv.category || '').toLowerCase();
+                    return inv.payer !== 'riadh' && (!c || c === 'fournisseur');
+                });
+                const dayPaidDivers = dayPaidInvoices.filter((inv: any) => {
+                    const c = (inv.category || '').toLowerCase();
+                    return inv.payer !== 'riadh' && c === 'divers';
+                });
+                const dayPaidAdmin = dayPaidInvoices.filter((inv: any) => {
+                    const c = (inv.category || '').toLowerCase();
+                    return inv.payer !== 'riadh' && c === 'administratif';
+                });
+                const dayPaidExtras = dayPaidInvoices.filter((inv: any) => {
+                    const c = (inv.category || '').toLowerCase();
+                    return inv.payer !== 'riadh' && c === 'extra';
+                });
+                const dayPaidPrimes = dayPaidInvoices.filter((inv: any) => {
+                    const c = (inv.category || '').toLowerCase();
+                    return inv.payer !== 'riadh' && c === 'prime';
+                });
 
                 let diponceList: any[] = [];
                 try {
@@ -315,27 +351,47 @@ export const resolvers = {
                 // Combine with paid invoices from facturation
                 const combinedDiponce = [...diponceList, ...dayPaidSuppliers];
                 const combinedDivers = [...diversList, ...dayPaidDivers];
+                const combinedAdmin = [...adminList, ...dayPaidAdmin];
 
-                const sumDiponce = combinedDiponce.reduce((s: number, i: any) => s + (parseFloat(i.amount) || 0), 0);
-                const sumDivers = combinedDivers.reduce((s: number, i: any) => s + (parseFloat(i.amount) || 0), 0);
-                const sumAdmin = adminList.reduce((s: number, i: any) => s + (parseFloat(i.amount) || 0), 0);
-                const totalDiponce = sumDiponce + sumDivers + sumAdmin + dayAvances.reduce((s, r) => s + (parseFloat(r.montant) || 0), 0) + dayDoublages.reduce((s, r) => s + (parseFloat(r.montant) || 0), 0) + dayExtras.reduce((s, r) => s + (parseFloat(r.montant) || 0), 0) + dayPrimes.reduce((s, r) => s + (parseFloat(r.montant) || 0), 0) + dayRestesSalaires.reduce((s, r) => s + (parseFloat(r.montant) || 0), 0);
-                const recetteCaisse = parseFloat(row.recette_de_caisse) || 0;
+                const dayAvancesFinal = dayAvances.map(r => ({ id: `adv_${r.id}`, username: r.username, montant: parseAmount(r.montant || '0'), date: normalizeDate(r.date), created_at: r.created_at }));
+                const dayDoublagesFinal = dayDoublages.map(r => ({ id: `doub_${r.id}`, username: r.username, montant: parseAmount(r.montant || '0'), date: normalizeDate(r.date), created_at: r.created_at }));
+                const dayExtrasFinal = [
+                    ...dayExtras.map(r => ({ id: `ext_${r.id}`, username: r.username, montant: parseAmount(r.montant || '0'), date: normalizeDate(r.date), created_at: r.created_at })),
+                    ...dayPaidExtras.map(inv => ({ id: inv.id, username: inv.supplier_name, montant: parseAmount(inv.amount), date: dayStr, isFromFacturation: true }))
+                ];
+                const dayPrimesFinal = [
+                    ...dayPrimes.map(r => ({ id: `prm_${r.id}`, username: r.username, montant: parseAmount(r.montant || '0'), date: normalizeDate(r.date), created_at: r.created_at })),
+                    ...dayPaidPrimes.map(inv => ({ id: inv.id, username: inv.supplier_name, montant: parseAmount(inv.amount), date: dayStr, isFromFacturation: true }))
+                ];
+                const dayRestesSalairesFinal = dayRestesSalaires.map(r => ({ id: `rem_${r.id}`, username: r.username, montant: parseAmount(r.montant || '0'), nb_jours: r.nb_jours ? parseAmount(r.nb_jours) : 0, date: normalizeDate(r.date), created_at: r.created_at }));
+
+                const sumDiponce = combinedDiponce.reduce((s: number, i: any) => s + (parseAmount(i.amount) || 0), 0);
+                const sumDivers = combinedDivers.reduce((s: number, i: any) => s + (parseAmount(i.amount) || 0), 0);
+                const sumAdmin = combinedAdmin.reduce((s: number, i: any) => s + (parseAmount(i.amount) || 0), 0);
+                const sumEx = dayExtrasFinal.reduce((s, r) => s + (r.montant || 0), 0);
+
+                const totalDiponce = sumDiponce + sumDivers + sumAdmin +
+                    dayAvancesFinal.reduce((s, r) => s + (r.montant || 0), 0) +
+                    dayDoublagesFinal.reduce((s, r) => s + (r.montant || 0), 0) +
+                    sumEx +
+                    dayPrimesFinal.reduce((s, r) => s + (r.montant || 0), 0) +
+                    dayRestesSalairesFinal.reduce((s, r) => s + (r.montant || 0), 0);
+                const recetteCaisse = parseAmount(row.recette_de_caisse) || 0;
                 const recetteNet = recetteCaisse - totalDiponce;
 
                 return {
                     ...row,
-                    is_locked: row.is_locked,
-                    total_diponce: totalDiponce.toString(),
-                    recette_net: recetteNet.toString(),
+                    is_locked: !!row.is_locked,
+                    total_diponce: totalDiponce.toFixed(3),
+                    recette_net: recetteNet.toFixed(3),
                     diponce: JSON.stringify(combinedDiponce),
                     diponce_divers: JSON.stringify(combinedDivers),
-                    diponce_admin: typeof row.diponce_admin === 'string' ? row.diponce_admin : JSON.stringify(row.diponce_admin || []),
-                    avances_details: dayAvances.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant || '0'), date: r.date, created_at: r.created_at })),
-                    doublages_details: dayDoublages.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant || '0'), date: r.date, created_at: r.created_at })),
-                    extras_details: dayExtras.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant || '0'), date: r.date, created_at: r.created_at })),
-                    primes_details: dayPrimes.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant || '0'), date: r.date, created_at: r.created_at })),
-                    restes_salaires_details: dayRestesSalaires.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant || '0'), nb_jours: r.nb_jours ? parseFloat(r.nb_jours) : 0, date: r.date, created_at: r.created_at }))
+                    diponce_admin: JSON.stringify(combinedAdmin),
+                    avances_details: dayAvancesFinal,
+                    doublages_details: dayDoublagesFinal,
+                    extras_details: dayExtrasFinal,
+                    primes_details: dayPrimesFinal,
+                    restes_salaires_details: dayRestesSalairesFinal
                 };
             });
         },
@@ -443,52 +499,67 @@ export const resolvers = {
                 dateFilter = "LIKE $1";
             } else if (startDate && endDate) {
                 params.push(startDate, endDate);
-                dateFilter = ">= $1 AND date <= $2";
+                dateFilter = ">= $1 AND date::text <= $2"; // Ensure both parts cast correctly
             } else {
                 return { totalRecetteNette: 0, totalFacturesPayees: 0, totalTPE: 0, totalCheque: 0, totalCash: 0, totalBankDeposits: 0 };
             }
 
-            const paidDateFilter = filterBy === 'date' ? dateFilter : dateFilter.replace('date', 'paid_date');
+            const paidDateFilter = (filterBy === 'date') ? dateFilter : dateFilter.replace(/date/g, 'paid_date');
+            const cleanNum = (col: string) => `CAST(COALESCE(NULLIF(REGEXP_REPLACE(REPLACE(${col}, ',', '.'), '\\s+', '', 'g'), ''), '0') AS NUMERIC)`;
 
-            const [netRes, invoicesRes, unpaidInvoicesRes, tpeRes, chequeRes, cashRes, bankRes, caisseRes, expRes, ticketRes, riadhRes, restesSalairesRes, offresRes, cashExpRes, ticketExpRes] = await Promise.all([
-                query(`SELECT SUM(CAST(NULLIF(REPLACE(recette_net, ',', '.'), '') AS NUMERIC)) as total FROM chiffres WHERE date ${dateFilter}`, params),
-                query(`SELECT SUM(CAST(NULLIF(REPLACE(amount, ',', '.'), '') AS NUMERIC)) as total FROM invoices WHERE status = 'paid' AND (payer IS NULL OR payer != 'riadh') AND ${filterBy === 'date' ? 'date' : 'paid_date'} ${paidDateFilter}`, params),
-                query(`SELECT SUM(CAST(NULLIF(REPLACE(amount, ',', '.'), '') AS NUMERIC)) as total FROM invoices WHERE status = 'unpaid' AND date ${dateFilter}`, params),
-                query(`SELECT SUM(CAST(NULLIF(REPLACE(tpe, ',', '.'), '') AS NUMERIC) + COALESCE(CAST(NULLIF(REPLACE(tpe2, ',', '.'), '') AS NUMERIC), 0)) as total FROM chiffres WHERE date ${dateFilter}`, params),
-                query(`SELECT SUM(CAST(NULLIF(REPLACE(cheque_bancaire, ',', '.'), '') AS NUMERIC)) as total FROM chiffres WHERE date ${dateFilter}`, params),
-                query(`SELECT SUM(CAST(NULLIF(REPLACE(espaces, ',', '.'), '') AS NUMERIC)) as total FROM chiffres WHERE date ${dateFilter}`, params),
-                query(`SELECT SUM(CAST(NULLIF(REPLACE(amount, ',', '.'), '') AS NUMERIC)) as total FROM bank_deposits WHERE date ${dateFilter}`, params),
-                query(`SELECT SUM(CAST(NULLIF(REPLACE(recette_de_caisse, ',', '.'), '') AS NUMERIC)) as total FROM chiffres WHERE date ${dateFilter}`, params),
-                query(`SELECT SUM(CAST(NULLIF(REPLACE(total_diponce, ',', '.'), '') AS NUMERIC)) as total FROM chiffres WHERE date ${dateFilter}`, params),
-                query(`SELECT SUM(CAST(NULLIF(REPLACE(tickets_restaurant, ',', '.'), '') AS NUMERIC)) as total FROM chiffres WHERE date ${dateFilter}`, params),
-                query(`SELECT SUM(CAST(NULLIF(REPLACE(amount, ',', '.'), '') AS NUMERIC)) as total FROM invoices WHERE status = 'paid' AND payer = 'riadh' AND ${filterBy === 'date' ? 'date' : 'paid_date'} ${paidDateFilter}`, params),
+            const [
+                netRes, invoicesRes, unpaidInvoicesRes, tpeRes, chequeRes, cashRes, bankRes, caisseRes, ticketRes, riadhRes,
+                advancesRes, doublagesRes, extrasRes, primesRes, dailyRemaindersRes, currentSalaryRemaindersRes, offresRes, cashExpRes, ticketExpRes
+            ] = await Promise.all([
+                query(`SELECT SUM(${cleanNum('recette_net')}) as total FROM chiffres WHERE date::text ${dateFilter}`, params),
+                query(`SELECT SUM(${cleanNum('amount')}) as total FROM invoices WHERE status = 'paid' AND (payer IS NULL OR payer != 'riadh') AND ${filterBy === 'date' ? 'date' : 'paid_date'}::text ${paidDateFilter}`, params),
+                query(`SELECT SUM(${cleanNum('amount')}) as total FROM invoices WHERE status = 'unpaid' AND date::text ${dateFilter}`, params),
+                query(`SELECT SUM(${cleanNum('tpe')} + COALESCE(${cleanNum('tpe2')}, 0)) as total FROM chiffres WHERE date::text ${dateFilter}`, params),
+                query(`SELECT SUM(${cleanNum('cheque_bancaire')}) as total FROM chiffres WHERE date::text ${dateFilter}`, params),
+                query(`SELECT SUM(${cleanNum('espaces')}) as total FROM chiffres WHERE date::text ${dateFilter}`, params),
+                query(`SELECT SUM(${cleanNum('amount')}) as total FROM bank_deposits WHERE date::text ${dateFilter}`, params),
+                query(`SELECT SUM(${cleanNum('recette_de_caisse')}) as total FROM chiffres WHERE date::text ${dateFilter}`, params),
+                query(`SELECT SUM(${cleanNum('tickets_restaurant')}) as total FROM chiffres WHERE date::text ${dateFilter}`, params),
+                query(`SELECT SUM(${cleanNum('amount')}) as total FROM invoices WHERE status = 'paid' AND payer = 'riadh' AND ${filterBy === 'date' ? 'date' : 'paid_date'}::text ${paidDateFilter}`, params),
+                // Independent Expense Tables
+                query(`SELECT SUM(montant) as total FROM advances WHERE date::text ${dateFilter}`, params),
+                query(`SELECT SUM(montant) as total FROM doublages WHERE date::text ${dateFilter}`, params),
+                query(`SELECT SUM(montant) as total FROM extras WHERE date::text ${dateFilter}`, params),
+                query(`SELECT SUM(montant) as total FROM primes WHERE date::text ${dateFilter}`, params),
                 query(`SELECT SUM(montant) as total FROM restes_salaires_daily WHERE date::text ${dateFilter}`, params),
-                query(`SELECT SUM(CAST(NULLIF(REPLACE(offres, ',', '.'), '') AS NUMERIC)) as total FROM chiffres WHERE date ${dateFilter}`, params),
-                // Only subtract expenses that are NOT from daily sheets (to avoid double deduction since 'espaces' is already net of daily sheet expenses)
-                // We remove the (payer != 'riadh') filter because any expense paid from cash/tickets should reduce the physical balance.
-                query(`SELECT SUM(CAST(NULLIF(REPLACE(amount, ',', '.'), '') AS NUMERIC)) as total FROM invoices WHERE status = 'paid' AND payment_method = 'Espèces' AND origin != 'daily_sheet' AND ${filterBy === 'date' ? 'date' : 'paid_date'} ${paidDateFilter}`, params),
-                query(`SELECT SUM(CAST(NULLIF(REPLACE(amount, ',', '.'), '') AS NUMERIC)) as total FROM invoices WHERE status = 'paid' AND payment_method = 'Ticket Restaurant' AND origin != 'daily_sheet' AND ${filterBy === 'date' ? 'date' : 'paid_date'} ${paidDateFilter}`, params)
+                query(`SELECT SUM(amount) as total FROM salary_remainders ${month ? "WHERE month = $1" : ""}`, month ? [month] : []),
+                query(`SELECT SUM(${cleanNum('offres')}) as total FROM chiffres WHERE date::text ${dateFilter}`, params),
+                query(`SELECT SUM(${cleanNum('amount')}) as total FROM invoices WHERE status = 'paid' AND payment_method = 'Espèces' AND origin != 'daily_sheet' AND ${filterBy === 'date' ? 'date' : 'paid_date'}::text ${paidDateFilter}`, params),
+                query(`SELECT SUM(${cleanNum('amount')}) as total FROM invoices WHERE status = 'paid' AND payment_method = 'Ticket Restaurant' AND origin != 'daily_sheet' AND ${filterBy === 'date' ? 'date' : 'paid_date'}::text ${paidDateFilter}`, params)
             ]);
 
             const tBankDeposits = parseFloat(bankRes.rows[0]?.total || '0');
-            const tCash = parseFloat(cashRes.rows[0]?.total || '0');
-            const tCashExp = parseFloat(cashExpRes.rows[0]?.total || '0');
-            const tTicketExp = parseFloat(ticketExpRes.rows[0]?.total || '0');
+            const sumSuppliers = parseFloat(invoicesRes.rows[0]?.total || '0');
+            const sumRiadh = parseFloat(riadhRes.rows[0]?.total || '0');
+            const sumAdvances = parseFloat(advancesRes.rows[0]?.total || '0');
+            const sumDoublage = parseFloat(doublagesRes.rows[0]?.total || '0');
+            const sumExtras = parseFloat(extrasRes.rows[0]?.total || '0');
+            const sumPrimes = parseFloat(primesRes.rows[0]?.total || '0');
+            const sumRemainders = parseFloat(dailyRemaindersRes.rows[0]?.total || '0');
+
+            const totalPersonnel = sumAdvances + sumDoublage + sumExtras + sumPrimes + sumRemainders;
+            const tExpenses = sumSuppliers + totalPersonnel + sumRiadh;
 
             return {
                 totalRecetteNette: parseFloat(netRes.rows[0]?.total || '0'),
-                totalFacturesPayees: parseFloat(invoicesRes.rows[0]?.total || '0'),
+                totalFacturesPayees: sumSuppliers,
                 totalUnpaidInvoices: parseFloat(unpaidInvoicesRes.rows[0]?.total || '0'),
                 totalTPE: parseFloat(tpeRes.rows[0]?.total || '0'),
                 totalCheque: parseFloat(chequeRes.rows[0]?.total || '0'),
-                totalCash: tCash - tCashExp, // Removed bank deposits subtraction as espaces is already a net adjustment
+                totalCash: parseFloat(cashRes.rows[0]?.total || '0') - parseFloat(cashExpRes.rows[0]?.total || '0'),
                 totalBankDeposits: tBankDeposits,
                 totalRecetteCaisse: parseFloat(caisseRes.rows[0]?.total || '0'),
-                totalExpenses: parseFloat(expRes.rows[0]?.total || '0'),
-                totalTicketsRestaurant: parseFloat(ticketRes.rows[0]?.total || '0') - tTicketExp,
-                totalRiadhExpenses: parseFloat(riadhRes.rows[0]?.total || '0'),
-                totalRestesSalaires: parseFloat(restesSalairesRes.rows[0]?.total || '0'),
-                totalOffres: parseFloat(offresRes.rows[0]?.total || '0')
+                totalExpenses: tExpenses,
+                totalTicketsRestaurant: parseFloat(ticketRes.rows[0]?.total || '0') - parseFloat(ticketExpRes.rows[0]?.total || '0'),
+                totalRiadhExpenses: sumRiadh,
+                totalRestesSalaires: sumRemainders,
+                totalOffres: parseFloat(offresRes.rows[0]?.total || '0'),
+                totalSalaryRemainders: parseFloat(currentSalaryRemaindersRes.rows[0]?.total || '0')
             };
         },
         getBankDeposits: async (_: any, { month, startDate, endDate }: { month?: string, startDate?: string, endDate?: string }) => {
@@ -978,7 +1049,7 @@ export const resolvers = {
                     doc_number: inv.doc_number
                 };
 
-                if (inv.category === 'divers') {
+                if ((inv.category || '').toLowerCase() === 'divers') {
                     paidDivers.push(item);
                 } else {
                     paidSuppliers.push(item);
@@ -1172,7 +1243,8 @@ export const resolvers = {
             return { ...row, montant: parseFloat(row.montant) };
         },
         deleteAvance: async (_: any, { id }: any) => {
-            await query('DELETE FROM advances WHERE id = $1', [id]);
+            const realId = id.toString().includes('_') ? id.split('_')[1] : id;
+            await query('DELETE FROM advances WHERE id = $1', [realId]);
             return true;
         },
         addDoublage: async (_: any, { username, amount, date }: any) => {
@@ -1181,7 +1253,8 @@ export const resolvers = {
             return { ...row, montant: parseFloat(row.montant) };
         },
         deleteDoublage: async (_: any, { id }: any) => {
-            await query('DELETE FROM doublages WHERE id = $1', [id]);
+            const realId = id.toString().includes('_') ? id.split('_')[1] : id;
+            await query('DELETE FROM doublages WHERE id = $1', [realId]);
             return true;
         },
         addExtra: async (_: any, { username, amount, date }: any) => {
@@ -1190,7 +1263,8 @@ export const resolvers = {
             return { ...row, montant: parseFloat(row.montant) };
         },
         deleteExtra: async (_: any, { id }: any) => {
-            await query('DELETE FROM extras WHERE id = $1', [id]);
+            const realId = id.toString().includes('_') ? id.split('_')[1] : id;
+            await query('DELETE FROM extras WHERE id = $1', [realId]);
             return true;
         },
         addPrime: async (_: any, { username, amount, date }: any) => {
@@ -1199,7 +1273,8 @@ export const resolvers = {
             return { ...row, montant: parseFloat(row.montant) };
         },
         deletePrime: async (_: any, { id }: any) => {
-            await query('DELETE FROM primes WHERE id = $1', [id]);
+            const realId = id.toString().includes('_') ? id.split('_')[1] : id;
+            await query('DELETE FROM primes WHERE id = $1', [realId]);
             return true;
         },
         addRestesSalaires: async (_: any, { username, amount, nb_jours, date }: any) => {
@@ -1216,8 +1291,9 @@ export const resolvers = {
             const res = await query('INSERT INTO restes_salaires_daily (employee_name, montant, nb_jours, date) VALUES ($1, $2, $3, $4) RETURNING id, employee_name as username, montant, nb_jours, date, created_at', [username, amount, nb_jours || 0, date]);
             return { ...res.rows[0], montant: parseFloat(res.rows[0].montant), nb_jours: parseFloat(res.rows[0].nb_jours), created_at: res.rows[0].created_at };
         },
-        deleteRestesSalaires: async (_: any, { id }: { id: number }) => {
-            await query('DELETE FROM restes_salaires_daily WHERE id = $1', [id]);
+        deleteRestesSalaires: async (_: any, { id }: any) => {
+            const realId = id.toString().includes('_') ? id.split('_')[1] : id;
+            await query('DELETE FROM restes_salaires_daily WHERE id = $1', [realId]);
             return true;
         },
         upsertSalaryRemainder: async (_: any, { employee_name, amount, month, status }: any) => {

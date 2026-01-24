@@ -353,8 +353,11 @@ export default function DashboardPage() {
             groupedPrimes.reduce((a: number, b: any) => a + b.amount, 0) +
             groupedRestesSalaires.reduce((a: number, b: any) => a + b.amount, 0);
 
+        const totalOffres = groupedOffres.reduce((a: number, b: any) => a + b.amount, 0);
+
         return {
             ...base,
+            offres: totalOffres, // Override base.offres with accurate sum from details
             groupedExpenses, groupedDivers, groupedAdmin, groupedOffres,
             groupedAvances, groupedDoublages, groupedExtras, groupedPrimes, groupedRestesSalaires,
             totalGeneralExpenses, totalEmployeeExpenses

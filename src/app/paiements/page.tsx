@@ -783,7 +783,17 @@ export default function PaiementsPage() {
     const safeParse = (val: any) => {
         if (!val) return 0;
         if (typeof val === 'number') return val;
-        const clean = val.toString().replace(/\s/g, '').replace(',', '.');
+        // Handle strings: remove all whitespace and replace all commas with dots
+        const clean = val.toString().trim().replace(/\s/g, '').replace(/,/g, '.');
+        // If there are multiple dots (e.g. from mixed format), try to handle it
+        // A common issue: 13.246.500 -> parseFloat takes 13.246
+        const parts = clean.split('.');
+        if (parts.length > 2) {
+            // Probably thousands separators are dots. Take everything but last as thousands.
+            const decimalPart = parts.pop();
+            const integerPart = parts.join('');
+            return parseFloat(`${integerPart}.${decimalPart}`) || 0;
+        }
         return parseFloat(clean) || 0;
     };
 
@@ -820,15 +830,37 @@ export default function PaiementsPage() {
             .filter((inv: any) => inv.status === 'paid' && inv.payment_method === 'Ticket Restaurant' && (inv.origin !== 'daily_sheet'))
             .reduce((acc: number, inv: any) => acc + safeParse(inv.amount), 0);
 
-        const aggregated = source.reduce((acc: any, curr: any) => ({
-            chiffreAffaire: acc.chiffreAffaire + safeParse(curr.recette_de_caisse),
-            reste: acc.reste + safeParse(curr.recette_net),
-            cash: acc.cash + safeParse(curr.espaces),
-            tpe: acc.tpe + safeParse(curr.tpe) + safeParse(curr.tpe2),
-            cheque: acc.cheque + safeParse(curr.cheque_bancaire),
-            tickets: acc.tickets + safeParse(curr.tickets_restaurant),
-            expenses: acc.expenses + safeParse(curr.total_diponce)
-        }), { chiffreAffaire: 0, reste: 0, cash: 0, tpe: 0, cheque: 0, tickets: 0, expenses: 0 });
+        const aggregated = source.reduce((acc: any, curr: any) => {
+            // Recalculate components locally for maximum accuracy
+            const getSum = (jsonStr: string) => {
+                try {
+                    return JSON.parse(jsonStr || '[]').reduce((s: number, i: any) => s + safeParse(i.amount), 0);
+                } catch (e) { return 0; }
+            };
+
+            const sumD = getSum(curr.diponce);
+            const sumV = getSum(curr.diponce_divers);
+            const sumA = getSum(curr.diponce_admin);
+            const sumPersonnel =
+                (curr.avances_details || []).reduce((s: number, r: any) => s + safeParse(r.montant), 0) +
+                (curr.doublages_details || []).reduce((s: number, r: any) => s + safeParse(r.montant), 0) +
+                (curr.extras_details || []).reduce((s: number, r: any) => s + safeParse(r.montant), 0) +
+                (curr.primes_details || []).reduce((s: number, r: any) => s + safeParse(r.montant), 0) +
+                (curr.restes_salaires_details || []).reduce((s: number, r: any) => s + safeParse(r.montant), 0);
+
+            const realTotalDiponce = Number((sumD + sumV + sumA + sumPersonnel).toFixed(3));
+            const currentCA = safeParse(curr.recette_de_caisse);
+
+            return {
+                chiffreAffaire: acc.chiffreAffaire + currentCA,
+                reste: acc.reste + (currentCA - realTotalDiponce),
+                cash: acc.cash + safeParse(curr.espaces),
+                tpe: acc.tpe + safeParse(curr.tpe) + safeParse(curr.tpe2),
+                cheque: acc.cheque + safeParse(curr.cheque_bancaire),
+                tickets: acc.tickets + safeParse(curr.tickets_restaurant),
+                expenses: acc.expenses + realTotalDiponce
+            };
+        }, { chiffreAffaire: 0, reste: 0, cash: 0, tpe: 0, cheque: 0, tickets: 0, expenses: 0 });
 
         const pendingRemaindersTotal = (payerType === 'riadh') ? 0 : (data?.getSalaryRemainders || []).reduce((acc: number, r: any) => acc + safeParse(r.amount), 0);
         const bankDepositsTotal = (payerType === 'riadh') ? 0 : (data?.getBankDeposits || []).reduce((acc: number, d: any) => acc + safeParse(d.amount), 0);
@@ -1015,10 +1047,19 @@ export default function PaiementsPage() {
             const a_raw: any[] = [];
             try { a_raw.push(...JSON.parse(curr.diponce_admin || '[]')); } catch (e) { }
 
-            // Distribute merged items from d_raw if they have a specific category
-            const f_final = [...d_raw.filter(i => !i.isFromFacturation || (i.category !== 'Divers' && i.category !== 'Administratif'))];
-            const v_final = [...v_raw, ...d_raw.filter(i => i.isFromFacturation && i.category === 'Divers')];
-            const a_final = [...a_raw, ...d_raw.filter(i => i.isFromFacturation && i.category === 'Administratif')];
+            // Distribute merged items from d_raw if they have a specific category (case-insensitive)
+            const f_final = [...d_raw.filter(i => {
+                const cat = (i.category || '').toLowerCase();
+                return !i.isFromFacturation || (cat !== 'divers' && cat !== 'administratif');
+            })];
+            const v_final = [...v_raw, ...d_raw.filter(i => {
+                const cat = (i.category || '').toLowerCase();
+                return i.isFromFacturation && cat === 'divers';
+            })];
+            const a_final = [...a_raw, ...d_raw.filter(i => {
+                const cat = (i.category || '').toLowerCase();
+                return i.isFromFacturation && cat === 'administratif';
+            })];
 
             return {
                 ...acc,
@@ -1069,6 +1110,7 @@ export default function PaiementsPage() {
             }
             if (invPhotos.length === 0 && inv.photo_url) invPhotos = [inv.photo_url];
 
+            const catStr = (inv.category || '').toLowerCase();
             const item = {
                 supplier: inv.supplier_name,
                 designation: inv.supplier_name,
@@ -1087,34 +1129,39 @@ export default function PaiementsPage() {
                 paid_date: inv.paid_date,
                 details: inv.details
             };
-            if (inv.category === 'Divers') agg.divers.push(item);
-            else if (inv.category === 'Administratif') agg.administratif.push(item);
+
+            if (catStr === 'divers') agg.divers.push(item);
+            else if (catStr === 'administratif') agg.administratif.push(item);
             else agg.fournisseurs.push(item);
         });
 
-        // Invoices are already merged in the backend via getChiffresByRange.
-        // Manual merging is removed to prevent double counting.
-
         const groupingFunction = (list: any[], nameKey: string, amountKey: string) => {
-            const map = new Map<string, { total: number, items: any[] }>();
+            const map = new Map<string, { total: number, items: any[], rawName: string }>();
             list.forEach(item => {
-                const name = item[nameKey];
-                if (!name) return;
-                const amt = parseFloat(item[amountKey] || '0');
-                if (!map.has(name)) map.set(name, { total: 0, items: [] });
-                const current = map.get(name)!;
-                current.total += amt;
+                // Robust name normalization: Trim and Uppercase for grouping key
+                // but keep original display name for the first occurrence
+                const originalName = (item[nameKey] || (nameKey === 'supplier' ? 'Fournisseur Inconnu' : 'Divers / Inconnu')).toString();
+                const groupKey = originalName.trim().toUpperCase();
+
+                const amt = safeParse(item[amountKey] || '0');
+                if (!map.has(groupKey)) {
+                    map.set(groupKey, { total: 0, items: [], rawName: originalName });
+                }
+
+                const current = map.get(groupKey)!;
+                current.total = Number((current.total + amt).toFixed(3));
                 current.items.push({
                     ...item,
                     amount: amt,
                     date: item.date || item.created_at || item.updated_at
                 });
             });
+
             return Array.from(map.entries())
-                .map(([name, d]) => ({
-                    name,
+                .map(([key, d]) => ({
+                    name: d.rawName, // Use the raw name for display
                     amount: d.total,
-                    items: d.items.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                    items: d.items.sort((a: any, b: any) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime())
                 }))
                 .filter(x => x.amount > 0)
                 .sort((a, b) => b.amount - a.amount);

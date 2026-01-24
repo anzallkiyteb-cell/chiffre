@@ -7,7 +7,7 @@ export const typeDefs = `#graphql
   }
 
   type DetailItem {
-    id: Int
+    id: String
     username: String
     montant: Float
     nb_jours: Float
@@ -298,19 +298,19 @@ export const typeDefs = `#graphql
     deleteEmployee(id: Int!): Boolean
 
     addAvance(username: String!, amount: Float!, date: String!): DetailItem
-    deleteAvance(id: Int!): Boolean
+    deleteAvance(id: String!): Boolean
 
     addDoublage(username: String!, amount: Float!, date: String!): DetailItem
-    deleteDoublage(id: Int!): Boolean
+    deleteDoublage(id: String!): Boolean
 
     addExtra(username: String!, amount: Float!, date: String!): DetailItem
-    deleteExtra(id: Int!): Boolean
+    deleteExtra(id: String!): Boolean
 
     addPrime(username: String!, amount: Float!, date: String!): DetailItem
-    deletePrime(id: Int!): Boolean
+    deletePrime(id: String!): Boolean
 
     addRestesSalaires(username: String!, amount: Float!, nb_jours: Float, date: String!): DetailItem
-    deleteRestesSalaires(id: Int!): Boolean
+    deleteRestesSalaires(id: String!): Boolean
     
     upsertSalaryRemainder(employee_name: String!, amount: Float!, month: String!, status: String): SalaryRemainder
     deleteSalaryRemainder(id: Int!): Boolean
