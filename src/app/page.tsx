@@ -308,6 +308,10 @@ const CHECK_SESSION = gql`
   query CheckSession($startDate: String!, $endDate: String!) {
     getChiffresByRange(startDate: $startDate, endDate: $endDate) {
       date
+      recette_de_caisse
+      diponce
+      diponce_divers
+      diponce_admin
     }
   }
 `;
@@ -350,8 +354,8 @@ export default function Home() {
   const targetDateStr = useMemo(() => {
     const now = new Date();
     const targetDate = new Date(now);
-    // If before 08:00 AM, check for yesterday
-    if (now.getHours() < 8) {
+    // If before 07:00 AM, check for yesterday
+    if (now.getHours() < 7) {
       targetDate.setDate(now.getDate() - 1);
     }
     const y = targetDate.getFullYear();
@@ -365,7 +369,21 @@ export default function Home() {
     fetchPolicy: 'network-only'
   });
 
-  const isSessionSaved = sessionData?.getChiffresByRange?.length > 0;
+  const isSessionSaved = useMemo(() => {
+    if (!sessionData?.getChiffresByRange || sessionData.getChiffresByRange.length === 0) {
+      return false;
+    }
+
+    const session = sessionData.getChiffresByRange[0];
+
+    // Check if any meaningful data has been saved
+    const hasRecette = session.recette_de_caisse && parseFloat(session.recette_de_caisse) > 0;
+    const hasDiponce = session.diponce && parseFloat(session.diponce) > 0;
+    const hasDiponceDivers = session.diponce_divers && parseFloat(session.diponce_divers) > 0;
+    const hasDiponceAdmin = session.diponce_admin && parseFloat(session.diponce_admin) > 0;
+
+    return hasRecette || hasDiponce || hasDiponceDivers || hasDiponceAdmin;
+  }, [sessionData]);
 
   const [checkStatus] = useLazyQuery(gql`
     query CheckUserStatus {
@@ -909,43 +927,19 @@ export default function Home() {
   // Show blocked screen when system is blocked (no login possible)
   if (isSystemBlocked) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 md:p-8 bg-[#1a110a]">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-[1000px] bg-transparent rounded-[2.5rem] overflow-hidden min-h-[600px] relative"
-        >
-          <div className="flex flex-col items-center justify-center relative p-12 bg-[#3d2a1d] rounded-[3rem] text-white overflow-hidden h-full min-h-[600px]">
-            {/* Watermark "B" */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.03] select-none">
-              <span className="text-[600px] font-black leading-none mt-[-50px]">B</span>
-            </div>
-
-            <div className="absolute inset-0 opacity-[0.08] bg-[url('/logo.jpeg')] bg-cover bg-center grayscale mix-blend-luminosity"></div>
-            <div className="absolute inset-0 bg-gradient-to-br from-[#4a3426] to-[#2a1a10]"></div>
-
-            <div className="relative z-10 text-center space-y-12 w-full flex flex-col items-center">
-              <motion.div
-                initial={{ rotate: -10, scale: 0.9 }}
-                animate={{ rotate: 0, scale: 1 }}
-                transition={{ type: "spring", damping: 12 }}
-                className="w-48 h-48 relative rounded-[2.5rem] p-1 bg-white/10 backdrop-blur-md ring-1 ring-white/20 shadow-2xl"
-              >
-                <div className="absolute inset-0 rounded-[2.3rem] overflow-hidden">
-                  <Image src="/logo.jpeg" alt="Logo" fill className="object-cover border-4 border-transparent" />
-                </div>
-              </motion.div>
-
-
-            </div>
-          </div>
-        </motion.div>
-      </div>
+      <div className="fixed inset-0 bg-black w-full h-full" />
     );
   }
 
-  // Show login form when not logged in (and system is not blocked)
-  if (!user || isBlocked) {
+  // Show completely black screen when blocked
+  if (isBlocked) {
+    return (
+      <div className="fixed inset-0 bg-black w-full h-full" />
+    );
+  }
+
+  // Show login form when not logged in
+  if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 md:p-8 bg-[#fdfbf7]">
         <div className="fixed top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
