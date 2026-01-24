@@ -229,6 +229,7 @@ export const typeDefs = `#graphql
       doc_type: String
       doc_number: String
       category: String
+      details: String
     ): Invoice
 
     payInvoice(

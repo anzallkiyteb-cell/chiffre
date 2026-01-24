@@ -189,6 +189,8 @@ export default function DashboardPage() {
     const [imgZoom, setImgZoom] = useState(1);
     const [imgRotation, setImgRotation] = useState(0);
     const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+    const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
+    const imageContainerRef = useRef(null);
 
     const resetView = () => {
         setImgZoom(1);
@@ -1204,179 +1206,143 @@ export default function DashboardPage() {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center p-8 overflow-y-auto no-scrollbar"
-                            onClick={() => setViewingData(null)}
+                            className="fixed inset-0 z-[500] bg-black/95 backdrop-blur-xl flex items-center justify-center overflow-hidden"
+                            onClick={() => { setViewingData(null); setSelectedPhotoIndex(0); resetView(); }}
                         >
-                            <div className="w-full max-w-6xl space-y-8 py-10" onClick={e => e.stopPropagation()}>
-                                <div className="flex justify-between items-center text-white mb-4">
-                                    <div>
-                                        <h2 className="text-3xl font-black uppercase tracking-tight">{selectedDetail?.name}</h2>
-                                        <p className="text-sm font-bold opacity-60 uppercase tracking-[0.3em]">
-                                            {viewingData.amount?.toLocaleString('fr-FR', { minimumFractionDigits: 3 })} DT • {viewingData.paymentMethod}
-                                        </p>
-                                    </div>
-                                    <div className="flex items-center gap-4">
-                                        <div className="flex bg-white/10 rounded-2xl p-1 gap-1 border border-white/10">
-                                            <button onClick={() => setImgZoom(prev => Math.max(0.5, prev - 0.25))} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all" title="Zoom Arrière"><ZoomOut size={20} /></button>
-                                            <div className="w-16 flex items-center justify-center font-black text-xs tabular-nums text-[#c69f6e]">{Math.round(imgZoom * 100)}%</div>
-                                            <button onClick={() => setImgZoom(prev => Math.min(4, prev + 0.25))} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all" title="Zoom Avant"><ZoomIn size={20} /></button>
-                                            <div className="w-px h-6 bg-white/10 self-center mx-1"></div>
-                                            <button onClick={() => setImgRotation(prev => prev + 90)} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all" title="Tourner"><RotateCcw size={20} /></button>
-                                            <button onClick={resetView} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all" title="Réinitialiser"><Maximize2 size={20} /></button>
-                                        </div>
-                                        <button onClick={() => setViewingData(null)} className="w-12 h-12 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-all"><X size={32} /></button>
-                                    </div>
-                                </div>
+                            {(() => {
+                                let allPhotos: { url: string, label: string }[] = [];
+                                try {
+                                    const rawPhotos = viewingData.photos;
+                                    if (rawPhotos && rawPhotos !== 'null' && rawPhotos !== '[]') {
+                                        const parsed = typeof rawPhotos === 'string' ? JSON.parse(rawPhotos) : rawPhotos;
+                                        if (Array.isArray(parsed)) {
+                                            parsed.forEach((p, i) => allPhotos.push({ url: p, label: `Page ${i + 1}` }));
+                                        }
+                                    }
+                                } catch (e) { }
+                                if (viewingData.photo_url && viewingData.photo_url.length > 5 && !allPhotos.find(p => p.url === viewingData.photo_url)) {
+                                    allPhotos.unshift({ url: viewingData.photo_url, label: 'Document Principal' });
+                                }
+                                if (viewingData.photo_cheque_url) {
+                                    allPhotos.push({ url: viewingData.photo_cheque_url, label: 'Chèque Recto' });
+                                }
+                                if (viewingData.photo_verso_url) {
+                                    allPhotos.push({ url: viewingData.photo_verso_url, label: 'Chèque Verso' });
+                                }
 
-                                <div className={`grid grid-cols-1 ${viewingData.paymentMethod === 'Chèque' ? 'md:grid-cols-3' : 'md:grid-cols-1'} gap-8`}>
-                                    {/* Photo Facture */}
-                                    <div className="space-y-8">
-                                        {(() => {
-                                            let gallery: string[] = [];
-                                            try {
-                                                const rawPhotos = viewingData.photos;
-                                                if (rawPhotos && rawPhotos !== 'null' && rawPhotos !== '[]') {
-                                                    const parsed = typeof rawPhotos === 'string' ? JSON.parse(rawPhotos) : rawPhotos;
-                                                    gallery = Array.isArray(parsed) ? parsed : [];
-                                                }
-                                            } catch (e) {
-                                                gallery = [];
-                                            }
+                                const activeIndex = typeof selectedPhotoIndex === 'number' ? selectedPhotoIndex : 0;
+                                const activePhoto = allPhotos[activeIndex] || allPhotos[0];
 
-                                            const allPhotos = [...gallery];
-                                            if (viewingData.photo_url && viewingData.photo_url.length > 5 && !allPhotos.includes(viewingData.photo_url)) {
-                                                allPhotos.unshift(viewingData.photo_url);
-                                            }
+                                return (
+                                    <div className="relative w-full h-full flex flex-col" onClick={e => e.stopPropagation()}>
 
-                                            if (allPhotos.length === 0) {
-                                                return (
-                                                    <div className="h-[70vh] bg-white/5 rounded-[2rem] border-2 border-dashed border-white/10 flex items-center justify-center text-white/20 italic font-bold uppercase tracking-widest">Sans Facture</div>
-                                                );
-                                            }
-
-                                            return allPhotos.map((photo, pIdx) => (
-                                                <div key={pIdx} className="space-y-4">
-                                                    <div className="flex justify-between items-center">
-                                                        <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] italic">Document {pIdx + 1} / Facture</p>
-                                                        <a href={photo} download target="_blank" className="flex items-center gap-2 text-[9px] font-black text-[#c69f6e] uppercase tracking-widest hover:text-white transition-colors bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">
-                                                            <Download size={12} /> Télécharger
-                                                        </a>
+                                        {/* Top Controls */}
+                                        <div className="absolute top-0 left-0 right-0 z-50 p-6 flex justify-between items-start pointer-events-none">
+                                            <div className="pointer-events-auto">
+                                                <div className="bg-black/60 backdrop-blur-md border border-white/10 px-8 py-4 rounded-2xl flex items-center gap-6 shadow-2xl">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[9px] font-black uppercase tracking-widest text-white/40 mb-1">Détails</span>
+                                                        <h2 className="text-2xl font-black text-white tracking-tight leading-none">{selectedDetail?.name || viewingData.supplier_name || 'Document'}</h2>
+                                                        <p className="text-[10px] font-medium text-[#c69f6e] mt-1 max-w-xs truncate">
+                                                            {allPhotos.length} Document{allPhotos.length > 1 ? 's' : ''} • {viewingData.paymentMethod || viewingData.payment_method || 'N/A'}
+                                                        </p>
                                                     </div>
-                                                    <div
-                                                        className="bg-black rounded-[2rem] border border-white/10 shadow-2xl overflow-hidden group h-[70vh] relative"
-                                                        onWheel={(e) => {
-                                                            if (e.deltaY < 0) setImgZoom(prev => Math.min(4, prev + 0.1));
-                                                            else setImgZoom(prev => Math.max(0.5, prev - 0.1));
-                                                        }}
-                                                    >
-                                                        <motion.div
-                                                            className={`w-full h-full flex items-center justify-center p-4 ${imgZoom > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-zoom-in'}`}
-                                                            animate={{ scale: imgZoom, rotate: imgRotation }}
-                                                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                                                            drag={imgZoom > 1}
-                                                            dragConstraints={{ left: -1000, right: 1000, top: -1000, bottom: 1000 }}
-                                                            dragElastic={0.1}
-                                                        >
-                                                            <img
-                                                                src={photo}
-                                                                draggable="false"
-                                                                className="max-w-full max-h-full rounded-xl object-contain shadow-2xl"
-                                                                alt={`Facture ${pIdx + 1}`}
-                                                                style={{ pointerEvents: imgZoom > 1 ? 'none' : 'auto', userSelect: 'none' }}
-                                                            />
-                                                        </motion.div>
-                                                        <div className="absolute top-6 left-6 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
-                                                            <span className="bg-black/60 backdrop-blur-md text-[10px] font-black text-[#c69f6e] px-4 py-2 rounded-full border border-[#c69f6e]/20 shadow-lg uppercase tracking-widest">Loupe: {Math.round(imgZoom * 100)}% • Molette pour zoomer</span>
+                                                    <div className="w-px h-10 bg-white/10" />
+                                                    <div className="flex flex-col items-end">
+                                                        <span className="text-[9px] font-black uppercase tracking-widest text-[#c69f6e] mb-1">Montant</span>
+                                                        <div className="flex items-baseline gap-1">
+                                                            <span className="text-3xl font-black text-white tracking-tight">
+                                                                {parseFloat(viewingData.amount).toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                                            </span>
+                                                            <span className="text-xs font-bold text-[#c69f6e]">DT</span>
                                                         </div>
                                                     </div>
                                                 </div>
-                                            ));
-                                        })()}
-                                    </div>
+                                            </div>
 
-                                    {/* Photos Chèque */}
-                                    {viewingData.paymentMethod === 'Chèque' && (
-                                        <>
-                                            <div className="space-y-4">
-                                                <div className="flex justify-between items-center">
-                                                    <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] italic">Chèque Recto</p>
-                                                    {viewingData.photo_cheque_url && (
-                                                        <a href={viewingData.photo_cheque_url} download target="_blank" className="flex items-center gap-2 text-[9px] font-black text-[#c69f6e] uppercase tracking-widest hover:text-white transition-colors bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">
-                                                            <Download size={12} />
-                                                        </a>
-                                                    )}
+                                            <div className="flex items-center gap-4 pointer-events-auto">
+                                                <div className="flex bg-white/10 rounded-2xl p-1 gap-1 border border-white/10 backdrop-blur-md">
+                                                    <button onClick={() => setImgZoom(prev => Math.max(0.5, prev - 0.25))} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white" title="Zoom Arrière"><ZoomOut size={20} /></button>
+                                                    <div className="w-16 flex items-center justify-center font-black text-xs tabular-nums text-[#c69f6e]">{Math.round(imgZoom * 100)}%</div>
+                                                    <button onClick={() => setImgZoom(prev => Math.min(5, prev + 0.25))} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white" title="Zoom Avant"><ZoomIn size={20} /></button>
+                                                    <div className="w-px h-6 bg-white/10 self-center mx-1"></div>
+                                                    <button onClick={() => setImgRotation(prev => prev + 90)} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white" title="Tourner"><RotateCcw size={20} /></button>
+                                                    <button onClick={resetView} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white" title="Réinitialiser"><Maximize2 size={20} /></button>
                                                 </div>
-                                                {viewingData.photo_cheque_url ? (
-                                                    <div
-                                                        className="bg-black rounded-[2rem] border border-white/10 shadow-2xl overflow-hidden h-[70vh] relative"
-                                                        onWheel={(e) => {
-                                                            if (e.deltaY < 0) setImgZoom(prev => Math.min(4, prev + 0.1));
-                                                            else setImgZoom(prev => Math.max(0.5, prev - 0.1));
-                                                        }}
-                                                    >
-                                                        <motion.div
-                                                            className={`w-full h-full flex items-center justify-center p-4 ${imgZoom > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-zoom-in'}`}
-                                                            animate={{ scale: imgZoom, rotate: imgRotation }}
-                                                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                                                            drag={imgZoom > 1}
-                                                            dragConstraints={{ left: -1000, right: 1000, top: -1000, bottom: 1000 }}
-                                                            dragElastic={0.1}
-                                                        >
-                                                            <img
-                                                                src={viewingData.photo_cheque_url}
-                                                                draggable="false"
-                                                                className="max-w-full max-h-full rounded-xl object-contain shadow-2xl"
-                                                                alt="Chèque Recto"
-                                                                style={{ pointerEvents: imgZoom > 1 ? 'none' : 'auto', userSelect: 'none' }}
-                                                            />
-                                                        </motion.div>
-                                                    </div>
-                                                ) : (
-                                                    <div className="h-[70vh] bg-white/5 rounded-[2rem] border-2 border-dashed border-white/10 flex items-center justify-center text-white/20 italic font-bold">Sans Recto</div>
-                                                )}
+                                                <button onClick={() => { setViewingData(null); setSelectedPhotoIndex(0); resetView(); }} className="w-14 h-14 bg-white/10 hover:bg-white/20 border border-white/10 rounded-full flex items-center justify-center transition-all text-white backdrop-blur-md"><X size={32} /></button>
                                             </div>
-                                            <div className="space-y-4">
-                                                <div className="flex justify-between items-center">
-                                                    <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] italic">Chèque Verso</p>
-                                                    {viewingData.photo_verso_url && (
-                                                        <a href={viewingData.photo_verso_url} download target="_blank" className="flex items-center gap-2 text-[9px] font-black text-[#c69f6e] uppercase tracking-widest hover:text-white transition-colors bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">
-                                                            <Download size={12} />
-                                                        </a>
-                                                    )}
+                                        </div>
+
+                                        {/* Main Image Area */}
+                                        <div ref={imageContainerRef} className="flex-1 w-full h-full flex items-center justify-center overflow-hidden relative">
+                                            {allPhotos.length === 0 ? (
+                                                <div className="flex flex-col items-center justify-center text-white/20 italic font-bold uppercase tracking-widest gap-4">
+                                                    <Truck size={64} className="opacity-50" />
+                                                    <span>Aucun document disponible</span>
                                                 </div>
-                                                {viewingData.photo_verso_url ? (
-                                                    <div
-                                                        className="bg-black rounded-[2rem] border border-white/10 shadow-2xl overflow-hidden h-[70vh] relative"
-                                                        onWheel={(e) => {
-                                                            if (e.deltaY < 0) setImgZoom(prev => Math.min(4, prev + 0.1));
-                                                            else setImgZoom(prev => Math.max(0.5, prev - 0.1));
-                                                        }}
-                                                    >
-                                                        <motion.div
-                                                            className={`w-full h-full flex items-center justify-center p-4 ${imgZoom > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-zoom-in'}`}
-                                                            animate={{ scale: imgZoom, rotate: imgRotation }}
-                                                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                                                            drag={imgZoom > 1}
-                                                            dragConstraints={{ left: -1000, right: 1000, top: -1000, bottom: 1000 }}
-                                                            dragElastic={0.1}
-                                                        >
-                                                            <img
-                                                                src={viewingData.photo_verso_url}
-                                                                draggable="false"
-                                                                className="max-w-full max-h-full rounded-xl object-contain shadow-2xl"
-                                                                alt="Chèque Verso"
-                                                                style={{ pointerEvents: imgZoom > 1 ? 'none' : 'auto', userSelect: 'none' }}
-                                                            />
-                                                        </motion.div>
-                                                    </div>
-                                                ) : (
-                                                    <div className="h-[70vh] bg-white/5 rounded-[2rem] border-2 border-dashed border-white/10 flex items-center justify-center text-white/20 italic font-bold">Sans Verso</div>
-                                                )}
+                                            ) : activePhoto ? (
+                                                <motion.div
+                                                    className={`w-full h-full flex items-center justify-center p-4 ${imgZoom > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-zoom-in'}`}
+                                                    onWheel={(e) => {
+                                                        if (e.deltaY < 0) setImgZoom(prev => Math.min(5, prev + 0.2));
+                                                        else setImgZoom(prev => Math.max(0.5, prev - 0.2));
+                                                    }}
+                                                    animate={{ scale: imgZoom, rotate: imgRotation }}
+                                                    transition={{ type: "spring", stiffness: 200, damping: 25 }}
+                                                    drag={imgZoom > 1}
+                                                    dragConstraints={{ left: -500, right: 500, top: -500, bottom: 500 }}
+                                                    dragElastic={0.1}
+                                                    dragMomentum={true}
+                                                >
+                                                    {activePhoto.url?.toLowerCase().includes('.pdf') || activePhoto.url?.startsWith('data:application/pdf') ? (
+                                                        <iframe src={activePhoto.url} className="w-[80%] h-[90%] rounded-2xl border-none bg-white shadow-2xl pointer-events-auto" title="Document PDF" />
+                                                    ) : (
+                                                        <img
+                                                            src={activePhoto.url}
+                                                            draggable="false"
+                                                            className="max-w-full max-h-full rounded-2xl object-contain shadow-2xl"
+                                                            style={{ pointerEvents: 'none', userSelect: 'none' }}
+                                                        />
+                                                    )}
+                                                </motion.div>
+                                            ) : null}
+                                        </div>
+
+                                        {imgZoom !== 1 && (
+                                            <div className="absolute top-32 left-1/2 -translate-x-1/2 pointer-events-none z-[100]">
+                                                <span className="bg-black/80 backdrop-blur-xl text-[10px] font-black text-[#c69f6e] px-6 py-3 rounded-full border border-[#c69f6e]/30 shadow-2xl uppercase tracking-[0.2em]">
+                                                    Zoom: {Math.round(imgZoom * 100)}% • Rotation: {imgRotation}°
+                                                </span>
                                             </div>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
+                                        )}
+
+                                        {/* Bottom Thumbnails */}
+                                        {allPhotos.length > 0 && (
+                                            <div className="absolute bottom-10 left-0 right-0 z-50 flex justify-center pointer-events-none">
+                                                <div className="bg-black/60 backdrop-blur-md border border-white/10 p-3 rounded-2xl flex items-center gap-3 overflow-x-auto no-scrollbar max-w-[90vw] pointer-events-auto">
+                                                    {allPhotos.map((photo, idx) => (
+                                                        <div
+                                                            key={idx}
+                                                            onClick={() => {
+                                                                setSelectedPhotoIndex(idx);
+                                                                setImgZoom(1);
+                                                                setImgRotation(0);
+                                                            }}
+                                                            className={`relative w-16 h-16 rounded-xl overflow-hidden cursor-pointer transition-all flex-shrink-0 border-2 ${idx === activeIndex ? 'border-[#c69f6e] scale-110' : 'border-transparent opacity-60 hover:opacity-100 hover:scale-105'} `}
+                                                        >
+                                                            {photo.url?.toLowerCase().includes('.pdf') || photo.url?.startsWith('data:application/pdf') ? (
+                                                                <div className="w-full h-full bg-white flex items-center justify-center text-red-500 font-bold text-[8px]">PDF</div>
+                                                            ) : (
+                                                                <img src={photo.url} className="w-full h-full object-cover" />
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })()}
                         </motion.div>
                     )
                 }

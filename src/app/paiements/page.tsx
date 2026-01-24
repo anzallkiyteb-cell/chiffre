@@ -558,6 +558,9 @@ export default function PaiementsPage() {
     const [unpaidCategoryFilter, setUnpaidCategoryFilter] = useState<'Tous' | 'Fournisseur' | 'Divers'>('Tous');
     const [unpaidDateRange, setUnpaidDateRange] = useState({ start: '', end: '' });
 
+    const [showChartMobile, setShowChartMobile] = useState(false);
+    const imageContainerRef = useRef(null);
+
     const resetView = () => {
         setImgZoom(1);
         setImgRotation(0);
@@ -1586,12 +1589,14 @@ export default function PaiementsPage() {
                     {/* Financial Summary Grid - 3 Columns */}
                     <div className="flex flex-col gap-4 mb-12">
                         {/* 1. Chiffre d'Affaire */}
+                        {/* 1. Chiffre d'Affaire */}
                         <motion.div
                             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-                            className="bg-[#56b350] p-8 rounded-[2.5rem] shadow-lg relative overflow-hidden group hover:scale-[1.005] transition-all text-white h-44 flex flex-col justify-center cursor-default"
+                            onClick={() => setShowChartMobile(!showChartMobile)}
+                            className="bg-[#56b350] p-8 rounded-[2.5rem] shadow-lg relative overflow-hidden group hover:scale-[1.005] transition-all text-white h-44 flex flex-col justify-center cursor-pointer md:cursor-default"
                         >
                             <div className="relative z-10 flex items-center justify-between gap-8">
-                                <div>
+                                <div className={showChartMobile ? 'hidden lg:block' : ''}>
                                     <div className="flex items-center gap-4 text-white/90 mb-4 uppercase text-[11px] font-bold tracking-[0.2em]">
                                         <div className="flex items-center gap-3">
                                             <FileText size={18} /> Chiffre d'Affaire
@@ -1613,7 +1618,7 @@ export default function PaiementsPage() {
                                     <span className="text-lg font-bold opacity-80 block uppercase tracking-widest">DT</span>
                                 </div>
 
-                                <div className="hidden lg:flex items-center gap-6 bg-white/10 backdrop-blur-md rounded-[2.5rem] p-6 pr-10 border border-white/20">
+                                <div className={`${showChartMobile ? 'flex w-full justify-between' : 'hidden'} lg:flex items-center gap-6 bg-white/10 backdrop-blur-md rounded-[2.5rem] p-6 pr-10 border border-white/20 transition-all`}>
                                     <div className="relative w-28 h-28 flex-shrink-0">
                                         <svg className="w-full h-full -rotate-90 overflow-visible" viewBox="0 0 100 100">
                                             {/* Border/Background circle */}
@@ -4084,165 +4089,155 @@ export default function PaiementsPage() {
             </AnimatePresence >
 
             {/* Viewing Data Modal (Photos) - Improved Grid/Single View */}
+
+            {/* View Invoice Modal */}
             <AnimatePresence>
                 {
-                    viewingData && (() => {
-                        // Build all photos array
-                        let allPhotos: { url: string, label: string }[] = [];
-                        try {
-                            const rawPhotos = viewingData.photos;
-                            if (rawPhotos && rawPhotos !== 'null' && rawPhotos !== '[]') {
-                                const parsed = typeof rawPhotos === 'string' ? JSON.parse(rawPhotos) : rawPhotos;
-                                if (Array.isArray(parsed)) {
-                                    parsed.forEach((p, i) => allPhotos.push({ url: p, label: `Facture ${i + 1}` }));
+                    viewingData && (
+                        (() => {
+                            let allPhotos: { url: string, label: string }[] = [];
+                            try {
+                                if (viewingData.photos && viewingData.photos !== "[]") {
+                                    const parsed = typeof viewingData.photos === 'string' ? JSON.parse(viewingData.photos) : viewingData.photos;
+                                    if (Array.isArray(parsed)) {
+                                        parsed.forEach((p, i) => allPhotos.push({ url: p, label: `Facture ${i + 1}` }));
+                                    }
                                 }
+                            } catch (e) { }
+                            if (viewingData.photo_url && viewingData.photo_url.length > 5 && !allPhotos.find(p => p.url === viewingData.photo_url)) {
+                                allPhotos.unshift({ url: viewingData.photo_url, label: 'Facture' });
                             }
-                        } catch (e) { }
-                        if (viewingData.photo_url && viewingData.photo_url.length > 5 && !allPhotos.find(p => p.url === viewingData.photo_url)) {
-                            allPhotos.unshift({ url: viewingData.photo_url, label: 'Facture' });
-                        }
-                        if (viewingData.photo_cheque_url) {
-                            allPhotos.push({ url: viewingData.photo_cheque_url, label: 'Chèque Recto' });
-                        }
-                        if (viewingData.photo_verso_url) {
-                            allPhotos.push({ url: viewingData.photo_verso_url, label: 'Chèque Verso' });
-                        }
+                            if (viewingData.photo_cheque_url) {
+                                allPhotos.push({ url: viewingData.photo_cheque_url, label: 'Chèque Recto' });
+                            }
+                            if (viewingData.photo_verso_url) {
+                                allPhotos.push({ url: viewingData.photo_verso_url, label: 'Chèque Verso' });
+                            }
 
-                        return (
-                            <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                className="fixed inset-0 z-[500] bg-black/95 backdrop-blur-xl flex flex-col"
-                                onClick={() => { setViewingData(null); setSelectedPhotoIndex('all'); resetView(); }}
-                            >
-                                {/* Header */}
-                                <div className="flex justify-between items-center p-4 md:p-6" onClick={e => e.stopPropagation()}>
-                                    <div>
-                                        <h2 className="text-xl md:text-2xl font-black uppercase tracking-tight text-white">{selectedSupplier}</h2>
-                                        <p className="text-xs font-bold text-white/60 uppercase tracking-[0.2em]">
-                                            {maskAmount(viewingData.amount)} DT • {viewingData.payment_method || viewingData.paymentMethod} • {allPhotos.length} document{allPhotos.length > 1 ? 's' : ''}
-                                        </p>
-                                    </div>
-                                    <button onClick={() => { setViewingData(null); setSelectedPhotoIndex('all'); resetView(); }} className="w-10 h-10 md:w-12 md:h-12 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-all text-white">
-                                        <X size={24} />
-                                    </button>
-                                </div>
+                            const activeIndex = typeof selectedPhotoIndex === 'number' ? selectedPhotoIndex : 0;
+                            const activePhoto = allPhotos[activeIndex];
 
-                                {/* Main Content */}
-                                <div className="flex-1 overflow-y-auto px-4 md:px-8 pb-32" onClick={e => e.stopPropagation()}>
-                                    {allPhotos.length === 0 ? (
-                                        <div className="h-[60vh] bg-white/5 rounded-[2rem] border-2 border-dashed border-white/10 flex items-center justify-center text-white/20 italic font-bold uppercase tracking-widest">
-                                            Aucun Document
-                                        </div>
-                                    ) : selectedPhotoIndex === 'all' ? (
-                                        /* Grid View */
-                                        <div className={`grid ${allPhotos.length === 1 ? 'grid-cols-1 max-w-2xl mx-auto' : allPhotos.length === 2 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'} gap-4 md:gap-6`}>
-                                            {allPhotos.map((photo, idx) => (
-                                                <div key={idx} className="space-y-2">
-                                                    <div className="flex justify-between items-center px-1">
-                                                        <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">{photo.label}</span>
-                                                        <a href={photo.url} download target="_blank" className="text-[9px] font-black text-[#c69f6e] uppercase tracking-widest hover:text-white transition-colors flex items-center gap-1">
-                                                            <Download size={10} />
-                                                        </a>
+                            return (
+                                <motion.div
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    className="fixed inset-0 z-[500] bg-black/95 backdrop-blur-xl flex items-center justify-center overflow-hidden"
+                                    onClick={() => { setViewingData(null); setSelectedPhotoIndex('all'); resetView(); }}
+                                >
+                                    <div className="relative w-full h-full flex flex-col" onClick={e => e.stopPropagation()}>
+
+                                        {/* Top Controls */}
+                                        <div className="absolute top-0 left-0 right-0 z-50 p-6 flex justify-between items-start pointer-events-none">
+                                            <div className="pointer-events-auto">
+                                                <div className="bg-black/60 backdrop-blur-md border border-white/10 px-8 py-4 rounded-2xl flex items-center gap-6 shadow-2xl">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[9px] font-black uppercase tracking-widest text-white/40 mb-1">Fournisseur</span>
+                                                        <h2 className="text-2xl font-black text-white tracking-tight leading-none">{selectedSupplier || viewingData.supplier_name || 'Inconnu'}</h2>
+                                                        <p className="text-[10px] font-medium text-[#c69f6e] mt-1 max-w-xs truncate">
+                                                            {allPhotos.length} Document{allPhotos.length > 1 ? 's' : ''} • {viewingData.payment_method || viewingData.paymentMethod}
+                                                        </p>
                                                     </div>
-                                                    <div
-                                                        onClick={() => { setSelectedPhotoIndex(idx); resetView(); }}
-                                                        className="aspect-[4/3] bg-black/40 rounded-xl md:rounded-2xl border border-white/10 overflow-hidden cursor-pointer hover:border-[#c69f6e]/50 hover:shadow-[0_0_30px_rgba(198,159,110,0.2)] transition-all group"
-                                                    >
-                                                        <img
-                                                            src={photo.url}
-                                                            alt={photo.label}
-                                                            className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform"
-                                                        />
+                                                    <div className="w-px h-10 bg-white/10" />
+                                                    <div className="flex flex-col items-end">
+                                                        <span className="text-[9px] font-black uppercase tracking-widest text-[#c69f6e] mb-1">Montant</span>
+                                                        <div className="flex items-baseline gap-1">
+                                                            <span className="text-3xl font-black text-white tracking-tight">
+                                                                {maskAmount(viewingData.amount)}
+                                                            </span>
+                                                            <span className="text-xs font-bold text-[#c69f6e]">DT</span>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        /* Single Photo View */
-                                        <div
-                                            className="h-[65vh] md:h-[70vh] bg-black/40 rounded-xl md:rounded-[2rem] border border-white/10 overflow-hidden relative"
-                                            onWheel={(e) => {
-                                                e.preventDefault();
-                                                if (e.deltaY < 0) setImgZoom(prev => Math.min(4, prev + 0.1));
-                                                else setImgZoom(prev => Math.max(0.5, prev - 0.1));
-                                            }}
-                                        >
-                                            <motion.div
-                                                className={`w-full h-full flex items-center justify-center p-4 ${imgZoom > 1 ? 'cursor-grab active:cursor-grabbing' : ''}`}
-                                                animate={{ scale: imgZoom, rotate: imgRotation }}
-                                                transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                                                drag={imgZoom > 1}
-                                                dragConstraints={{ left: -1000, right: 1000, top: -1000, bottom: 1000 }}
-                                                dragElastic={0.1}
-                                            >
-                                                <img
-                                                    src={allPhotos[selectedPhotoIndex as number]?.url}
-                                                    draggable="false"
-                                                    className="max-w-full max-h-full rounded-xl object-contain shadow-2xl"
-                                                    alt={allPhotos[selectedPhotoIndex as number]?.label}
-                                                    style={{ pointerEvents: 'none', userSelect: 'none' }}
-                                                />
-                                            </motion.div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Floating Zoom Controls - Only in single view */}
-                                {selectedPhotoIndex !== 'all' && (
-                                    <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[300]" onClick={e => e.stopPropagation()}>
-                                        <div className="flex bg-black/80 p-1.5 rounded-2xl border border-white/20 backdrop-blur-2xl items-center gap-1">
-                                            <button onClick={() => setImgZoom(prev => Math.max(0.5, prev - 0.25))} className="w-9 h-9 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white">
-                                                <ZoomOut size={18} />
-                                            </button>
-                                            <div className="w-14 flex items-center justify-center font-black text-[10px] tabular-nums text-[#c69f6e]">
-                                                {Math.round(imgZoom * 100)}%
                                             </div>
-                                            <button onClick={() => setImgZoom(prev => Math.min(4, prev + 0.25))} className="w-9 h-9 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white">
-                                                <ZoomIn size={18} />
-                                            </button>
-                                            <div className="w-px h-6 bg-white/10 mx-1"></div>
-                                            <button onClick={() => setImgRotation(prev => prev + 90)} className="w-9 h-9 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white">
-                                                <RotateCw size={18} />
-                                            </button>
-                                            <button onClick={resetView} className="w-9 h-9 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white">
-                                                <Maximize2 size={18} />
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
 
-                                {/* Bottom Navigation Bar */}
-                                {allPhotos.length > 0 && (
-                                    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[300]" onClick={e => e.stopPropagation()}>
-                                        <div className="flex bg-black/80 p-1.5 rounded-2xl border border-white/20 backdrop-blur-2xl items-center gap-1">
-                                            <button
-                                                onClick={() => { setSelectedPhotoIndex('all'); resetView(); }}
-                                                className={`px-4 h-10 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center gap-2 ${selectedPhotoIndex === 'all' ? 'bg-[#c69f6e] text-white' : 'text-white/60 hover:text-white hover:bg-white/10'}`}
-                                            >
-                                                <LayoutGrid size={14} /> Tous
-                                            </button>
-                                            <div className="w-px h-6 bg-white/10 mx-1" />
-                                            <div className="flex gap-1 overflow-x-auto no-scrollbar max-w-[60vw]">
-                                                {allPhotos.map((photo, i) => (
-                                                    <button
-                                                        key={i}
-                                                        onClick={() => { setSelectedPhotoIndex(i); resetView(); }}
-                                                        className={`px-4 h-10 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all whitespace-nowrap ${selectedPhotoIndex === i ? 'bg-[#c69f6e] text-white' : 'text-white/60 hover:text-white hover:bg-white/10'}`}
-                                                    >
-                                                        {photo.label}
-                                                    </button>
-                                                ))}
+                                            <div className="flex items-center gap-4 pointer-events-auto">
+                                                <div className="flex bg-white/10 rounded-2xl p-1 gap-1 border border-white/10 backdrop-blur-md">
+                                                    <button onClick={() => setImgZoom(prev => Math.max(0.5, prev - 0.25))} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white" title="Zoom Arrière"><ZoomOut size={20} /></button>
+                                                    <div className="w-16 flex items-center justify-center font-black text-xs tabular-nums text-[#c69f6e]">{Math.round(imgZoom * 100)}%</div>
+                                                    <button onClick={() => setImgZoom(prev => Math.min(5, prev + 0.25))} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white" title="Zoom Avant"><ZoomIn size={20} /></button>
+                                                    <div className="w-px h-6 bg-white/10 self-center mx-1"></div>
+                                                    <button onClick={() => setImgRotation(prev => prev + 90)} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white" title="Tourner"><RotateCw size={20} /></button>
+                                                    <button onClick={resetView} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white" title="Réinitialiser"><Maximize2 size={20} /></button>
+                                                </div>
+                                                <button onClick={() => { setViewingData(null); setSelectedPhotoIndex('all'); resetView(); }} className="w-14 h-14 bg-white/10 hover:bg-white/20 border border-white/10 rounded-full flex items-center justify-center transition-all text-white backdrop-blur-md"><X size={32} /></button>
                                             </div>
                                         </div>
+
+                                        {/* Main Image Area */}
+                                        <div ref={imageContainerRef} className="flex-1 w-full h-full flex items-center justify-center overflow-hidden relative">
+                                            {allPhotos.length === 0 ? (
+                                                <div className="flex flex-col items-center justify-center text-white/20 italic font-bold uppercase tracking-widest gap-4">
+                                                    <UploadCloud size={64} className="opacity-50" />
+                                                    <span>Aucun document disponible</span>
+                                                </div>
+                                            ) : (
+                                                <motion.div
+                                                    className={`w-full h-full flex items-center justify-center p-4 ${imgZoom > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-zoom-in'}`}
+                                                    onWheel={(e) => {
+                                                        if (e.deltaY < 0) setImgZoom(prev => Math.min(5, prev + 0.2));
+                                                        else setImgZoom(prev => Math.max(0.5, prev - 0.2));
+                                                    }}
+                                                    animate={{ scale: imgZoom, rotate: imgRotation }}
+                                                    transition={{ type: "spring", stiffness: 200, damping: 25 }}
+                                                    drag={imgZoom > 1}
+                                                    dragConstraints={{ left: -500, right: 500, top: -500, bottom: 500 }}
+                                                    dragElastic={0.1}
+                                                    dragMomentum={true}
+                                                >
+                                                    {activePhoto.url?.toLowerCase().includes('.pdf') || activePhoto.url?.startsWith('data:application/pdf') ? (
+                                                        <iframe src={activePhoto.url} className="w-[80%] h-[90%] rounded-2xl border-none bg-white shadow-2xl pointer-events-auto" title="Document PDF" />
+                                                    ) : (
+                                                        <img
+                                                            src={activePhoto.url}
+                                                            draggable="false"
+                                                            className="max-w-full max-h-full rounded-2xl object-contain shadow-2xl"
+                                                            style={{ pointerEvents: 'none', userSelect: 'none' }}
+                                                        />
+                                                    )}
+                                                </motion.div>
+                                            )}
+                                        </div>
+
+                                        {imgZoom !== 1 && (
+                                            <div className="absolute top-32 left-1/2 -translate-x-1/2 pointer-events-none z-[100]">
+                                                <span className="bg-black/80 backdrop-blur-xl text-[10px] font-black text-[#c69f6e] px-6 py-3 rounded-full border border-[#c69f6e]/30 shadow-2xl uppercase tracking-[0.2em]">
+                                                    Zoom: {Math.round(imgZoom * 100)}% • Rotation: {imgRotation}°
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        {/* Bottom Thumbnails */}
+                                        {allPhotos.length > 0 && (
+                                            <div className="absolute bottom-10 left-0 right-0 z-50 flex justify-center pointer-events-none">
+                                                <div className="bg-black/60 backdrop-blur-md border border-white/10 p-3 rounded-2xl flex items-center gap-3 overflow-x-auto no-scrollbar max-w-[90vw] pointer-events-auto">
+                                                    {allPhotos.map((photo, idx) => (
+                                                        <div
+                                                            key={idx}
+                                                            onClick={() => {
+                                                                setSelectedPhotoIndex(idx);
+                                                                setImgZoom(1);
+                                                                setImgRotation(0);
+                                                            }}
+                                                            className={`relative w-16 h-16 rounded-xl overflow-hidden cursor-pointer transition-all flex-shrink-0 border-2 ${idx === activeIndex ? 'border-[#c69f6e] scale-110' : 'border-transparent opacity-60 hover:opacity-100 hover:scale-105'} `}
+                                                        >
+                                                            {photo.url?.toLowerCase().includes('.pdf') || photo.url?.startsWith('data:application/pdf') ? (
+                                                                <div className="w-full h-full bg-white flex items-center justify-center text-red-500 font-bold text-[8px]">PDF</div>
+                                                            ) : (
+                                                                <img src={photo.url} className="w-full h-full object-cover" />
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
-                                )}
-                            </motion.div>
-                        );
-                    })()
+                                </motion.div>
+                            );
+                        })()
+                    )
                 }
-            </AnimatePresence >
+            </AnimatePresence>
             {/* Add Master Item Modal */}
             <AnimatePresence>
                 {

@@ -248,14 +248,15 @@ const UPSERT_DESIGNATION = gql`
 `;
 
 const ADD_INVOICE = gql`
-  mutation AddInvoice($supplier_name: String!, $amount: String!, $date: String!, $photo_url: String, $photos: String, $doc_type: String, $doc_number: String, $category: String) {
-    addInvoice(supplier_name: $supplier_name, amount: $amount, date: $date, photo_url: $photo_url, photos: $photos, doc_type: $doc_type, doc_number: $doc_number, category: $category) {
+  mutation AddInvoice($supplier_name: String!, $amount: String!, $date: String!, $photo_url: String, $photos: String, $doc_type: String, $doc_number: String, $category: String, $details: String) {
+    addInvoice(supplier_name: $supplier_name, amount: $amount, date: $date, photo_url: $photo_url, photos: $photos, doc_type: $doc_type, doc_number: $doc_number, category: $category, details: $details) {
       id
       status
       photos
       doc_type
       doc_number
       category
+      details
     }
   }
 `;
@@ -289,8 +290,8 @@ const UNPAY_INVOICE = gql`
 `;
 
 const UPDATE_INVOICE = gql`
-  mutation UpdateInvoice($id: Int!, $supplier_name: String, $amount: String, $date: String, $photo_url: String, $photos: String, $doc_type: String, $doc_number: String) {
-    updateInvoice(id: $id, supplier_name: $supplier_name, amount: $amount, date: $date, photo_url: $photo_url, photos: $photos, doc_type: $doc_type, doc_number: $doc_number) {
+  mutation UpdateInvoice($id: Int!, $supplier_name: String, $amount: String, $date: String, $photo_url: String, $photos: String, $doc_type: String, $doc_number: String, $details: String) {
+    updateInvoice(id: $id, supplier_name: $supplier_name, amount: $amount, date: $date, photo_url: $photo_url, photos: $photos, doc_type: $doc_type, doc_number: $doc_number, details: $details) {
       id
       photos
       supplier_name
@@ -298,6 +299,7 @@ const UPDATE_INVOICE = gql`
       date
       doc_type
       doc_number
+      details
     }
   }
 `;
@@ -389,6 +391,7 @@ export default function FacturationPage() {
     const [imgZoom, setImgZoom] = useState(1);
     const [imgRotation, setImgRotation] = useState(0);
     const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+    const imageContainerRef = useRef(null);
 
     const resetView = () => {
         setImgZoom(1);
@@ -413,13 +416,14 @@ export default function FacturationPage() {
     const yesterdayStr = `${y_ty}-${y_tm}-${y_td}`;
 
     // Form state
-    const [newInvoice, setNewInvoice] = useState<{ supplier_name: string, amount: string, date: string, photos: string[], doc_type: string, doc_number: string }>({
+    const [newInvoice, setNewInvoice] = useState<{ supplier_name: string, amount: string, date: string, photos: string[], doc_type: string, doc_number: string, details: string }>({
         supplier_name: '',
         amount: '',
         date: todayStr,
         photos: [],
         doc_type: '',
-        doc_number: ''
+        doc_number: '',
+        details: ''
     });
     const [paymentDetails, setPaymentDetails] = useState({
         method: 'Espèces',
@@ -579,7 +583,8 @@ export default function FacturationPage() {
                             photos: JSON.stringify(newInvoice.photos),
                             doc_type: newInvoice.doc_type,
                             doc_number: newInvoice.doc_number || null,
-                            category: section.toLowerCase()
+                            category: section.toLowerCase(),
+                            details: newInvoice.details || ''
                         }
                     });
                     Swal.fire({ icon: 'success', title: 'Ajoutée', timer: 1500, showConfirmButton: false });
@@ -590,7 +595,8 @@ export default function FacturationPage() {
                         date: todayStr,
                         photos: [],
                         doc_type: 'Facture',
-                        doc_number: ''
+                        doc_number: '',
+                        details: ''
                     });
                     refetch();
                 } catch (e) {
@@ -693,7 +699,8 @@ export default function FacturationPage() {
                             photo_url: invoiceData.photos[0] || '',
                             photos: JSON.stringify(invoiceData.photos),
                             doc_type: invoiceData.doc_type,
-                            doc_number: invoiceData.doc_number || ''
+                            doc_number: invoiceData.doc_number || '',
+                            details: invoiceData.details || ''
                         }
                     });
                     Swal.fire({ icon: 'success', title: 'Mis à jour', timer: 1500, showConfirmButton: false });
@@ -1053,7 +1060,8 @@ export default function FacturationPage() {
                                                                         date: inv.date,
                                                                         photos: JSON.parse(inv.photos || '[]'),
                                                                         doc_type: inv.doc_type || 'Facture',
-                                                                        doc_number: inv.doc_number || ''
+                                                                        doc_number: inv.doc_number || '',
+                                                                        details: inv.details || ''
                                                                     });
                                                                 }}
                                                                 className="w-11 h-11 border-2 border-[#e6dace] text-[#8c8279] hover:text-[#4a3426] hover:border-[#4a3426] rounded-xl flex items-center justify-center transition-all"
@@ -1259,7 +1267,8 @@ export default function FacturationPage() {
                                                                         date: inv.date,
                                                                         photos: JSON.parse(inv.photos || '[]'),
                                                                         doc_type: inv.doc_type || 'Facture',
-                                                                        doc_number: inv.doc_number || ''
+                                                                        doc_number: inv.doc_number || '',
+                                                                        details: inv.details || ''
                                                                     });
                                                                 }}
                                                                 disabled={user?.role !== 'admin' && lockedDates.includes(inv.paid_date)}
@@ -1482,6 +1491,15 @@ export default function FacturationPage() {
                                                     </div>
                                                 </div>
                                             </div>
+                                            <div>
+                                                <label className="text-[9px] font-black uppercase tracking-[0.2em] text-[#8c8279] mb-1 block ml-1">Détails (Optionnel)</label>
+                                                <textarea
+                                                    value={newInvoice.details}
+                                                    onChange={(e) => setNewInvoice({ ...newInvoice, details: e.target.value })}
+                                                    placeholder="Détails supplémentaires..."
+                                                    className="w-full h-16 p-3 bg-[#f9f6f2] border border-[#e6dace] rounded-xl font-medium text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all text-[11px] resize-none"
+                                                />
+                                            </div>
 
                                             <div className="mt-[-8px]">
                                                 <label className="text-[9px] font-black uppercase tracking-[0.2em] text-[#8c8279] mb-0.5 block ml-1">Photos</label>
@@ -1659,178 +1677,158 @@ export default function FacturationPage() {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center p-8 overflow-y-auto no-scrollbar"
+                            className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-xl flex items-center justify-center overflow-hidden"
                             onClick={() => setViewingData(null)}
                         >
-                            <div className="w-full max-w-6xl space-y-8 py-10" onClick={e => e.stopPropagation()}>
-                                <div className="flex justify-between items-center text-white mb-4">
-                                    <div>
-                                        <h2 className="text-3xl font-black uppercase tracking-tight">{viewingData.supplier_name}</h2>
-                                        <p className="text-sm font-bold opacity-60 uppercase tracking-[0.3em]">{viewingData.amount} DT • {viewingData.status === 'paid' ? viewingData.payment_method : 'Non Payé'}</p>
-                                    </div>
-                                    <div className="flex items-center gap-4">
-                                        <div className="flex bg-white/10 rounded-2xl p-1 gap-1 border border-white/10">
-                                            <button onClick={() => setImgZoom(prev => Math.max(0.5, prev - 0.25))} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all" title="Zoom Arrière"><ZoomOut size={20} /></button>
-                                            <div className="w-16 flex items-center justify-center font-black text-xs tabular-nums text-[#c69f6e]">{Math.round(imgZoom * 100)}%</div>
-                                            <button onClick={() => setImgZoom(prev => Math.min(4, prev + 0.25))} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all" title="Zoom Avant"><ZoomIn size={20} /></button>
-                                            <div className="w-px h-6 bg-white/10 self-center mx-1"></div>
-                                            <button onClick={() => setImgRotation(prev => prev + 90)} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all" title="Tourner"><RotateCcw size={20} /></button>
-                                            <button onClick={resetView} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all" title="Réinitialiser"><Maximize2 size={20} /></button>
+                            <div className="relative w-full h-full flex flex-col" onClick={e => e.stopPropagation()}>
+
+                                {/* Top Controls */}
+                                <div className="absolute top-0 left-0 right-0 z-50 p-6 flex justify-between items-start pointer-events-none">
+                                    <div className="pointer-events-auto">
+                                        <div className="bg-black/60 backdrop-blur-md border border-white/10 px-8 py-4 rounded-2xl flex items-center gap-6 shadow-2xl">
+                                            <div className="flex flex-col">
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-white/40 mb-1">Fournisseur</span>
+                                                <h2 className="text-2xl font-black text-white tracking-tight leading-none">{viewingData.supplier_name}</h2>
+                                                {viewingData.details && (
+                                                    <p className="text-[10px] font-medium text-[#c69f6e] mt-1 max-w-xs truncate">{viewingData.details}</p>
+                                                )}
+                                            </div>
+                                            <div className="w-px h-10 bg-white/10" />
+                                            <div className="flex flex-col items-end">
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-[#c69f6e] mb-1">Montant</span>
+                                                <div className="flex items-baseline gap-1">
+                                                    <span className="text-3xl font-black text-white tracking-tight">
+                                                        {parseFloat(viewingData.amount || '0').toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                                    </span>
+                                                    <span className="text-xs font-bold text-[#c69f6e]">DT</span>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <button onClick={() => setViewingData(null)} className="w-12 h-12 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-all"><X size={32} /></button>
+                                    </div>
+
+                                    <div className="flex items-center gap-4 pointer-events-auto">
+                                        <div className="flex bg-white/10 rounded-2xl p-1 gap-1 border border-white/10 backdrop-blur-md">
+                                            <button onClick={() => setImgZoom(prev => Math.max(0.5, prev - 0.25))} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white" title="Zoom Arrière"><ZoomOut size={20} /></button>
+                                            <div className="w-16 flex items-center justify-center font-black text-xs tabular-nums text-[#c69f6e]">{Math.round(imgZoom * 100)}%</div>
+                                            <button onClick={() => setImgZoom(prev => Math.min(5, prev + 0.25))} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white" title="Zoom Avant"><ZoomIn size={20} /></button>
+                                            <div className="w-px h-6 bg-white/10 self-center mx-1"></div>
+                                            <button onClick={() => setImgRotation(prev => prev + 90)} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white" title="Tourner"><RotateCcw size={20} /></button>
+                                            <button onClick={resetView} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white" title="Réinitialiser"><Maximize2 size={20} /></button>
+                                        </div>
+                                        <button onClick={() => setViewingData(null)} className="w-14 h-14 bg-white/10 hover:bg-white/20 border border-white/10 rounded-full flex items-center justify-center transition-all text-white backdrop-blur-md"><X size={32} /></button>
                                     </div>
                                 </div>
 
-                                <div className={`grid grid-cols-1 ${viewingData.payment_method === 'Chèque' ? 'md:grid-cols-3' : 'md:grid-cols-1'} gap-8`}>
-                                    {/* Photo Facture */}
-                                    <div className="space-y-8">
+                                {/* Main Image Area */}
+                                <div ref={imageContainerRef} className="flex-1 w-full h-full flex items-center justify-center overflow-hidden relative">
+                                    {(() => {
+                                        // Combine all photos into a single list clearly
+                                        let allPhotos: string[] = [];
+                                        try {
+                                            const p = JSON.parse(viewingData.photos || '[]');
+                                            allPhotos = Array.isArray(p) ? p : [];
+                                        } catch (e) { allPhotos = []; }
+
+                                        if (viewingData.photo_url && !allPhotos.includes(viewingData.photo_url)) {
+                                            allPhotos = [viewingData.photo_url, ...allPhotos];
+                                        }
+                                        // Add Cheques if present
+                                        if (viewingData.photo_cheque_url) allPhotos.push(viewingData.photo_cheque_url);
+                                        if (viewingData.photo_verso_url) allPhotos.push(viewingData.photo_verso_url);
+
+                                        const activeIndex = viewingData.selectedIndex || 0;
+
+                                        if (allPhotos.length === 0) return (
+                                            <div className="flex flex-col items-center justify-center text-white/20 italic font-bold uppercase tracking-widest gap-4">
+                                                <UploadCloud size={64} className="opacity-50" />
+                                                <span>Aucun document disponible</span>
+                                            </div>
+                                        );
+
+                                        const activePhoto = allPhotos[activeIndex];
+
+                                        return (
+                                            <motion.div
+                                                className={`w-full h-full flex items-center justify-center p-4 ${imgZoom > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-zoom-in'}`}
+                                                onWheel={(e) => {
+                                                    // e.preventDefault(); 
+                                                    if (e.deltaY < 0) setImgZoom(prev => Math.min(5, prev + 0.2));
+                                                    else setImgZoom(prev => Math.max(0.5, prev - 0.2));
+                                                }}
+                                                animate={{ scale: imgZoom, rotate: imgRotation }}
+                                                transition={{ type: "spring", stiffness: 200, damping: 25 }}
+                                                drag={imgZoom > 1}
+                                                dragConstraints={{ left: -500, right: 500, top: -500, bottom: 500 }}
+                                                dragElastic={0.1}
+                                                dragMomentum={true}
+                                            >
+                                                {activePhoto?.startsWith('data:application/pdf') || activePhoto?.toLowerCase().includes('.pdf') ? (
+                                                    <iframe src={activePhoto} className="w-[80%] h-[90%] rounded-2xl border-none bg-white shadow-2xl pointer-events-auto" title="Document PDF" />
+                                                ) : (
+                                                    <img
+                                                        src={activePhoto}
+                                                        draggable="false"
+                                                        className="max-w-full max-h-full rounded-2xl object-contain shadow-2xl"
+                                                        style={{ pointerEvents: 'none', userSelect: 'none' }}
+                                                    />
+                                                )}
+                                            </motion.div>
+                                        );
+                                    })()}
+                                </div>
+
+                                {imgZoom !== 1 && (
+                                    <div className="absolute top-32 left-1/2 -translate-x-1/2 pointer-events-none z-[100]">
+                                        <span className="bg-black/80 backdrop-blur-xl text-[10px] font-black text-[#c69f6e] px-6 py-3 rounded-full border border-[#c69f6e]/30 shadow-2xl uppercase tracking-[0.2em]">
+                                            Zoom: {Math.round(imgZoom * 100)}% • Rotation: {imgRotation}°
+                                        </span>
+                                    </div>
+                                )}
+
+                                {/* Bottom Thumbnails */}
+                                <div className="absolute bottom-10 left-0 right-0 z-50 flex justify-center pointer-events-none">
+                                    <div className="bg-black/60 backdrop-blur-md border border-white/10 p-3 rounded-2xl flex items-center gap-3 overflow-x-auto no-scrollbar max-w-[90vw] pointer-events-auto">
                                         {(() => {
-                                            let invoicePhotos: string[] = [];
+                                            let allPhotos: string[] = [];
                                             try {
-                                                const parsed = JSON.parse(viewingData.photos || '[]');
-                                                invoicePhotos = Array.isArray(parsed) ? parsed : [];
-                                            } catch (e) {
-                                                invoicePhotos = [];
-                                            }
+                                                const p = JSON.parse(viewingData.photos || '[]');
+                                                allPhotos = Array.isArray(p) ? p : [];
+                                            } catch (e) { allPhotos = []; }
 
-                                            // Include legacy photo_url if exists
-                                            if (viewingData.photo_url && !invoicePhotos.includes(viewingData.photo_url)) {
-                                                invoicePhotos = [viewingData.photo_url, ...invoicePhotos];
+                                            if (viewingData.photo_url && !allPhotos.includes(viewingData.photo_url)) {
+                                                allPhotos = [viewingData.photo_url, ...allPhotos];
                                             }
+                                            if (viewingData.photo_cheque_url) allPhotos.push(viewingData.photo_cheque_url);
+                                            if (viewingData.photo_verso_url) allPhotos.push(viewingData.photo_verso_url);
 
-                                            if (invoicePhotos.length === 0) {
-                                                return (
-                                                    <div className="h-[70vh] bg-white/5 rounded-[2rem] border-2 border-dashed border-white/10 flex items-center justify-center text-white/20 italic font-bold uppercase tracking-widest">Sans Facture</div>
-                                                );
-                                            }
+                                            const activeIndex = viewingData.selectedIndex || 0;
 
-                                            return invoicePhotos.map((photo, pIdx) => (
-                                                <div key={pIdx} className="space-y-4">
-                                                    <div className="flex justify-between items-center">
-                                                        <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] italic">Document {pIdx + 1} / Facture</p>
-                                                        <a href={photo} download target="_blank" className="flex items-center gap-2 text-[9px] font-black text-[#c69f6e] uppercase tracking-widest hover:text-white transition-colors bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">
-                                                            <Download size={12} /> Télécharger
-                                                        </a>
-                                                    </div>
-                                                    <div
-                                                        className="bg-black rounded-[2rem] border border-white/10 shadow-2xl overflow-hidden group h-[70vh] relative"
-                                                        onWheel={(e) => {
-                                                            if (e.deltaY < 0) setImgZoom(prev => Math.min(4, prev + 0.1));
-                                                            else setImgZoom(prev => Math.max(0.5, prev - 0.1));
-                                                        }}
-                                                    >
-                                                        <motion.div
-                                                            className={`w-full h-full flex items-center justify-center p-4 ${imgZoom > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-zoom-in'}`}
-                                                            animate={{ scale: imgZoom, rotate: imgRotation }}
-                                                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                                                            drag={imgZoom > 1}
-                                                            dragConstraints={{ left: -1000, right: 1000, top: -1000, bottom: 1000 }}
-                                                            dragElastic={0.1}
-                                                        >
-                                                            <img
-                                                                src={photo}
-                                                                draggable="false"
-                                                                className="max-w-full max-h-full rounded-xl object-contain shadow-2xl"
-                                                                alt={`Facture ${pIdx + 1}`}
-                                                                style={{ pointerEvents: 'none', userSelect: 'none' }}
-                                                            />
-                                                        </motion.div>
-                                                        <div className="absolute top-6 left-6 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
-                                                            <span className="bg-black/60 backdrop-blur-md text-[10px] font-black text-[#c69f6e] px-4 py-2 rounded-full border border-[#c69f6e]/20 shadow-lg uppercase tracking-widest">Loupe: {Math.round(imgZoom * 100)}% • Molette pour zoomer</span>
-                                                        </div>
-                                                    </div>
+                                            return allPhotos.map((photo, idx) => (
+                                                <div
+                                                    key={idx}
+                                                    onClick={() => {
+                                                        setViewingData({ ...viewingData, selectedIndex: idx });
+                                                        setImgZoom(1);
+                                                        setImgRotation(0);
+                                                    }}
+                                                    className={`relative w-16 h-16 rounded-xl overflow-hidden cursor-pointer transition-all flex-shrink-0 border-2 ${idx === activeIndex ? 'border-[#c69f6e] scale-110' : 'border-transparent opacity-60 hover:opacity-100 hover:scale-105'} `}
+                                                >
+                                                    {photo.startsWith('data:application/pdf') || photo.toLowerCase().includes('.pdf') ? (
+                                                        <div className="w-full h-full bg-white flex items-center justify-center text-red-500 font-bold text-[8px]">PDF</div>
+                                                    ) : (
+                                                        <img src={photo} className="w-full h-full object-cover" />
+                                                    )}
                                                 </div>
                                             ));
                                         })()}
                                     </div>
-
-                                    {/* Photos Chèque */}
-                                    {viewingData.payment_method === 'Chèque' && (
-                                        <>
-                                            <div className="space-y-4">
-                                                <div className="flex justify-between items-center">
-                                                    <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] italic">Chèque Recto</p>
-                                                    {viewingData.photo_cheque_url && (
-                                                        <a href={viewingData.photo_cheque_url} download target="_blank" className="flex items-center gap-2 text-[9px] font-black text-[#c69f6e] uppercase tracking-widest hover:text-white transition-colors bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">
-                                                            <Download size={12} />
-                                                        </a>
-                                                    )}
-                                                </div>
-                                                {viewingData.photo_cheque_url ? (
-                                                    <div
-                                                        className="bg-black rounded-[2rem] border border-white/10 shadow-2xl overflow-hidden h-[70vh] relative"
-                                                        onWheel={(e) => {
-                                                            if (e.deltaY < 0) setImgZoom(prev => Math.min(4, prev + 0.1));
-                                                            else setImgZoom(prev => Math.max(0.5, prev - 0.1));
-                                                        }}
-                                                    >
-                                                        <motion.div
-                                                            className={`w-full h-full flex items-center justify-center p-4 ${imgZoom > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-zoom-in'}`}
-                                                            animate={{ scale: imgZoom, rotate: imgRotation }}
-                                                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                                                            drag={imgZoom > 1}
-                                                            dragConstraints={{ left: -1000, right: 1000, top: -1000, bottom: 1000 }}
-                                                            dragElastic={0.1}
-                                                        >
-                                                            <img
-                                                                src={viewingData.photo_cheque_url}
-                                                                draggable="false"
-                                                                className="max-w-full max-h-full rounded-xl object-contain shadow-2xl"
-                                                                alt="Chèque Recto"
-                                                                style={{ pointerEvents: 'none', userSelect: 'none' }}
-                                                            />
-                                                        </motion.div>
-                                                    </div>
-                                                ) : (
-                                                    <div className="h-[70vh] bg-white/5 rounded-[2rem] border-2 border-dashed border-white/10 flex items-center justify-center text-white/20 italic font-bold">Sans Recto</div>
-                                                )}
-                                            </div>
-                                            <div className="space-y-4">
-                                                <div className="flex justify-between items-center">
-                                                    <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] italic">Chèque Verso</p>
-                                                    {viewingData.photo_verso_url && (
-                                                        <a href={viewingData.photo_verso_url} download target="_blank" className="flex items-center gap-2 text-[9px] font-black text-[#c69f6e] uppercase tracking-widest hover:text-white transition-colors bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">
-                                                            <Download size={12} />
-                                                        </a>
-                                                    )}
-                                                </div>
-                                                {viewingData.photo_verso_url ? (
-                                                    <div
-                                                        className="bg-black rounded-[2rem] border border-white/10 shadow-2xl overflow-hidden h-[70vh] relative"
-                                                        onWheel={(e) => {
-                                                            if (e.deltaY < 0) setImgZoom(prev => Math.min(4, prev + 0.1));
-                                                            else setImgZoom(prev => Math.max(0.5, prev - 0.1));
-                                                        }}
-                                                    >
-                                                        <motion.div
-                                                            className={`w-full h-full flex items-center justify-center p-4 ${imgZoom > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-zoom-in'}`}
-                                                            animate={{ scale: imgZoom, rotate: imgRotation }}
-                                                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                                                            drag={imgZoom > 1}
-                                                            dragConstraints={{ left: -1000, right: 1000, top: -1000, bottom: 1000 }}
-                                                            dragElastic={0.1}
-                                                        >
-                                                            <img
-                                                                src={viewingData.photo_verso_url}
-                                                                draggable="false"
-                                                                className="max-w-full max-h-full rounded-xl object-contain shadow-2xl"
-                                                                alt="Chèque Verso"
-                                                                style={{ pointerEvents: 'none', userSelect: 'none' }}
-                                                            />
-                                                        </motion.div>
-                                                    </div>
-                                                ) : (
-                                                    <div className="h-[70vh] bg-white/5 rounded-[2rem] border-2 border-dashed border-white/10 flex items-center justify-center text-white/20 italic font-bold">Sans Verso</div>
-                                                )}
-                                            </div>
-                                        </>
-                                    )}
                                 </div>
+
                             </div>
                         </motion.div>
                     )
                 }
-            </AnimatePresence >
+            </AnimatePresence>
 
             {/* Edit Invoice Modal */}
             <AnimatePresence>
@@ -1934,6 +1932,15 @@ export default function FacturationPage() {
                                                 />
                                             </div>
                                         </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-[9px] font-black uppercase tracking-[0.2em] text-[#8c8279] mb-1 block ml-1">Détails (Optionnel)</label>
+                                        <textarea
+                                            value={showEditModal.details}
+                                            onChange={(e) => setShowEditModal({ ...showEditModal, details: e.target.value })}
+                                            placeholder="Détails supplémentaires..."
+                                            className="w-full h-16 p-3 bg-[#f9f6f2] border border-[#e6dace] rounded-xl font-medium text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all text-[11px] resize-none"
+                                        />
                                     </div>
 
                                     <div>

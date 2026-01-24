@@ -118,8 +118,6 @@ export const resolvers = {
             const recetteCaisseVal = parseFloat(existingData.recette_de_caisse || '0');
             const recetteNetVal = (isNaN(recetteCaisseVal) ? 0 : recetteCaisseVal) - totalDiponceVal;
 
-            console.log(`[DEBUG] Date: ${date}, Caisse: ${recetteCaisseVal}, Total Diponce: ${totalDiponceVal}, Net: ${recetteNetVal}`);
-
             return {
                 id: existingData.id || null,
                 date: date,
@@ -997,10 +995,10 @@ export const resolvers = {
                 diponce_admin: typeof row.diponce_admin === 'string' ? row.diponce_admin : JSON.stringify(row.diponce_admin || [])
             };
         },
-        addInvoice: async (_: any, { supplier_name, amount, date, photo_url, photos, doc_type, doc_number, category }: any) => {
+        addInvoice: async (_: any, { supplier_name, amount, date, photo_url, photos, doc_type, doc_number, category, details }: any) => {
             const res = await query(
-                'INSERT INTO invoices (supplier_name, amount, date, photo_url, photos, doc_type, doc_number, category) VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8) RETURNING *',
-                [supplier_name, amount, date, photo_url, photos || '[]', doc_type || 'Facture', doc_number, category || 'fournisseur']
+                'INSERT INTO invoices (supplier_name, amount, date, photo_url, photos, doc_type, doc_number, category, details) VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9) RETURNING *',
+                [supplier_name, amount, date, photo_url, photos || '[]', doc_type || 'Facture', doc_number, category || 'fournisseur', details || '']
             );
             const row = res.rows[0];
             return {

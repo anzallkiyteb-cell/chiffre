@@ -666,34 +666,37 @@ export default function Home() {
   useEffect(() => {
     if (!user?.username) return;
 
-    let inactivityTimer: NodeJS.Timeout;
-    const DISCONNECT_TIME = 10 * 60 * 1000; // 10 minutes of inactivity
+    const DISCONNECT_TIME = 10 * 60 * 1000; // 10 minutes
+    let lastActivity = Date.now();
 
-    const resetInactivityTimer = () => {
-      clearTimeout(inactivityTimer);
-      inactivityTimer = setTimeout(() => {
-        console.log("User inactive for 10 mins. Auto-disconnecting.");
-        handleLogout();
-      }, DISCONNECT_TIME);
+    const updateActivity = () => {
+      lastActivity = Date.now();
     };
 
-    // Initialize timer
-    resetInactivityTimer();
+    const checkInactivity = () => {
+      if (Date.now() - lastActivity > DISCONNECT_TIME) {
+        console.log("User inactive for 10 mins. Auto-disconnecting.");
+        handleLogout();
+      }
+    };
 
-    // Activity listeners
-    window.addEventListener('mousemove', resetInactivityTimer);
-    window.addEventListener('keydown', resetInactivityTimer);
-    window.addEventListener('click', resetInactivityTimer);
-    window.addEventListener('scroll', resetInactivityTimer);
-    window.addEventListener('touchstart', resetInactivityTimer);
+    // Check activity every 30 seconds instead of resetting timer on every event
+    const intervalId = setInterval(checkInactivity, 30000);
+
+    // Listeners update the timestamp
+    window.addEventListener('mousemove', updateActivity);
+    window.addEventListener('keydown', updateActivity);
+    window.addEventListener('click', updateActivity);
+    window.addEventListener('scroll', updateActivity);
+    window.addEventListener('touchstart', updateActivity);
 
     return () => {
-      clearTimeout(inactivityTimer);
-      window.removeEventListener('mousemove', resetInactivityTimer);
-      window.removeEventListener('keydown', resetInactivityTimer);
-      window.removeEventListener('click', resetInactivityTimer);
-      window.removeEventListener('scroll', resetInactivityTimer);
-      window.removeEventListener('touchstart', resetInactivityTimer);
+      clearInterval(intervalId);
+      window.removeEventListener('mousemove', updateActivity);
+      window.removeEventListener('keydown', updateActivity);
+      window.removeEventListener('click', updateActivity);
+      window.removeEventListener('scroll', updateActivity);
+      window.removeEventListener('touchstart', updateActivity);
     };
   }, [user]);
 
