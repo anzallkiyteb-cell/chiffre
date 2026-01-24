@@ -16,6 +16,16 @@ import {
 } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 
+// Helper to safely parse JSON only once
+const safeJsonParse = (str: string | null | undefined, fallback: any[] = []) => {
+    if (!str) return fallback;
+    try {
+        return JSON.parse(str);
+    } catch {
+        return fallback;
+    }
+};
+
 const GET_STATS = gql`
   query GetStats($startDate: String!, $endDate: String!) {
     getChiffresByRange(startDate: $startDate, endDate: $endDate) {
@@ -166,57 +176,80 @@ export default function StatistiquesPage() {
         skip: !startDate || !endDate
     });
 
-    const statsData = useMemo(() => {
-        if (!data?.getChiffresByRange) return [];
+    // Pre-parse all JSON data once to avoid repeated parsing
+    const parsedData = useMemo(() => {
+        if (!data?.getChiffresByRange) return null;
 
         const raw = data.getChiffresByRange;
+        return raw.map((d: any) => ({
+            ...d,
+            _diponce: safeJsonParse(d.diponce),
+            _diponce_divers: safeJsonParse(d.diponce_divers),
+            _diponce_admin: safeJsonParse(d.diponce_admin),
+            _recette: parseFloat(d.recette_de_caisse) || 0,
+            _depenses: parseFloat(d.total_diponce) || 0,
+            _net: parseFloat(d.recette_net) || 0,
+            _tpe: parseFloat(d.tpe) || 0,
+            _cheque: parseFloat(d.cheque_bancaire) || 0,
+            _especes: parseFloat(d.espaces) || 0,
+            _tickets: parseFloat(d.tickets_restaurant) || 0,
+            _extras: (d.extras_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0),
+            _doublages: (d.doublages_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0),
+            _avances: (d.avances_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0),
+            _primes: (d.primes_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0),
+            _restes: (d.restes_salaires_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0),
+        }));
+    }, [data]);
+
+    const statsData = useMemo(() => {
+        if (!parsedData) return [];
+
         if (aggregation === 'day') {
-            return raw.map((d: any) => {
-                return {
-                    name: new Date(d.date).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }),
-                    fullDate: d.date,
-                    recette: parseFloat(d.recette_de_caisse) || 0,
-                    depenses: parseFloat(d.total_diponce) || 0,
-                    net: parseFloat(d.recette_net) || 0,
-                    tpe: parseFloat(d.tpe) || 0,
-                    cheque: parseFloat(d.cheque_bancaire) || 0,
-                    especes: parseFloat(d.espaces) || 0,
-                    tickets: parseFloat(d.tickets_restaurant) || 0,
-                };
-            });
+            return parsedData.map((d: any) => ({
+                name: new Date(d.date).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }),
+                fullDate: d.date,
+                recette: d._recette,
+                depenses: d._depenses,
+                net: d._net,
+                tpe: d._tpe,
+                cheque: d._cheque,
+                especes: d._especes,
+                tickets: d._tickets,
+            }));
         }
         else {
             // Aggregate by month
             const months: Record<string, any> = {};
-            raw.forEach((d: any) => {
-                const m = d.date.substring(0, 7); // YYYY-MM
+            parsedData.forEach((d: any) => {
+                const m = d.date.substring(0, 7);
                 if (!months[m]) {
                     months[m] = {
                         name: new Date(d.date).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
                         recette: 0, depenses: 0, net: 0, tpe: 0, cheque: 0, especes: 0, tickets: 0, count: 0
                     };
                 }
-                months[m].recette += parseFloat(d.recette_de_caisse) || 0;
-                months[m].depenses += parseFloat(d.total_diponce) || 0;
-                months[m].net += parseFloat(d.recette_net) || 0;
-                months[m].tpe += parseFloat(d.tpe) || 0;
-                months[m].cheque += parseFloat(d.cheque_bancaire) || 0;
-                months[m].especes += parseFloat(d.espaces) || 0;
-                months[m].tickets += parseFloat(d.tickets_restaurant) || 0;
+                months[m].recette += d._recette;
+                months[m].depenses += d._depenses;
+                months[m].net += d._net;
+                months[m].tpe += d._tpe;
+                months[m].cheque += d._cheque;
+                months[m].especes += d._especes;
+                months[m].tickets += d._tickets;
                 months[m].count += 1;
             });
             return Object.values(months);
         }
-    }, [data, aggregation]);
+    }, [parsedData, aggregation]);
 
     const riadhStatsData = useMemo(() => {
         if (!data?.getInvoices) return [];
         const raw = data.getInvoices;
         const groups: Record<string, any> = {};
 
-        raw.forEach((inv: any) => {
+        for (let i = 0; i < raw.length; i++) {
+            const inv = raw[i];
             const dateStr = inv.paid_date;
-            if (!dateStr) return;
+            if (!dateStr) continue;
             const key = aggregation === 'day' ? dateStr : dateStr.substring(0, 7);
             if (!groups[key]) {
                 groups[key] = {
@@ -224,16 +257,17 @@ export default function StatistiquesPage() {
                         ? new Date(dateStr).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
                         : new Date(dateStr).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
                     depenses: 0,
-                    fullDate: dateStr
+                    fullDate: dateStr,
+                    details: []
                 };
             }
-            groups[key].depenses += parseFloat(inv.amount) || 0;
-            if (!groups[key].details) groups[key].details = [];
+            const amount = parseFloat(inv.amount) || 0;
+            groups[key].depenses += amount;
             groups[key].details.push({
                 supplier: inv.supplier_name,
-                amount: parseFloat(inv.amount) || 0
+                amount: amount
             });
-        });
+        }
 
         return Object.values(groups).sort((a: any, b: any) => a.fullDate.localeCompare(b.fullDate));
     }, [data, aggregation]);
@@ -251,120 +285,130 @@ export default function StatistiquesPage() {
                 tickets: parseFloat(s.totalTicketsRestaurant) || 0,
             };
         }
-        return statsData.reduce((acc: any, curr: any) => ({
-            recette: acc.recette + curr.recette,
-            depenses: acc.depenses + curr.depenses,
-            net: acc.net + curr.net,
-            tpe: acc.tpe + curr.tpe,
-            cheque: acc.cheque + curr.cheque,
-            especes: acc.especes + curr.especes,
-            tickets: acc.tickets + curr.tickets,
-        }), { recette: 0, depenses: 0, net: 0, tpe: 0, cheque: 0, especes: 0, tickets: 0 });
+        let recette = 0, depenses = 0, net = 0, tpe = 0, cheque = 0, especes = 0, tickets = 0;
+        for (let i = 0; i < statsData.length; i++) {
+            const curr = statsData[i];
+            recette += curr.recette;
+            depenses += curr.depenses;
+            net += curr.net;
+            tpe += curr.tpe;
+            cheque += curr.cheque;
+            especes += curr.especes;
+            tickets += curr.tickets;
+        }
+        return { recette, depenses, net, tpe, cheque, especes, tickets };
     }, [statsData, data]);
 
     const supplierData = useMemo(() => {
-        if (!data?.getChiffresByRange) return [];
+        if (!parsedData) return [];
         const res: Record<string, number> = {};
-        const excluded = ['RIADH', 'MALIKA', 'SALAIRES'];
+        const excluded = new Set(['RIADH', 'MALIKA', 'SALAIRES']);
 
-        const processItems = (items: any[]) => {
-            items.forEach(e => {
+        for (let i = 0; i < parsedData.length; i++) {
+            const items = parsedData[i]._diponce;
+            for (let j = 0; j < items.length; j++) {
+                const e = items[j];
                 const name = e.supplier || e.designation || e.name || 'Divers';
-                if (!excluded.includes(name.toUpperCase())) {
+                if (!excluded.has(name.toUpperCase())) {
                     res[name] = (res[name] || 0) + (parseFloat(e.amount) || 0);
                 }
-            });
-        };
+            }
+        }
 
-        data.getChiffresByRange.forEach((d: any) => {
-            processItems(JSON.parse(d.diponce || '[]'));
-        });
-
-        return Object.entries(res).map(([name, value]) => ({ name, value }))
+        return Object.entries(res)
+            .map(([name, value]) => ({ name, value }))
             .sort((a, b) => b.value - a.value)
             .slice(0, 8);
-    }, [data]);
+    }, [parsedData]);
 
     const diversData = useMemo(() => {
-        if (!data?.getChiffresByRange) return [];
+        if (!parsedData) return [];
         const res: Record<string, number> = {};
-        const excluded = ['RIADH', 'MALIKA', 'SALAIRES'];
+        const excluded = new Set(['RIADH', 'MALIKA', 'SALAIRES']);
 
-        const processItems = (items: any[]) => {
-            items.forEach(e => {
+        for (let i = 0; i < parsedData.length; i++) {
+            const d = parsedData[i];
+            const items = [...d._diponce_divers, ...d._diponce_admin];
+            for (let j = 0; j < items.length; j++) {
+                const e = items[j];
                 const name = e.designation || e.name || e.supplier || 'Divers';
-                if (!excluded.includes(name.toUpperCase())) {
+                if (!excluded.has(name.toUpperCase())) {
                     res[name] = (res[name] || 0) + (parseFloat(e.amount) || 0);
                 }
-            });
-        };
+            }
+        }
 
-        data.getChiffresByRange.forEach((d: any) => {
-            processItems(JSON.parse(d.diponce_divers || '[]'));
-            processItems(JSON.parse(d.diponce_admin || '[]'));
-        });
-
-        return Object.entries(res).map(([name, value]) => ({ name, value }))
+        return Object.entries(res)
+            .map(([name, value]) => ({ name, value }))
             .sort((a, b) => b.value - a.value)
             .slice(0, 8);
-    }, [data]);
+    }, [parsedData]);
 
     const laborData = useMemo(() => {
-        if (!data?.getChiffresByRange) return [];
-        const raw = data.getChiffresByRange;
+        if (!parsedData) return [];
 
         if (aggregation === 'day') {
-            return raw.map((d: any) => {
-                const dayAdvances = (d.avances_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
-                const details = (d.avances_details || []).map((r: any) => ({
-                    name: r.username,
-                    value: parseFloat(r.montant) || 0
-                }));
-
-                return {
-                    name: new Date(d.date).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }),
-                    total: dayAdvances,
-                    details: details,
-                    type: 'Journalier'
-                };
-            }).filter((d: any) => d.total > 0);
+            const result = [];
+            for (let i = 0; i < parsedData.length; i++) {
+                const d = parsedData[i];
+                const dayAdvances = d._avances;
+                if (dayAdvances > 0) {
+                    result.push({
+                        name: new Date(d.date).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }),
+                        total: dayAdvances,
+                        details: (d.avances_details || []).map((r: any) => ({
+                            name: r.username,
+                            value: parseFloat(r.montant) || 0
+                        })),
+                        type: 'Journalier'
+                    });
+                }
+            }
+            return result;
         } else {
             const months: Record<string, { total: number, details: Record<string, number> }> = {};
-            raw.forEach((d: any) => {
+            for (let i = 0; i < parsedData.length; i++) {
+                const d = parsedData[i];
                 const mKey = d.date.substring(0, 7);
                 if (!months[mKey]) months[mKey] = { total: 0, details: {} };
 
-                const advances = (d.avances_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
-                months[mKey].total += advances;
+                months[mKey].total += d._avances;
 
-                (d.avances_details || []).forEach((r: any) => {
+                const avances = d.avances_details || [];
+                for (let j = 0; j < avances.length; j++) {
+                    const r = avances[j];
                     const name = r.username;
                     const amt = parseFloat(r.montant) || 0;
                     months[mKey].details[name] = (months[mKey].details[name] || 0) + amt;
-                });
-            });
+                }
+            }
 
-            return Object.entries(months).map(([m, val]) => ({
-                name: new Date(m + '-01').toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
-                total: val.total,
-                details: Object.entries(val.details).map(([name, value]) => ({ name, value })),
-                type: 'Aggregated'
-            })).filter((d: any) => d.total > 0);
+            return Object.entries(months)
+                .filter(([_, val]) => val.total > 0)
+                .map(([m, val]) => ({
+                    name: new Date(m + '-01').toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
+                    total: val.total,
+                    details: Object.entries(val.details).map(([name, value]) => ({ name, value })),
+                    type: 'Aggregated'
+                }));
         }
-    }, [data, aggregation]);
+    }, [parsedData, aggregation]);
 
     const intelligentInsights = useMemo(() => {
         if (statsData.length === 0) return null;
-        const bestPeriod = [...statsData].sort((a, b) => b.recette - a.recette)[0];
-        const worstPeriod = [...statsData].sort((a, b) => a.recette - b.recette)[0];
+        let bestPeriod = statsData[0];
+        let worstPeriod = statsData[0];
+        for (let i = 1; i < statsData.length; i++) {
+            if (statsData[i].recette > bestPeriod.recette) bestPeriod = statsData[i];
+            if (statsData[i].recette < worstPeriod.recette) worstPeriod = statsData[i];
+        }
         const avgNet = totals.net / statsData.length;
         const totalProfitMargin = (totals.net / (totals.recette || 1)) * 100;
         return { bestPeriod, worstPeriod, avgNet, totalProfitMargin };
     }, [statsData, totals]);
 
     const aggregatedExpensesDetailed = useMemo(() => {
-        if (!data?.getChiffresByRange) return { data: [], suppliers: [], categoryGroups: [], colorMap: {} };
-        let raw = data.getChiffresByRange;
+        if (!parsedData) return { data: [], suppliers: [], categoryGroups: [], colorMap: {} };
 
         // Separate categories by type
         const diversTotals: Record<string, number> = {};
@@ -378,37 +422,45 @@ export default function StatistiquesPage() {
             'TOUS EMPLOYÉS': 0
         };
 
-        raw.forEach((d: any) => {
+        for (let i = 0; i < parsedData.length; i++) {
+            const d = parsedData[i];
+
             // Process DÉPENSES DIVERS
-            JSON.parse(d.diponce_divers || '[]').forEach((e: any) => {
+            const divers = d._diponce_divers;
+            for (let j = 0; j < divers.length; j++) {
+                const e = divers[j];
                 const name = e.designation || e.name || 'Divers';
                 diversTotals[name] = (diversTotals[name] || 0) + (parseFloat(e.amount) || 0);
-            });
+            }
 
             // Process DÉPENSES ADMINISTRATIF
-            JSON.parse(d.diponce_admin || '[]').forEach((e: any) => {
+            const admin = d._diponce_admin;
+            for (let j = 0; j < admin.length; j++) {
+                const e = admin[j];
                 const name = e.designation || e.name || 'Admin';
                 adminTotals[name] = (adminTotals[name] || 0) + (parseFloat(e.amount) || 0);
-            });
+            }
 
             // Process DÉPENSES FOURNISSEURS
-            JSON.parse(d.diponce || '[]').forEach((e: any) => {
+            const diponce = d._diponce;
+            for (let j = 0; j < diponce.length; j++) {
+                const e = diponce[j];
                 const name = e.supplier || e.name || 'Fournisseur';
                 fournisseurTotals[name] = (fournisseurTotals[name] || 0) + (parseFloat(e.amount) || 0);
-            });
+            }
 
             // Add payroll totals
-            payrollTotals['EXTRA'] += (d.extras_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
-            payrollTotals['DOUBLAGE'] += (d.doublages_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
-            payrollTotals['ACCOMPTE'] += (d.avances_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
-            payrollTotals['PRIMES'] += (d.primes_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
-        });
+            payrollTotals['EXTRA'] += d._extras;
+            payrollTotals['DOUBLAGE'] += d._doublages;
+            payrollTotals['ACCOMPTE'] += d._avances;
+            payrollTotals['PRIMES'] += d._primes;
+        }
 
         // Add monthly salaries to TOUS EMPLOYÉS
-        (salaryData?.getMonthlySalaries || []).forEach((s: any) => {
-            payrollTotals['TOUS EMPLOYÉS'] += parseFloat(s.total) || 0;
-        });
-
+        const salaries = salaryData?.getMonthlySalaries || [];
+        for (let i = 0; i < salaries.length; i++) {
+            payrollTotals['TOUS EMPLOYÉS'] += parseFloat(salaries[i].total) || 0;
+        }
 
         // Build ordered supplier list
         const orderedSuppliers: string[] = [];
@@ -432,14 +484,16 @@ export default function StatistiquesPage() {
             .forEach(([name]) => orderedSuppliers.push(name));
 
         // 4. Payroll categories in specific order
-        ['EXTRA', 'DOUBLAGE', 'ACCOMPTE', 'PRIMES', 'TOUS EMPLOYÉS'].forEach(cat => {
-            if (payrollTotals[cat] > 0) {
-                orderedSuppliers.push(cat);
+        const payrollCats = ['EXTRA', 'DOUBLAGE', 'ACCOMPTE', 'PRIMES', 'TOUS EMPLOYÉS'];
+        for (let i = 0; i < payrollCats.length; i++) {
+            if (payrollTotals[payrollCats[i]] > 0) {
+                orderedSuppliers.push(payrollCats[i]);
             }
-        });
+        }
 
         const aggregated: Record<string, any> = {};
-        raw.forEach((d: any) => {
+        for (let i = 0; i < parsedData.length; i++) {
+            const d = parsedData[i];
             const key = aggregation === 'day' ? d.date : d.date.substring(0, 7);
             if (!aggregated[key]) {
                 aggregated[key] = {
@@ -448,48 +502,49 @@ export default function StatistiquesPage() {
                         : new Date(d.date).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
                     total: 0
                 };
-                orderedSuppliers.forEach(c => aggregated[key][c] = 0);
+                for (let j = 0; j < orderedSuppliers.length; j++) {
+                    aggregated[key][orderedSuppliers[j]] = 0;
+                }
             }
 
             // Add divers
-            JSON.parse(d.diponce_divers || '[]').forEach((e: any) => {
+            const divers = d._diponce_divers;
+            for (let j = 0; j < divers.length; j++) {
+                const e = divers[j];
                 const name = e.designation || e.name || 'Divers';
                 const amt = parseFloat(e.amount) || 0;
-                aggregated[key][name] += amt;
+                aggregated[key][name] = (aggregated[key][name] || 0) + amt;
                 aggregated[key].total += amt;
-            });
+            }
 
             // Add admin
-            JSON.parse(d.diponce_admin || '[]').forEach((e: any) => {
+            const admin = d._diponce_admin;
+            for (let j = 0; j < admin.length; j++) {
+                const e = admin[j];
                 const name = e.designation || e.name || 'Admin';
                 const amt = parseFloat(e.amount) || 0;
-                aggregated[key][name] += amt;
+                aggregated[key][name] = (aggregated[key][name] || 0) + amt;
                 aggregated[key].total += amt;
-            });
+            }
 
             // Add fournisseurs
-            JSON.parse(d.diponce || '[]').forEach((e: any) => {
+            const diponce = d._diponce;
+            for (let j = 0; j < diponce.length; j++) {
+                const e = diponce[j];
                 const name = e.supplier || e.name || 'Fournisseur';
                 const amt = parseFloat(e.amount) || 0;
-                aggregated[key][name] += amt;
+                aggregated[key][name] = (aggregated[key][name] || 0) + amt;
                 aggregated[key].total += amt;
-            });
+            }
 
             // Add payroll expenses per day
-            const extra = (d.extras_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
-            const doublage = (d.doublages_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
-            const accompte = (d.avances_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
-            const primes = (d.primes_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
-            const restes = (d.restes_salaires_details || []).reduce((acc: number, r: any) => acc + (parseFloat(r.montant) || 0), 0);
-
-            aggregated[key]['EXTRA'] += extra;
-            aggregated[key]['DOUBLAGE'] += doublage;
-            aggregated[key]['ACCOMPTE'] += accompte;
-            aggregated[key]['PRIMES'] += primes;
-            aggregated[key]['TOUS EMPLOYÉS'] += restes;
-            aggregated[key].total += extra + doublage + accompte + primes + restes;
-        });
-
+            aggregated[key]['EXTRA'] += d._extras;
+            aggregated[key]['DOUBLAGE'] += d._doublages;
+            aggregated[key]['ACCOMPTE'] += d._avances;
+            aggregated[key]['PRIMES'] += d._primes;
+            aggregated[key]['TOUS EMPLOYÉS'] += d._restes;
+            aggregated[key].total += d._extras + d._doublages + d._avances + d._primes + d._restes;
+        }
 
         // Build category groups for legend
         const categoryGroups: Array<{ title: string, items: string[] }> = [];
@@ -518,7 +573,7 @@ export default function StatistiquesPage() {
             categoryGroups.push({ title: 'DÉPENSES FOURNISSEURS', items: fournisseurItems });
         }
 
-        const payrollItems = ['EXTRA', 'DOUBLAGE', 'ACCOMPTE', 'PRIMES', 'TOUS EMPLOYÉS'].filter(cat => payrollTotals[cat] > 0);
+        const payrollItems = payrollCats.filter(cat => payrollTotals[cat] > 0);
         if (payrollItems.length > 0) {
             categoryGroups.push({ title: 'MAIN D\'OEUVRE', items: payrollItems });
         }
@@ -528,60 +583,46 @@ export default function StatistiquesPage() {
 
         // Fixed colors for MAIN D'OEUVRE categories - VERY distinct colors
         const fixedColors: Record<string, string> = {
-            'DOUBLAGE': '#78716c',      // Stone Gray
-            'EXTRA': '#22c55e',         // Bright Green
-            'ACCOMPTE': '#f97316',      // Orange
-            'PRIMES': '#06b6d4',        // Cyan
-            'TOUS EMPLOYÉS': '#3b82f6', // Blue
+            'DOUBLAGE': '#78716c',
+            'EXTRA': '#22c55e',
+            'ACCOMPTE': '#f97316',
+            'PRIMES': '#06b6d4',
+            'TOUS EMPLOYÉS': '#3b82f6',
         };
 
         // Predefined array of VERY distinct colors for dynamic items
         const distinctColors = [
-            '#ef4444', // Red
-            '#8b5cf6', // Violet
-            '#ec4899', // Pink
-            '#14b8a6', // Teal
-            '#f59e0b', // Amber
-            '#6366f1', // Indigo
-            '#84cc16', // Lime
-            '#0891b2', // Cyan Dark
-            '#d946ef', // Fuchsia
-            '#059669', // Emerald
-            '#dc2626', // Red Dark
-            '#7c3aed', // Purple
-            '#db2777', // Pink Dark
-            '#0d9488', // Teal Dark
-            '#ca8a04', // Yellow Dark
-            '#4f46e5', // Indigo Dark
-            '#65a30d', // Lime Dark
-            '#0e7490', // Cyan Darker
-            '#c026d3', // Fuchsia Dark
-            '#047857', // Emerald Dark
+            '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f59e0b',
+            '#6366f1', '#84cc16', '#0891b2', '#d946ef', '#059669',
+            '#dc2626', '#7c3aed', '#db2777', '#0d9488', '#ca8a04',
+            '#4f46e5', '#65a30d', '#0e7490', '#c026d3', '#047857',
         ];
 
         let dynamicIdx = 0;
-        orderedSuppliers.forEach((name) => {
-            // Use fixed color if available
+        for (let i = 0; i < orderedSuppliers.length; i++) {
+            const name = orderedSuppliers[i];
             if (fixedColors[name]) {
                 colorMap[name] = fixedColors[name];
             } else {
                 colorMap[name] = distinctColors[dynamicIdx % distinctColors.length];
                 dynamicIdx++;
             }
-        });
+        }
 
         return { data: Object.values(aggregated), suppliers: orderedSuppliers, categoryGroups, colorMap };
-    }, [data, aggregation, salaryData]);
+    }, [parsedData, aggregation, salaryData]);
 
     const allAvailableSuppliers = useMemo(() => {
-        if (!data?.getChiffresByRange) return [];
+        if (!parsedData) return [];
         const s = new Set<string>();
-        data.getChiffresByRange.forEach((d: any) => {
-            const exps = JSON.parse(d.diponce || '[]');
-            exps.forEach((e: any) => e.supplier && s.add(e.supplier));
-        });
+        for (let i = 0; i < parsedData.length; i++) {
+            const exps = parsedData[i]._diponce;
+            for (let j = 0; j < exps.length; j++) {
+                if (exps[j].supplier) s.add(exps[j].supplier);
+            }
+        }
         return Array.from(s).sort();
-    }, [data]);
+    }, [parsedData]);
 
     if (initializing || !user) return (
         <div className="min-h-screen flex items-center justify-center bg-[#fdfbf7]">
