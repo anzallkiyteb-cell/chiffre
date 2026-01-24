@@ -1597,48 +1597,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     useEffect(() => {
         if (!isClient) return;
 
-        // Block 1: Initial Draft Recovery
-        if (!hasInteracted) {
-            const savedDraft = localStorage.getItem(`chiffre_draft_${date}`);
-            if (savedDraft) {
-                try {
-                    const draft = JSON.parse(savedDraft);
-                    if (draft.date === date) {
-                        console.log(`[DEBUG UI] Found draft for ${date}. Loading draft.`);
-                        const d = draft.data;
-                        setRecetteCaisse(d.recetteCaisse);
-                        setTpe(d.tpe);
-                        setTpe2(d.tpe2 || '0');
-                        setCheque(d.cheque);
-                        setEspeces(d.especes);
-                        setTicketsRestaurant(d.ticketsRestaurant);
-                        setExtra(d.extra);
-                        setPrimes(d.primes);
-                        setAvancesList(d.avancesList);
-                        setDoublagesList(d.doublagesList);
-                        setExtrasList(d.extrasList);
-                        setPrimesList(d.primesList);
-                        setRestesSalairesList(d.restesSalairesList || []);
-                        setOffres(d.offres || '0');
-                        setOffresList((d.offresList || []).map((o: any) => ({ ...o, invoices: o.invoices || [] })));
-                        setExpenses(d.expenses.map((e: any) => ({ ...e, details: e.details || '' })));
-                        setExpensesDivers((d.expensesDivers || []).map((dv: any) => ({ ...dv, details: dv.details || '' })));
-                        setExpensesAdmin(d.expensesAdmin || [
-                            { designation: 'Riadh', amount: '0', paymentMethod: 'Espèces' },
-                            { designation: 'Malika', amount: '0', paymentMethod: 'Espèces' },
-                            { designation: 'Salaires', amount: '0', paymentMethod: 'Espèces' }
-                        ]);
-                        setCaissePhotos(d.caissePhotos || []);
-                        setHasInteracted(true);
-                        setToast({ msg: 'Reprise de votre saisie en cours (Brouillon)', type: 'success' });
-                        setTimeout(() => setToast(null), 3000);
-                        return; // Exit this run, next run will handle hasInteracted=true
-                    }
-                } catch (e) { console.error("Error loading draft", e); }
-            }
-        }
-
-        // Block 2: Server Data Integration
+        // Block 1: Server Data Integration (Highest Priority for Saved Sessions)
         if (chiffreData?.getChiffreByDate) {
             const c = chiffreData.getChiffreByDate;
 
@@ -1648,19 +1607,9 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                 return;
             }
 
-            console.log(`[DEBUG UI] Loading server data for ${date}. Caisse: ${c.recette_de_caisse}`);
-            setIsLocked(c.is_locked || false);
-
-            // Personnel sub-lists are server-managed (immediate sync)
-            setAvancesList(c.avances_details || []);
-            setDoublagesList(c.doublages_details || []);
-            setExtrasList(c.extras_details || []);
-            setPrimesList(c.primes_details || []);
-            setRestesSalairesList(c.restes_salaires_details || []);
-
             if (!hasInteracted) {
-                // First-time server load or sync after save
-                console.log(`[DEBUG UI] Applying server data. Recette: ${c.recette_de_caisse}`);
+                console.log(`[DEBUG UI] Loading server data for ${date}. ID: ${c.id}, Caisse: ${c.recette_de_caisse}`);
+                setIsLocked(c.is_locked || false);
                 setRecetteCaisse(c.recette_de_caisse || '0');
                 setTpe(c.tpe || '0');
                 setTpe2(c.tpe2 || '0');
@@ -1677,9 +1626,14 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                 try {
                     const parsed = JSON.parse(c.caisse_photo || '[]');
                     setCaissePhotos(Array.isArray(parsed) ? parsed : (c.caisse_photo ? [c.caisse_photo] : []));
-                } catch {
-                    setCaissePhotos(c.caisse_photo ? [c.caisse_photo] : []);
-                }
+                } catch { setCaissePhotos(c.caisse_photo ? [c.caisse_photo] : []); }
+
+                // Personnel sub-lists
+                setAvancesList(c.avances_details || []);
+                setDoublagesList(c.doublages_details || []);
+                setExtrasList(c.extras_details || []);
+                setPrimesList(c.primes_details || []);
+                setRestesSalairesList(c.restes_salaires_details || []);
 
                 const savedAdminData = JSON.parse(c.diponce_admin || '[]');
                 const defaultAdmin = [
@@ -1687,32 +1641,26 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                     { designation: 'Malika', amount: '0', paymentMethod: 'Espèces' },
                     { designation: 'Salaires', amount: '0', paymentMethod: 'Espèces' }
                 ];
-
-                // Merge saved data into defaults to ensure Riadh, Malika, Salaires always exist in UI
-                const finalAdmin = defaultAdmin.map(def => {
+                setExpensesAdmin(defaultAdmin.map(def => {
                     const found = savedAdminData.find((s: any) => s.designation === def.designation);
                     return found ? { ...def, ...found } : def;
-                });
+                }));
 
-                // Keep any additional manual admin designations
-                savedAdminData.forEach((s: any) => {
-                    if (!defaultAdmin.find(def => def.designation === s.designation)) {
-                        finalAdmin.push(s);
-                    }
-                });
-
-                setExpensesAdmin(finalAdmin);
+                // If session exists in DB, we're good. If not, we might try draft recovery.
+                if (c.id) {
+                    console.log(`[DEBUG UI] Session #${c.id} loaded. Skipping draft recovery.`);
+                    localStorage.removeItem(`chiffre_draft_${date}`);
+                    return;
+                }
             } else {
-                // Merge logic for Facturation items when in draft mode
+                // Merge logic for Facturation items when user IS already interacting
                 const dbExpenses = JSON.parse(c.diponce || '[]');
                 const dbExpensesDivers = JSON.parse(c.diponce_divers || '[]');
-
                 const dbFacturationOnly = dbExpenses.filter((e: any) => e.isFromFacturation);
                 const dbDiversFacturationOnly = dbExpensesDivers.filter((d: any) => d.isFromFacturation);
 
                 setExpenses(prev => {
                     const currentNonFacturation = prev.filter(e => !e.isFromFacturation);
-                    // Avoid duplicating by matching invoiceId if possible
                     const filteredFacturation = dbFacturationOnly.filter((df: any) =>
                         !currentNonFacturation.some(cf => cf.invoiceId && cf.invoiceId === df.invoiceId)
                     );
@@ -1726,31 +1674,48 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                     );
                     return [...currentNonFacturation, ...filteredFacturation];
                 });
+                return;
             }
-        } else if (!hasInteracted) {
-            // Absolute reset if no server data and no draft
-            setRecetteCaisse('0');
-            setExpenses([{ supplier: '', amount: '0', details: '', invoices: [], photo_cheque: '', photo_verso: '', paymentMethod: 'Espèces', doc_type: 'BL' }]);
-            setTpe('0');
-            setCheque('0');
-            setEspeces('0');
-            setTicketsRestaurant('0');
-            setExtra('0');
-            setPrimes('0');
-            setOffres('0');
-            setAvancesList([]);
-            setDoublagesList([]);
-            setExtrasList([]);
-            setPrimesList([]);
-            setRestesSalairesList([]);
-            setExpensesDivers([{ designation: '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces', doc_type: 'BL' }]);
-            setExpensesAdmin([
-                { designation: 'Riadh', amount: '0', paymentMethod: 'Espèces' },
-                { designation: 'Malika', amount: '0', paymentMethod: 'Espèces' },
-                { designation: 'Salaires', amount: '0', paymentMethod: 'Espèces' }
-            ]);
-            setCaissePhotos([]);
-            setIsLocked(false);
+        }
+
+        // Block 2: Initial Draft Recovery (Only if no interaction AND no saved session on server)
+        if (!hasInteracted) {
+            const savedDraft = localStorage.getItem(`chiffre_draft_${date}`);
+            if (savedDraft) {
+                try {
+                    const draft = JSON.parse(savedDraft);
+                    if (draft.date === date) {
+                        console.log(`[DEBUG UI] No server ID found for ${date}. Loading local draft.`);
+                        const d = draft.data;
+                        setRecetteCaisse(d.recetteCaisse);
+                        setTpe(d.tpe);
+                        setTpe2(d.tpe2 || '0');
+                        setCheque(d.cheque);
+                        setEspeces(d.especes);
+                        setTicketsRestaurant(d.ticketsRestaurant);
+                        setExtra(d.extra);
+                        setPrimes(d.primes);
+                        setAvancesList(d.avancesList);
+                        setDoublagesList(d.doublagesList || []);
+                        setExtrasList(d.extrasList || []);
+                        setPrimesList(d.primesList || []);
+                        setRestesSalairesList(d.restesSalairesList || []);
+                        setOffres(d.offres || '0');
+                        setOffresList((d.offresList || []).map((o: any) => ({ ...o, invoices: o.invoices || [] })));
+                        setExpenses(d.expenses.map((e: any) => ({ ...e, details: e.details || '' })));
+                        setExpensesDivers((d.expensesDivers || []).map((dv: any) => ({ ...dv, details: dv.details || '' })));
+                        setExpensesAdmin(d.expensesAdmin || [
+                            { designation: 'Riadh', amount: '0', paymentMethod: 'Espèces' },
+                            { designation: 'Malika', amount: '0', paymentMethod: 'Espèces' },
+                            { designation: 'Salaires', amount: '0', paymentMethod: 'Espèces' }
+                        ]);
+                        setCaissePhotos(d.caissePhotos || []);
+                        setHasInteracted(true);
+                        setToast({ msg: 'Reprise de votre saisie en cours (Brouillon)', type: 'success' });
+                        setTimeout(() => setToast(null), 3000);
+                    }
+                } catch (e) { console.error("Error loading draft", e); }
+            }
         }
     }, [chiffreData, date, hasInteracted, isClient]);
 
@@ -2749,10 +2714,10 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     </div>
                                     <div className="text-2xl md:text-4xl lg:text-5xl font-black text-[#2d6a4f] leading-none tracking-tighter flex items-center gap-4">
                                         <span className="md:hidden">
-                                            {formatDisplayDate(date)} {chiffreData?.getChiffreByDate?.id ? `(#${chiffreData.getChiffreByDate.id})` : ''}
+                                            {formatDisplayDate(date)} ✅ {chiffreData?.getChiffreByDate?.id ? `(#${chiffreData.getChiffreByDate.id} val:${chiffreData.getChiffreByDate.recette_de_caisse})` : ''} [v1]
                                         </span>
                                         <span className="hidden md:inline">
-                                            {formatDisplayDate(date)} {chiffreData?.getChiffreByDate?.id ? `(#${chiffreData.getChiffreByDate.id})` : ''}
+                                            {formatDisplayDate(date)} ✅ {chiffreData?.getChiffreByDate?.id ? `(#${chiffreData.getChiffreByDate.id} val:${chiffreData.getChiffreByDate.recette_de_caisse})` : ''} [v1]
                                         </span>
                                     </div>
                                 </div>
