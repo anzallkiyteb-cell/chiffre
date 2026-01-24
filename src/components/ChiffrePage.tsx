@@ -1518,6 +1518,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
 
     // Reset interaction state when date changes to allow loading new date data from server/draft
     useEffect(() => {
+        console.log(`[DEBUG UI] Date changed to: ${date}. Resetting hasInteracted.`);
         setHasInteracted(false);
     }, [date]);
     const [isLocked, setIsLocked] = useState(false);
@@ -1587,6 +1588,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                 try {
                     const draft = JSON.parse(savedDraft);
                     if (draft.date === date) {
+                        console.log(`[DEBUG UI] Found draft for ${date}. Loading draft.`);
                         const d = draft.data;
                         setRecetteCaisse(d.recetteCaisse);
                         setTpe(d.tpe);
@@ -1625,8 +1627,12 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             const c = chiffreData.getChiffreByDate;
 
             // Critical check: only sync if the data matches the currently active date
-            if (c.date !== date) return;
+            if (c.date !== date) {
+                console.log(`[DEBUG UI] Date mismatch in server data. Expected ${date}, got ${c.date}. Ignoring.`);
+                return;
+            }
 
+            console.log(`[DEBUG UI] Loading server data for ${date}. Caisse: ${c.recette_de_caisse}`);
             setIsLocked(c.is_locked || false);
 
             // Personnel sub-lists are server-managed (immediate sync)

@@ -92,18 +92,32 @@ export const resolvers = {
             const finalCombinedDivers = [...diversListEntries, ...paidDivers];
 
             // Dynamic sums
-            const sumDiponce = finalCombinedDiponce.reduce((s: number, i: any) => s + (parseFloat(i.amount) || 0), 0);
-            const sumDivers = finalCombinedDivers.reduce((s: number, i: any) => s + (parseFloat(i.amount) || 0), 0);
-            const sumAdmin = adminList.reduce((s: number, i: any) => s + (parseFloat(i.amount) || 0), 0);
-            const sumFixes = dayAvances.reduce((s: number, r: any) => s + r.montant, 0) +
-                dayDoublages.reduce((s: number, r: any) => s + r.montant, 0) +
-                dayExtras.reduce((s: number, r: any) => s + r.montant, 0) +
-                dayPrimes.reduce((s: number, r: any) => s + r.montant, 0) +
-                dayRestesSalaires.reduce((s: number, r: any) => s + r.montant, 0);
+            const sumDiponce = finalCombinedDiponce.reduce((s: number, i: any) => {
+                const val = parseFloat(i.amount);
+                return s + (isNaN(val) ? 0 : val);
+            }, 0);
+
+            const sumDivers = finalCombinedDivers.reduce((s: number, i: any) => {
+                const val = parseFloat(i.amount);
+                return s + (isNaN(val) ? 0 : val);
+            }, 0);
+
+            const sumAdmin = adminList.reduce((s: number, i: any) => {
+                const val = parseFloat(i.amount);
+                return s + (isNaN(val) ? 0 : val);
+            }, 0);
+
+            const sumFixes = dayAvances.reduce((s: number, r: any) => s + (parseFloat(r.montant) || 0), 0) +
+                dayDoublages.reduce((s: number, r: any) => s + (parseFloat(r.montant) || 0), 0) +
+                dayExtras.reduce((s: number, r: any) => s + (parseFloat(r.montant) || 0), 0) +
+                dayPrimes.reduce((s: number, r: any) => s + (parseFloat(r.montant) || 0), 0) +
+                dayRestesSalaires.reduce((s: number, r: any) => s + (parseFloat(r.montant) || 0), 0);
 
             const totalDiponceVal = sumDiponce + sumDivers + sumAdmin + sumFixes;
             const recetteCaisseVal = parseFloat(existingData.recette_de_caisse || '0');
-            const recetteNetVal = recetteCaisseVal - totalDiponceVal;
+            const recetteNetVal = (isNaN(recetteCaisseVal) ? 0 : recetteCaisseVal) - totalDiponceVal;
+
+            console.log(`[DEBUG] Date: ${date}, Caisse: ${recetteCaisseVal}, Total Diponce: ${totalDiponceVal}, Net: ${recetteNetVal}`);
 
             return {
                 id: existingData.id || null,
