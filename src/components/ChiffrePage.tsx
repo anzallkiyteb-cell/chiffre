@@ -1200,17 +1200,19 @@ const TransferModal = ({ isOpen, onClose, value, onConfirm }: { isOpen: boolean,
 
     // Fetch range data for the current view month to show locked dates
     const startRange = useMemo(() => {
+        if (!viewDate || isNaN(viewDate.getTime())) return '';
         const start = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
         return start.toISOString().split('T')[0];
     }, [viewDate]);
     const endRange = useMemo(() => {
-        const end = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0);
-        return end.toISOString().split('T')[0];
+        if (!viewDate || isNaN(viewDate.getTime())) return '';
+        const start = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0);
+        return start.toISOString().split('T')[0];
     }, [viewDate]);
 
     const { data: rangeData } = useQuery(GET_CHIFFRES_RANGE, {
         variables: { startDate: startRange, endDate: endRange },
-        skip: !isOpen
+        skip: !isOpen || !startRange || !endRange
     });
 
     const lockedDates = useMemo(() => {
@@ -1229,6 +1231,8 @@ const TransferModal = ({ isOpen, onClose, value, onConfirm }: { isOpen: boolean,
             const initialViewDate = new Date(value);
             if (!isNaN(initialViewDate.getTime())) {
                 setViewDate(initialViewDate);
+            } else {
+                setViewDate(new Date());
             }
         }
     }, [isOpen, value]);
@@ -2635,7 +2639,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             </div>
                         )}
 
-                        {!isLocked && (
+                        {!isLocked && role === 'admin' && (
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={handleReplaceDate}
