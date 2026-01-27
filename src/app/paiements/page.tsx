@@ -559,6 +559,11 @@ export default function PaiementsPage() {
     const [unpaidDateRange, setUnpaidDateRange] = useState({ start: '', end: '' });
 
     const [showChartMobile, setShowChartMobile] = useState(false);
+    const [categoryListSearch, setCategoryListSearch] = useState('');
+    const [categoryListFilter, setCategoryListFilter] = useState<'Tous' | 'Fournisseur' | 'Divers'>('Tous');
+    const [categoryListDepartment, setCategoryListDepartment] = useState('Tous');
+    const [showDeptDropdown, setShowDeptDropdown] = useState(false);
+
     const imageContainerRef = useRef(null);
 
     const resetView = () => {
@@ -1320,6 +1325,10 @@ export default function PaiementsPage() {
         if (!hasItems) return;
 
         // Open full-screen modal instead of expanding inline
+        setCategoryListSearch('');
+        setCategoryListFilter('Tous');
+        setCategoryListDepartment('Tous');
+        setShowDeptDropdown(false);
         setShowCategoryListModal({
             title: cat.title,
             subtitle: cat.subtitle,
@@ -1330,6 +1339,47 @@ export default function PaiementsPage() {
             iconBg: cat.iconBg
         });
     };
+
+    const departments = useMemo(() => {
+        const emps = data?.getEmployees || [];
+        const depts = Array.from(new Set(emps.map((e: any) => e.department).filter(Boolean))) as string[];
+        return ['Tous', ...depts.sort()];
+    }, [data]);
+
+    const filteredModalItems = useMemo(() => {
+        if (!showCategoryListModal) return [];
+
+        let items = [...showCategoryListModal.items];
+
+        // If filter is not "Tous", we might want to switch source data (only for suppliers/divers)
+        if (showCategoryListModal.title === 'DÉPENSES FOURNISSEURS' || showCategoryListModal.title === 'DÉPENSES DIVERS' || showCategoryListModal.title === 'DÉPENSES ADMINISTRATIF') {
+            if (categoryListFilter === 'Fournisseur') {
+                items = expenseDetails.fournisseurs;
+            } else if (categoryListFilter === 'Divers') {
+                items = expenseDetails.divers;
+            }
+        }
+
+        // Department filter (for personnel categories)
+        if (categoryListDepartment !== 'Tous') {
+            const employees = data?.getEmployees || [];
+            const empMap = new Map(employees.map((e: any) => [e.name.toUpperCase(), e.department]));
+            items = items.filter(item => {
+                const dept = empMap.get(item.name.toUpperCase());
+                return dept === categoryListDepartment;
+            });
+        }
+
+        const search = categoryListSearch.toLowerCase().trim();
+        if (search) {
+            items = items.filter(item =>
+                item.name?.toLowerCase().includes(search) ||
+                item.amount?.toString().includes(search)
+            );
+        }
+
+        return items;
+    }, [showCategoryListModal, categoryListFilter, categoryListSearch, categoryListDepartment, expenseDetails, data]);
 
     const handleBankSubmit = async () => {
         if (!bankAmount || !bankDate) return;
@@ -3882,16 +3932,20 @@ export default function PaiementsPage() {
                                     <div>
                                         <div className="flex items-center gap-2">
                                             <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: showCategoryListModal.dotColor }} />
-                                            <h2 className="text-xl md:text-2xl font-black text-white uppercase tracking-tight">{showCategoryListModal.title}</h2>
+                                            <h2 className="text-xl md:text-2xl font-black text-white uppercase tracking-tight">
+                                                {categoryListFilter === 'Fournisseur' ? 'DÉPENSES FOURNISSEURS' : categoryListFilter === 'Divers' ? 'DÉPENSES DIVERS' : showCategoryListModal.title}
+                                            </h2>
                                         </div>
-                                        <p className="text-[10px] font-bold text-white/50 uppercase tracking-widest mt-1">{showCategoryListModal.subtitle}</p>
+                                        <p className="text-[10px] font-bold text-white/50 uppercase tracking-widest mt-1">
+                                            {categoryListFilter === 'Fournisseur' ? 'MARCHANDISES & SERVICES' : categoryListFilter === 'Divers' ? 'FRAIS EXCEPTIONNELS' : showCategoryListModal.subtitle}
+                                        </p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-4">
                                     <div className="text-right hidden md:block">
-                                        <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Total</p>
+                                        <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Total filtré</p>
                                         <p className="text-2xl font-black text-white">
-                                            {maskAmount((showCategoryListModal.items || []).reduce((sum: number, item: any) => sum + (item.amount || 0), 0))}
+                                            {maskAmount(filteredModalItems.reduce((sum: number, item: any) => sum + (item.amount || 0), 0))}
                                             <span className="text-sm text-[#c69f6e] ml-1">DT</span>
                                         </p>
                                     </div>
@@ -3904,26 +3958,119 @@ export default function PaiementsPage() {
                                 </div>
                             </div>
 
+                            {/* Search and Filter Section */}
+                            <div className="px-4 md:px-8 py-4 bg-white border-b border-[#e6dace]/30 flex flex-col md:flex-row items-center justify-between gap-4">
+                                <div className="relative w-full md:w-96 group">
+                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[#c69f6e] group-focus-within:scale-110 transition-transform">
+                                        <Search size={18} />
+                                    </div>
+                                    <input
+                                        type="text"
+                                        placeholder="Rechercher par nom ou montant..."
+                                        value={categoryListSearch}
+                                        onChange={(e) => setCategoryListSearch(e.target.value)}
+                                        className="w-full h-12 bg-[#fdfaf7] border border-[#e6dace] rounded-2xl pl-12 pr-4 text-sm font-bold text-[#4a3426] placeholder:text-[#8c8279]/40 outline-none focus:border-[#c69f6e] focus:ring-4 focus:ring-[#c69f6e]/5 transition-all shadow-sm"
+                                    />
+                                </div>
+
+                                {/* Tabs for Suppliers/Divers/Admin */}
+                                {(showCategoryListModal.title === 'DÉPENSES FOURNISSEURS' || showCategoryListModal.title === 'DÉPENSES DIVERS' || showCategoryListModal.title === 'DÉPENSES ADMINISTRATIF') && (
+                                    <div className="bg-[#f4ece4]/50 border border-[#e6dace]/50 p-1 rounded-full flex items-center gap-1 shadow-sm overflow-hidden whitespace-nowrap overflow-x-auto no-scrollbar">
+                                        {[
+                                            { label: 'Tous', icon: LayoutGrid },
+                                            { label: 'Fournisseur', icon: Package },
+                                            { label: 'Divers', icon: Sparkles }
+                                        ].map((t) => (
+                                            <button
+                                                key={t.label}
+                                                onClick={() => setCategoryListFilter(t.label as any)}
+                                                className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-[0.1em] transition-all ${categoryListFilter === t.label
+                                                    ? 'bg-[#4a3426] text-white shadow-lg'
+                                                    : 'text-[#8c8279] hover:bg-white/50'
+                                                    }`}
+                                            >
+                                                <t.icon size={14} />
+                                                {t.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Department Dropdown for Personnel Categories */}
+                                {(['ACCOMPTE', 'PRIMES', 'DOUBLAGE', 'EXTRA', 'RESTES SALAIRES'].includes(showCategoryListModal.title)) && (
+                                    <div className="relative">
+                                        <button
+                                            onClick={() => setShowDeptDropdown(!showDeptDropdown)}
+                                            className="flex items-center justify-between gap-4 bg-[#fdfaf7] border border-[#e6dace] rounded-2xl px-6 h-12 transition-all min-w-[200px] hover:shadow-sm group shadow-sm outline-none focus:border-[#c69f6e]"
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <LayoutGrid size={16} className="text-[#c69f6e]" />
+                                                <span className="text-[11px] font-black text-[#4a3426] uppercase tracking-widest">
+                                                    {categoryListDepartment === 'Tous' ? 'Tous Départements' : categoryListDepartment}
+                                                </span>
+                                            </div>
+                                            <ChevronDown size={16} className={`text-[#c69f6e] transition-transform ${showDeptDropdown ? 'rotate-180' : ''}`} />
+                                        </button>
+
+                                        <AnimatePresence>
+                                            {showDeptDropdown && (
+                                                <>
+                                                    <div className="fixed inset-0 z-[100]" onClick={() => setShowDeptDropdown(false)} />
+                                                    <motion.div
+                                                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                                        className="absolute top-full right-0 mt-3 bg-white rounded-[2rem] shadow-2xl border border-[#e6dace] p-4 z-[110] w-64 max-h-72 overflow-y-auto custom-scrollbar"
+                                                    >
+                                                        <div className="space-y-1">
+                                                            {departments.map((dept) => (
+                                                                <button
+                                                                    key={dept}
+                                                                    onClick={() => {
+                                                                        setCategoryListDepartment(dept);
+                                                                        setShowDeptDropdown(false);
+                                                                    }}
+                                                                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${categoryListDepartment === dept
+                                                                        ? 'bg-[#4a3426] text-white shadow-lg'
+                                                                        : 'text-[#4a3426] hover:bg-[#fcfaf8] border border-transparent hover:border-[#e6dace]/30'
+                                                                        }`}
+                                                                >
+                                                                    {dept === 'Tous' ? 'Tous Départements' : dept}
+                                                                    {categoryListDepartment === dept && <Check size={14} />}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </motion.div>
+                                                </>
+                                            )}
+                                        </AnimatePresence>
+                                    </div>
+                                )}
+                            </div>
+
                             {/* Content - Full list without scroll */}
                             <div className="flex-1 p-4 md:p-6 overflow-y-auto">
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                                    {(showCategoryListModal.items || []).map((item: any, i: number) => (
+                                    {filteredModalItems.map((item: any, i: number) => (
                                         <motion.button
                                             key={i}
                                             initial={{ opacity: 0, y: 10 }}
                                             animate={{ opacity: 1, y: 0 }}
-                                            transition={{ delay: i * 0.03 }}
+                                            transition={{ delay: i * 0.01 }}
                                             onClick={() => {
+                                                const effectiveTitle = categoryListFilter === 'Fournisseur' ? 'DÉPENSES FOURNISSEURS' : categoryListFilter === 'Divers' ? 'DÉPENSES DIVERS' : showCategoryListModal.title;
+                                                const effectiveSubtitle = categoryListFilter === 'Fournisseur' ? 'MARCHANDISES & SERVICES' : categoryListFilter === 'Divers' ? 'FRAIS EXCEPTIONNELS' : showCategoryListModal.subtitle;
+
                                                 setSelectedSupplier(item.name);
                                                 setSelectedEmployeeDetails({
                                                     name: item.name,
-                                                    category: showCategoryListModal.title,
-                                                    subtitle: showCategoryListModal.subtitle,
+                                                    category: effectiveTitle,
+                                                    subtitle: effectiveSubtitle,
                                                     total: item.amount,
                                                     items: item.items
                                                 });
                                             }}
-                                            className="w-full flex items-center justify-between p-4 bg-white rounded-2xl border border-[#e6dace]/30 hover:border-[#c69f6e] hover:shadow-xl transition-all active:scale-[0.98] group relative overflow-hidden"
+                                            className="w-full h-full flex items-center justify-between p-4 bg-white rounded-2xl border border-[#e6dace]/30 hover:border-[#c69f6e] hover:shadow-xl transition-all active:scale-[0.98] group relative overflow-hidden"
                                             style={{ borderTop: `4px solid ${showCategoryListModal.dotColor}` }}
                                         >
                                             <div className="flex items-center gap-4">
@@ -3947,12 +4094,12 @@ export default function PaiementsPage() {
                                     ))}
                                 </div>
 
-                                {(!showCategoryListModal.items || showCategoryListModal.items.length === 0) && (
+                                {filteredModalItems.length === 0 && (
                                     <div className="flex flex-col items-center justify-center py-20">
                                         <div className={`w-20 h-20 rounded-full ${showCategoryListModal.iconBg} flex items-center justify-center ${showCategoryListModal.color} mb-4 opacity-30`}>
                                             <showCategoryListModal.icon size={40} />
                                         </div>
-                                        <p className="text-[#8c8279] font-bold uppercase tracking-widest text-sm">Aucune donnée</p>
+                                        <p className="text-[#8c8279] font-bold uppercase tracking-widest text-sm">Aucune donnée trouvée</p>
                                     </div>
                                 )}
                             </div>
@@ -3960,9 +4107,9 @@ export default function PaiementsPage() {
                             {/* Footer with total on mobile */}
                             <div className="md:hidden p-4 bg-[#f4ece4] border-t border-[#e6dace]">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-xs font-black text-[#8c8279] uppercase tracking-widest">Total {showCategoryListModal.title}</span>
+                                    <span className="text-xs font-black text-[#8c8279] uppercase tracking-widest">Total filtré</span>
                                     <span className="text-xl font-black text-[#4a3426]">
-                                        {maskAmount((showCategoryListModal.items || []).reduce((sum: number, item: any) => sum + (item.amount || 0), 0))}
+                                        {maskAmount(filteredModalItems.reduce((sum: number, item: any) => sum + (item.amount || 0), 0))}
                                         <span className="text-sm text-[#c69f6e] ml-1">DT</span>
                                     </span>
                                 </div>

@@ -37,6 +37,14 @@ interface Expense {
     originalAmount?: string;
 }
 
+interface ExpenseAdmin {
+    designation: string;
+    amount: string;
+    details: string;
+    invoices: string[];
+    paymentMethod: string;
+}
+
 interface ExpenseDivers {
     designation: string;
     amount: string;
@@ -1470,14 +1478,10 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     const [expensesDivers, setExpensesDivers] = useState<ExpenseDivers[]>([
         { designation: '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces', doc_type: 'BL', hasRetenue: false, originalAmount: '0' }
     ]);
-    const [expensesAdmin, setExpensesAdmin] = useState<{
-        designation: string,
-        amount: string,
-        paymentMethod: string
-    }[]>([
-        { designation: 'Riadh', amount: '0', paymentMethod: 'Espèces' },
-        { designation: 'Malika', amount: '0', paymentMethod: 'Espèces' },
-        { designation: 'Salaires', amount: '0', paymentMethod: 'Espèces' }
+    const [expensesAdmin, setExpensesAdmin] = useState<ExpenseAdmin[]>([
+        { designation: 'Riadh', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces' },
+        { designation: 'Malika', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces' },
+        { designation: 'Salaires', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces' }
     ]);
     const [tpe, setTpe] = useState('0');
     const [tpe2, setTpe2] = useState('0');
@@ -1519,7 +1523,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     const [employeeDepartment, setEmployeeDepartment] = useState('');
     const [showDeptSuggestions, setShowDeptSuggestions] = useState(false);
     const [viewingInvoices, setViewingInvoices] = useState<string[] | null>(null);
-    const [viewingInvoicesTarget, setViewingInvoicesTarget] = useState<{ index: number, type: 'expense' | 'divers' | 'offres' } | null>(null);
+    const [viewingInvoicesTarget, setViewingInvoicesTarget] = useState<{ index: number, type: 'expense' | 'divers' | 'offres' | 'admin' } | null>(null);
     const [selectedInvoiceIndex, setSelectedInvoiceIndex] = useState<'all' | number>('all');
     const [imgZoom, setImgZoom] = useState(1);
     const [imgRotation, setImgRotation] = useState(0);
@@ -1559,16 +1563,16 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         setExpensesDivers([]);
         setOffres('0');
         setExpensesAdmin([
-            { designation: 'Riadh', amount: '0', paymentMethod: 'Espèces' },
-            { designation: 'Malika', amount: '0', paymentMethod: 'Espèces' },
-            { designation: 'Salaires', amount: '0', paymentMethod: 'Espèces' }
+            { designation: 'Riadh', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces' },
+            { designation: 'Malika', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces' },
+            { designation: 'Salaires', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces' }
         ]);
     }, [date]);
     const [isLocked, setIsLocked] = useState(false);
 
     // Modal Details States
     const [showDetailsModal, setShowDetailsModal] = useState(false);
-    const [modalDetailsTarget, setModalDetailsTarget] = useState<{ index: number, type: 'expense' | 'divers' } | null>(null);
+    const [modalDetailsTarget, setModalDetailsTarget] = useState<{ index: number, type: 'expense' | 'divers' | 'admin' } | null>(null);
     const [showReplaceDateModal, setShowReplaceDateModal] = useState(false);
     const [replaceDateValue, setReplaceDateValue] = useState('');
     const [replaceCalendarViewDate, setReplaceCalendarViewDate] = useState<Date>(new Date());
@@ -1761,11 +1765,11 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             details: dv.details || '',
                             invoices: prev[idx]?.invoices || []
                         })));
-                        setExpensesAdmin(d.expensesAdmin || [
-                            { designation: 'Riadh', amount: '0', paymentMethod: 'Espèces' },
-                            { designation: 'Malika', amount: '0', paymentMethod: 'Espèces' },
-                            { designation: 'Salaires', amount: '0', paymentMethod: 'Espèces' }
-                        ]);
+                        setExpensesAdmin(prevAdmin => (d.expensesAdmin || []).map((adm: any, idx: number) => ({
+                            ...adm,
+                            details: adm.details || '',
+                            invoices: prevAdmin[idx]?.invoices || []
+                        })));
 
                         if (d.caissePhotos && d.caissePhotos.length > 0) {
                             setCaissePhotos(d.caissePhotos);
@@ -1821,6 +1825,22 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                 let changed = false;
                 const newList = prev.map((item, idx) => {
                     const match = tempPhotos.find((p: any) => p.category === 'offres' && p.item_index === idx);
+                    if (match) {
+                        const photos = typeof match.photos === 'string' ? JSON.parse(match.photos) : match.photos;
+                        if (JSON.stringify(item.invoices) !== JSON.stringify(photos)) {
+                            changed = true;
+                            return { ...item, invoices: photos };
+                        }
+                    }
+                    return item;
+                });
+                return changed ? newList : prev;
+            });
+
+            setExpensesAdmin(prev => {
+                let changed = false;
+                const newList = prev.map((item, idx) => {
+                    const match = tempPhotos.find((p: any) => p.category === 'expensesAdmin' && p.item_index === idx);
                     if (match) {
                         const photos = typeof match.photos === 'string' ? JSON.parse(match.photos) : match.photos;
                         if (JSON.stringify(item.invoices) !== JSON.stringify(photos)) {
@@ -1960,7 +1980,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     const handleAddAdmin = () => {
         if (isLocked) return;
         setHasInteracted(true);
-        setExpensesAdmin([...expensesAdmin, { designation: '', amount: '0', paymentMethod: 'Espèces' }]);
+        setExpensesAdmin([...expensesAdmin, { designation: '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces' }]);
     };
 
     const handleRemoveAdmin = (index: number) => {
@@ -2288,6 +2308,11 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             const list = [...expensesDivers];
             list[itemIndex].invoices = newInvoices;
             setExpensesDivers(list);
+        } else if ((viewingInvoicesTarget.type as string) === 'admin') {
+            category = 'expensesAdmin';
+            const list = [...expensesAdmin];
+            list[itemIndex].invoices = newInvoices;
+            setExpensesAdmin(list);
         } else if (viewingInvoicesTarget.type === 'offres') {
             category = 'offres';
             const list = [...offresList];
@@ -2317,7 +2342,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         if (newInvoices.length === 0) setViewingInvoicesTarget(null);
     };
 
-    const handleFileUpload = async (index: number, e: React.ChangeEvent<HTMLInputElement>, type: 'invoice' | 'recto' | 'verso' = 'invoice', isDivers: boolean = false) => {
+    const handleFileUpload = async (index: number, e: React.ChangeEvent<HTMLInputElement>, type: 'invoice' | 'recto' | 'verso' | 'offres' = 'invoice', isDivers: boolean | 'admin' = false) => {
         setHasInteracted(true);
         const files = e.target.files;
         if (!files) return;
@@ -2345,6 +2370,12 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                         newDivers[index].invoices = [...newDivers[index].invoices, ...base64s];
                         currentPhotos = newDivers[index].invoices;
                         setExpensesDivers(newDivers);
+                    } else if (isDivers === 'admin') {
+                        category = 'expensesAdmin';
+                        const newAdmin = [...expensesAdmin];
+                        newAdmin[index].invoices = [...(newAdmin[index].invoices || []), ...base64s];
+                        currentPhotos = newAdmin[index].invoices;
+                        setExpensesAdmin(newAdmin);
                     } else if ((type as any) === 'offres') {
                         category = 'offres';
                         const newList = [...offresList];
@@ -3571,18 +3602,88 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                     />
                                                 </div>
 
-                                                <div className="hidden md:flex items-center gap-2 lg:gap-4 shrink-0">
-                                                    {!isLocked && (
-                                                        <button
-                                                            onClick={() => handleRemoveAdmin(index)}
-                                                            className="p-3 text-red-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
-                                                        >
-                                                            <Trash2 size={18} />
-                                                        </button>
-                                                    )}
-                                                </div>
+                                                <button
+                                                    onClick={() => {
+                                                        setModalDetailsTarget({ index, type: 'admin' });
+                                                        setTempDetails(admin.details || '');
+                                                        setShowDetailsModal(true);
+                                                    }}
+                                                    className={`h-12 xl:w-20 w-12 rounded-xl border flex items-center justify-center gap-2 transition-all shrink-0 ${admin.details ? 'bg-[#2d6a4f] text-white border-[#2d6a4f]' : 'bg-[#fcfaf8] text-[#bba282] border-[#e6dace] hover:border-[#c69f6e] hover:text-[#c69f6e]'} ${isLocked && !admin.details ? 'cursor-not-allowed opacity-50' : ''} `}
+                                                >
+                                                    <FileText size={16} />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest leading-none hidden xl:inline">{admin.details ? 'Détails OK' : 'Détails'}</span>
+                                                </button>
 
+                                                <div className="flex items-center gap-1 w-full md:w-auto shrink-0 justify-end">
+                                                    <div className="flex items-center gap-1">
+                                                        {admin.invoices && admin.invoices.length > 0 && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setViewingInvoices(admin.invoices);
+                                                                    setViewingInvoicesTarget({ index, type: 'admin' });
+                                                                    setSelectedInvoiceIndex(0);
+                                                                    setImgZoom(1);
+                                                                    setImgRotation(0);
+                                                                }}
+                                                                className="h-12 w-12 flex items-center justify-center gap-2 rounded-xl bg-[#2d6a4f] text-white hover:bg-[#1f4b36] transition-all shadow-sm"
+                                                            >
+                                                                <Eye size={16} />
+                                                                <span className="text-[10px] font-black">{admin.invoices.length}</span>
+                                                            </button>
+                                                        )}
+
+                                                        {!isLocked && (
+                                                            <label
+                                                                className={`h-12 ${admin.invoices && admin.invoices.length > 0 ? 'w-12 text-blue-500 border-blue-200 hover:bg-blue-50' : 'w-12 xl:w-32 border-[#c69f6e]/30 text-[#c69f6e] hover:bg-[#c69f6e]/5 hover:border-[#c69f6e]'} rounded-xl border-2 border-dashed flex items-center justify-center gap-2 cursor-pointer transition-all relative text-[10px]`}
+                                                            >
+                                                                <UploadCloud size={16} />
+                                                                {(!admin.invoices || admin.invoices.length === 0) && <span className="font-black uppercase tracking-widest hidden xl:inline">Photo</span>}
+                                                                <input
+                                                                    type="file"
+                                                                    multiple
+                                                                    accept="image/*,.pdf"
+                                                                    className="hidden"
+                                                                    onChange={(e) => handleFileUpload(index, e, 'invoice', 'admin' as any)}
+                                                                />
+                                                            </label>
+                                                        )}
+                                                    </div>
+                                                    <div className="w-12 flex justify-center">
+                                                        {!isLocked && (
+                                                            <button
+                                                                onClick={() => handleRemoveAdmin(index)}
+                                                                className="p-3 text-red-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                                                            >
+                                                                <Trash2 size={18} />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
                                             </div>
+
+                                            <AnimatePresence>
+                                                {admin.details && (
+                                                    <motion.div
+                                                        initial={{ height: 0, opacity: 0, marginTop: 0 }}
+                                                        animate={{ height: 'auto', opacity: 1, marginTop: 8 }}
+                                                        exit={{ height: 0, opacity: 0, marginTop: 0 }}
+                                                        onClick={() => {
+                                                            setModalDetailsTarget({ index, type: 'admin' });
+                                                            setTempDetails(admin.details);
+                                                            setShowDetailsModal(true);
+                                                        }}
+                                                        className="overflow-hidden w-full flex items-center gap-2 cursor-pointer hover:bg-[#fcfaf8]"
+                                                    >
+                                                        <div className="w-8 flex justify-center text-[#c69f6e]">
+                                                            <Sparkles size={14} />
+                                                        </div>
+                                                        <span className="text-xs text-[#8c8279] font-medium italic">
+                                                            {admin.details}
+                                                        </span>
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
                                         </div>
                                     ))}
                                 </div>
@@ -4385,11 +4486,13 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                     <div className="flex flex-col">
                                                         <span className="text-[9px] font-black uppercase tracking-widest text-white/40">Dépense Associée</span>
                                                         <span className="text-sm font-black text-white uppercase truncate max-w-[200px]">
-                                                            {viewingInvoicesTarget.type === 'expense'
+                                                            {(viewingInvoicesTarget.type as string) === 'expense'
                                                                 ? expenses[viewingInvoicesTarget.index]?.supplier
-                                                                : viewingInvoicesTarget.type === 'offres'
+                                                                : (viewingInvoicesTarget.type as string) === 'offres'
                                                                     ? offresList[viewingInvoicesTarget.index]?.name
-                                                                    : expensesDivers[viewingInvoicesTarget.index]?.designation}
+                                                                    : (viewingInvoicesTarget.type as string) === 'admin'
+                                                                        ? expensesAdmin[viewingInvoicesTarget.index]?.designation
+                                                                        : expensesDivers[viewingInvoicesTarget.index]?.designation}
                                                         </span>
                                                     </div>
                                                     <div className="w-px h-8 bg-white/10 mx-2" />
@@ -4397,11 +4500,13 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         <span className="text-[9px] font-black uppercase tracking-widest text-[#c69f6e]">Montant</span>
                                                         <div className="flex items-baseline gap-1">
                                                             <span className="text-xl font-black text-white">
-                                                                {parseFloat((viewingInvoicesTarget.type === 'expense'
+                                                                {parseFloat(((viewingInvoicesTarget.type as string) === 'expense'
                                                                     ? expenses[viewingInvoicesTarget.index]?.amount
-                                                                    : viewingInvoicesTarget.type === 'offres'
+                                                                    : (viewingInvoicesTarget.type as string) === 'offres'
                                                                         ? offresList[viewingInvoicesTarget.index]?.amount
-                                                                        : expensesDivers[viewingInvoicesTarget.index]?.amount) || '0').toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                                                        : (viewingInvoicesTarget.type as string) === 'admin'
+                                                                            ? expensesAdmin[viewingInvoicesTarget.index]?.amount
+                                                                            : expensesDivers[viewingInvoicesTarget.index]?.amount) || '0').toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
                                                             </span>
                                                             <span className="text-[10px] font-bold text-[#c69f6e]">DT</span>
                                                         </div>
@@ -4451,13 +4556,19 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                                     if (base64s.length > 0) {
                                                                         let newList: string[] = [];
                                                                         let category = 'expenses';
-                                                                        if (viewingInvoicesTarget.type === 'divers') {
+                                                                        if ((viewingInvoicesTarget.type as string) === 'divers') {
                                                                             category = 'expensesDivers';
                                                                             const newDivers = [...expensesDivers];
                                                                             newList = [...(newDivers[viewingInvoicesTarget.index].invoices || []), ...base64s];
                                                                             newDivers[viewingInvoicesTarget.index].invoices = newList;
                                                                             setExpensesDivers(newDivers);
-                                                                        } else if (viewingInvoicesTarget.type === 'offres') {
+                                                                        } else if ((viewingInvoicesTarget.type as string) === 'admin') {
+                                                                            category = 'expensesAdmin';
+                                                                            const newAdmin = [...expensesAdmin];
+                                                                            newList = [...(newAdmin[viewingInvoicesTarget.index].invoices || []), ...base64s];
+                                                                            newAdmin[viewingInvoicesTarget.index].invoices = newList;
+                                                                            setExpensesAdmin(newAdmin);
+                                                                        } else if ((viewingInvoicesTarget.type as string) === 'offres') {
                                                                             category = 'offres';
                                                                             const currentOffres = [...offresList];
                                                                             newList = [...(currentOffres[viewingInvoicesTarget.index].invoices || []), ...base64s];
@@ -4598,9 +4709,11 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 <div>
                                     <h3 className="text-2xl font-black text-[#4a3426] tracking-tight">Ajouter des détails</h3>
                                     <p className="text-[10px] text-[#c69f6e] font-black uppercase tracking-[0.2em] mt-1">
-                                        {modalDetailsTarget.type === 'divers'
+                                        {(modalDetailsTarget.type as string) === 'divers'
                                             ? `Catégorie: ${expensesDivers[modalDetailsTarget.index]?.designation || ''} `
-                                            : `Fournisseur: ${expenses[modalDetailsTarget.index]?.supplier || ''} `}
+                                            : (modalDetailsTarget.type as string) === 'admin'
+                                                ? `Admin: ${expensesAdmin[modalDetailsTarget.index]?.designation || ''} `
+                                                : `Fournisseur: ${expenses[modalDetailsTarget.index]?.supplier || ''} `}
                                     </p>
                                 </div>
                             </div>
@@ -4648,10 +4761,14 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                 setModalDetailsTarget(null);
                                                 return;
                                             }
-                                            if (modalDetailsTarget.type === 'divers') {
+                                            if ((modalDetailsTarget.type as string) === 'divers') {
                                                 const newDivers = [...expensesDivers];
                                                 newDivers[modalDetailsTarget.index].details = tempDetails;
                                                 setExpensesDivers(newDivers);
+                                            } else if ((modalDetailsTarget.type as string) === 'admin') {
+                                                const newAdmin = [...expensesAdmin];
+                                                newAdmin[modalDetailsTarget.index].details = tempDetails;
+                                                setExpensesAdmin(newAdmin);
                                             } else {
                                                 const newExpenses = [...expenses];
                                                 newExpenses[modalDetailsTarget.index].details = tempDetails;

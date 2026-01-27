@@ -967,9 +967,25 @@ export const resolvers = {
                 try { offresList = JSON.parse(offres_data || '[]'); } catch (ee) { offresList = []; }
             }
 
+            // Sync Administratif expenses (handle photos)
+            let diponceAdminList = [];
+            try {
+                const fullAdminList = JSON.parse(diponce_admin || '[]');
+                for (let i = 0; i < fullAdminList.length; i++) {
+                    const a = fullAdminList[i];
+                    const temp = tempPhotosMap[`expensesAdmin_${i}`];
+                    if (temp !== undefined) {
+                        a.invoices = temp;
+                    }
+                    diponceAdminList.push(a);
+                }
+            } catch (e) {
+                try { diponceAdminList = JSON.parse(diponce_admin || '[]'); } catch (ee) { diponceAdminList = []; }
+            }
+
             const diponceToSave = JSON.stringify(diponceList);
             const diponceDiversToSave = JSON.stringify(diponceDiversList);
-            const diponceAdminToSave = diponce_admin;
+            const diponceAdminToSave = JSON.stringify(diponceAdminList);
             const offresDataToSave = JSON.stringify(offresList);
 
             // Check if it exists
