@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery, useMutation, gql } from '@apollo/client';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
@@ -74,6 +75,99 @@ interface ArticleFamily {
     rows: string;
     suppliers: string;
 }
+
+const UnitSelector = ({ value, onChange }: { value: string, onChange: (val: string) => void }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const triggerRef = useRef<HTMLButtonElement>(null);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+        return () => setMounted(false);
+    }, []);
+
+    const options = [
+        { value: 'kg', label: 'KG' },
+        { value: 'gr', label: 'GR' },
+        { value: 'L', label: 'L' },
+        { value: 'unité', label: 'U' },
+        { value: 'carton', label: 'CTN' },
+    ];
+
+    const selectedOption = options.find(o => o.value === value) || options[0];
+
+    const getMenuStyles = () => {
+        if (!triggerRef.current) return {};
+        const rect = triggerRef.current.getBoundingClientRect();
+        return {
+            position: 'fixed' as const,
+            top: rect.bottom + 10,
+            left: rect.left + (rect.width / 2),
+            transform: 'translateX(-50%)',
+            zIndex: 9999
+        };
+    };
+
+    return (
+        <div className="relative">
+            <button
+                ref={triggerRef}
+                onClick={() => setIsOpen(!isOpen)}
+                className={`flex items-center justify-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 ${isOpen
+                    ? 'bg-[#4a3426] text-white shadow-lg'
+                    : 'bg-[#fcfaf8] text-[#8c8279] hover:bg-[#f3eee8] hover:text-[#4a3426]'
+                    }`}
+            >
+                <span className="text-[11px] font-black uppercase tracking-[0.15em]">{selectedOption.label}</span>
+                <ChevronDown size={14} className={`transition-transform duration-300 ${isOpen ? 'rotate-180 text-white' : 'text-[#c69f6e]'}`} />
+            </button>
+
+            {mounted && createPortal(
+                <AnimatePresence mode="wait">
+                    {isOpen && (
+                        <div key="selector-portal-wrapper">
+                            <motion.div
+                                key="backdrop"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="fixed inset-0 z-[9998] bg-black/5 backdrop-blur-[1px]"
+                                onClick={() => setIsOpen(false)}
+                            />
+                            <motion.div
+                                key="menu"
+                                initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                                style={getMenuStyles()}
+                                className="w-32 bg-white rounded-2xl shadow-[0_25px_70px_rgba(74,52,38,0.3)] border border-[#e6dace] overflow-hidden p-1.5"
+                            >
+                                <div className="space-y-1">
+                                    {options.map((opt) => (
+                                        <button
+                                            key={opt.value}
+                                            onClick={() => {
+                                                onChange(opt.value);
+                                                setIsOpen(false);
+                                            }}
+                                            className={`w-full px-4 py-2.5 text-center text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${value === opt.value
+                                                ? 'bg-[#4a3426] text-white shadow-md'
+                                                : 'text-[#8c8279] hover:bg-[#fcfaf8] hover:text-[#4a3426]'
+                                                }`}
+                                        >
+                                            {opt.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </motion.div>
+                        </div>
+                    )}
+                </AnimatePresence>,
+                document.body
+            )}
+        </div>
+    );
+};
 
 export default function ComparatifPage() {
     const router = useRouter();
@@ -528,17 +622,12 @@ export default function ComparatifPage() {
                                                     />
                                                 </td>
                                                 <td className="px-4 md:px-6 py-3 md:py-4 md:sticky md:left-[296px] z-10 bg-white/95 backdrop-blur-sm group-hover:bg-[#fcfaf8]/95 transition-colors">
-                                                    <select
-                                                        value={row.unite}
-                                                        onChange={(e) => updateRow(row.id, 'unite', e.target.value)}
-                                                        className="w-full bg-transparent border-none outline-none text-[9px] md:text-[10px] font-black text-[#8c8279] uppercase tracking-widest cursor-pointer text-center"
-                                                    >
-                                                        <option value="kg">KG</option>
-                                                        <option value="gr">GR</option>
-                                                        <option value="L">L</option>
-                                                        <option value="unité">U</option>
-                                                        <option value="carton">CTN</option>
-                                                    </select>
+                                                    <div className="relative flex justify-center">
+                                                        <UnitSelector
+                                                            value={row.unite}
+                                                            onChange={(val: string) => updateRow(row.id, 'unite', val)}
+                                                        />
+                                                    </div>
                                                 </td>
                                                 {currentSuppliers.map(s => {
                                                     const status = getPriceStatus(row, s.id);
