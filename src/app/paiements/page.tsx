@@ -4322,18 +4322,19 @@ export default function PaiementsPage() {
                                     <div className="relative w-full h-full flex flex-col" onClick={e => e.stopPropagation()}>
 
                                         {/* Top Controls */}
-                                        <div className="absolute top-0 left-0 right-0 z-50 p-6 flex justify-between items-start pointer-events-none">
-                                            <div className="pointer-events-auto">
-                                                <div className="bg-black/60 backdrop-blur-md border border-white/10 px-8 py-4 rounded-2xl flex items-center gap-6 shadow-2xl">
-                                                    <div className="flex flex-col">
-                                                        <span className="text-[9px] font-black uppercase tracking-widest text-white/40 mb-1">Fournisseur</span>
-                                                        <h2 className="text-2xl font-black text-white tracking-tight leading-none">{selectedSupplier || viewingData.supplier_name || 'Inconnu'}</h2>
-                                                        <p className="text-[10px] font-medium text-[#c69f6e] mt-1 max-w-xs truncate">
-                                                            {allPhotos.length} Document{allPhotos.length > 1 ? 's' : ''} • {viewingData.payment_method || viewingData.paymentMethod}
+                                        <div className="absolute top-0 left-0 right-0 z-50 p-3 sm:p-6 flex justify-between items-start pointer-events-none">
+                                            {/* Info Card - Compact on mobile */}
+                                            <div className="pointer-events-auto max-w-[70%] sm:max-w-none">
+                                                <div className="bg-black/60 backdrop-blur-md border border-white/10 px-4 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-2xl flex items-center gap-3 sm:gap-6 shadow-2xl">
+                                                    <div className="flex flex-col min-w-0">
+                                                        <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-white/40 mb-0.5 sm:mb-1">Fournisseur</span>
+                                                        <h2 className="text-base sm:text-2xl font-black text-white tracking-tight leading-none truncate">{selectedSupplier || viewingData.supplier_name || 'Inconnu'}</h2>
+                                                        <p className="text-[9px] sm:text-[10px] font-medium text-[#c69f6e] mt-0.5 sm:mt-1 truncate">
+                                                            {allPhotos.length} Doc{allPhotos.length > 1 ? 's' : ''} • {viewingData.payment_method || viewingData.paymentMethod}
                                                         </p>
                                                     </div>
-                                                    <div className="w-px h-10 bg-white/10" />
-                                                    <div className="flex flex-col items-end">
+                                                    <div className="w-px h-8 sm:h-10 bg-white/10 hidden sm:block" />
+                                                    <div className="flex flex-col items-end hidden sm:flex">
                                                         <span className="text-[9px] font-black uppercase tracking-widest text-[#c69f6e] mb-1">Montant</span>
                                                         <div className="flex items-baseline gap-1">
                                                             <span className="text-3xl font-black text-white tracking-tight">
@@ -4345,15 +4346,21 @@ export default function PaiementsPage() {
                                                 </div>
                                             </div>
 
-                                            <div className="flex items-center gap-2 sm:gap-4 pointer-events-auto">
-                                                <div className="flex bg-white/10 rounded-xl sm:rounded-2xl p-1 gap-0.5 sm:gap-1 border border-white/10 backdrop-blur-md">
-                                                    <button onClick={() => setImgZoom(prev => Math.max(0.5, prev - 0.25))} className="w-8 h-8 sm:w-10 sm:h-10 hover:bg-white/10 rounded-lg sm:rounded-xl flex items-center justify-center transition-all text-white" title="Zoom Arrière"><ZoomOut size={16} className="sm:w-5 sm:h-5" /></button>
-                                                    <div className="w-12 sm:w-16 flex items-center justify-center font-black text-[10px] sm:text-xs tabular-nums text-[#c69f6e]">{Math.round(imgZoom * 100)}%</div>
-                                                    <button onClick={() => setImgZoom(prev => Math.min(5, prev + 0.25))} className="w-8 h-8 sm:w-10 sm:h-10 hover:bg-white/10 rounded-lg sm:rounded-xl flex items-center justify-center transition-all text-white" title="Zoom Avant"><ZoomIn size={16} className="sm:w-5 sm:h-5" /></button>
-                                                    <div className="w-px h-5 sm:h-6 bg-white/10 self-center mx-0.5 sm:mx-1 hidden sm:block"></div>
-                                                    <button onClick={() => setImgRotation(prev => prev + 90)} className="w-8 h-8 sm:w-10 sm:h-10 hover:bg-white/10 rounded-lg sm:rounded-xl flex items-center justify-center transition-all text-white hidden sm:flex" title="Tourner"><RotateCw size={16} className="sm:w-5 sm:h-5" /></button>
-                                                    <button onClick={resetView} className="w-8 h-8 sm:w-10 sm:h-10 hover:bg-white/10 rounded-lg sm:rounded-xl flex items-center justify-center transition-all text-white hidden sm:flex" title="Réinitialiser"><Maximize2 size={16} className="sm:w-5 sm:h-5" /></button>
-                                                    <div className="w-px h-5 sm:h-6 bg-white/10 self-center mx-0.5 sm:mx-1"></div>
+                                            {/* Close button - Always visible top right */}
+                                            <button onClick={() => { setViewingData(null); setSelectedPhotoIndex('all'); resetView(); }} className="w-10 h-10 sm:w-14 sm:h-14 bg-black/60 hover:bg-black/80 border border-white/10 rounded-full flex items-center justify-center transition-all text-white backdrop-blur-md pointer-events-auto"><X size={20} className="sm:w-8 sm:h-8" /></button>
+                                        </div>
+
+                                        {/* Desktop Controls - Hidden on mobile */}
+                                        <div className="absolute top-20 right-6 z-50 pointer-events-none hidden sm:block">
+                                            <div className="flex items-center gap-4 pointer-events-auto">
+                                                <div className="flex bg-white/10 rounded-2xl p-1 gap-1 border border-white/10 backdrop-blur-md">
+                                                    <button onClick={() => setImgZoom(prev => Math.max(0.5, prev - 0.25))} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white" title="Zoom Arrière"><ZoomOut size={20} /></button>
+                                                    <div className="w-16 flex items-center justify-center font-black text-xs tabular-nums text-[#c69f6e]">{Math.round(imgZoom * 100)}%</div>
+                                                    <button onClick={() => setImgZoom(prev => Math.min(5, prev + 0.25))} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white" title="Zoom Avant"><ZoomIn size={20} /></button>
+                                                    <div className="w-px h-6 bg-white/10 self-center mx-1"></div>
+                                                    <button onClick={() => setImgRotation(prev => prev + 90)} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white" title="Tourner"><RotateCw size={20} /></button>
+                                                    <button onClick={resetView} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white" title="Réinitialiser"><Maximize2 size={20} /></button>
+                                                    <div className="w-px h-6 bg-white/10 self-center mx-1"></div>
                                                     <button
                                                         onClick={() => {
                                                             if (activePhoto?.url) {
@@ -4366,10 +4373,10 @@ export default function PaiementsPage() {
                                                                 document.body.removeChild(link);
                                                             }
                                                         }}
-                                                        className="w-8 h-8 sm:w-10 sm:h-10 hover:bg-white/10 rounded-lg sm:rounded-xl flex items-center justify-center transition-all text-white"
+                                                        className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white"
                                                         title="Télécharger"
                                                     >
-                                                        <Download size={16} className="sm:w-5 sm:h-5" />
+                                                        <Download size={20} />
                                                     </button>
                                                     <button
                                                         onClick={async () => {
@@ -4377,8 +4384,6 @@ export default function PaiementsPage() {
                                                                 try {
                                                                     const isPdf = activePhoto.url.startsWith('data:application/pdf') || activePhoto.url.toLowerCase().includes('.pdf');
                                                                     const fileName = `${selectedSupplier || viewingData.supplier_name || 'document'}_${activePhoto.label || activeIndex + 1}.${isPdf ? 'pdf' : 'jpg'}`;
-
-                                                                    // Convert base64 to blob
                                                                     let blob: Blob;
                                                                     if (activePhoto.url.startsWith('data:')) {
                                                                         const byteString = atob(activePhoto.url.split(',')[1]);
@@ -4393,58 +4398,95 @@ export default function PaiementsPage() {
                                                                         const response = await fetch(activePhoto.url);
                                                                         blob = await response.blob();
                                                                     }
-
                                                                     const file = new File([blob], fileName, { type: isPdf ? 'application/pdf' : 'image/jpeg' });
-
-                                                                    // Check if sharing files is supported
                                                                     if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                                                                        await navigator.share({
-                                                                            files: [file],
-                                                                            title: `Document - ${selectedSupplier || viewingData.supplier_name}`,
-                                                                            text: `Document de ${selectedSupplier || viewingData.supplier_name} - ${maskAmount(viewingData.amount)} DT`
-                                                                        });
+                                                                        await navigator.share({ files: [file], title: `Document - ${selectedSupplier || viewingData.supplier_name}` });
                                                                     } else if (navigator.share) {
-                                                                        // Fallback: share without files (just text)
-                                                                        await navigator.share({
-                                                                            title: `Document - ${selectedSupplier || viewingData.supplier_name}`,
-                                                                            text: `Document de ${selectedSupplier || viewingData.supplier_name} - ${maskAmount(viewingData.amount)} DT`
-                                                                        });
+                                                                        await navigator.share({ title: `Document - ${selectedSupplier || viewingData.supplier_name}`, text: `Document de ${selectedSupplier || viewingData.supplier_name} - ${maskAmount(viewingData.amount)} DT` });
                                                                     } else {
-                                                                        // Final fallback: download
                                                                         const link = document.createElement('a');
                                                                         link.href = activePhoto.url;
                                                                         link.download = fileName;
                                                                         document.body.appendChild(link);
                                                                         link.click();
                                                                         document.body.removeChild(link);
-                                                                        Swal.fire({
-                                                                            icon: 'success',
-                                                                            title: 'Document téléchargé',
-                                                                            text: 'Le document a été téléchargé. Vous pouvez le partager depuis vos fichiers.',
-                                                                            confirmButtonColor: '#c69f6e',
-                                                                            timer: 3000
-                                                                        });
                                                                     }
                                                                 } catch (err) {
                                                                     console.error('Share failed:', err);
-                                                                    // Fallback to download on error
-                                                                    const link = document.createElement('a');
-                                                                    link.href = activePhoto.url;
-                                                                    link.download = `${selectedSupplier || viewingData.supplier_name || 'document'}.jpg`;
-                                                                    document.body.appendChild(link);
-                                                                    link.click();
-                                                                    document.body.removeChild(link);
                                                                 }
                                                             }
                                                         }}
-                                                        className="w-8 h-8 sm:w-10 sm:h-10 hover:bg-white/10 rounded-lg sm:rounded-xl flex items-center justify-center transition-all text-white"
+                                                        className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white"
                                                         title="Partager"
                                                     >
-                                                        <Share2 size={16} className="sm:w-5 sm:h-5" />
+                                                        <Share2 size={20} />
                                                     </button>
                                                 </div>
-                                                <button onClick={() => { setViewingData(null); setSelectedPhotoIndex('all'); resetView(); }} className="w-10 h-10 sm:w-14 sm:h-14 bg-white/10 hover:bg-white/20 border border-white/10 rounded-full flex items-center justify-center transition-all text-white backdrop-blur-md"><X size={24} className="sm:w-8 sm:h-8" /></button>
                                             </div>
+                                        </div>
+
+                                        {/* Mobile Action Buttons - Fixed at bottom right */}
+                                        <div className="absolute bottom-28 right-3 z-50 flex flex-col gap-2 pointer-events-auto sm:hidden">
+                                            <button
+                                                onClick={() => {
+                                                    if (activePhoto?.url) {
+                                                        const isPdf = activePhoto.url.startsWith('data:application/pdf') || activePhoto.url.toLowerCase().includes('.pdf');
+                                                        const link = document.createElement('a');
+                                                        link.href = activePhoto.url;
+                                                        link.download = `${selectedSupplier || viewingData.supplier_name || 'document'}_${activePhoto.label || activeIndex + 1}.${isPdf ? 'pdf' : 'jpg'}`;
+                                                        document.body.appendChild(link);
+                                                        link.click();
+                                                        document.body.removeChild(link);
+                                                    }
+                                                }}
+                                                className="w-12 h-12 bg-black/60 hover:bg-black/80 border border-white/10 rounded-full flex items-center justify-center transition-all text-white backdrop-blur-md"
+                                                title="Télécharger"
+                                            >
+                                                <Download size={20} />
+                                            </button>
+                                            <button
+                                                onClick={async () => {
+                                                    if (activePhoto?.url) {
+                                                        try {
+                                                            const isPdf = activePhoto.url.startsWith('data:application/pdf') || activePhoto.url.toLowerCase().includes('.pdf');
+                                                            const fileName = `${selectedSupplier || viewingData.supplier_name || 'document'}_${activePhoto.label || activeIndex + 1}.${isPdf ? 'pdf' : 'jpg'}`;
+                                                            let blob: Blob;
+                                                            if (activePhoto.url.startsWith('data:')) {
+                                                                const byteString = atob(activePhoto.url.split(',')[1]);
+                                                                const mimeType = activePhoto.url.split(',')[0].split(':')[1].split(';')[0];
+                                                                const ab = new ArrayBuffer(byteString.length);
+                                                                const ia = new Uint8Array(ab);
+                                                                for (let i = 0; i < byteString.length; i++) {
+                                                                    ia[i] = byteString.charCodeAt(i);
+                                                                }
+                                                                blob = new Blob([ab], { type: mimeType });
+                                                            } else {
+                                                                const response = await fetch(activePhoto.url);
+                                                                blob = await response.blob();
+                                                            }
+                                                            const file = new File([blob], fileName, { type: isPdf ? 'application/pdf' : 'image/jpeg' });
+                                                            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                                                                await navigator.share({ files: [file], title: `Document - ${selectedSupplier || viewingData.supplier_name}` });
+                                                            } else if (navigator.share) {
+                                                                await navigator.share({ title: `Document - ${selectedSupplier || viewingData.supplier_name}`, text: `Document de ${selectedSupplier || viewingData.supplier_name} - ${maskAmount(viewingData.amount)} DT` });
+                                                            } else {
+                                                                const link = document.createElement('a');
+                                                                link.href = activePhoto.url;
+                                                                link.download = fileName;
+                                                                document.body.appendChild(link);
+                                                                link.click();
+                                                                document.body.removeChild(link);
+                                                            }
+                                                        } catch (err) {
+                                                            console.error('Share failed:', err);
+                                                        }
+                                                    }
+                                                }}
+                                                className="w-12 h-12 bg-[#c69f6e] hover:bg-[#b8916a] border border-white/10 rounded-full flex items-center justify-center transition-all text-white backdrop-blur-md"
+                                                title="Partager"
+                                            >
+                                                <Share2 size={20} />
+                                            </button>
                                         </div>
 
                                         {/* Main Image Area */}
