@@ -296,6 +296,16 @@ const initDb = async () => {
       );
     `);
 
+    await query(`
+      CREATE TABLE IF NOT EXISTS public.article_families (
+        id serial PRIMARY KEY,
+        name character varying(255) NOT NULL UNIQUE,
+        rows jsonb DEFAULT '[]',
+        suppliers jsonb DEFAULT '[]',
+        updated_at timestamptz DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
     console.log('Database tables initialized');
   } catch (err) {
     console.error('Error initializing database:', err);

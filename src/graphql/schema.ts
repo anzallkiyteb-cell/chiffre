@@ -160,6 +160,14 @@ export const typeDefs = `#graphql
     photos: String # JSON array
   }
 
+  type ArticleFamily {
+    id: Int
+    name: String
+    rows: String # JSON string
+    suppliers: String # JSON string
+    updated_at: String
+  }
+
   type Query {
     getChiffreByDate(date: String!): Chiffre
     getChiffresByRange(startDate: String!, endDate: String!): [Chiffre]
@@ -179,6 +187,7 @@ export const typeDefs = `#graphql
     getUsers: [UserAccount]
     getConnectionLogs: [ConnectionLog]
     getJournalierPhotos(date: String!): [JournalierPhoto]
+    getArticleFamilies: [ArticleFamily]
   }
 
   type ConnectionLog {
@@ -335,5 +344,9 @@ export const typeDefs = `#graphql
     
     clearChiffreData(date: String!): Boolean
     replaceChiffreDate(oldDate: String!, newDate: String!): Boolean
+
+    addArticleFamily(name: String!): ArticleFamily
+    updateArticleFamily(id: Int!, name: String, rows: String, suppliers: String): ArticleFamily
+    deleteArticleFamily(id: Int!): Boolean
   }
 `;

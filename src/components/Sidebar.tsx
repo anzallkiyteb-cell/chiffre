@@ -9,7 +9,7 @@ import {
     LayoutDashboard, PieChart as PieChartIcon, Truck, LogOut, CreditCard,
     ShoppingBag, Monitor, Shield, Key, ChevronRight, Settings,
     Lock, CheckCircle2, AlertCircle, User as UserIcon, X, Loader2,
-    Eye, EyeOff
+    Eye, EyeOff, ArrowLeftRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -191,6 +191,7 @@ export default function Sidebar({ role }: SidebarProps) {
         navItems.unshift({ name: 'Dépenses Caisse Mensuelle', icon: LayoutDashboard, href: '/dashboard' });
         navItems.push({ name: "Coût d'achat", icon: ShoppingBag, href: '/cout-achat' });
         navItems.push({ name: 'Statistiques', icon: PieChartIcon, href: '/statistiques' });
+        navItems.push({ name: 'Comparatif', icon: ArrowLeftRight, href: '/comparatif' });
         navItems.push({ name: 'Paiements', icon: CreditCard, href: '/paiements' });
         navItems.push({ name: 'Paramètres', icon: Settings, href: '/admin/settings' });
     }

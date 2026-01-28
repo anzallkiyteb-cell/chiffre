@@ -809,6 +809,14 @@ export const resolvers = {
                 ...r,
                 photos: typeof r.photos === 'string' ? r.photos : JSON.stringify(r.photos || [])
             }));
+        },
+        getArticleFamilies: async () => {
+            const res = await query('SELECT * FROM article_families ORDER BY name ASC');
+            return res.rows.map(r => ({
+                ...r,
+                rows: typeof r.rows === 'string' ? r.rows : JSON.stringify(r.rows || []),
+                suppliers: typeof r.suppliers === 'string' ? r.suppliers : JSON.stringify(r.suppliers || [])
+            }));
         }
     },
     Mutation: {
@@ -1523,6 +1531,56 @@ export const resolvers = {
             // Also update the creation date for invoices created in/for the daily sheet
             await query("UPDATE invoices SET date = $1 WHERE date = $2 AND origin = 'daily_sheet'", [newDate, oldDate]);
 
+            return true;
+        },
+
+        addArticleFamily: async (_: any, { name }: { name: string }) => {
+            const res = await query(
+                'INSERT INTO article_families (name, rows, suppliers) VALUES ($1, $2, $3) RETURNING *',
+                [name, '[]', '[]']
+            );
+            const r = res.rows[0];
+            return {
+                ...r,
+                rows: typeof r.rows === 'string' ? r.rows : JSON.stringify(r.rows || []),
+                suppliers: typeof r.suppliers === 'string' ? r.suppliers : JSON.stringify(r.suppliers || [])
+            };
+        },
+        updateArticleFamily: async (_: any, { id, name, rows, suppliers }: { id: number, name?: string, rows?: string, suppliers?: string }) => {
+            const updates = [];
+            const values = [];
+            let i = 1;
+
+            if (name !== undefined) {
+                updates.push(`name = $${i++}`);
+                values.push(name);
+            }
+            if (rows !== undefined) {
+                updates.push(`rows = $${i++}::jsonb`);
+                values.push(rows);
+            }
+            if (suppliers !== undefined) {
+                updates.push(`suppliers = $${i++}::jsonb`);
+                values.push(suppliers);
+            }
+
+            if (updates.length === 0) return null;
+
+            values.push(id);
+            const res = await query(
+                `UPDATE article_families SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = $${i} RETURNING *`,
+                values
+            );
+            const r = res.rows[0];
+            if (!r) return null;
+            return {
+                ...r,
+                rows: typeof r.rows === 'string' ? r.rows : JSON.stringify(r.rows || []),
+                suppliers: typeof r.suppliers === 'string' ? r.suppliers : JSON.stringify(r.suppliers || [])
+            };
+        },
+        deleteArticleFamily: async (_: any, { id }: { id: number }) => {
+            await query('DELETE FROM article_families WHERE id = $1', [id]);
             return true;
         },
     },
