@@ -9,7 +9,7 @@ import {
     CreditCard, Banknote, Coins, Receipt,
     Trash2, UploadCloud, CheckCircle2,
     Clock, Filter, X, Eye, DollarSign, Bookmark, Edit2, Package, LayoutGrid, Hash,
-    ZoomIn, ZoomOut, RotateCcw, Download, Maximize2, ChevronDown
+    ZoomIn, ZoomOut, RotateCcw, Download, Maximize2, ChevronDown, Share2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Swal from 'sweetalert2';
@@ -1714,6 +1714,78 @@ export default function FacturationPage() {
                                             <div className="w-px h-6 bg-white/10 self-center mx-1"></div>
                                             <button onClick={() => setImgRotation(prev => prev + 90)} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white" title="Tourner"><RotateCcw size={20} /></button>
                                             <button onClick={resetView} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white" title="Réinitialiser"><Maximize2 size={20} /></button>
+                                            <div className="w-px h-6 bg-white/10 self-center mx-1"></div>
+                                            <button
+                                                onClick={() => {
+                                                    let allPhotos: string[] = [];
+                                                    try {
+                                                        const p = JSON.parse(viewingData.photos || '[]');
+                                                        allPhotos = Array.isArray(p) ? p : [];
+                                                    } catch (e) { allPhotos = []; }
+                                                    if (viewingData.photo_url && !allPhotos.includes(viewingData.photo_url)) {
+                                                        allPhotos = [viewingData.photo_url, ...allPhotos];
+                                                    }
+                                                    if (viewingData.photo_cheque_url) allPhotos.push(viewingData.photo_cheque_url);
+                                                    if (viewingData.photo_verso_url) allPhotos.push(viewingData.photo_verso_url);
+                                                    const activeIndex = viewingData.selectedIndex || 0;
+                                                    const activePhoto = allPhotos[activeIndex];
+                                                    if (activePhoto) {
+                                                        const link = document.createElement('a');
+                                                        link.href = activePhoto;
+                                                        link.download = `${viewingData.supplier_name || 'facture'}_${activeIndex + 1}.${activePhoto.startsWith('data:application/pdf') || activePhoto.toLowerCase().includes('.pdf') ? 'pdf' : 'jpg'}`;
+                                                        document.body.appendChild(link);
+                                                        link.click();
+                                                        document.body.removeChild(link);
+                                                    }
+                                                }}
+                                                className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white"
+                                                title="Télécharger"
+                                            >
+                                                <Download size={20} />
+                                            </button>
+                                            <button
+                                                onClick={async () => {
+                                                    let allPhotos: string[] = [];
+                                                    try {
+                                                        const p = JSON.parse(viewingData.photos || '[]');
+                                                        allPhotos = Array.isArray(p) ? p : [];
+                                                    } catch (e) { allPhotos = []; }
+                                                    if (viewingData.photo_url && !allPhotos.includes(viewingData.photo_url)) {
+                                                        allPhotos = [viewingData.photo_url, ...allPhotos];
+                                                    }
+                                                    if (viewingData.photo_cheque_url) allPhotos.push(viewingData.photo_cheque_url);
+                                                    if (viewingData.photo_verso_url) allPhotos.push(viewingData.photo_verso_url);
+                                                    const activeIndex = viewingData.selectedIndex || 0;
+                                                    const activePhoto = allPhotos[activeIndex];
+                                                    if (activePhoto && navigator.share) {
+                                                        try {
+                                                            const isPdf = activePhoto.startsWith('data:application/pdf') || activePhoto.toLowerCase().includes('.pdf');
+                                                            const fileName = `${viewingData.supplier_name || 'facture'}_${activeIndex + 1}.${isPdf ? 'pdf' : 'jpg'}`;
+                                                            const response = await fetch(activePhoto);
+                                                            const blob = await response.blob();
+                                                            const file = new File([blob], fileName, { type: isPdf ? 'application/pdf' : 'image/jpeg' });
+                                                            await navigator.share({
+                                                                files: [file],
+                                                                title: `Facture - ${viewingData.supplier_name}`,
+                                                                text: `Facture de ${viewingData.supplier_name} - ${parseFloat(viewingData.amount || '0').toLocaleString('fr-FR', { minimumFractionDigits: 3 })} DT`
+                                                            });
+                                                        } catch (err) {
+                                                            console.error('Share failed:', err);
+                                                        }
+                                                    } else {
+                                                        Swal.fire({
+                                                            icon: 'info',
+                                                            title: 'Partage non disponible',
+                                                            text: 'Le partage n\'est pas supporté sur ce navigateur. Veuillez télécharger le document.',
+                                                            confirmButtonColor: '#c69f6e'
+                                                        });
+                                                    }
+                                                }}
+                                                className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white"
+                                                title="Partager"
+                                            >
+                                                <Share2 size={20} />
+                                            </button>
                                         </div>
                                         <button onClick={() => setViewingData(null)} className="w-14 h-14 bg-white/10 hover:bg-white/20 border border-white/10 rounded-full flex items-center justify-center transition-all text-white backdrop-blur-md"><X size={32} /></button>
                                     </div>

@@ -11,7 +11,7 @@ import {
     ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Image as ImageIcon, Ticket,
     Clock, CheckCircle2, Check, Eye, EyeOff, Edit2, Trash2, X, Layout, Plus,
     Truck, Sparkles, Calculator, Zap, Award, ZoomIn, ZoomOut, RotateCw, Maximize2,
-    Bookmark, AlertCircle, LayoutGrid, Package
+    Bookmark, AlertCircle, LayoutGrid, Package, Share2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Swal from 'sweetalert2';
@@ -4353,6 +4353,55 @@ export default function PaiementsPage() {
                                                     <div className="w-px h-6 bg-white/10 self-center mx-1"></div>
                                                     <button onClick={() => setImgRotation(prev => prev + 90)} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white" title="Tourner"><RotateCw size={20} /></button>
                                                     <button onClick={resetView} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white" title="Réinitialiser"><Maximize2 size={20} /></button>
+                                                    <div className="w-px h-6 bg-white/10 self-center mx-1"></div>
+                                                    <button
+                                                        onClick={() => {
+                                                            if (activePhoto?.url) {
+                                                                const isPdf = activePhoto.url.startsWith('data:application/pdf') || activePhoto.url.toLowerCase().includes('.pdf');
+                                                                const link = document.createElement('a');
+                                                                link.href = activePhoto.url;
+                                                                link.download = `${selectedSupplier || viewingData.supplier_name || 'document'}_${activePhoto.label || activeIndex + 1}.${isPdf ? 'pdf' : 'jpg'}`;
+                                                                document.body.appendChild(link);
+                                                                link.click();
+                                                                document.body.removeChild(link);
+                                                            }
+                                                        }}
+                                                        className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white"
+                                                        title="Télécharger"
+                                                    >
+                                                        <Download size={20} />
+                                                    </button>
+                                                    <button
+                                                        onClick={async () => {
+                                                            if (activePhoto?.url && navigator.share) {
+                                                                try {
+                                                                    const isPdf = activePhoto.url.startsWith('data:application/pdf') || activePhoto.url.toLowerCase().includes('.pdf');
+                                                                    const fileName = `${selectedSupplier || viewingData.supplier_name || 'document'}_${activePhoto.label || activeIndex + 1}.${isPdf ? 'pdf' : 'jpg'}`;
+                                                                    const response = await fetch(activePhoto.url);
+                                                                    const blob = await response.blob();
+                                                                    const file = new File([blob], fileName, { type: isPdf ? 'application/pdf' : 'image/jpeg' });
+                                                                    await navigator.share({
+                                                                        files: [file],
+                                                                        title: `Document - ${selectedSupplier || viewingData.supplier_name}`,
+                                                                        text: `Document de ${selectedSupplier || viewingData.supplier_name} - ${maskAmount(viewingData.amount)} DT`
+                                                                    });
+                                                                } catch (err) {
+                                                                    console.error('Share failed:', err);
+                                                                }
+                                                            } else {
+                                                                Swal.fire({
+                                                                    icon: 'info',
+                                                                    title: 'Partage non disponible',
+                                                                    text: 'Le partage n\'est pas supporté sur ce navigateur. Veuillez télécharger le document.',
+                                                                    confirmButtonColor: '#c69f6e'
+                                                                });
+                                                            }
+                                                        }}
+                                                        className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white"
+                                                        title="Partager"
+                                                    >
+                                                        <Share2 size={20} />
+                                                    </button>
                                                 </div>
                                                 <button onClick={() => { setViewingData(null); setSelectedPhotoIndex('all'); resetView(); }} className="w-14 h-14 bg-white/10 hover:bg-white/20 border border-white/10 rounded-full flex items-center justify-center transition-all text-white backdrop-blur-md"><X size={32} /></button>
                                             </div>
