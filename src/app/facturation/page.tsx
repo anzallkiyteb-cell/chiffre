@@ -1706,15 +1706,15 @@ export default function FacturationPage() {
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center gap-4 pointer-events-auto">
-                                        <div className="flex bg-white/10 rounded-2xl p-1 gap-1 border border-white/10 backdrop-blur-md">
-                                            <button onClick={() => setImgZoom(prev => Math.max(0.5, prev - 0.25))} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white" title="Zoom Arrière"><ZoomOut size={20} /></button>
-                                            <div className="w-16 flex items-center justify-center font-black text-xs tabular-nums text-[#c69f6e]">{Math.round(imgZoom * 100)}%</div>
-                                            <button onClick={() => setImgZoom(prev => Math.min(5, prev + 0.25))} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white" title="Zoom Avant"><ZoomIn size={20} /></button>
-                                            <div className="w-px h-6 bg-white/10 self-center mx-1"></div>
-                                            <button onClick={() => setImgRotation(prev => prev + 90)} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white" title="Tourner"><RotateCcw size={20} /></button>
-                                            <button onClick={resetView} className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white" title="Réinitialiser"><Maximize2 size={20} /></button>
-                                            <div className="w-px h-6 bg-white/10 self-center mx-1"></div>
+                                    <div className="flex items-center gap-2 sm:gap-4 pointer-events-auto">
+                                        <div className="flex bg-white/10 rounded-xl sm:rounded-2xl p-1 gap-0.5 sm:gap-1 border border-white/10 backdrop-blur-md">
+                                            <button onClick={() => setImgZoom(prev => Math.max(0.5, prev - 0.25))} className="w-8 h-8 sm:w-10 sm:h-10 hover:bg-white/10 rounded-lg sm:rounded-xl flex items-center justify-center transition-all text-white" title="Zoom Arrière"><ZoomOut size={16} className="sm:w-5 sm:h-5" /></button>
+                                            <div className="w-12 sm:w-16 flex items-center justify-center font-black text-[10px] sm:text-xs tabular-nums text-[#c69f6e]">{Math.round(imgZoom * 100)}%</div>
+                                            <button onClick={() => setImgZoom(prev => Math.min(5, prev + 0.25))} className="w-8 h-8 sm:w-10 sm:h-10 hover:bg-white/10 rounded-lg sm:rounded-xl flex items-center justify-center transition-all text-white" title="Zoom Avant"><ZoomIn size={16} className="sm:w-5 sm:h-5" /></button>
+                                            <div className="w-px h-5 sm:h-6 bg-white/10 self-center mx-0.5 sm:mx-1 hidden sm:block"></div>
+                                            <button onClick={() => setImgRotation(prev => prev + 90)} className="w-8 h-8 sm:w-10 sm:h-10 hover:bg-white/10 rounded-lg sm:rounded-xl flex items-center justify-center transition-all text-white hidden sm:flex" title="Tourner"><RotateCcw size={16} className="sm:w-5 sm:h-5" /></button>
+                                            <button onClick={resetView} className="w-8 h-8 sm:w-10 sm:h-10 hover:bg-white/10 rounded-lg sm:rounded-xl flex items-center justify-center transition-all text-white hidden sm:flex" title="Réinitialiser"><Maximize2 size={16} className="sm:w-5 sm:h-5" /></button>
+                                            <div className="w-px h-5 sm:h-6 bg-white/10 self-center mx-0.5 sm:mx-1"></div>
                                             <button
                                                 onClick={() => {
                                                     let allPhotos: string[] = [];
@@ -1738,10 +1738,10 @@ export default function FacturationPage() {
                                                         document.body.removeChild(link);
                                                     }
                                                 }}
-                                                className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white"
+                                                className="w-8 h-8 sm:w-10 sm:h-10 hover:bg-white/10 rounded-lg sm:rounded-xl flex items-center justify-center transition-all text-white"
                                                 title="Télécharger"
                                             >
-                                                <Download size={20} />
+                                                <Download size={16} className="sm:w-5 sm:h-5" />
                                             </button>
                                             <button
                                                 onClick={async () => {
@@ -1757,37 +1757,77 @@ export default function FacturationPage() {
                                                     if (viewingData.photo_verso_url) allPhotos.push(viewingData.photo_verso_url);
                                                     const activeIndex = viewingData.selectedIndex || 0;
                                                     const activePhoto = allPhotos[activeIndex];
-                                                    if (activePhoto && navigator.share) {
+                                                    if (activePhoto) {
                                                         try {
                                                             const isPdf = activePhoto.startsWith('data:application/pdf') || activePhoto.toLowerCase().includes('.pdf');
                                                             const fileName = `${viewingData.supplier_name || 'facture'}_${activeIndex + 1}.${isPdf ? 'pdf' : 'jpg'}`;
-                                                            const response = await fetch(activePhoto);
-                                                            const blob = await response.blob();
+
+                                                            // Convert base64 to blob
+                                                            let blob: Blob;
+                                                            if (activePhoto.startsWith('data:')) {
+                                                                const byteString = atob(activePhoto.split(',')[1]);
+                                                                const mimeType = activePhoto.split(',')[0].split(':')[1].split(';')[0];
+                                                                const ab = new ArrayBuffer(byteString.length);
+                                                                const ia = new Uint8Array(ab);
+                                                                for (let i = 0; i < byteString.length; i++) {
+                                                                    ia[i] = byteString.charCodeAt(i);
+                                                                }
+                                                                blob = new Blob([ab], { type: mimeType });
+                                                            } else {
+                                                                const response = await fetch(activePhoto);
+                                                                blob = await response.blob();
+                                                            }
+
                                                             const file = new File([blob], fileName, { type: isPdf ? 'application/pdf' : 'image/jpeg' });
-                                                            await navigator.share({
-                                                                files: [file],
-                                                                title: `Facture - ${viewingData.supplier_name}`,
-                                                                text: `Facture de ${viewingData.supplier_name} - ${parseFloat(viewingData.amount || '0').toLocaleString('fr-FR', { minimumFractionDigits: 3 })} DT`
-                                                            });
+
+                                                            // Check if sharing files is supported
+                                                            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                                                                await navigator.share({
+                                                                    files: [file],
+                                                                    title: `Facture - ${viewingData.supplier_name}`,
+                                                                    text: `Facture de ${viewingData.supplier_name} - ${parseFloat(viewingData.amount || '0').toLocaleString('fr-FR', { minimumFractionDigits: 3 })} DT`
+                                                                });
+                                                            } else if (navigator.share) {
+                                                                // Fallback: share without files (just text)
+                                                                await navigator.share({
+                                                                    title: `Facture - ${viewingData.supplier_name}`,
+                                                                    text: `Facture de ${viewingData.supplier_name} - ${parseFloat(viewingData.amount || '0').toLocaleString('fr-FR', { minimumFractionDigits: 3 })} DT`
+                                                                });
+                                                            } else {
+                                                                // Final fallback: copy info and download
+                                                                const link = document.createElement('a');
+                                                                link.href = activePhoto;
+                                                                link.download = fileName;
+                                                                document.body.appendChild(link);
+                                                                link.click();
+                                                                document.body.removeChild(link);
+                                                                Swal.fire({
+                                                                    icon: 'success',
+                                                                    title: 'Document téléchargé',
+                                                                    text: 'Le document a été téléchargé. Vous pouvez le partager depuis vos fichiers.',
+                                                                    confirmButtonColor: '#c69f6e',
+                                                                    timer: 3000
+                                                                });
+                                                            }
                                                         } catch (err) {
                                                             console.error('Share failed:', err);
+                                                            // Fallback to download on error
+                                                            const link = document.createElement('a');
+                                                            link.href = activePhoto;
+                                                            link.download = `${viewingData.supplier_name || 'facture'}_${activeIndex + 1}.jpg`;
+                                                            document.body.appendChild(link);
+                                                            link.click();
+                                                            document.body.removeChild(link);
                                                         }
-                                                    } else {
-                                                        Swal.fire({
-                                                            icon: 'info',
-                                                            title: 'Partage non disponible',
-                                                            text: 'Le partage n\'est pas supporté sur ce navigateur. Veuillez télécharger le document.',
-                                                            confirmButtonColor: '#c69f6e'
-                                                        });
                                                     }
                                                 }}
-                                                className="w-10 h-10 hover:bg-white/10 rounded-xl flex items-center justify-center transition-all text-white"
+                                                className="w-8 h-8 sm:w-10 sm:h-10 hover:bg-white/10 rounded-lg sm:rounded-xl flex items-center justify-center transition-all text-white"
                                                 title="Partager"
                                             >
-                                                <Share2 size={20} />
+                                                <Share2 size={16} className="sm:w-5 sm:h-5" />
                                             </button>
                                         </div>
-                                        <button onClick={() => setViewingData(null)} className="w-14 h-14 bg-white/10 hover:bg-white/20 border border-white/10 rounded-full flex items-center justify-center transition-all text-white backdrop-blur-md"><X size={32} /></button>
+                                        <button onClick={() => setViewingData(null)} className="w-10 h-10 sm:w-14 sm:h-14 bg-white/10 hover:bg-white/20 border border-white/10 rounded-full flex items-center justify-center transition-all text-white backdrop-blur-md"><X size={24} className="sm:w-8 sm:h-8" /></button>
                                     </div>
                                 </div>
 
