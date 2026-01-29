@@ -881,18 +881,22 @@ export const resolvers = {
             let diponceList = [];
             try {
                 const fullDiponceList = JSON.parse(diponce);
+                let manualExpenseIdx = 0; // Track manual-only index for temp photo lookup
                 for (let i = 0; i < fullDiponceList.length; i++) {
                     const d = fullDiponceList[i];
 
                     // Photo Priority:
-                    // 1. Temp photos from current session (upload/delete)
-                    // 2. Existing photos in the database (for re-saves)
+                    // 1. For manual items: temp photos from photo_journalier (indexed by manual-only position)
+                    // 2. For facturation items: existing photos from invoices table
                     // 3. Frontend payload (usually empty for existing items)
-                    const temp = tempPhotosMap[`expenses_${i}`];
                     const dbData = d.invoiceId ? dbInvoicesPhotos[d.invoiceId] : null;
 
-                    if (temp !== undefined) {
-                        d.invoices = temp;
+                    if (!d.isFromFacturation) {
+                        const temp = tempPhotosMap[`expenses_${manualExpenseIdx}`];
+                        manualExpenseIdx++;
+                        if (temp !== undefined) {
+                            d.invoices = temp;
+                        }
                     } else if (d.isFromFacturation && dbData && (!d.invoices || d.invoices.length === 0)) {
                         d.invoices = dbData.photos;
                     }
@@ -924,15 +928,19 @@ export const resolvers = {
             let diponceDiversList = [];
             try {
                 const fullDiversList = JSON.parse(diponce_divers);
+                let manualDiversIdx = 0; // Track manual-only index for temp photo lookup
                 for (let i = 0; i < fullDiversList.length; i++) {
                     const d = fullDiversList[i];
 
-                    // Photo Priority logic
-                    const temp = tempPhotosMap[`expensesDivers_${i}`];
+                    // Photo Priority logic (manual-only index for temp photos)
                     const dbData = d.invoiceId ? dbInvoicesPhotos[d.invoiceId] : null;
 
-                    if (temp !== undefined) {
-                        d.invoices = temp;
+                    if (!d.isFromFacturation) {
+                        const temp = tempPhotosMap[`expensesDivers_${manualDiversIdx}`];
+                        manualDiversIdx++;
+                        if (temp !== undefined) {
+                            d.invoices = temp;
+                        }
                     } else if (d.isFromFacturation && dbData && (!d.invoices || d.invoices.length === 0)) {
                         d.invoices = dbData.photos;
                     }

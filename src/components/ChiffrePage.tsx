@@ -1792,10 +1792,15 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         if (journalierPhotosData?.getJournalierPhotos) {
             const tempPhotos = journalierPhotosData.getJournalierPhotos;
 
+            // For expenses/expensesDivers: temp photos are indexed by manual-only position
+            // (skipping facturation items, which get photos from the invoices table)
             setExpenses(prev => {
                 let changed = false;
-                const newList = prev.map((item, idx) => {
-                    const match = tempPhotos.find((p: any) => p.category === 'expenses' && p.item_index === idx);
+                let manualIdx = 0;
+                const newList = prev.map((item) => {
+                    if (item.isFromFacturation) return item; // skip facturation items
+                    const match = tempPhotos.find((p: any) => p.category === 'expenses' && p.item_index === manualIdx);
+                    manualIdx++;
                     if (match) {
                         const photos = typeof match.photos === 'string' ? JSON.parse(match.photos) : match.photos;
                         if (JSON.stringify(item.invoices) !== JSON.stringify(photos)) {
@@ -1810,8 +1815,11 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
 
             setExpensesDivers(prev => {
                 let changed = false;
-                const newList = prev.map((item, idx) => {
-                    const match = tempPhotos.find((p: any) => p.category === 'expensesDivers' && p.item_index === idx);
+                let manualIdx = 0;
+                const newList = prev.map((item) => {
+                    if ((item as any).isFromFacturation) return item; // skip facturation items
+                    const match = tempPhotos.find((p: any) => p.category === 'expensesDivers' && p.item_index === manualIdx);
+                    manualIdx++;
                     if (match) {
                         const photos = typeof match.photos === 'string' ? JSON.parse(match.photos) : match.photos;
                         if (JSON.stringify(item.invoices) !== JSON.stringify(photos)) {
@@ -2313,21 +2321,40 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         }
     };
 
+    // Helper: For expenses/expensesDivers, get the index within only the manual (non-facturation) subset.
+    // Facturation items get their photos from the invoices table, not from photo_journalier.
+    // This ensures photos stay correctly attached even when facturation items are merged at different positions.
+    const getManualIndex = (fullIndex: number, items: (Expense | ExpenseDivers)[]) => {
+        const item = items[fullIndex];
+        if (!item || (item as any).isFromFacturation) return -1; // facturation items don't use temp photos
+        let manualIdx = 0;
+        for (let i = 0; i < fullIndex; i++) {
+            if (!(items[i] as any).isFromFacturation) manualIdx++;
+        }
+        return manualIdx;
+    };
+
     // Re-sync temp photos after an entry is removed from the array
     // This ensures photos stay attached to the correct entries after index shift
     const resyncPhotosAfterRemoval = async (category: string, remainingItems: { invoices: string[] }[]) => {
         try {
+            // For expenses/expensesDivers, only re-sync manual (non-facturation) items
+            const isExpenseCategory = category === 'expenses' || category === 'expensesDivers';
+            const manualItems = isExpenseCategory
+                ? remainingItems.filter((item: any) => !item.isFromFacturation)
+                : remainingItems;
+
             // Clear all old entries (use a safe upper bound)
-            for (let i = 0; i <= remainingItems.length; i++) {
+            for (let i = 0; i <= manualItems.length; i++) {
                 await uploadJournalierPhotos({
                     variables: { date, category, item_index: i, photos: JSON.stringify([]) }
                 });
             }
-            // Re-upload with correct new indices
-            for (let i = 0; i < remainingItems.length; i++) {
-                if (remainingItems[i].invoices && remainingItems[i].invoices.length > 0) {
+            // Re-upload with correct new indices (manual-only indices)
+            for (let i = 0; i < manualItems.length; i++) {
+                if (manualItems[i].invoices && manualItems[i].invoices.length > 0) {
                     await uploadJournalierPhotos({
-                        variables: { date, category, item_index: i, photos: JSON.stringify(remainingItems[i].invoices) }
+                        variables: { date, category, item_index: i, photos: JSON.stringify(manualItems[i].invoices) }
                     });
                 }
             }
@@ -2343,11 +2370,15 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
 
         let category = 'expenses';
         const itemIndex = viewingInvoicesTarget.index;
+        let tempPhotoIndex = itemIndex; // For admin/offres, use direct index
+        let isFacturationItem = false;
 
         if (viewingInvoicesTarget.type === 'divers') {
             category = 'expensesDivers';
             const list = [...expensesDivers];
             list[itemIndex].invoices = newInvoices;
+            isFacturationItem = !!(list[itemIndex] as any).isFromFacturation;
+            tempPhotoIndex = getManualIndex(itemIndex, list);
             setExpensesDivers(list);
         } else if ((viewingInvoicesTarget.type as string) === 'admin') {
             category = 'expensesAdmin';
@@ -2362,23 +2393,27 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         } else {
             const list = [...expenses];
             list[itemIndex].invoices = newInvoices;
+            isFacturationItem = !!list[itemIndex].isFromFacturation;
+            tempPhotoIndex = getManualIndex(itemIndex, list);
             setExpenses(list);
         }
 
-        // Update temporary storage on server
-        try {
-            await uploadJournalierPhotos({
-                variables: {
-                    date,
-                    category,
-                    item_index: itemIndex,
-                    photos: JSON.stringify(newInvoices)
-                }
-            });
-            // Refetch so the cache is in sync when viewer closes
-            refetchJournalierPhotos();
-        } catch (e) {
-            console.error("Failed to update temporary photos on server", e);
+        // Update temporary storage on server (only for non-facturation items)
+        // Facturation items have their photos in the invoices table, not photo_journalier
+        if (!isFacturationItem && tempPhotoIndex >= 0) {
+            try {
+                await uploadJournalierPhotos({
+                    variables: {
+                        date,
+                        category,
+                        item_index: tempPhotoIndex,
+                        photos: JSON.stringify(newInvoices)
+                    }
+                });
+                refetchJournalierPhotos();
+            } catch (e) {
+                console.error("Failed to update temporary photos on server", e);
+            }
         }
 
         setViewingInvoices(newInvoices.length > 0 ? newInvoices : null);
@@ -2406,12 +2441,16 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                 if (base64s.length > 0) {
                     let category = 'expenses';
                     let currentPhotos: string[] = [];
+                    let tempPhotoIndex = index;
+                    let isFacturationItem = false;
 
                     if (isDivers === true) {
                         category = 'expensesDivers';
                         const newDivers = [...expensesDivers];
                         newDivers[index].invoices = [...newDivers[index].invoices, ...base64s];
                         currentPhotos = newDivers[index].invoices;
+                        isFacturationItem = !!(newDivers[index] as any).isFromFacturation;
+                        tempPhotoIndex = getManualIndex(index, newDivers);
                         setExpensesDivers(newDivers);
                     } else if (isDivers === 'admin') {
                         category = 'expensesAdmin';
@@ -2430,19 +2469,24 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                         const newExpenses = [...expenses];
                         newExpenses[index].invoices = [...newExpenses[index].invoices, ...base64s];
                         currentPhotos = newExpenses[index].invoices;
+                        isFacturationItem = !!newExpenses[index].isFromFacturation;
+                        tempPhotoIndex = getManualIndex(index, newExpenses);
                         setExpenses(newExpenses);
                     }
 
                     // Save to temporary database immediately
-                    await uploadJournalierPhotos({
-                        variables: {
-                            date,
-                            category,
-                            item_index: index,
-                            photos: JSON.stringify(currentPhotos)
-                        }
-                    });
-                    refetchJournalierPhotos();
+                    // Only for non-facturation items; facturation photos are in the invoices table
+                    if (!isFacturationItem && tempPhotoIndex >= 0) {
+                        await uploadJournalierPhotos({
+                            variables: {
+                                date,
+                                category,
+                                item_index: tempPhotoIndex,
+                                photos: JSON.stringify(currentPhotos)
+                            }
+                        });
+                        refetchJournalierPhotos();
+                    }
 
                     setToast({ msg: `${base64s.length} photo(s) ajoutée(s)`, type: 'success' });
                     setTimeout(() => setToast(null), 3000);
@@ -2534,34 +2578,40 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             });
 
             // Re-sync temp photos to match the filtered arrays that were saved
-            // This prevents photos from shifting to wrong entries after refetch
+            // Only re-sync manual (non-facturation) items; facturation photos are in the invoices table
             try {
-                // Re-sync expenses photos (no filtering, but re-upload to ensure consistency)
-                for (let i = 0; i < expenses.length; i++) {
-                    if (expenses[i].invoices && expenses[i].invoices.length > 0) {
+                // Re-sync expenses photos - only manual entries
+                const manualExpenses = expenses.filter(e => !e.isFromFacturation);
+                // Clear old entries
+                for (let i = 0; i <= manualExpenses.length; i++) {
+                    await uploadJournalierPhotos({
+                        variables: { date, category: 'expenses', item_index: i, photos: JSON.stringify([]) }
+                    });
+                }
+                for (let i = 0; i < manualExpenses.length; i++) {
+                    if (manualExpenses[i].invoices && manualExpenses[i].invoices.length > 0) {
                         await uploadJournalierPhotos({
-                            variables: { date, category: 'expenses', item_index: i, photos: JSON.stringify(expenses[i].invoices) }
+                            variables: { date, category: 'expenses', item_index: i, photos: JSON.stringify(manualExpenses[i].invoices) }
                         });
                     }
                 }
-                // Re-sync expensesDivers photos with new filtered indices
-                // First, clear all old divers photo entries by uploading empty arrays for old indices
-                for (let i = 0; i < expensesDivers.length; i++) {
+                // Re-sync expensesDivers photos - only manual entries, after filtering by amount
+                const manualFilteredDivers = filteredDivers.filter((d: any) => !d.isFromFacturation);
+                // Clear old entries
+                for (let i = 0; i <= manualFilteredDivers.length; i++) {
                     await uploadJournalierPhotos({
                         variables: { date, category: 'expensesDivers', item_index: i, photos: JSON.stringify([]) }
                     });
                 }
-                // Then upload with correct new indices matching the filtered array
-                for (let i = 0; i < filteredDivers.length; i++) {
-                    const originalItem = filteredDivers[i];
-                    if (originalItem.invoices && originalItem.invoices.length > 0) {
+                for (let i = 0; i < manualFilteredDivers.length; i++) {
+                    if (manualFilteredDivers[i].invoices && manualFilteredDivers[i].invoices.length > 0) {
                         await uploadJournalierPhotos({
-                            variables: { date, category: 'expensesDivers', item_index: i, photos: JSON.stringify(originalItem.invoices) }
+                            variables: { date, category: 'expensesDivers', item_index: i, photos: JSON.stringify(manualFilteredDivers[i].invoices) }
                         });
                     }
                 }
-                // Re-sync expensesAdmin photos with new filtered indices
-                for (let i = 0; i < expensesAdmin.length; i++) {
+                // Re-sync expensesAdmin photos (no facturation concept here, use direct index)
+                for (let i = 0; i <= expensesAdmin.length; i++) {
                     await uploadJournalierPhotos({
                         variables: { date, category: 'expensesAdmin', item_index: i, photos: JSON.stringify([]) }
                     });
