@@ -674,19 +674,39 @@ export default function ComparatifPage() {
                                                 </td>
                                             </motion.tr>
                                         ))}
-                                        {activeRows.length === 0 && (
-                                            <tr>
-                                                <td colSpan={currentSuppliers.length + 5} className="py-12 md:py-20 text-center">
-                                                    <div className="flex flex-col items-center gap-4">
-                                                        <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-[#fcfaf8] border border-dashed border-[#e6dace] flex items-center justify-center text-[#bba282]">
-                                                            <LayoutGrid size={24} />
+                                        {
+                                            activeRows.length > 0 && (
+                                                <tr className="border-t border-[#f9f6f2]">
+                                                    <td colSpan={3} className="px-6 py-4">
+                                                        <button
+                                                            onClick={addRow}
+                                                            className="flex items-center gap-3 px-6 py-3 rounded-2xl bg-[#fcfaf8] border-2 border-dashed border-[#e6dace] text-[#bba282] hover:border-[#4a3426] hover:text-[#4a3426] hover:bg-white transition-all group w-full sm:w-auto"
+                                                        >
+                                                            <div className="w-8 h-8 rounded-xl bg-white border border-[#e6dace] flex items-center justify-center group-hover:bg-[#4a3426] group-hover:text-white group-hover:border-[#4a3426] transition-all">
+                                                                <Plus size={16} />
+                                                            </div>
+                                                            <span className="text-[10px] md:text-[11px] font-black uppercase tracking-widest">Ajouter un article</span>
+                                                        </button>
+                                                    </td>
+                                                    <td colSpan={currentSuppliers.length + 2}></td>
+                                                </tr>
+                                            )
+                                        }
+                                        {
+                                            activeRows.length === 0 && (
+                                                <tr>
+                                                    <td colSpan={currentSuppliers.length + 5} className="py-12 md:py-20 text-center">
+                                                        <div className="flex flex-col items-center gap-4">
+                                                            <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-[#fcfaf8] border border-dashed border-[#e6dace] flex items-center justify-center text-[#bba282]">
+                                                                <LayoutGrid size={24} />
+                                                            </div>
+                                                            <p className="text-[10px] md:text-xs font-bold text-[#8c8279] uppercase tracking-widest px-4">Aucun article dans cette famille</p>
+                                                            <button onClick={addRow} className="text-[9px] md:text-[10px] font-black text-[#c69f6e] uppercase tracking-widest hover:underline decoration-2 underline-offset-4">Ajouter le premier article</button>
                                                         </div>
-                                                        <p className="text-[10px] md:text-xs font-bold text-[#8c8279] uppercase tracking-widest px-4">Aucun article dans cette famille</p>
-                                                        <button onClick={addRow} className="text-[9px] md:text-[10px] font-black text-[#c69f6e] uppercase tracking-widest hover:underline decoration-2 underline-offset-4">Ajouter le premier article</button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        )}
+                                                    </td>
+                                                </tr>
+                                            )
+                                        }
                                     </tbody>
                                     <tfoot>
                                         <tr className="bg-[#4a3426] relative z-20">

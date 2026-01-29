@@ -1465,7 +1465,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
 
     // Photo Management Hooks
     const [uploadJournalierPhotos] = useMutation(UPLOAD_JOURNALIER_PHOTOS);
-    const { data: journalierPhotosData } = useQuery(GET_JOURNALIER_PHOTOS, {
+    const { data: journalierPhotosData, refetch: refetchJournalierPhotos } = useQuery(GET_JOURNALIER_PHOTOS, {
         variables: { date },
         skip: !date
     });
@@ -1784,8 +1784,11 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     }, [chiffreData, date, hasInteracted, isClient]);
 
     // Load Temporary Photos Effect
+    // Only applies server photo data when NOT actively viewing/editing photos
     useEffect(() => {
         if (!isClient) return;
+        // Skip if user has the photo viewer open - local state is the source of truth
+        if (viewingInvoices) return;
         if (journalierPhotosData?.getJournalierPhotos) {
             const tempPhotos = journalierPhotosData.getJournalierPhotos;
 
@@ -1853,7 +1856,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                 return changed ? newList : prev;
             });
         }
-    }, [journalierPhotosData, isLocked, isClient]);
+    }, [journalierPhotosData, isLocked, isClient, viewingInvoices]);
 
     // Auto-save Draft to LocalStorage
     useEffect(() => {
@@ -1986,7 +1989,9 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     const handleRemoveAdmin = (index: number) => {
         if (isLocked) return;
         setHasInteracted(true);
-        setExpensesAdmin(expensesAdmin.filter((_, i) => i !== index));
+        const remaining = expensesAdmin.filter((_, i) => i !== index);
+        setExpensesAdmin(remaining);
+        resyncPhotosAfterRemoval('expensesAdmin', remaining);
     };
 
     const handleAddExpense = () => {
@@ -2141,7 +2146,9 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                         try {
                             await deleteInvoice({ variables: { id: expense.invoiceId } });
                             setHasInteracted(true);
-                            setExpenses(expenses.filter((_, i) => i !== index));
+                            const remaining = expenses.filter((_, i) => i !== index);
+                            setExpenses(remaining);
+                            await resyncPhotosAfterRemoval('expenses', remaining);
                         } catch (e) {
                             console.error(e);
                         }
@@ -2158,7 +2165,9 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                         try {
                             await unpayInvoice({ variables: { id: expense.invoiceId } });
                             setHasInteracted(true);
-                            setExpenses(expenses.filter((_, i) => i !== index));
+                            const remaining = expenses.filter((_, i) => i !== index);
+                            setExpenses(remaining);
+                            await resyncPhotosAfterRemoval('expenses', remaining);
                         } catch (e) {
                             console.error(e);
                         }
@@ -2167,7 +2176,9 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             }
         } else {
             setHasInteracted(true);
-            setExpenses(expenses.filter((_, i) => i !== index));
+            const remaining = expenses.filter((_, i) => i !== index);
+            setExpenses(remaining);
+            resyncPhotosAfterRemoval('expenses', remaining);
         }
     };
     const handleRemoveDivers = (index: number) => {
@@ -2198,7 +2209,9 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                         try {
                             await deleteInvoice({ variables: { id: divers.invoiceId } });
                             setHasInteracted(true);
-                            setExpensesDivers(expensesDivers.filter((_, i) => i !== index));
+                            const remaining = expensesDivers.filter((_, i) => i !== index);
+                            setExpensesDivers(remaining);
+                            await resyncPhotosAfterRemoval('expensesDivers', remaining);
                         } catch (e) {
                             console.error(e);
                         }
@@ -2215,7 +2228,9 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                         try {
                             await unpayInvoice({ variables: { id: divers.invoiceId } });
                             setHasInteracted(true);
-                            setExpensesDivers(expensesDivers.filter((_, i) => i !== index));
+                            const remaining = expensesDivers.filter((_, i) => i !== index);
+                            setExpensesDivers(remaining);
+                            await resyncPhotosAfterRemoval('expensesDivers', remaining);
                         } catch (e) {
                             console.error(e);
                         }
@@ -2224,7 +2239,9 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             }
         } else {
             setHasInteracted(true);
-            setExpensesDivers(expensesDivers.filter((_, i) => i !== index));
+            const remaining = expensesDivers.filter((_, i) => i !== index);
+            setExpensesDivers(remaining);
+            resyncPhotosAfterRemoval('expensesDivers', remaining);
         }
     };
 
@@ -2250,6 +2267,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         setOffresList(list);
         setOffres(list.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0).toString());
         setHasInteracted(true);
+        resyncPhotosAfterRemoval('offres', list);
     };
 
     const handleShareInvoice = async (img: string) => {
@@ -2295,6 +2313,29 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         }
     };
 
+    // Re-sync temp photos after an entry is removed from the array
+    // This ensures photos stay attached to the correct entries after index shift
+    const resyncPhotosAfterRemoval = async (category: string, remainingItems: { invoices: string[] }[]) => {
+        try {
+            // Clear all old entries (use a safe upper bound)
+            for (let i = 0; i <= remainingItems.length; i++) {
+                await uploadJournalierPhotos({
+                    variables: { date, category, item_index: i, photos: JSON.stringify([]) }
+                });
+            }
+            // Re-upload with correct new indices
+            for (let i = 0; i < remainingItems.length; i++) {
+                if (remainingItems[i].invoices && remainingItems[i].invoices.length > 0) {
+                    await uploadJournalierPhotos({
+                        variables: { date, category, item_index: i, photos: JSON.stringify(remainingItems[i].invoices) }
+                    });
+                }
+            }
+        } catch (e) {
+            console.error(`Failed to re-sync ${category} photos after removal:`, e);
+        }
+    };
+
     const handleDeleteInvoice = async (idx: number) => {
         if (!viewingInvoicesTarget || !viewingInvoices) return;
         const newInvoices = [...viewingInvoices];
@@ -2334,6 +2375,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                     photos: JSON.stringify(newInvoices)
                 }
             });
+            // Refetch so the cache is in sync when viewer closes
+            refetchJournalierPhotos();
         } catch (e) {
             console.error("Failed to update temporary photos on server", e);
         }
@@ -2399,6 +2442,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             photos: JSON.stringify(currentPhotos)
                         }
                     });
+                    refetchJournalierPhotos();
 
                     setToast({ msg: `${base64s.length} photo(s) ajoutée(s)`, type: 'success' });
                     setTimeout(() => setToast(null), 3000);
@@ -2460,9 +2504,10 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         try {
             // Strip photos from main payload to avoid 413 error
             const safeExpenses = expenses.map(e => ({ ...e, invoices: [] }));
-            const safeDivers = expensesDivers
-                .filter(item => item.amount && parseFloat(item.amount) > 0)
-                .map(d => ({ ...d, invoices: [] }));
+            const filteredDivers = expensesDivers
+                .filter(item => item.amount && parseFloat(item.amount) > 0);
+            const safeDivers = filteredDivers.map(d => ({ ...d, invoices: [] }));
+            const filteredAdmin = expensesAdmin.filter(item => item.amount && parseFloat(item.amount) > 0);
             const safeOffres = offresList.map(o => ({ ...o, invoices: [] }));
 
             const { data: saveResult } = await saveChiffre({
@@ -2483,10 +2528,55 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                     offres_data: JSON.stringify(safeOffres),
                     caisse_photo: JSON.stringify(caissePhotos),
                     diponce_divers: JSON.stringify(safeDivers),
-                    diponce_admin: JSON.stringify(expensesAdmin.filter(item => item.amount && parseFloat(item.amount) > 0)),
+                    diponce_admin: JSON.stringify(filteredAdmin),
                     payer: role
                 }
             });
+
+            // Re-sync temp photos to match the filtered arrays that were saved
+            // This prevents photos from shifting to wrong entries after refetch
+            try {
+                // Re-sync expenses photos (no filtering, but re-upload to ensure consistency)
+                for (let i = 0; i < expenses.length; i++) {
+                    if (expenses[i].invoices && expenses[i].invoices.length > 0) {
+                        await uploadJournalierPhotos({
+                            variables: { date, category: 'expenses', item_index: i, photos: JSON.stringify(expenses[i].invoices) }
+                        });
+                    }
+                }
+                // Re-sync expensesDivers photos with new filtered indices
+                // First, clear all old divers photo entries by uploading empty arrays for old indices
+                for (let i = 0; i < expensesDivers.length; i++) {
+                    await uploadJournalierPhotos({
+                        variables: { date, category: 'expensesDivers', item_index: i, photos: JSON.stringify([]) }
+                    });
+                }
+                // Then upload with correct new indices matching the filtered array
+                for (let i = 0; i < filteredDivers.length; i++) {
+                    const originalItem = filteredDivers[i];
+                    if (originalItem.invoices && originalItem.invoices.length > 0) {
+                        await uploadJournalierPhotos({
+                            variables: { date, category: 'expensesDivers', item_index: i, photos: JSON.stringify(originalItem.invoices) }
+                        });
+                    }
+                }
+                // Re-sync expensesAdmin photos with new filtered indices
+                for (let i = 0; i < expensesAdmin.length; i++) {
+                    await uploadJournalierPhotos({
+                        variables: { date, category: 'expensesAdmin', item_index: i, photos: JSON.stringify([]) }
+                    });
+                }
+                for (let i = 0; i < filteredAdmin.length; i++) {
+                    const originalItem = filteredAdmin[i];
+                    if (originalItem.invoices && originalItem.invoices.length > 0) {
+                        await uploadJournalierPhotos({
+                            variables: { date, category: 'expensesAdmin', item_index: i, photos: JSON.stringify(originalItem.invoices) }
+                        });
+                    }
+                }
+            } catch (syncErr) {
+                console.error("Failed to re-sync temp photos after save:", syncErr);
+            }
 
             setToast({ msg: 'Session enregistrée avec succès', type: 'success' });
             localStorage.removeItem(`chiffre_draft_${date}`); // Clear draft on save
@@ -4407,6 +4497,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                                         photos: JSON.stringify(currentPhotos)
                                                                     }
                                                                 });
+                                                                refetchJournalierPhotos();
                                                                 setToast({ msg: `${base64s.length} photo(s) ajoutée(s)`, type: 'success' });
                                                                 setTimeout(() => setToast(null), 3000);
                                                             }
@@ -4591,6 +4682,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                                                 photos: JSON.stringify(newList)
                                                                             }
                                                                         });
+                                                                        refetchJournalierPhotos();
 
                                                                         setViewingInvoices(newList);
                                                                         setSelectedInvoiceIndex(newList.length - 1);
