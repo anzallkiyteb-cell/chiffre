@@ -92,6 +92,7 @@ const getTodayString = (): string => {
 interface Supplier {
     id: string;
     name: string;
+    date?: string;
 }
 
 interface ArticleFamily {
@@ -188,8 +189,8 @@ const PremiumDatePicker = ({ value, onChange, align = 'left' }: { value: string,
                 type="button"
                 onClick={() => setIsOpen(!isOpen)}
                 className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl transition-all min-w-[100px] border ${isOpen
-                        ? 'bg-[#4a3426] text-white border-[#4a3426] shadow-md'
-                        : 'bg-[#fcfaf8] text-[#4a3426] border-[#e6dace] hover:border-[#c69f6e]'
+                    ? 'bg-[#4a3426] text-white border-[#4a3426] shadow-md'
+                    : 'bg-[#fcfaf8] text-[#4a3426] border-[#e6dace] hover:border-[#c69f6e]'
                     }`}
             >
                 <Calendar size={12} className={isOpen ? 'text-white/70' : 'text-[#c69f6e]'} />
@@ -515,6 +516,10 @@ export default function ComparatifPage() {
     const [rowsByFamily, setRowsByFamily] = useState<Record<string, ComparisonRow[]>>({});
     const [familySuppliers, setFamilySuppliers] = useState<Record<string, Supplier[]>>({});
     const [isSaving, setIsSaving] = useState(false);
+    const [sidebarHidden, setSidebarHidden] = useState(false);
+    const [isDevisModalOpen, setIsDevisModalOpen] = useState(false);
+    const [devisQuantities, setDevisQuantities] = useState<Record<string, number>>({});
+    const [activeDevisPage, setActiveDevisPage] = useState<'green' | 'red'>('green');
 
     useEffect(() => {
         if (data?.getArticleFamilies) {
@@ -631,6 +636,15 @@ export default function ComparatifPage() {
         setInitializing(false);
     }, [router]);
 
+    const openDevis = () => {
+        const qties: Record<string, number> = {};
+        activeRows.forEach(r => {
+            qties[r.id] = r.quantite;
+        });
+        setDevisQuantities(qties);
+        setIsDevisModalOpen(true);
+    };
+
     const addRow = () => {
         const newId = Date.now().toString();
         const newRow: ComparisonRow = { id: newId, article: '', quantite: 1, unite: 'kg', prices: {} };
@@ -655,29 +669,23 @@ export default function ComparatifPage() {
     };
 
     const updatePrice = (rowId: string, supplierId: string, price: number) => {
-        const today = getTodayString();
+        const supplier = currentSuppliers.find(s => s.id === supplierId);
+        const supplierDate = supplier?.date || getTodayString();
         setRowsByFamily(prev => ({
             ...prev,
             [selectedFamille]: (prev[selectedFamille] || []).map(r => {
                 if (r.id === rowId) {
-                    const existingDate = getPriceDate(r.prices[supplierId]);
-                    return { ...r, prices: { ...r.prices, [supplierId]: { value: price, date: existingDate || today } } };
+                    return { ...r, prices: { ...r.prices, [supplierId]: { value: price, date: supplierDate } } };
                 }
                 return r;
             })
         }));
     };
 
-    const updatePriceDate = (rowId: string, supplierId: string, date: string) => {
-        setRowsByFamily(prev => ({
+    const updateSupplierDate = (id: string, date: string) => {
+        setFamilySuppliers(prev => ({
             ...prev,
-            [selectedFamille]: (prev[selectedFamille] || []).map(r => {
-                if (r.id === rowId) {
-                    const existingValue = getPriceValue(r.prices[supplierId]);
-                    return { ...r, prices: { ...r.prices, [supplierId]: { value: existingValue, date } } };
-                }
-                return r;
-            })
+            [selectedFamille]: (prev[selectedFamille] || []).map(s => s.id === id ? { ...s, date } : s)
         }));
     };
 
@@ -685,7 +693,7 @@ export default function ComparatifPage() {
         const newId = `sup_${Date.now()}`;
         setFamilySuppliers(prev => ({
             ...prev,
-            [selectedFamille]: [...(prev[selectedFamille] || []), { id: newId, name: 'NOUVEAU' }]
+            [selectedFamille]: [...(prev[selectedFamille] || []), { id: newId, name: 'NOUVEAU', date: getTodayString() }]
         }));
     };
 
@@ -706,6 +714,115 @@ export default function ComparatifPage() {
     const handleGeneratePDF = () => {
         if (!selectedFamille) return;
 
+        const doc = new jsPDF('l', 'mm', 'a4');
+        const today = getTodayString();
+
+        // Header - More compact
+        doc.setFontSize(18);
+        doc.setTextColor(74, 52, 38);
+        doc.text(`COMPARATIF - ${selectedFamille}`, 15, 15);
+
+        doc.setFontSize(10);
+        doc.setTextColor(140, 130, 121);
+        doc.text(`Date: ${today}`, 15, 22);
+
+        doc.setDrawColor(230, 218, 206);
+        doc.line(15, 26, 282, 26);
+
+        // Table Configuration
+        const startY = 32;
+        const colWidths = {
+            art: 70,
+            qte: 12,
+            unit: 15,
+            sup: Math.max(25, (267 - 97) / Math.max(1, currentSuppliers.length))
+        };
+
+        // Table Header
+        doc.setFontSize(8);
+        doc.setTextColor(187, 162, 130);
+        doc.text('DÉSIGNATION', 15, startY);
+        doc.text('QTÉ', 88, startY, { align: 'center' });
+        doc.text('UNITÉ', 103, startY, { align: 'center' });
+
+        currentSuppliers.forEach((s, i) => {
+            const x = 112 + (i * colWidths.sup);
+            doc.text(s.name || 'FOURN.', x + (colWidths.sup / 2), startY, { align: 'center' });
+            doc.setFontSize(6);
+            doc.text(s.date || '', x + (colWidths.sup / 2), startY + 3, { align: 'center' });
+            doc.setFontSize(8);
+        });
+
+        doc.line(15, startY + 5, 282, startY + 5);
+
+        // Table Content
+        let y = startY + 10;
+        doc.setTextColor(74, 52, 38);
+
+        activeRows.forEach((row, rowIndex) => {
+            if (y > 190) {
+                doc.addPage('a4', 'l');
+                y = 15;
+            }
+
+            const articleLines = doc.splitTextToSize(row.article || '-', colWidths.art);
+            doc.setFontSize(8);
+            doc.text(articleLines, 15, y);
+
+            doc.text(row.quantite.toString(), 88, y, { align: 'center' });
+            doc.text(row.unite.toUpperCase(), 103, y, { align: 'center' });
+
+            currentSuppliers.forEach((s, i) => {
+                const x = 112 + (i * colWidths.sup);
+                const price = getPriceValue(row.prices[s.id]);
+                const status = getPriceStatus(row, s.id);
+
+                if (status === 'lowest') {
+                    doc.setTextColor(34, 197, 94);
+                    doc.setFont('helvetica', 'bold');
+                } else {
+                    doc.setTextColor(74, 52, 38);
+                    doc.setFont('helvetica', 'normal');
+                }
+
+                doc.text(price > 0 ? price.toLocaleString('fr-FR', { minimumFractionDigits: 3 }) : '-', x + (colWidths.sup / 2), y, { align: 'center' });
+            });
+
+            doc.setTextColor(74, 52, 38);
+            doc.setFont('helvetica', 'normal');
+
+            y += (articleLines.length * 4) + 1.5;
+            doc.setDrawColor(249, 246, 242);
+            doc.line(15, y - 0.5, 282, y - 0.5);
+            y += 2.5;
+        });
+
+        // Totals at bottom
+        if (y > 185) {
+            doc.addPage('a4', 'l');
+            y = 15;
+        }
+
+        doc.setDrawColor(74, 52, 38);
+        doc.line(15, y, 282, y);
+        y += 6;
+        doc.setFont('helvetica', 'bold');
+        doc.text('TOTAL', 15, y);
+
+        currentSuppliers.forEach((s, i) => {
+            const x = 112 + (i * colWidths.sup);
+            const total = calculateTotalForSupplier(s.id);
+            doc.text(total.toLocaleString('fr-FR', { minimumFractionDigits: 3 }), x + (colWidths.sup / 2), y, { align: 'center' });
+            doc.setFontSize(6);
+            doc.text('DT', x + (colWidths.sup / 2), y + 3, { align: 'center' });
+            doc.setFontSize(8);
+        });
+
+        doc.save(`Comparatif_${selectedFamille}_${today.replace(/\//g, '-')}.pdf`);
+    };
+
+    const handleDevisPDF = () => {
+        if (!selectedFamille) return;
         const doc = new jsPDF();
         const today = getTodayString();
 
@@ -713,26 +830,23 @@ export default function ComparatifPage() {
         const itemsBySupplier: Record<string, any[]> = {};
 
         activeRows.forEach(row => {
-            const supplierPrices = currentSuppliers
-                .map(s => ({
-                    id: s.id,
-                    name: s.name,
-                    price: getPriceValue(row.prices[s.id])
-                }))
-                .filter(sp => sp.price > 0);
+            const qte = devisQuantities[row.id] || 0;
+            if (qte <= 0) return;
 
-            if (supplierPrices.length >= 2) {
-                const best = supplierPrices.reduce((min, sp) => sp.price < min.price ? sp : min);
-                if (!itemsBySupplier[best.name]) {
-                    itemsBySupplier[best.name] = [];
+            const prices = Object.values(row.prices).map(getPriceValue).filter(p => p > 0);
+            if (prices.length >= 2) {
+                const min = Math.min(...prices);
+                const bestSup = currentSuppliers.find(s => getPriceValue(row.prices[s.id]) === min);
+                if (bestSup) {
+                    if (!itemsBySupplier[bestSup.name]) {
+                        itemsBySupplier[bestSup.name] = [];
+                    }
+                    itemsBySupplier[bestSup.name].push({
+                        article: row.article,
+                        quantite: qte,
+                        unite: row.unite
+                    });
                 }
-                itemsBySupplier[best.name].push({
-                    article: row.article,
-                    quantite: row.quantite,
-                    unite: row.unite,
-                    price: best.price,
-                    total: row.quantite * best.price
-                });
             }
         });
 
@@ -740,8 +854,8 @@ export default function ComparatifPage() {
         if (suppliersWithItems.length === 0) {
             Swal.fire({
                 icon: 'info',
-                title: 'Aucune commande',
-                text: 'Saisissez au moins 2 prix par article pour comparer.',
+                title: 'Aucun article',
+                text: 'Saisissez des quantités pour les articles avec meilleures offres.',
                 confirmButtonColor: '#4a3426'
             });
             return;
@@ -752,44 +866,32 @@ export default function ComparatifPage() {
 
             // Header
             doc.setFontSize(22);
-            doc.setTextColor(74, 52, 38); // #4a3426
+            doc.setTextColor(74, 52, 38);
             doc.text(supplierName, 20, 30);
 
             doc.setFontSize(12);
-            doc.setTextColor(140, 130, 121); // #8c8279
-            doc.text(`Famille: ${selectedFamille}`, 20, 40);
-            doc.text(`Date: ${today}`, 20, 47);
+            doc.setTextColor(140, 130, 121);
+            doc.text(`Date: ${today}`, 20, 40);
 
-            doc.setDrawColor(230, 218, 206); // #e6dace
-            doc.line(20, 55, 190, 55);
+            doc.setDrawColor(230, 218, 206);
+            doc.line(20, 50, 190, 50);
 
             // Table Header
             doc.setFontSize(10);
-            doc.setTextColor(187, 162, 130); // #bba282
-            doc.text('ARTICLE', 20, 65);
-            doc.text('QTE', 100, 65, { align: 'center' });
-            doc.text('UNITE', 120, 65, { align: 'center' });
-            doc.text('PRIX U.', 150, 65, { align: 'right' });
-            doc.text('TOTAL', 185, 65, { align: 'right' });
+            doc.setTextColor(187, 162, 130);
+            doc.text('ARTICLE', 20, 60);
+            doc.text('QUANTITÉ', 185, 60, { align: 'right' });
 
-            doc.line(20, 68, 190, 68);
+            doc.line(20, 63, 190, 63);
 
             // Table Rows
-            let y = 75;
-            let supplierTotal = 0;
-
+            let y = 70;
             doc.setTextColor(74, 52, 38);
             itemsBySupplier[supplierName].forEach(item => {
-                // Handle text wrapping for article name if needed
-                const articleLines = doc.splitTextToSize(item.article || '-', 70);
+                const articleLines = doc.splitTextToSize(item.article || '-', 130);
                 doc.text(articleLines, 20, y);
+                doc.text(`${item.quantite} ${item.unite.toUpperCase()}`, 185, y, { align: 'right' });
 
-                doc.text(item.quantite.toString(), 100, y, { align: 'center' });
-                doc.text(item.unite.toUpperCase(), 120, y, { align: 'center' });
-                doc.text(item.price.toLocaleString('fr-FR', { minimumFractionDigits: 3 }), 150, y, { align: 'right' });
-                doc.text(item.total.toLocaleString('fr-FR', { minimumFractionDigits: 3 }), 185, y, { align: 'right' });
-
-                supplierTotal += item.total;
                 y += (articleLines.length * 7) + 3;
 
                 if (y > 270) {
@@ -797,13 +899,6 @@ export default function ComparatifPage() {
                     y = 30;
                 }
             });
-
-            // Footer
-            doc.line(20, y, 190, y);
-            doc.setFontSize(14);
-            doc.text('TOTAL COMMANDE:', 140, y + 15, { align: 'right' });
-            doc.setFontSize(18);
-            doc.text(`${supplierTotal.toLocaleString('fr-FR', { minimumFractionDigits: 3 })} DT`, 185, y + 15, { align: 'right' });
         });
 
         doc.save(`Commande_${selectedFamille}_${today.replace(/\//g, '-')}.pdf`);
@@ -869,11 +964,18 @@ export default function ComparatifPage() {
 
     return (
         <div className="flex min-h-screen bg-[#fdfbf7]">
-            <Sidebar role={user.role} />
+            {!sidebarHidden && <Sidebar role={user.role} />}
 
             <div className="flex-1 min-w-0 flex flex-col relative overflow-hidden">
                 <header className="bg-white border-b border-[#e6dace] py-3 md:py-4 px-4 md:px-8 flex flex-col sm:flex-row justify-between items-center gap-4 shrink-0 transition-all z-40">
                     <div className="flex items-center gap-4 w-full sm:w-auto">
+                        <button
+                            onClick={() => setSidebarHidden(!sidebarHidden)}
+                            className="w-10 h-10 bg-white border border-[#e6dace] text-[#4a3426] rounded-xl flex items-center justify-center hover:bg-[#fcfaf8] transition-all shadow-sm active:scale-95"
+                            title={sidebarHidden ? 'Afficher le menu' : 'Masquer le menu'}
+                        >
+                            {sidebarHidden ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+                        </button>
                         <FamilySelector
                             families={dbFamilies}
                             selected={selectedFamille}
@@ -885,12 +987,20 @@ export default function ComparatifPage() {
 
                     <div className="flex items-center gap-2 md:gap-3 w-full sm:w-auto justify-end">
                         <button
+                            onClick={openDevis}
+                            disabled={!selectedFamille}
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-indigo-600/20 disabled:opacity-50"
+                        >
+                            <Calculator size={14} />
+                            <span>Devis</span>
+                        </button>
+                        <button
                             onClick={handleGeneratePDF}
                             disabled={!selectedFamille}
                             className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-green-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-green-700 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-green-600/20 disabled:opacity-50"
                         >
                             <Download size={14} />
-                            <span>Passer Commande</span>
+                            <span>Télécharger</span>
                         </button>
                         <button
                             onClick={handleSave}
@@ -920,8 +1030,13 @@ export default function ComparatifPage() {
                                     <th className="px-1 py-4 text-center text-[10px] md:text-[11px] font-black text-[#bba282] uppercase tracking-[0.2em] border-b border-[#e6dace] w-12 md:w-16 bg-[#fcfaf8]/80 sticky left-[120px] md:left-[180px] z-20">Qté</th>
                                     <th className="px-1 py-4 text-center text-[10px] md:text-[11px] font-black text-[#bba282] uppercase tracking-[0.2em] border-b border-[#e6dace] w-12 md:w-16 bg-[#fcfaf8]/80 sticky left-[168px] md:left-[244px] z-20">Unité</th>
                                     {currentSuppliers.map((s, idx) => (
-                                        <th key={s.id} className="p-0 border-b border-[#e6dace] bg-[#fcfaf8] min-w-[110px] md:min-w-[120px] group/header">
+                                        <th key={s.id} className="p-0 border-b border-[#e6dace] bg-[#fcfaf8] min-w-[80px] md:min-w-[100px] group/header">
                                             <div className="px-1 py-2 flex flex-col items-center relative gap-1">
+                                                <PremiumDatePicker
+                                                    value={s.date || getTodayString()}
+                                                    onChange={(newDate) => updateSupplierDate(s.id, newDate)}
+                                                    align={idx >= currentSuppliers.length - 1 ? 'right' : 'left'}
+                                                />
                                                 <div className="flex items-center gap-1">
                                                     <span className="opacity-50 text-[7px] font-black uppercase tracking-[0.2em] truncate max-w-[90px]">Fournisseur</span>
                                                     <button
@@ -991,11 +1106,10 @@ export default function ComparatifPage() {
                                         {currentSuppliers.map(s => {
                                             const status = getPriceStatus(row, s.id);
                                             const price = getPriceValue(row.prices[s.id]);
-                                            const dateStr = getPriceDate(row.prices[s.id]);
                                             const lineTotal = row.quantite * price;
 
                                             return (
-                                                <td key={s.id} className="px-1 py-2 text-center min-w-[110px] md:min-w-[120px]">
+                                                <td key={s.id} className="px-1 py-2 text-center min-w-[80px] md:min-w-[100px]">
                                                     <div className="flex flex-col items-center gap-0.5">
                                                         <div className={`relative w-20 md:w-24 rounded-lg border transition-all p-0.5 ${status === 'lowest' ? 'bg-green-50/50 border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.15)]' :
                                                             status === 'highest' ? 'bg-red-50/50 border-red-200 ring-1 ring-red-500/10' :
@@ -1017,11 +1131,6 @@ export default function ComparatifPage() {
                                                                 </div>
                                                             )}
                                                         </div>
-                                                        <PremiumDatePicker
-                                                            value={dateStr}
-                                                            onChange={(newDate) => updatePriceDate(row.id, s.id, newDate)}
-                                                            align={s === currentSuppliers[currentSuppliers.length - 1] ? 'right' : 'left'}
-                                                        />
                                                         <div className={`text-[9px] font-black uppercase tracking-tighter ${lineTotal > 0 ? 'text-[#4a3426]/60' : 'opacity-0'}`}>
                                                             {lineTotal.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
                                                         </div>
@@ -1084,7 +1193,7 @@ export default function ComparatifPage() {
                                     {currentSuppliers.map(s => {
                                         const total = calculateTotalForSupplier(s.id);
                                         return (
-                                            <td key={s.id} className="px-4 md:px-6 py-6 md:py-8 text-center bg-black/10 border-r border-white/5 last:border-r-0 min-w-[130px] md:min-w-[160px]">
+                                            <td key={s.id} className="px-2 md:px-4 py-6 md:py-8 text-center bg-black/10 border-r border-white/5 last:border-r-0 min-w-[80px] md:min-w-[100px]">
                                                 <div className="flex flex-col items-center gap-0.5 md:gap-1">
                                                     <div className="text-[8px] md:text-[10px] font-black text-[#c69f6e] uppercase tracking-[0.1em] md:tracking-[0.2em] mb-0.5 md:mb-1 truncate w-full px-1">{s.name}</div>
                                                     <div className="text-sm md:text-3xl font-black text-white tracking-tighter leading-none">
@@ -1181,6 +1290,276 @@ export default function ComparatifPage() {
                     </div>
                 </main>
             </div>
+
+            <AnimatePresence>
+                {isDevisModalOpen && (
+                    <div className="fixed inset-0 z-[100] flex flex-col">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="absolute inset-0 bg-[#4a3426]/60 backdrop-blur-md"
+                            onClick={() => setIsDevisModalOpen(false)}
+                        />
+
+                        {/* Header Fixed */}
+                        <div className="relative z-10 bg-white border-b border-[#e6dace] px-8 py-4 flex justify-between items-center shrink-0 shadow-xl">
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
+                                    <Calculator size={24} />
+                                </div>
+                                <div>
+                                    <h2 className="text-xl font-black text-[#4a3426] uppercase">Mode Devis</h2>
+                                    <p className="text-[10px] font-bold text-[#8c8279] uppercase tracking-widest">{selectedFamille} — Simulation de commande</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <button
+                                    onClick={handleDevisPDF}
+                                    className="flex items-center gap-3 px-8 py-3 bg-green-600 text-white rounded-[2rem] text-xs font-black uppercase tracking-widest hover:bg-green-700 hover:scale-105 active:scale-95 transition-all shadow-lg shadow-green-600/20"
+                                >
+                                    <Download size={18} />
+                                    <span>Passer Commande</span>
+                                </button>
+                                <button
+                                    onClick={() => setIsDevisModalOpen(false)}
+                                    className="w-12 h-12 flex items-center justify-center hover:bg-red-50 hover:text-red-500 rounded-2xl transition-all text-[#8c8279]"
+                                >
+                                    <X size={32} />
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="relative z-10 flex-1 flex overflow-hidden">
+                            {/* LEFT SIDEBAR FOR PAGE SELECTION */}
+                            <div className="w-16 md:w-64 bg-white border-r border-[#e6dace] flex flex-col p-4 gap-4 bg-[#fcfaf8]/50 overflow-y-auto">
+                                <span className="hidden md:block text-[10px] font-black text-[#c69f6e] uppercase tracking-[0.2em] mb-2 px-2">Pages du Devis</span>
+
+                                <button
+                                    onClick={() => setActiveDevisPage('green')}
+                                    className={`flex items-center gap-3 p-3 rounded-2xl transition-all border ${activeDevisPage === 'green'
+                                        ? 'bg-green-50 border-green-200 text-green-700 shadow-sm'
+                                        : 'bg-white border-transparent text-[#8c8279] hover:bg-white hover:border-[#e6dace]'
+                                        }`}
+                                >
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${activeDevisPage === 'green' ? 'bg-green-500 text-white' : 'bg-[#fcfaf8] text-[#c69f6e]'}`}>
+                                        <TrendingDown size={18} />
+                                    </div>
+                                    <div className="hidden md:flex flex-col items-start overflow-hidden">
+                                        <span className="text-[11px] font-black uppercase tracking-tight truncate w-full">Meilleures Offres</span>
+                                        <span className="text-[9px] font-bold opacity-60">Articles optimisés</span>
+                                    </div>
+                                    {activeDevisPage === 'green' && <div className="hidden md:block ml-auto w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />}
+                                </button>
+
+                                <button
+                                    onClick={() => setActiveDevisPage('red')}
+                                    className={`flex items-center gap-3 p-3 rounded-2xl transition-all border ${activeDevisPage === 'red'
+                                        ? 'bg-red-50 border-red-200 text-red-700 shadow-sm'
+                                        : 'bg-white border-transparent text-[#8c8279] hover:bg-white hover:border-[#e6dace]'
+                                        }`}
+                                >
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${activeDevisPage === 'red' ? 'bg-red-500 text-white' : 'bg-[#fcfaf8] text-[#c69f6e]'}`}>
+                                        <Info size={18} />
+                                    </div>
+                                    <div className="hidden md:flex flex-col items-start overflow-hidden">
+                                        <span className="text-[11px] font-black uppercase tracking-tight truncate w-full">À Vérifier</span>
+                                        <span className="text-[9px] font-bold opacity-60">Prix manquants</span>
+                                    </div>
+                                    {activeDevisPage === 'red' && <div className="hidden md:block ml-auto w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />}
+                                </button>
+
+                                <div className="mt-auto border-t border-[#e6dace] pt-6 flex flex-col gap-4">
+                                    <div className="bg-indigo-50/50 rounded-2xl p-4 border border-indigo-100 hidden md:block">
+                                        <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest block mb-2">Résumé Global</span>
+                                        <div className="space-y-1">
+                                            <div className="flex justify-between items-center text-[10px] font-bold text-[#4a3426]">
+                                                <span>Optimisés:</span>
+                                                <span className="text-green-600">{activeRows.filter(r => Object.values(r.prices).filter(p => getPriceValue(p) > 0).length >= 2).length}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center text-[10px] font-bold text-[#4a3426]">
+                                                <span>À vérifier:</span>
+                                                <span className="text-red-500">{activeRows.filter(r => Object.values(r.prices).filter(p => getPriceValue(p) > 0).length < 2).length}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* PDF View Simulation Area */}
+                            <div className="flex-1 overflow-auto bg-[#e5e7eb] py-12 flex flex-col items-center custom-scrollbar">
+
+                                {activeDevisPage === 'green' && (
+                                    /* GREEN PAGE (PRIX OPTIMISÉS) */
+                                    <motion.div
+                                        initial={{ y: 50, opacity: 0 }}
+                                        animate={{ y: 0, opacity: 1 }}
+                                        key="green-page"
+                                        className="bg-white w-[210mm] min-h-[297mm] shadow-[0_30px_70px_rgba(0,0,0,0.2)] p-12 relative flex flex-col border-[2px] border-green-500 rounded-sm"
+                                    >
+                                        <div className="absolute top-0 left-0 w-full h-2 bg-green-500" />
+                                        <div className="flex justify-between items-start mb-10">
+                                            <div>
+                                                <h1 className="text-4xl font-black text-[#4a3426] mb-2 uppercase tracking-tighter">MEILLEURES OFFRES</h1>
+                                                <p className="text-sm font-bold text-[#8c8279] uppercase tracking-widest">Famille: {selectedFamille}</p>
+                                                <p className="text-xs font-medium text-[#c69f6e] mt-1">{getTodayString()}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="inline-block px-4 py-1.5 bg-green-100 text-green-700 rounded-full text-[10px] font-black uppercase tracking-widest">Calcul Optimisé</div>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex-1 overflow-x-auto">
+                                            <table className="w-full border-collapse">
+                                                <thead>
+                                                    <tr className="bg-[#fcfaf8] border-b-2 border-[#4a3426]">
+                                                        <th className="px-3 py-4 text-left text-[11px] font-black text-[#bba282] uppercase tracking-widest">Article</th>
+                                                        <th className="px-1 py-4 text-center text-[11px] font-black text-[#bba282] uppercase tracking-widest w-20">Qté</th>
+                                                        <th className="px-1 py-4 text-center text-[11px] font-black text-[#bba282] uppercase tracking-widest w-16">Unité</th>
+                                                        {currentSuppliers.map(s => (
+                                                            <th key={s.id} className="py-4 text-center text-[10px] font-black text-[#bba282] uppercase tracking-[0.1em]">{s.name}</th>
+                                                        ))}
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-[#f9f6f2]">
+                                                    {activeRows.filter(row => {
+                                                        const prices = Object.values(row.prices).map(getPriceValue).filter(p => p > 0);
+                                                        return prices.length >= 2;
+                                                    }).map(row => (
+                                                        <tr key={row.id} className="hover:bg-[#fcfaf8]/40 transition-colors">
+                                                            <td className="px-3 py-4 text-[12px] font-black text-[#4a3426] uppercase">{row.article}</td>
+                                                            <td className="px-1 py-2">
+                                                                <input
+                                                                    type="number"
+                                                                    value={devisQuantities[row.id] || ''}
+                                                                    onChange={(e) => setDevisQuantities(prev => ({ ...prev, [row.id]: parseFloat(e.target.value) || 0 }))}
+                                                                    className="w-full bg-[#fcfaf8] border border-[#e6dace]/50 rounded-md px-1 py-1 text-center text-[11px] font-black text-[#4a3426] outline-none focus:border-green-500 transition-all"
+                                                                />
+                                                            </td>
+                                                            <td className="px-1 py-4 text-center text-[10px] font-black text-[#8c8279] uppercase">{row.unite}</td>
+                                                            {currentSuppliers.map(s => {
+                                                                const status = getPriceStatus(row, s.id);
+                                                                const price = getPriceValue(row.prices[s.id]);
+                                                                const qte = devisQuantities[row.id] || 0;
+                                                                const lineTotal = qte * price;
+
+                                                                return (
+                                                                    <td key={s.id} className="px-1 py-2 text-center">
+                                                                        <div className={`p-1.5 rounded-lg border transition-all ${status === 'lowest' ? 'bg-green-50 border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.1)]' : 'border-transparent opacity-40 grayscale-[0.5]'}`}>
+                                                                            <div className={`text-[11px] font-black ${status === 'lowest' ? 'text-green-700' : 'text-[#4a3426]'}`}>{price > 0 ? price.toLocaleString('fr-FR', { minimumFractionDigits: 3 }) : '-'}</div>
+                                                                            {lineTotal > 0 && <div className="text-[8px] font-black text-gray-400 mt-0.5">{lineTotal.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</div>}
+                                                                        </div>
+                                                                    </td>
+                                                                );
+                                                            })}
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        <div className="mt-12 pt-8 border-t-4 border-[#4a3426]">
+                                            <div className="flex justify-between items-center text-[#4a3426]">
+                                                <div>
+                                                    <span className="text-xl font-black uppercase tracking-[0.2em]">Total Optimisé</span>
+                                                    <p className="text-[10px] font-bold text-[#c69f6e] uppercase tracking-widest mt-1">Somme des meilleurs prix × quantités</p>
+                                                </div>
+                                                <div className="text-right flex items-baseline gap-2">
+                                                    <span className="text-4xl font-black text-green-700">
+                                                        {activeRows.reduce((sum, row) => {
+                                                            const prices = Object.values(row.prices).map(getPriceValue).filter(p => p > 0);
+                                                            if (prices.length < 2) return sum;
+                                                            const min = Math.min(...prices);
+                                                            return sum + ((devisQuantities[row.id] || 0) * min);
+                                                        }, 0).toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                                    </span>
+                                                    <span className="text-xl font-black text-green-700/60 uppercase">DT</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                )}
+
+                                {activeDevisPage === 'red' && (
+                                    /* RED PAGE (À VÉRIFIER) */
+                                    <motion.div
+                                        initial={{ y: 50, opacity: 0 }}
+                                        animate={{ y: 0, opacity: 1 }}
+                                        key="red-page"
+                                        className="bg-white w-[210mm] min-h-[297mm] shadow-[0_30px_70px_rgba(0,0,0,0.2)] p-12 relative flex flex-col border-[2px] border-red-500 rounded-sm"
+                                    >
+                                        <div className="absolute top-0 left-0 w-full h-2 bg-red-500" />
+                                        <div className="flex justify-between items-start mb-10">
+                                            <div>
+                                                <h1 className="text-4xl font-black text-[#4a3426] mb-2 uppercase tracking-tighter text-red-600">ARTICLES À VÉRIFIER</h1>
+                                                <p className="text-sm font-bold text-[#8c8279] uppercase tracking-widest">Données de comparaison insuffisantes</p>
+                                                <p className="text-xs font-medium text-[#c69f6e] mt-1">{getTodayString()}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="inline-block px-4 py-1.5 bg-red-100 text-red-700 rounded-full text-[10px] font-black uppercase tracking-widest">Pas de Comparaison</div>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex-1 overflow-x-auto">
+                                            <table className="w-full border-collapse">
+                                                <thead>
+                                                    <tr className="bg-[#fcfaf8] border-b-2 border-red-200">
+                                                        <th className="px-3 py-4 text-left text-[11px] font-black text-[#bba282] uppercase tracking-widest">Article</th>
+                                                        <th className="px-1 py-4 text-center text-[11px] font-black text-[#bba282] uppercase tracking-widest w-20">Qté</th>
+                                                        <th className="px-1 py-4 text-center text-[11px] font-black text-[#bba282] uppercase tracking-widest w-16">Unité</th>
+                                                        {currentSuppliers.map(s => (
+                                                            <th key={s.id} className="py-4 text-center text-[10px] font-black text-[#bba282] uppercase tracking-[0.1em]">{s.name}</th>
+                                                        ))}
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-red-50">
+                                                    {activeRows.filter(row => {
+                                                        const prices = Object.values(row.prices).map(getPriceValue).filter(p => p > 0);
+                                                        return prices.length < 2;
+                                                    }).map(row => (
+                                                        <tr key={row.id}>
+                                                            <td className="px-3 py-4 text-[12px] font-black text-[#4a3426] uppercase opacity-70">{row.article}</td>
+                                                            <td className="px-1 py-2">
+                                                                <input
+                                                                    type="number"
+                                                                    value={devisQuantities[row.id] || ''}
+                                                                    onChange={(e) => setDevisQuantities(prev => ({ ...prev, [row.id]: parseFloat(e.target.value) || 0 }))}
+                                                                    className="w-full bg-red-50/30 border border-red-100 rounded-md px-1 py-1 text-center text-[11px] font-black text-[#4a3426] outline-none focus:border-red-400 transition-all opacity-80"
+                                                                />
+                                                            </td>
+                                                            <td className="px-1 py-4 text-center text-[10px] font-black text-[#8c8279] uppercase">{row.unite}</td>
+                                                            {currentSuppliers.map(s => {
+                                                                const price = getPriceValue(row.prices[s.id]);
+                                                                const qte = devisQuantities[row.id] || 0;
+                                                                const lineTotal = qte * price;
+
+                                                                return (
+                                                                    <td key={s.id} className="px-1 py-4 text-center">
+                                                                        <div className="p-1.5 rounded-lg border border-transparent">
+                                                                            <div className="text-[11px] font-black text-[#4a3426] opacity-60">{price > 0 ? price.toLocaleString('fr-FR', { minimumFractionDigits: 3 }) : '-'}</div>
+                                                                            {lineTotal > 0 && <div className="text-[8px] font-bold text-gray-400 mt-0.5">{lineTotal.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</div>}
+                                                                        </div>
+                                                                    </td>
+                                                                );
+                                                            })}
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <div className="mt-8 p-6 bg-red-50 rounded-2xl border border-red-100 italic text-xs font-black text-red-600 text-center uppercase tracking-[0.2em] shadow-inner">
+                                            Note: Ajoutez des prix pour d'autres fournisseurs afin d'activer la comparaison sur cette page.
+                                        </div>
+                                    </motion.div>
+                                )}
+
+                                {/* Spacing bottom */}
+                                <div className="h-20 shrink-0" />
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

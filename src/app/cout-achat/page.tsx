@@ -354,8 +354,8 @@ export default function CoutAchatPage() {
             ...paidSupplierInvoices.map((i: any) => ({ supplier: i.supplier_name, amount: i.amount, isFromFacturation: true, date: i.date }))
         ];
 
-        const topFournisseurs = aggregateGroup(mergedFournisseurs, 'supplier', 'amount');
-        const topDivers = aggregateGroup(mergedDivers, 'designation', 'amount');
+        const topFournisseurs = filterByName(aggregateGroup(mergedFournisseurs, 'supplier', 'amount'));
+        const topDivers = filterByName(aggregateGroup(mergedDivers, 'designation', 'amount'));
         const combinedPaid = [
             ...paidInvoices.map((i: any) => ({ ...i, name: i.supplier_name })),
             ...base.allExpenses.map((e: any) => ({ ...e, name: e.supplier, supplier_name: e.supplier, status: 'paid' })),
@@ -363,15 +363,19 @@ export default function CoutAchatPage() {
         ];
         const combinedUnpaid = unpaidInvoices.map((i: any) => ({ ...i, name: i.supplier_name }));
 
-        const topPaid = aggregateGroup(combinedPaid, 'name', 'amount');
-        const topUnpaid = aggregateGroup(combinedUnpaid, 'name', 'amount');
+        const topPaid = filterByName(aggregateGroup(combinedPaid, 'name', 'amount'));
+        const topUnpaid = filterByName(aggregateGroup(combinedUnpaid, 'name', 'amount'));
 
         const totalPaidUnified = topPaid.reduce((a, b) => a + b.amount, 0);
         const totalUnpaidUnified = topUnpaid.reduce((a, b) => a + b.amount, 0);
 
-        // Calculate stats from ALL paid invoices (fournisseur + divers)
-        const allPaidInvoicesForStats = paidInvoices;
-        const allUnpaidInvoicesForStats = unpaidInvoices;
+        // Filter invoices by search query for stats calculation
+        const filterInvoiceByName = (inv: any) => {
+            if (!searchQuery) return true;
+            return (inv.supplier_name || '').toLowerCase().includes(searchQuery.toLowerCase());
+        };
+        const allPaidInvoicesForStats = paidInvoices.filter(filterInvoiceByName);
+        const allUnpaidInvoicesForStats = unpaidInvoices.filter(filterInvoiceByName);
 
         const stats = {
             facturePaid: allPaidInvoicesForStats.filter((i: any) => (i.doc_type || '').toLowerCase() === 'facture').reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0),
@@ -380,17 +384,23 @@ export default function CoutAchatPage() {
             blUnpaid: allUnpaidInvoicesForStats.filter((i: any) => (i.doc_type || '').toLowerCase() === 'bl').reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0),
         };
 
+        // Filter manual items by search query for totals
+        const filterExpenseByName = (e: any) => {
+            if (!searchQuery) return true;
+            return (e.supplier || e.designation || '').toLowerCase().includes(searchQuery.toLowerCase());
+        };
+
         // Calculate totals for divers (only manual divers from diponce_divers, not from facturation)
-        const totalDivers = base.manualDiversOnly.reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0);
+        const totalDivers = base.manualDiversOnly.filter(filterExpenseByName).reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0);
 
         // Calculate totals for direct manual expenses (only from diponce, not facturation)
-        const totalDirectManual = base.allExpenses.reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0);
+        const totalDirectManual = base.allExpenses.filter(filterExpenseByName).reduce((a: number, b: any) => a + parseFloat(b.amount || 0), 0);
 
         return {
-            fournisseurs: filterByName(topFournisseurs),
-            divers: filterByName(topDivers),
-            paidInvoices: filterByName(topPaid),
-            unpaidInvoices: filterByName(topUnpaid),
+            fournisseurs: topFournisseurs,
+            divers: topDivers,
+            paidInvoices: topPaid,
+            unpaidInvoices: topUnpaid,
             rawFournisseurs: base.allExpenses,
             rawDivers: base.allDivers,
             rawPaidInvoices: combinedPaid,

@@ -35,6 +35,7 @@ interface Expense {
     doc_number?: string;
     hasRetenue?: boolean;
     originalAmount?: string;
+    line_number?: number;
 }
 
 interface ExpenseAdmin {
@@ -58,6 +59,7 @@ interface ExpenseDivers {
     doc_type?: string;
     hasRetenue?: boolean;
     originalAmount?: string;
+    line_number?: number;
 }
 
 interface Offre {
@@ -305,9 +307,21 @@ const SAVE_CHIFFRE = gql`
     ) {
         id
         date
+        recette_de_caisse
+        tpe
+        tpe2
+        cheque_bancaire
+        espaces
+        tickets_restaurant
+        extra
+        primes
+        offres
         diponce
         diponce_divers
         diponce_admin
+        offres_data
+        caisse_photo
+        is_locked
     }
 }
 `;
@@ -1470,13 +1484,38 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         skip: !date
     });
 
+    // Stable line number counters - each item gets a unique line_number that never changes
+    // Start at 2 because initial state items have line_number=1
+    const nextExpenseLineRef = useRef(2);
+    const nextDiversLineRef = useRef(2);
+
+    // Helper: assign line_numbers to items that don't have one yet
+    const assignLineNumbers = (items: any[], counterRef: React.RefObject<number>): any[] => {
+        return items.map(item => {
+            if (item.line_number != null) return item;
+            const ln = counterRef.current!++;
+            return { ...item, line_number: ln };
+        });
+    };
+
+    // Helper: update counter to be above all existing line_numbers
+    const syncLineCounter = (items: any[], counterRef: React.RefObject<number>) => {
+        const maxLn = items.reduce((max: number, item: any) => {
+            const ln = item.line_number ?? 0;
+            return ln > max ? ln : max;
+        }, 0);
+        if (maxLn >= counterRef.current) {
+            counterRef.current = maxLn + 1;
+        }
+    };
+
     // Dashboard States
     const [recetteCaisse, setRecetteCaisse] = useState('0');
     const [expenses, setExpenses] = useState<Expense[]>([
-        { supplier: '', amount: '0', details: '', invoices: [], photo_cheque: '', photo_verso: '', paymentMethod: 'Espèces', doc_type: 'BL', hasRetenue: false, originalAmount: '0' }
+        { supplier: '', amount: '0', details: '', invoices: [], photo_cheque: '', photo_verso: '', paymentMethod: 'Espèces', doc_type: 'BL', hasRetenue: false, originalAmount: '0', line_number: 1 }
     ]);
     const [expensesDivers, setExpensesDivers] = useState<ExpenseDivers[]>([
-        { designation: '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces', doc_type: 'BL', hasRetenue: false, originalAmount: '0' }
+        { designation: '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces', doc_type: 'BL', hasRetenue: false, originalAmount: '0', line_number: 1 }
     ]);
     const [expensesAdmin, setExpensesAdmin] = useState<ExpenseAdmin[]>([
         { designation: 'Riadh', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces' },
@@ -1559,6 +1598,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         setTicketsRestaurant('0');
         setExtra('0');
         setPrimes('0');
+        nextExpenseLineRef.current = 1;
+        nextDiversLineRef.current = 1;
         setExpenses([]);
         setExpensesDivers([]);
         setOffres('0');
@@ -1671,8 +1712,20 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                 setExtra(c.extra || '0');
                 setPrimes(c.primes || '0');
                 setOffres(c.offres || '0');
-                setExpenses(JSON.parse(c.diponce || '[]').map((e: any) => ({ ...e, details: e.details || '' })));
-                setExpensesDivers(JSON.parse(c.diponce_divers || '[]').map((d: any) => ({ ...d, details: d.details || '' })));
+                const loadedExpenses = assignLineNumbers(
+                    JSON.parse(c.diponce || '[]').map((e: any) => ({ ...e, details: e.details || '' })),
+                    nextExpenseLineRef
+                );
+                syncLineCounter(loadedExpenses, nextExpenseLineRef);
+                setExpenses(loadedExpenses);
+
+                const loadedDivers = assignLineNumbers(
+                    JSON.parse(c.diponce_divers || '[]').map((d: any) => ({ ...d, details: d.details || '' })),
+                    nextDiversLineRef
+                );
+                syncLineCounter(loadedDivers, nextDiversLineRef);
+                setExpensesDivers(loadedDivers);
+
                 setOffresList(JSON.parse(c.offres_data || '[]').map((o: any) => ({ ...o, invoices: o.invoices || [] })));
 
                 try {
@@ -1705,18 +1758,30 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
 
                 setExpenses(prev => {
                     const currentNonFacturation = prev.filter(e => !e.isFromFacturation);
-                    const filteredFacturation = dbFacturationOnly.filter((df: any) =>
-                        !currentNonFacturation.some(cf => cf.invoiceId && cf.invoiceId === df.invoiceId)
+                    const filteredFacturation = assignLineNumbers(
+                        dbFacturationOnly.filter((df: any) =>
+                            !currentNonFacturation.some(cf => cf.invoiceId && cf.invoiceId === df.invoiceId)
+                        ),
+                        nextExpenseLineRef
                     );
-                    return [...currentNonFacturation, ...filteredFacturation];
+                    const result = [...currentNonFacturation, ...filteredFacturation];
+                    result.sort((a, b) => (a.line_number || 0) - (b.line_number || 0));
+                    syncLineCounter(result, nextExpenseLineRef);
+                    return result;
                 });
 
                 setExpensesDivers(prev => {
                     const currentNonFacturation = prev.filter(d => !d.isFromFacturation);
-                    const filteredFacturation = dbDiversFacturationOnly.filter((df: any) =>
-                        !currentNonFacturation.some(cf => cf.invoiceId && cf.invoiceId === df.invoiceId)
+                    const filteredFacturation = assignLineNumbers(
+                        dbDiversFacturationOnly.filter((df: any) =>
+                            !currentNonFacturation.some(cf => cf.invoiceId && cf.invoiceId === df.invoiceId)
+                        ),
+                        nextDiversLineRef
                     );
-                    return [...currentNonFacturation, ...filteredFacturation];
+                    const result = [...currentNonFacturation, ...filteredFacturation];
+                    result.sort((a, b) => ((a as any).line_number || 0) - ((b as any).line_number || 0));
+                    syncLineCounter(result, nextDiversLineRef);
+                    return result;
                 });
                 return;
             }
@@ -1753,18 +1818,28 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             const total = d.offresList.reduce((acc: number, curr: any) => acc + (parseFloat(curr.amount) || 0), 0);
                             setOffres(total.toString());
                         }
-                        setExpenses(prev => d.expenses.map((e: any, idx: number) => ({
-                            ...e,
-                            details: e.details || '',
-                            invoices: prev[idx]?.invoices || [],
-                            photo_cheque: prev[idx]?.photo_cheque || '',
-                            photo_verso: prev[idx]?.photo_verso || ''
-                        })));
-                        setExpensesDivers(prev => (d.expensesDivers || []).map((dv: any, idx: number) => ({
-                            ...dv,
-                            details: dv.details || '',
-                            invoices: prev[idx]?.invoices || []
-                        })));
+                        setExpenses(prev => {
+                            const mapped = d.expenses.map((e: any, idx: number) => ({
+                                ...e,
+                                details: e.details || '',
+                                invoices: prev[idx]?.invoices || [],
+                                photo_cheque: prev[idx]?.photo_cheque || '',
+                                photo_verso: prev[idx]?.photo_verso || ''
+                            }));
+                            const result = assignLineNumbers(mapped, nextExpenseLineRef);
+                            syncLineCounter(result, nextExpenseLineRef);
+                            return result;
+                        });
+                        setExpensesDivers(prev => {
+                            const mapped = (d.expensesDivers || []).map((dv: any, idx: number) => ({
+                                ...dv,
+                                details: dv.details || '',
+                                invoices: prev[idx]?.invoices || []
+                            }));
+                            const result = assignLineNumbers(mapped, nextDiversLineRef);
+                            syncLineCounter(result, nextDiversLineRef);
+                            return result;
+                        });
                         setExpensesAdmin(prevAdmin => (d.expensesAdmin || []).map((adm: any, idx: number) => ({
                             ...adm,
                             details: adm.details || '',
@@ -1792,15 +1867,15 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         if (journalierPhotosData?.getJournalierPhotos) {
             const tempPhotos = journalierPhotosData.getJournalierPhotos;
 
-            // For expenses/expensesDivers: temp photos are indexed by manual-only position
-            // (skipping facturation items, which get photos from the invoices table)
+            // For expenses/expensesDivers: temp photos are indexed by stable line_number
+            // Only skip TRUE facturation items (not daily_sheet origin ones)
             setExpenses(prev => {
                 let changed = false;
-                let manualIdx = 0;
                 const newList = prev.map((item) => {
-                    if (item.isFromFacturation) return item; // skip facturation items
-                    const match = tempPhotos.find((p: any) => p.category === 'expenses' && p.item_index === manualIdx);
-                    manualIdx++;
+                    // Skip true facturation items (not daily_sheet) and items without line_number
+                    const isTrueFacturation = item.isFromFacturation && item.invoiceOrigin !== 'daily_sheet';
+                    if (isTrueFacturation || item.line_number == null) return item;
+                    const match = tempPhotos.find((p: any) => p.category === 'expenses' && p.item_index === item.line_number);
                     if (match) {
                         const photos = typeof match.photos === 'string' ? JSON.parse(match.photos) : match.photos;
                         if (JSON.stringify(item.invoices) !== JSON.stringify(photos)) {
@@ -1815,11 +1890,11 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
 
             setExpensesDivers(prev => {
                 let changed = false;
-                let manualIdx = 0;
                 const newList = prev.map((item) => {
-                    if ((item as any).isFromFacturation) return item; // skip facturation items
-                    const match = tempPhotos.find((p: any) => p.category === 'expensesDivers' && p.item_index === manualIdx);
-                    manualIdx++;
+                    // Skip true facturation items (not daily_sheet) and items without line_number
+                    const isTrueFacturation = (item as any).isFromFacturation && (item as any).invoiceOrigin !== 'daily_sheet';
+                    if (isTrueFacturation || (item as any).line_number == null) return item;
+                    const match = tempPhotos.find((p: any) => p.category === 'expensesDivers' && p.item_index === (item as any).line_number);
                     if (match) {
                         const photos = typeof match.photos === 'string' ? JSON.parse(match.photos) : match.photos;
                         if (JSON.stringify(item.invoices) !== JSON.stringify(photos)) {
@@ -1916,7 +1991,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                     console.error("Critical: LocalStorage completely exhausted.", innerError);
                 }
             }
-        }, 500); // Debounce save
+        }, 2000); // Debounce save (2s for better performance with large datasets)
 
         return () => clearTimeout(timer);
     }, [
@@ -1997,9 +2072,9 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     const handleRemoveAdmin = (index: number) => {
         if (isLocked) return;
         setHasInteracted(true);
+        clearRemovedItemPhoto('expensesAdmin', index);
         const remaining = expensesAdmin.filter((_, i) => i !== index);
         setExpensesAdmin(remaining);
-        resyncPhotosAfterRemoval('expensesAdmin', remaining);
     };
 
     const handleAddExpense = () => {
@@ -2014,7 +2089,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             return;
         }
         setHasInteracted(true);
-        setExpenses([...expenses, { supplier: '', amount: '0', details: '', invoices: [], photo_cheque: '', photo_verso: '', paymentMethod: 'Espèces', doc_type: 'BL' }]);
+        const ln = nextExpenseLineRef.current++;
+        setExpenses([...expenses, { supplier: '', amount: '0', details: '', invoices: [], photo_cheque: '', photo_verso: '', paymentMethod: 'Espèces', doc_type: 'BL', line_number: ln }]);
     };
     const handleAddDivers = (designation?: string) => {
         if (isLocked) {
@@ -2028,7 +2104,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             return;
         }
         setHasInteracted(true);
-        setExpensesDivers([...expensesDivers, { designation: designation || '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces', doc_type: 'BL' }]);
+        const ln = nextDiversLineRef.current++;
+        setExpensesDivers([...expensesDivers, { designation: designation || '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces', doc_type: 'BL', line_number: ln }]);
     };
 
     const handleEntrySubmit = async (type: string, username: string, amount: string, nbJours?: string, id?: number) => {
@@ -2139,6 +2216,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         }
 
         const expense = expenses[index];
+        const removedLineNumber = expense.line_number ?? -1;
         if (expense.isFromFacturation && expense.invoiceId) {
             // Check if invoice was created from Journalier (daily_sheet) or from Facturation page
             const isFromJournalier = expense.invoiceOrigin === 'daily_sheet';
@@ -2156,7 +2234,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             setHasInteracted(true);
                             const remaining = expenses.filter((_, i) => i !== index);
                             setExpenses(remaining);
-                            await resyncPhotosAfterRemoval('expenses', remaining);
+                            await clearRemovedItemPhoto('expenses', removedLineNumber);
                         } catch (e) {
                             console.error(e);
                         }
@@ -2175,7 +2253,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             setHasInteracted(true);
                             const remaining = expenses.filter((_, i) => i !== index);
                             setExpenses(remaining);
-                            await resyncPhotosAfterRemoval('expenses', remaining);
+                            await clearRemovedItemPhoto('expenses', removedLineNumber);
                         } catch (e) {
                             console.error(e);
                         }
@@ -2186,7 +2264,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             setHasInteracted(true);
             const remaining = expenses.filter((_, i) => i !== index);
             setExpenses(remaining);
-            resyncPhotosAfterRemoval('expenses', remaining);
+            clearRemovedItemPhoto('expenses', removedLineNumber);
         }
     };
     const handleRemoveDivers = (index: number) => {
@@ -2202,6 +2280,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         }
 
         const divers = expensesDivers[index];
+        const removedLineNumber = divers.line_number ?? -1;
         if (divers.isFromFacturation && divers.invoiceId) {
             // Check if invoice was created from Journalier (daily_sheet) or from Facturation page
             const isFromJournalier = divers.invoiceOrigin === 'daily_sheet';
@@ -2219,7 +2298,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             setHasInteracted(true);
                             const remaining = expensesDivers.filter((_, i) => i !== index);
                             setExpensesDivers(remaining);
-                            await resyncPhotosAfterRemoval('expensesDivers', remaining);
+                            await clearRemovedItemPhoto('expensesDivers', removedLineNumber);
                         } catch (e) {
                             console.error(e);
                         }
@@ -2238,7 +2317,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             setHasInteracted(true);
                             const remaining = expensesDivers.filter((_, i) => i !== index);
                             setExpensesDivers(remaining);
-                            await resyncPhotosAfterRemoval('expensesDivers', remaining);
+                            await clearRemovedItemPhoto('expensesDivers', removedLineNumber);
                         } catch (e) {
                             console.error(e);
                         }
@@ -2249,7 +2328,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             setHasInteracted(true);
             const remaining = expensesDivers.filter((_, i) => i !== index);
             setExpensesDivers(remaining);
-            resyncPhotosAfterRemoval('expensesDivers', remaining);
+            clearRemovedItemPhoto('expensesDivers', removedLineNumber);
         }
     };
 
@@ -2275,7 +2354,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         setOffresList(list);
         setOffres(list.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0).toString());
         setHasInteracted(true);
-        resyncPhotosAfterRemoval('offres', list);
+        clearRemovedItemPhoto('offres', index);
     };
 
     const handleShareInvoice = async (img: string) => {
@@ -2321,50 +2400,35 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         }
     };
 
-    // Helper: For expenses/expensesDivers, get the index within only the manual (non-facturation) subset.
-    // Facturation items get their photos from the invoices table, not from photo_journalier.
-    // This ensures photos stay correctly attached even when facturation items are merged at different positions.
-    const getManualIndex = (fullIndex: number, items: (Expense | ExpenseDivers)[]) => {
+    // Helper: Get the stable line_number for an item at the given array index.
+    // Only TRUE facturation items (from facturation page, not daily_sheet) are excluded.
+    // daily_sheet origin items are journalier items that were saved - they CAN use temp photos.
+    // line_number is stable and never changes even when items are reordered or removed.
+    const getItemLineNumber = (fullIndex: number, items: (Expense | ExpenseDivers)[]) => {
         const item = items[fullIndex];
-        if (!item || (item as any).isFromFacturation) return -1; // facturation items don't use temp photos
-        let manualIdx = 0;
-        for (let i = 0; i < fullIndex; i++) {
-            if (!(items[i] as any).isFromFacturation) manualIdx++;
-        }
-        return manualIdx;
+        if (!item) return -1;
+        // Only skip true facturation items (not daily_sheet origin ones)
+        const isTrueFacturation = (item as any).isFromFacturation && (item as any).invoiceOrigin !== 'daily_sheet';
+        if (isTrueFacturation) return -1;
+        return (item as any).line_number ?? -1;
     };
 
-    // Re-sync temp photos after an entry is removed from the array
-    // This ensures photos stay attached to the correct entries after index shift
-    const resyncPhotosAfterRemoval = async (category: string, remainingItems: { invoices: string[] }[]) => {
+    // Clear temp photo for a removed item by its stable line_number
+    // Since line_numbers are stable, no re-indexing is needed - just delete the specific entry
+    const clearRemovedItemPhoto = async (category: string, removedLineNumber: number) => {
+        if (removedLineNumber < 0) return;
         try {
-            // For expenses/expensesDivers, only re-sync manual (non-facturation) items
-            const isExpenseCategory = category === 'expenses' || category === 'expensesDivers';
-            const manualItems = isExpenseCategory
-                ? remainingItems.filter((item: any) => !item.isFromFacturation)
-                : remainingItems;
-
-            // Clear all old entries (use a safe upper bound)
-            for (let i = 0; i <= manualItems.length; i++) {
-                await uploadJournalierPhotos({
-                    variables: { date, category, item_index: i, photos: JSON.stringify([]) }
-                });
-            }
-            // Re-upload with correct new indices (manual-only indices)
-            for (let i = 0; i < manualItems.length; i++) {
-                if (manualItems[i].invoices && manualItems[i].invoices.length > 0) {
-                    await uploadJournalierPhotos({
-                        variables: { date, category, item_index: i, photos: JSON.stringify(manualItems[i].invoices) }
-                    });
-                }
-            }
+            await uploadJournalierPhotos({
+                variables: { date, category, item_index: removedLineNumber, photos: JSON.stringify([]) }
+            });
         } catch (e) {
-            console.error(`Failed to re-sync ${category} photos after removal:`, e);
+            console.error(`Failed to clear photo for removed item (line_number=${removedLineNumber}):`, e);
         }
     };
 
     const handleDeleteInvoice = async (idx: number) => {
         if (!viewingInvoicesTarget || !viewingInvoices) return;
+        setHasInteracted(true);
         const newInvoices = [...viewingInvoices];
         newInvoices.splice(idx, 1);
 
@@ -2377,8 +2441,9 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             category = 'expensesDivers';
             const list = [...expensesDivers];
             list[itemIndex].invoices = newInvoices;
-            isFacturationItem = !!(list[itemIndex] as any).isFromFacturation;
-            tempPhotoIndex = getManualIndex(itemIndex, list);
+            // Only true facturation items (not daily_sheet) skip temp photo storage
+            isFacturationItem = !!(list[itemIndex] as any).isFromFacturation && (list[itemIndex] as any).invoiceOrigin !== 'daily_sheet';
+            tempPhotoIndex = getItemLineNumber(itemIndex, list);
             setExpensesDivers(list);
         } else if ((viewingInvoicesTarget.type as string) === 'admin') {
             category = 'expensesAdmin';
@@ -2393,13 +2458,13 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         } else {
             const list = [...expenses];
             list[itemIndex].invoices = newInvoices;
-            isFacturationItem = !!list[itemIndex].isFromFacturation;
-            tempPhotoIndex = getManualIndex(itemIndex, list);
+            // Only true facturation items (not daily_sheet) skip temp photo storage
+            isFacturationItem = !!list[itemIndex].isFromFacturation && list[itemIndex].invoiceOrigin !== 'daily_sheet';
+            tempPhotoIndex = getItemLineNumber(itemIndex, list);
             setExpenses(list);
         }
 
-        // Update temporary storage on server (only for non-facturation items)
-        // Facturation items have their photos in the invoices table, not photo_journalier
+        // Update temporary storage on server (only true facturation items skip this)
         if (!isFacturationItem && tempPhotoIndex >= 0) {
             try {
                 await uploadJournalierPhotos({
@@ -2449,8 +2514,9 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                         const newDivers = [...expensesDivers];
                         newDivers[index].invoices = [...newDivers[index].invoices, ...base64s];
                         currentPhotos = newDivers[index].invoices;
-                        isFacturationItem = !!(newDivers[index] as any).isFromFacturation;
-                        tempPhotoIndex = getManualIndex(index, newDivers);
+                        // Only true facturation items (not daily_sheet) skip temp photo storage
+                        isFacturationItem = !!(newDivers[index] as any).isFromFacturation && (newDivers[index] as any).invoiceOrigin !== 'daily_sheet';
+                        tempPhotoIndex = getItemLineNumber(index, newDivers);
                         setExpensesDivers(newDivers);
                     } else if (isDivers === 'admin') {
                         category = 'expensesAdmin';
@@ -2469,13 +2535,14 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                         const newExpenses = [...expenses];
                         newExpenses[index].invoices = [...newExpenses[index].invoices, ...base64s];
                         currentPhotos = newExpenses[index].invoices;
-                        isFacturationItem = !!newExpenses[index].isFromFacturation;
-                        tempPhotoIndex = getManualIndex(index, newExpenses);
+                        // Only true facturation items (not daily_sheet) skip temp photo storage
+                        isFacturationItem = !!newExpenses[index].isFromFacturation && newExpenses[index].invoiceOrigin !== 'daily_sheet';
+                        tempPhotoIndex = getItemLineNumber(index, newExpenses);
                         setExpenses(newExpenses);
                     }
 
                     // Save to temporary database immediately
-                    // Only for non-facturation items; facturation photos are in the invoices table
+                    // Only true facturation items skip this; daily_sheet items use temp storage
                     if (!isFacturationItem && tempPhotoIndex >= 0) {
                         await uploadJournalierPhotos({
                             variables: {
@@ -2577,70 +2644,65 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                 }
             });
 
-            // Re-sync temp photos to match the filtered arrays that were saved
-            // Only re-sync manual (non-facturation) items; facturation photos are in the invoices table
-            try {
-                // Re-sync expenses photos - only manual entries
-                const manualExpenses = expenses.filter(e => !e.isFromFacturation);
-                // Clear old entries
-                for (let i = 0; i <= manualExpenses.length; i++) {
-                    await uploadJournalierPhotos({
-                        variables: { date, category: 'expenses', item_index: i, photos: JSON.stringify([]) }
-                    });
-                }
-                for (let i = 0; i < manualExpenses.length; i++) {
-                    if (manualExpenses[i].invoices && manualExpenses[i].invoices.length > 0) {
-                        await uploadJournalierPhotos({
-                            variables: { date, category: 'expenses', item_index: i, photos: JSON.stringify(manualExpenses[i].invoices) }
-                        });
-                    }
-                }
-                // Re-sync expensesDivers photos - only manual entries, after filtering by amount
-                const manualFilteredDivers = filteredDivers.filter((d: any) => !d.isFromFacturation);
-                // Clear old entries
-                for (let i = 0; i <= manualFilteredDivers.length; i++) {
-                    await uploadJournalierPhotos({
-                        variables: { date, category: 'expensesDivers', item_index: i, photos: JSON.stringify([]) }
-                    });
-                }
-                for (let i = 0; i < manualFilteredDivers.length; i++) {
-                    if (manualFilteredDivers[i].invoices && manualFilteredDivers[i].invoices.length > 0) {
-                        await uploadJournalierPhotos({
-                            variables: { date, category: 'expensesDivers', item_index: i, photos: JSON.stringify(manualFilteredDivers[i].invoices) }
-                        });
-                    }
-                }
-                // Re-sync expensesAdmin photos (no facturation concept here, use direct index)
-                for (let i = 0; i <= expensesAdmin.length; i++) {
-                    await uploadJournalierPhotos({
-                        variables: { date, category: 'expensesAdmin', item_index: i, photos: JSON.stringify([]) }
-                    });
-                }
-                for (let i = 0; i < filteredAdmin.length; i++) {
-                    const originalItem = filteredAdmin[i];
-                    if (originalItem.invoices && originalItem.invoices.length > 0) {
-                        await uploadJournalierPhotos({
-                            variables: { date, category: 'expensesAdmin', item_index: i, photos: JSON.stringify(originalItem.invoices) }
-                        });
-                    }
-                }
-            } catch (syncErr) {
-                console.error("Failed to re-sync temp photos after save:", syncErr);
-            }
+            // Photos are now saved in the invoices table by the resolver.
+            // photo_journalier is cleared server-side after save. No re-upload needed.
 
             setToast({ msg: 'Session enregistrée avec succès', type: 'success' });
             localStorage.removeItem(`chiffre_draft_${date}`); // Clear draft on save
             setHasInteracted(false); // Signal that we match server state
 
+            // Restore full state from save response (includes photos from invoices table)
             if (saveResult?.saveChiffre) {
                 const c = saveResult.saveChiffre;
                 setRecetteCaisse(c.recette_de_caisse || '0');
                 setTpe(c.tpe || '0');
+                setTpe2(c.tpe2 || '0');
+                setCheque(c.cheque_bancaire || '0');
                 setEspeces(c.espaces || '0');
+                setTicketsRestaurant(c.tickets_restaurant || '0');
+                setExtra(c.extra || '0');
+                setPrimes(c.primes || '0');
+                setOffres(c.offres || '0');
+                setIsLocked(c.is_locked || false);
+
+                // Restore expenses with photos from invoices table
+                const savedExpenses = assignLineNumbers(
+                    JSON.parse(c.diponce || '[]').map((e: any) => ({ ...e, details: e.details || '' })),
+                    nextExpenseLineRef
+                );
+                syncLineCounter(savedExpenses, nextExpenseLineRef);
+                setExpenses(savedExpenses);
+
+                const savedDivers = assignLineNumbers(
+                    JSON.parse(c.diponce_divers || '[]').map((d: any) => ({ ...d, details: d.details || '' })),
+                    nextDiversLineRef
+                );
+                syncLineCounter(savedDivers, nextDiversLineRef);
+                setExpensesDivers(savedDivers);
+
+                const savedOffres = JSON.parse(c.offres_data || '[]').map((o: any) => ({ ...o, invoices: o.invoices || [] }));
+                setOffresList(savedOffres);
+
+                try {
+                    const parsed = JSON.parse(c.caisse_photo || '[]');
+                    setCaissePhotos(Array.isArray(parsed) ? parsed : (c.caisse_photo ? [c.caisse_photo] : []));
+                } catch { setCaissePhotos(c.caisse_photo ? [c.caisse_photo] : []); }
+
+                const savedAdminData = JSON.parse(c.diponce_admin || '[]');
+                const defaultAdmin = [
+                    { designation: 'Riadh', amount: '0', paymentMethod: 'Espèces' },
+                    { designation: 'Malika', amount: '0', paymentMethod: 'Espèces' },
+                    { designation: 'Salaires', amount: '0', paymentMethod: 'Espèces' }
+                ];
+                setExpensesAdmin(defaultAdmin.map(def => {
+                    const found = savedAdminData.find((s: any) => s.designation === def.designation);
+                    return found ? { ...def, ...found } : def;
+                }));
             }
 
             setTimeout(() => setToast(null), 3000);
             await refetchChiffre();
+            await refetchJournalierPhotos();
         } catch (e) {
             console.error(e);
             setToast({ msg: "Erreur lors de l'enregistrement", type: 'error' });
@@ -3251,8 +3313,21 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             <section className="bg-white rounded-[2rem] p-6 luxury-shadow border border-[#e6dace]/50 space-y-4">
                                 <div className="space-y-3">
                                     {expenses.map((expense, index) => (
-                                        <div key={index} className={`group flex flex-col p-2 rounded-xl transition-all border ${expense.isFromFacturation ? 'bg-[#f0faf5]/50 border-[#d1e7dd]' : 'hover:bg-[#f9f6f2] border-transparent hover:border-[#e6dace]'} `}>
+                                        <div key={expense.line_number ?? index} className={`group flex flex-col p-2 rounded-xl transition-all border ${expense.isFromFacturation ? 'bg-[#f0faf5]/50 border-[#d1e7dd]' : 'hover:bg-[#f9f6f2] border-transparent hover:border-[#e6dace]'} `}>
+                                            {expense.isFromFacturation && (
+                                                <div className="flex items-center gap-2 mb-1 px-1">
+                                                    <span className="text-[8px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full">
+                                                        {expense.invoiceOrigin === 'daily_sheet' ? 'Journalier' : 'Facturation'}
+                                                    </span>
+                                                    {expense.invoiceDate && expense.invoiceOrigin !== 'daily_sheet' && (
+                                                        <span className="text-[8px] text-emerald-500 font-medium">
+                                                            Facture du {formatDisplayDate(expense.invoiceDate)}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
                                             <div className="flex flex-col md:flex-row items-center gap-2 w-full">
+                                                <span className="hidden md:flex items-center justify-center w-6 h-6 rounded-full bg-[#f4ece4] text-[#8c8279] text-[10px] font-black shrink-0">{index + 1}</span>
                                                 <div className="w-full md:w-28 lg:w-36 xl:w-36 relative shrink-0">
                                                     <input
                                                         type="number"
@@ -3501,8 +3576,21 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             <section className="bg-white rounded-[2rem] p-6 luxury-shadow border border-[#e6dace]/50 space-y-4">
                                 <div className="space-y-3">
                                     {expensesDivers.map((divers, index) => (
-                                        <div key={index} className="group flex flex-col p-2 rounded-xl transition-all border hover:bg-[#f9f6f2] border-transparent hover:border-[#e6dace]">
+                                        <div key={divers.line_number ?? index} className={`group flex flex-col p-2 rounded-xl transition-all border ${(divers as any).isFromFacturation ? 'bg-[#f0faf5]/50 border-[#d1e7dd]' : 'hover:bg-[#f9f6f2] border-transparent hover:border-[#e6dace]'}`}>
+                                            {(divers as any).isFromFacturation && (
+                                                <div className="flex items-center gap-2 mb-1 px-1">
+                                                    <span className="text-[8px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full">
+                                                        {(divers as any).invoiceOrigin === 'daily_sheet' ? 'Journalier' : 'Facturation'}
+                                                    </span>
+                                                    {(divers as any).invoiceDate && (divers as any).invoiceOrigin !== 'daily_sheet' && (
+                                                        <span className="text-[8px] text-emerald-500 font-medium">
+                                                            Facture du {formatDisplayDate((divers as any).invoiceDate)}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
                                             <div className="flex flex-col md:flex-row items-center gap-2 w-full">
+                                                <span className="hidden md:flex items-center justify-center w-6 h-6 rounded-full bg-[#f4ece4] text-[#8c8279] text-[10px] font-black shrink-0">{index + 1}</span>
                                                 <div className="w-full md:w-28 lg:w-36 xl:w-36 relative shrink-0">
                                                     <input
                                                         type="number"
@@ -4515,12 +4603,24 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                             if (base64s.length > 0) {
                                                                 let currentPhotos: string[] = [];
                                                                 let category = 'expenses';
+                                                                let tempPhotoIndex = viewingInvoicesTarget.index;
+                                                                let isFacturationItem = false;
+
                                                                 if (viewingInvoicesTarget.type === 'divers') {
                                                                     category = 'expensesDivers';
                                                                     const newDivers = [...expensesDivers];
                                                                     currentPhotos = [...(newDivers[viewingInvoicesTarget.index].invoices || []), ...base64s];
                                                                     newDivers[viewingInvoicesTarget.index].invoices = currentPhotos;
+                                                                    isFacturationItem = !!(newDivers[viewingInvoicesTarget.index] as any).isFromFacturation && (newDivers[viewingInvoicesTarget.index] as any).invoiceOrigin !== 'daily_sheet';
+                                                                    tempPhotoIndex = getItemLineNumber(viewingInvoicesTarget.index, newDivers);
                                                                     setExpensesDivers(newDivers);
+                                                                    setViewingInvoices(currentPhotos);
+                                                                } else if ((viewingInvoicesTarget.type as string) === 'admin') {
+                                                                    category = 'expensesAdmin';
+                                                                    const newAdmin = [...expensesAdmin];
+                                                                    currentPhotos = [...(newAdmin[viewingInvoicesTarget.index].invoices || []), ...base64s];
+                                                                    newAdmin[viewingInvoicesTarget.index].invoices = currentPhotos;
+                                                                    setExpensesAdmin(newAdmin);
                                                                     setViewingInvoices(currentPhotos);
                                                                 } else if (viewingInvoicesTarget.type === 'offres') {
                                                                     category = 'offres';
@@ -4534,20 +4634,25 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                                     const newExpenses = [...expenses];
                                                                     currentPhotos = [...(newExpenses[viewingInvoicesTarget.index].invoices || []), ...base64s];
                                                                     newExpenses[viewingInvoicesTarget.index].invoices = currentPhotos;
+                                                                    isFacturationItem = !!newExpenses[viewingInvoicesTarget.index].isFromFacturation && newExpenses[viewingInvoicesTarget.index].invoiceOrigin !== 'daily_sheet';
+                                                                    tempPhotoIndex = getItemLineNumber(viewingInvoicesTarget.index, newExpenses);
                                                                     setExpenses(newExpenses);
                                                                     setViewingInvoices(currentPhotos);
                                                                 }
 
-                                                                // Sync with temporary database
-                                                                await uploadJournalierPhotos({
-                                                                    variables: {
-                                                                        date,
-                                                                        category,
-                                                                        item_index: viewingInvoicesTarget.index,
-                                                                        photos: JSON.stringify(currentPhotos)
-                                                                    }
-                                                                });
-                                                                refetchJournalierPhotos();
+                                                                // Sync with temporary database (only for non-facturation items)
+                                                                if (!isFacturationItem && tempPhotoIndex >= 0) {
+                                                                    await uploadJournalierPhotos({
+                                                                        variables: {
+                                                                            date,
+                                                                            category,
+                                                                            item_index: tempPhotoIndex,
+                                                                            photos: JSON.stringify(currentPhotos)
+                                                                        }
+                                                                    });
+                                                                    refetchJournalierPhotos();
+                                                                }
+                                                                setHasInteracted(true);
                                                                 setToast({ msg: `${base64s.length} photo(s) ajoutée(s)`, type: 'success' });
                                                                 setTimeout(() => setToast(null), 3000);
                                                             }
@@ -4697,11 +4802,16 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                                     if (base64s.length > 0) {
                                                                         let newList: string[] = [];
                                                                         let category = 'expenses';
+                                                                        let tempPhotoIndex = viewingInvoicesTarget.index;
+                                                                        let isFacturationItem = false;
+
                                                                         if ((viewingInvoicesTarget.type as string) === 'divers') {
                                                                             category = 'expensesDivers';
                                                                             const newDivers = [...expensesDivers];
                                                                             newList = [...(newDivers[viewingInvoicesTarget.index].invoices || []), ...base64s];
                                                                             newDivers[viewingInvoicesTarget.index].invoices = newList;
+                                                                            isFacturationItem = !!(newDivers[viewingInvoicesTarget.index] as any).isFromFacturation && (newDivers[viewingInvoicesTarget.index] as any).invoiceOrigin !== 'daily_sheet';
+                                                                            tempPhotoIndex = getItemLineNumber(viewingInvoicesTarget.index, newDivers);
                                                                             setExpensesDivers(newDivers);
                                                                         } else if ((viewingInvoicesTarget.type as string) === 'admin') {
                                                                             category = 'expensesAdmin';
@@ -4720,20 +4830,25 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                                             const newExpenses = [...expenses];
                                                                             newList = [...(newExpenses[viewingInvoicesTarget.index].invoices || []), ...base64s];
                                                                             newExpenses[viewingInvoicesTarget.index].invoices = newList;
+                                                                            isFacturationItem = !!newExpenses[viewingInvoicesTarget.index].isFromFacturation && newExpenses[viewingInvoicesTarget.index].invoiceOrigin !== 'daily_sheet';
+                                                                            tempPhotoIndex = getItemLineNumber(viewingInvoicesTarget.index, newExpenses);
                                                                             setExpenses(newExpenses);
                                                                         }
 
-                                                                        // Sync with temporary database
-                                                                        await uploadJournalierPhotos({
-                                                                            variables: {
-                                                                                date,
-                                                                                category,
-                                                                                item_index: viewingInvoicesTarget.index,
-                                                                                photos: JSON.stringify(newList)
-                                                                            }
-                                                                        });
-                                                                        refetchJournalierPhotos();
+                                                                        // Sync with temporary database (only for non-facturation items)
+                                                                        if (!isFacturationItem && tempPhotoIndex >= 0) {
+                                                                            await uploadJournalierPhotos({
+                                                                                variables: {
+                                                                                    date,
+                                                                                    category,
+                                                                                    item_index: tempPhotoIndex,
+                                                                                    photos: JSON.stringify(newList)
+                                                                                }
+                                                                            });
+                                                                            refetchJournalierPhotos();
+                                                                        }
 
+                                                                        setHasInteracted(true);
                                                                         setViewingInvoices(newList);
                                                                         setSelectedInvoiceIndex(newList.length - 1);
                                                                         setImgZoom(1);

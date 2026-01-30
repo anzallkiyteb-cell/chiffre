@@ -148,7 +148,8 @@ const initDb = async () => {
       { name: 'payer', type: 'character varying(50)' },
       { name: 'details', type: 'text' },
       { name: 'has_retenue', type: 'boolean', default: 'false' },
-      { name: 'original_amount', type: 'character varying(255)' }
+      { name: 'original_amount', type: 'character varying(255)' },
+      { name: 'line_number', type: 'integer' }
     ];
 
     for (const col of invoiceCols) {

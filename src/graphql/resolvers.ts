@@ -36,7 +36,7 @@ export const resolvers = {
                     photos = [inv.photo_url, ...photos];
                 }
 
-                const item = {
+                const item: any = {
                     supplier: inv.supplier_name, // Mapping for Fournisseur
                     designation: inv.supplier_name, // Mapping for Divers
                     amount: inv.amount,
@@ -52,7 +52,8 @@ export const resolvers = {
                     doc_number: inv.doc_number,
                     details: inv.details || '',
                     hasRetenue: inv.has_retenue || false,
-                    originalAmount: inv.original_amount || inv.amount
+                    originalAmount: inv.original_amount || inv.amount,
+                    line_number: inv.line_number ?? null
                 };
 
                 const catStr = (inv.category || '').toLowerCase();
@@ -103,9 +104,34 @@ export const resolvers = {
                 adminList = typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []);
             } catch (e) { adminList = []; }
 
-            // Combine with dynamic invoices
-            const finalCombinedDiponce = [...existingDiponce, ...paidSuppliers];
-            const finalCombinedDivers = [...diversListEntries, ...paidDivers];
+            // Assign line_numbers to items that don't have one (backward compat + new paid invoices)
+            // Manual items get numbered first, then paid invoices get numbers after the max
+            const assignLineNumbersToList = (manualItems: any[], paidItems: any[]) => {
+                let maxLn = 0;
+                // Find max line_number from both lists
+                for (const item of manualItems) {
+                    if (item.line_number != null && item.line_number > maxLn) maxLn = item.line_number;
+                }
+                for (const item of paidItems) {
+                    if (item.line_number != null && item.line_number > maxLn) maxLn = item.line_number;
+                }
+                // Assign line_number to manual items missing it
+                for (const item of manualItems) {
+                    if (item.line_number == null) item.line_number = ++maxLn;
+                }
+                // Assign line_number to paid items missing it (they go after existing items)
+                for (const item of paidItems) {
+                    if (item.line_number == null) item.line_number = ++maxLn;
+                }
+                // Combine and sort by line_number to preserve original order
+                const combined = [...manualItems, ...paidItems];
+                combined.sort((a: any, b: any) => (a.line_number || 0) - (b.line_number || 0));
+                return combined;
+            };
+
+            // Combine with dynamic invoices, sorted by line_number
+            const finalCombinedDiponce = assignLineNumbersToList(existingDiponce, paidSuppliers);
+            const finalCombinedDivers = assignLineNumbersToList(diversListEntries, paidDivers);
 
             // Dynamic sums
             const sumDiponce = finalCombinedDiponce.reduce((s: number, i: any) => {
@@ -285,7 +311,8 @@ export const resolvers = {
                         hasRetenue: inv.has_retenue || false,
                         originalAmount: inv.original_amount || inv.amount,
                         origin: inv.origin,
-                        status: inv.status
+                        status: inv.status,
+                        line_number: inv.line_number ?? null
                     });
                 }
             });
@@ -348,9 +375,11 @@ export const resolvers = {
                 try { diversList = typeof row.diponce_divers === 'string' ? JSON.parse(row.diponce_divers) : (row.diponce_divers || []); } catch (e) { }
                 try { adminList = typeof row.diponce_admin === 'string' ? JSON.parse(row.diponce_admin) : (row.diponce_admin || []); } catch (e) { }
 
-                // Combine with paid invoices from facturation
+                // Combine with paid invoices from facturation, sorted by line_number
                 const combinedDiponce = [...diponceList, ...dayPaidSuppliers];
+                combinedDiponce.sort((a: any, b: any) => (a.line_number || 0) - (b.line_number || 0));
                 const combinedDivers = [...diversList, ...dayPaidDivers];
+                combinedDivers.sort((a: any, b: any) => (a.line_number || 0) - (b.line_number || 0));
                 const combinedAdmin = [...adminList, ...dayPaidAdmin];
 
                 const dayAvancesFinal = dayAvances.map(r => ({ id: `adv_${r.id}`, username: r.username, montant: parseAmount(r.montant || '0'), date: normalizeDate(r.date), created_at: r.created_at }));
@@ -843,20 +872,18 @@ export const resolvers = {
 
             const payerRole = args.payer || 'caissier';
 
-            // Before processing diponce and diponce_divers, fetch temp photos
-            const tempPhotosRes = await query('SELECT * FROM photo_journalier WHERE date = $1', [date]);
+            // Before processing, fetch temp photos and existing invoice/chiffre photos
+            const [tempPhotosRes, existingInvRes, existingChiffreRes] = await Promise.all([
+                query('SELECT * FROM photo_journalier WHERE date = $1', [date]),
+                query('SELECT id, photos, photo_cheque_url, photo_verso_url FROM invoices WHERE paid_date = $1', [date]),
+                query('SELECT offres_data FROM chiffres WHERE date = $1', [date])
+            ]);
+
             const tempPhotosMap: Record<string, string[]> = {};
             tempPhotosRes.rows.forEach(r => {
                 const key = `${r.category}_${r.item_index}`;
                 tempPhotosMap[key] = typeof r.photos === 'string' ? JSON.parse(r.photos) : (Array.isArray(r.photos) ? r.photos : []);
             });
-
-            // Fetch existing photos from the invoices table and the chiffres table for this date
-            // This prevents overwriting with empty arrays when the frontend strips photos to avoid 413 Body Too Large errors
-            const [existingInvRes, existingChiffreRes] = await Promise.all([
-                query('SELECT id, photos, photo_cheque_url, photo_verso_url FROM invoices WHERE paid_date = $1', [date]),
-                query('SELECT offres_data FROM chiffres WHERE date = $1', [date])
-            ]);
 
             const dbInvoicesPhotos: Record<number, { photos: string[], recto: string | null, verso: string | null }> = {};
             existingInvRes.rows.forEach(r => {
@@ -877,90 +904,126 @@ export const resolvers = {
                 } catch (e) { }
             }
 
-            // Sync Fournisseur expenses to Invoices
+            // Delete old daily_sheet invoices before re-inserting to prevent duplicates
+            // This runs AFTER fetching existing photos so we preserve them for fallback
+            await query("DELETE FROM invoices WHERE origin = 'daily_sheet' AND (paid_date = $1 OR date = $1)", [date]);
+
+            // Sync Fournisseur expenses to Invoices (batched for performance)
+            // Uses stable line_number for photo matching instead of sequential index
             let diponceList = [];
+            const invoiceQueries: Promise<any>[] = [];
             try {
                 const fullDiponceList = JSON.parse(diponce);
-                let manualExpenseIdx = 0; // Track manual-only index for temp photo lookup
+                // Assign line_number to items that don't have one (backward compat for old data)
+                let maxExpenseLn = 0;
+                fullDiponceList.forEach((d: any) => { if (d.line_number > maxExpenseLn) maxExpenseLn = d.line_number; });
+                for (const d of fullDiponceList) {
+                    if (d.line_number == null) d.line_number = ++maxExpenseLn;
+                }
+
                 for (let i = 0; i < fullDiponceList.length; i++) {
                     const d = fullDiponceList[i];
 
-                    // Photo Priority:
-                    // 1. For manual items: temp photos from photo_journalier (indexed by manual-only position)
-                    // 2. For facturation items: existing photos from invoices table
-                    // 3. Frontend payload (usually empty for existing items)
+                    const isDailySheetOrigin = d.invoiceOrigin === 'daily_sheet';
+                    const isTrueFacturation = d.isFromFacturation && !isDailySheetOrigin;
+
                     const dbData = d.invoiceId ? dbInvoicesPhotos[d.invoiceId] : null;
 
-                    if (!d.isFromFacturation) {
-                        const temp = tempPhotosMap[`expenses_${manualExpenseIdx}`];
-                        manualExpenseIdx++;
+                    if (!isTrueFacturation) {
+                        // Match temp photos by stable line_number
+                        const temp = tempPhotosMap[`expenses_${d.line_number}`];
                         if (temp !== undefined) {
                             d.invoices = temp;
+                        } else if (dbData && (!d.invoices || d.invoices.length === 0)) {
+                            d.invoices = dbData.photos;
+                            if (!d.photo_cheque && dbData.recto) d.photo_cheque = dbData.recto;
+                            if (!d.photo_verso && dbData.verso) d.photo_verso = dbData.verso;
                         }
-                    } else if (d.isFromFacturation && dbData && (!d.invoices || d.invoices.length === 0)) {
+                    } else if (isTrueFacturation && dbData && (!d.invoices || d.invoices.length === 0)) {
                         d.invoices = dbData.photos;
                     }
 
-                    // Handle Cheque Photos similarly
-                    if (d.isFromFacturation && dbData) {
+                    if (isTrueFacturation && dbData) {
                         if (!d.photo_cheque && dbData.recto) d.photo_cheque = dbData.recto;
                         if (!d.photo_verso && dbData.verso) d.photo_verso = dbData.verso;
                     }
 
-                    if (!d.isFromFacturation && d.supplier && parseFloat(d.amount) > 0) {
-                        await query(
-                            `INSERT INTO invoices (supplier_name, amount, date, photo_url, photos, photo_cheque_url, photo_verso_url, status, payment_method, paid_date, payer, category, doc_type, doc_number, origin, details, has_retenue, original_amount)
-                             VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, 'paid', $8, $9, $10, 'fournisseur', $11, $12, 'daily_sheet', $13, $14, $15)`,
-                            [d.supplier, d.amount, date, d.photo_url || null, JSON.stringify(d.invoices || []), d.photo_cheque || null, d.photo_verso || null, d.paymentMethod || 'Espèces', date, payerRole, d.doc_type || 'BL', d.doc_number || null, d.details || '', d.hasRetenue || false, d.originalAmount || d.amount]
-                        );
-                    } else if (d.isFromFacturation && d.invoiceId) {
-                        await query(
-                            `UPDATE invoices SET photos = $1::jsonb, details = $2, supplier_name = $3, amount = $4, doc_type = $5, has_retenue = $6, original_amount = $7, photo_cheque_url = $8, photo_verso_url = $9 WHERE id = $10`,
-                            [JSON.stringify(d.invoices || []), d.details || '', d.supplier, d.amount, d.doc_type, d.hasRetenue || false, d.originalAmount || d.amount, d.photo_cheque || null, d.photo_verso || null, d.invoiceId]
-                        );
-                    } else if (!d.isFromFacturation) {
+                    const supplierName = d.supplier || '';
+                    const hasAmount = parseFloat(d.amount) > 0;
+
+                    if (isTrueFacturation && d.invoiceId) {
+                        invoiceQueries.push(query(
+                            `UPDATE invoices SET photos = $1::jsonb, details = $2, supplier_name = $3, amount = $4, doc_type = $5, has_retenue = $6, original_amount = $7, photo_cheque_url = $8, photo_verso_url = $9, line_number = $10 WHERE id = $11`,
+                            [JSON.stringify(d.invoices || []), d.details || '', d.supplier, d.amount, d.doc_type, d.hasRetenue || false, d.originalAmount || d.amount, d.photo_cheque || null, d.photo_verso || null, d.line_number, d.invoiceId]
+                        ));
+                    } else if (supplierName && hasAmount) {
+                        invoiceQueries.push(query(
+                            `INSERT INTO invoices (supplier_name, amount, date, photo_url, photos, photo_cheque_url, photo_verso_url, status, payment_method, paid_date, payer, category, doc_type, doc_number, origin, details, has_retenue, original_amount, line_number)
+                             VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, 'paid', $8, $9, $10, 'fournisseur', $11, $12, 'daily_sheet', $13, $14, $15, $16)`,
+                            [d.supplier, d.amount, date, d.photo_url || null, JSON.stringify(d.invoices || []), d.photo_cheque || null, d.photo_verso || null, d.paymentMethod || 'Espèces', date, payerRole, d.doc_type || 'BL', d.doc_number || null, d.details || '', d.hasRetenue || false, d.originalAmount || d.amount, d.line_number]
+                        ));
+                    } else if (!isTrueFacturation) {
                         diponceList.push(d);
                     }
                 }
             } catch (e) { console.error(e); }
 
-            // Sync Divers expenses to Invoices
+            // Sync Divers expenses to Invoices (batched for performance)
+            // Uses stable line_number for photo matching instead of sequential index
             let diponceDiversList = [];
             try {
                 const fullDiversList = JSON.parse(diponce_divers);
-                let manualDiversIdx = 0; // Track manual-only index for temp photo lookup
+                // Assign line_number to items that don't have one (backward compat for old data)
+                let maxDiversLn = 0;
+                fullDiversList.forEach((d: any) => { if (d.line_number > maxDiversLn) maxDiversLn = d.line_number; });
+                for (const d of fullDiversList) {
+                    if (d.line_number == null) d.line_number = ++maxDiversLn;
+                }
+
                 for (let i = 0; i < fullDiversList.length; i++) {
                     const d = fullDiversList[i];
 
-                    // Photo Priority logic (manual-only index for temp photos)
+                    const isDailySheetOrigin = d.invoiceOrigin === 'daily_sheet';
+                    const isTrueFacturation = d.isFromFacturation && !isDailySheetOrigin;
+
                     const dbData = d.invoiceId ? dbInvoicesPhotos[d.invoiceId] : null;
 
-                    if (!d.isFromFacturation) {
-                        const temp = tempPhotosMap[`expensesDivers_${manualDiversIdx}`];
-                        manualDiversIdx++;
+                    if (!isTrueFacturation) {
+                        // Match temp photos by stable line_number
+                        const temp = tempPhotosMap[`expensesDivers_${d.line_number}`];
                         if (temp !== undefined) {
                             d.invoices = temp;
+                        } else if (dbData && (!d.invoices || d.invoices.length === 0)) {
+                            d.invoices = dbData.photos;
                         }
-                    } else if (d.isFromFacturation && dbData && (!d.invoices || d.invoices.length === 0)) {
+                    } else if (isTrueFacturation && dbData && (!d.invoices || d.invoices.length === 0)) {
                         d.invoices = dbData.photos;
                     }
 
-                    if (!d.isFromFacturation && d.designation && parseFloat(d.amount) > 0) {
-                        await query(
-                            `INSERT INTO invoices (supplier_name, amount, date, photos, status, payment_method, paid_date, payer, category, doc_type, origin, details, has_retenue, original_amount)
-                             VALUES ($1, $2, $3, $4::jsonb, 'paid', $5, $6, $7, 'divers', $8, 'daily_sheet', $9, $10, $11)`,
-                            [d.designation, d.amount, date, JSON.stringify(d.invoices || []), d.paymentMethod || 'Espèces', date, payerRole, d.doc_type || 'BL', d.details || '', d.hasRetenue || false, d.originalAmount || d.amount]
-                        );
-                    } else if (d.isFromFacturation && d.invoiceId) {
-                        await query(
-                            `UPDATE invoices SET photos = $1::jsonb, details = $2, supplier_name = $3, amount = $4, doc_type = $5, has_retenue = $6, original_amount = $7 WHERE id = $8`,
-                            [JSON.stringify(d.invoices || []), d.details || '', d.designation, d.amount, d.doc_type, d.hasRetenue || false, d.originalAmount || d.amount, d.invoiceId]
-                        );
-                    } else if (!d.isFromFacturation) {
+                    const designationName = d.designation || '';
+                    const hasAmount = parseFloat(d.amount) > 0;
+
+                    if (isTrueFacturation && d.invoiceId) {
+                        invoiceQueries.push(query(
+                            `UPDATE invoices SET photos = $1::jsonb, details = $2, supplier_name = $3, amount = $4, doc_type = $5, has_retenue = $6, original_amount = $7, line_number = $8 WHERE id = $9`,
+                            [JSON.stringify(d.invoices || []), d.details || '', d.designation, d.amount, d.doc_type, d.hasRetenue || false, d.originalAmount || d.amount, d.line_number, d.invoiceId]
+                        ));
+                    } else if (designationName && hasAmount) {
+                        invoiceQueries.push(query(
+                            `INSERT INTO invoices (supplier_name, amount, date, photos, status, payment_method, paid_date, payer, category, doc_type, origin, details, has_retenue, original_amount, line_number)
+                             VALUES ($1, $2, $3, $4::jsonb, 'paid', $5, $6, $7, 'divers', $8, 'daily_sheet', $9, $10, $11, $12)`,
+                            [d.designation, d.amount, date, JSON.stringify(d.invoices || []), d.paymentMethod || 'Espèces', date, payerRole, d.doc_type || 'BL', d.details || '', d.hasRetenue || false, d.originalAmount || d.amount, d.line_number]
+                        ));
+                    } else if (!isTrueFacturation) {
                         diponceDiversList.push(d);
                     }
                 }
             } catch (e) { console.error(e); }
+
+            // Execute all invoice INSERT/UPDATE queries in parallel for performance
+            if (invoiceQueries.length > 0) {
+                await Promise.all(invoiceQueries);
+            }
 
             // Sync Offres photos
             let offresList = [];
@@ -1078,7 +1141,8 @@ export const resolvers = {
                     invoiceDate: inv.date,
                     invoiceOrigin: inv.origin,
                     doc_type: inv.doc_type,
-                    doc_number: inv.doc_number
+                    doc_number: inv.doc_number,
+                    line_number: inv.line_number ?? null
                 };
 
                 if ((inv.category || '').toLowerCase() === 'divers') {
@@ -1088,14 +1152,19 @@ export const resolvers = {
                 }
             });
 
+            // Combine and sort by line_number to preserve original order
             const finalDiponce = [...diponceList, ...paidSuppliers];
+            finalDiponce.sort((a: any, b: any) => (a.line_number || 0) - (b.line_number || 0));
             const finalDivers = [...diponceDiversList, ...paidDivers];
+            finalDivers.sort((a: any, b: any) => (a.line_number || 0) - (b.line_number || 0));
 
             return {
                 ...row,
                 diponce: JSON.stringify(finalDiponce),
                 diponce_divers: JSON.stringify(finalDivers),
-                diponce_admin: typeof row.diponce_admin === 'string' ? row.diponce_admin : JSON.stringify(row.diponce_admin || [])
+                diponce_admin: typeof row.diponce_admin === 'string' ? row.diponce_admin : JSON.stringify(row.diponce_admin || []),
+                offres_data: offresDataToSave,
+                caisse_photo: row.caisse_photo || null
             };
         },
         addInvoice: async (_: any, { supplier_name, amount, date, photo_url, photos, doc_type, doc_number, category, details }: any) => {
@@ -1110,9 +1179,28 @@ export const resolvers = {
             };
         },
         payInvoice: async (_: any, { id, payment_method, paid_date, photo_cheque_url, photo_verso_url, payer }: any) => {
+            // Assign a line_number: find max line_number for this date across invoices and chiffres
+            let maxLn = 0;
+            const [existingInvoices, existingChiffre] = await Promise.all([
+                query('SELECT line_number FROM invoices WHERE paid_date = $1 AND line_number IS NOT NULL', [paid_date]),
+                query('SELECT diponce, diponce_divers FROM chiffres WHERE date = $1', [paid_date])
+            ]);
+            existingInvoices.rows.forEach((r: any) => { if (r.line_number > maxLn) maxLn = r.line_number; });
+            if (existingChiffre.rows.length > 0) {
+                try {
+                    const items = typeof existingChiffre.rows[0].diponce === 'string' ? JSON.parse(existingChiffre.rows[0].diponce) : (existingChiffre.rows[0].diponce || []);
+                    items.forEach((item: any) => { if (item.line_number > maxLn) maxLn = item.line_number; });
+                } catch (e) {}
+                try {
+                    const items = typeof existingChiffre.rows[0].diponce_divers === 'string' ? JSON.parse(existingChiffre.rows[0].diponce_divers) : (existingChiffre.rows[0].diponce_divers || []);
+                    items.forEach((item: any) => { if (item.line_number > maxLn) maxLn = item.line_number; });
+                } catch (e) {}
+            }
+            const newLineNumber = maxLn + 1;
+
             const res = await query(
-                "UPDATE invoices SET status = 'paid', payment_method = $1, paid_date = $2, photo_cheque_url = $3, photo_verso_url = $4, payer = $5, updated_at = CURRENT_TIMESTAMP WHERE id = $6 RETURNING *",
-                [payment_method, paid_date, photo_cheque_url, photo_verso_url, payer, id]
+                "UPDATE invoices SET status = 'paid', payment_method = $1, paid_date = $2, photo_cheque_url = $3, photo_verso_url = $4, payer = $5, line_number = $6, updated_at = CURRENT_TIMESTAMP WHERE id = $7 RETURNING *",
+                [payment_method, paid_date, photo_cheque_url, photo_verso_url, payer, newLineNumber, id]
             );
             const row = res.rows[0];
             return {

@@ -508,6 +508,7 @@ export default function PaiementsPage() {
     const [expName, setExpName] = useState('');
     const [expAmount, setExpAmount] = useState('');
     const [expDate, setExpDate] = useState(todayStr);
+    const [expPaidDate, setExpPaidDate] = useState(todayStr);
     const [expMethod, setExpMethod] = useState('Espèces');
     const [expDocType, setExpDocType] = useState('Facture');
     const [expPhoto, setExpPhoto] = useState('');
@@ -516,6 +517,8 @@ export default function PaiementsPage() {
     const [expPhotoVerso, setExpPhotoVerso] = useState('');
     const [expInvoiceNumber, setExpInvoiceNumber] = useState('');
     const [expDetails, setExpDetails] = useState('');
+    const [expHasRetenue, setExpHasRetenue] = useState(false);
+    const [expOriginalAmount, setExpOriginalAmount] = useState('');
     const [showExpForm, setShowExpForm] = useState(false);
     const [showSalaryRemaindersModal, setShowSalaryRemaindersModal] = useState(false);
     const [editingSalaryId, setEditingSalaryId] = useState<number | string | null>(null);
@@ -527,6 +530,7 @@ export default function PaiementsPage() {
     const [editingHistoryItem, setEditingHistoryItem] = useState<any>(null);
     const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
     const [viewingData, setViewingData] = useState<any>(null);
+    const [viewingPhotoType, setViewingPhotoType] = useState<'all' | 'justificatif' | 'cheque'>('all');
     const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | 'all'>('all');
     const [selectedSupplier, setSelectedSupplier] = useState<string>('');
 
@@ -760,6 +764,7 @@ export default function PaiementsPage() {
         setExpName(inv.supplier_name || '');
         setExpAmount(inv.amount ? inv.amount.toString() : '');
         setExpDate(inv.date || todayStr);
+        setExpPaidDate(inv.paid_date || inv.date || todayStr);
         setExpPhoto(inv.photo_url || '');
         setExpPhotoCheque(inv.photo_cheque_url || '');
         setExpPhotoVerso(inv.photo_verso_url || '');
@@ -768,6 +773,8 @@ export default function PaiementsPage() {
         setExpInvoiceNumber(inv.doc_number || '');
         setExpCategory(inv.category || 'Fournisseur');
         setExpDetails(inv.details || '');
+        setExpHasRetenue(false);
+        setExpOriginalAmount('');
         setShowExpForm(true);
         setShowUnpaidModal(false);
         // Scroll to the form
@@ -1467,14 +1474,19 @@ export default function PaiementsPage() {
             setEditingHistoryItem(null);
             setExpName('');
             setExpAmount('');
+            setExpHasRetenue(false);
+            setExpOriginalAmount('');
         } else {
             setEditingHistoryItem(inv);
             setExpName(inv.supplier_name);
             setExpAmount(inv.amount);
             setExpDate(inv.date);
+            setExpPaidDate(inv.paid_date || inv.date || todayStr);
             setExpMethod(inv.payment_method);
             setExpDocType(inv.doc_type || 'Facture');
             setExpInvoiceNumber(inv.doc_number || '');
+            setExpHasRetenue(false);
+            setExpOriginalAmount('');
             setShowExpForm(true);
             setShowHistoryModal(false);
         }
@@ -1519,7 +1531,7 @@ export default function PaiementsPage() {
                         amount: expAmount,
                         date: expDate,
                         payment_method: expMethod,
-                        paid_date: expDate,
+                        paid_date: expPaidDate,
                         doc_type: expDocType,
                         doc_number: expInvoiceNumber,
                         category: expCategory || editingHistoryItem.category,
@@ -1538,7 +1550,7 @@ export default function PaiementsPage() {
                         photo_cheque_url: expPhotoCheque,
                         photo_verso_url: expPhotoVerso,
                         payment_method: expMethod,
-                        paid_date: expDate,
+                        paid_date: expPaidDate,
                         payer: 'riadh',
                         doc_type: expDocType,
                         doc_number: expInvoiceNumber,
@@ -1556,6 +1568,8 @@ export default function PaiementsPage() {
             setExpInvoiceNumber('');
             setExpDetails('');
             setExpCategory('');
+            setExpHasRetenue(false);
+            setExpOriginalAmount('');
             setShowExpForm(false);
             refetch();
             refetchHistory();
@@ -2083,6 +2097,8 @@ export default function PaiementsPage() {
                                                     setExpPhotoVerso('');
                                                     setExpInvoiceNumber('');
                                                     setExpDetails('');
+                                                    setExpHasRetenue(false);
+                                                    setExpOriginalAmount('');
                                                 }
                                                 setShowExpForm(!showExpForm);
                                             }}
@@ -2249,22 +2265,57 @@ export default function PaiementsPage() {
                                                     </div>
                                                     <div>
                                                         <label className="text-[10px] font-black text-red-700/50 uppercase ml-1">Montant (DT)</label>
-                                                        <input
-                                                            type="number"
-                                                            step="0.001"
-                                                            value={expAmount}
-                                                            onChange={(e) => setExpAmount(e.target.value)}
-                                                            onWheel={(e) => e.currentTarget.blur()}
-                                                            className="w-full h-12 bg-white border border-red-100 rounded-xl px-4 font-black text-xl outline-none focus:border-red-400 min-w-[180px]"
-                                                            placeholder="0.000"
+                                                        <div className="relative">
+                                                            <input
+                                                                type="number"
+                                                                step="0.001"
+                                                                value={expAmount}
+                                                                onChange={(e) => {
+                                                                    setExpAmount(e.target.value);
+                                                                    if (expHasRetenue) {
+                                                                        setExpHasRetenue(false);
+                                                                        setExpOriginalAmount('');
+                                                                    }
+                                                                }}
+                                                                onWheel={(e) => e.currentTarget.blur()}
+                                                                className="w-full h-12 bg-white border border-red-100 rounded-xl px-4 pr-16 font-black text-xl outline-none focus:border-red-400 min-w-[180px]"
+                                                                placeholder="0.000"
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const currentAmount = parseFloat(expAmount) || 0;
+                                                                    if (!expHasRetenue) {
+                                                                        setExpOriginalAmount(expAmount);
+                                                                        setExpAmount((currentAmount * 0.99).toFixed(3));
+                                                                        setExpHasRetenue(true);
+                                                                    } else {
+                                                                        setExpAmount(expOriginalAmount || expAmount);
+                                                                        setExpHasRetenue(false);
+                                                                        setExpOriginalAmount('');
+                                                                    }
+                                                                }}
+                                                                className={`absolute right-1 top-1/2 -translate-y-1/2 h-10 px-3 rounded-lg text-xs font-black transition-all ${expHasRetenue ? 'bg-orange-500 text-white shadow-lg' : 'bg-[#f4ece4] text-[#8c8279] hover:bg-[#e6dace]'}`}
+                                                            >
+                                                                1%
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <label className="text-[10px] font-black text-red-700/50 uppercase ml-1">Reçu le:</label>
+                                                        <PremiumDatePicker
+                                                            label="Reçu le"
+                                                            value={expDate}
+                                                            onChange={setExpDate}
+                                                            align="right"
                                                         />
                                                     </div>
                                                     <div className="space-y-1">
-                                                        <label className="text-[10px] font-black text-red-700/50 uppercase ml-1">Date</label>
+                                                        <label className="text-[10px] font-black text-red-700/50 uppercase ml-1">Réglé le:</label>
                                                         <PremiumDatePicker
-                                                            label="Date"
-                                                            value={expDate}
-                                                            onChange={setExpDate}
+                                                            label="Réglé le"
+                                                            value={expPaidDate}
+                                                            onChange={setExpPaidDate}
                                                             align="right"
                                                         />
                                                     </div>
@@ -3541,7 +3592,7 @@ export default function PaiementsPage() {
                                                                             {inv.doc_type}
                                                                         </span>
                                                                     )}
-                                                                    {(inv.photo_url || inv.photo_cheque_url || (inv.photos && inv.photos !== '[]')) ? (
+                                                                    {(inv.photo_url || (inv.photos && inv.photos !== '[]')) ? (
                                                                         <button
                                                                             onClick={() => {
                                                                                 setSelectedSupplier(inv.supplier_name);
@@ -3553,6 +3604,7 @@ export default function PaiementsPage() {
                                                                                     photo_verso_url: inv.photo_verso_url,
                                                                                     paymentMethod: inv.payment_method
                                                                                 };
+                                                                                setViewingPhotoType('justificatif');
                                                                                 setViewingData(normalized);
                                                                             }}
                                                                             className="flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-[#4a3426] text-[#4a3426] hover:text-white rounded-2xl font-black text-[10px] uppercase tracking-wider transition-all border border-[#4a3426]/10 shadow-sm"
@@ -3569,7 +3621,28 @@ export default function PaiementsPage() {
                                                                 <div className="flex items-center gap-10 min-w-[320px] justify-end">
                                                                     <div className="flex flex-col items-end gap-3 text-right">
                                                                         <div className="flex items-center gap-3">
-                                                                            <span className="text-[9px] font-extrabold text-[#4a3426]/60 uppercase tracking-widest bg-[#f4ece4] px-3 py-1 rounded-full">{inv.payment_method}</span>
+                                                                            {(inv.payment_method === 'Chèque' && (inv.photo_cheque_url || inv.photo_verso_url)) ? (
+                                                                                <button
+                                                                                    onClick={() => {
+                                                                                        setSelectedSupplier(inv.supplier_name);
+                                                                                        const normalized = {
+                                                                                            ...inv,
+                                                                                            photos: inv.photos,
+                                                                                            photo_url: inv.photo_url,
+                                                                                            photo_cheque_url: inv.photo_cheque_url,
+                                                                                            photo_verso_url: inv.photo_verso_url,
+                                                                                            paymentMethod: inv.payment_method
+                                                                                        };
+                                                                                        setViewingPhotoType('cheque');
+                                                                                        setViewingData(normalized);
+                                                                                    }}
+                                                                                    className="text-[9px] font-extrabold uppercase tracking-widest bg-[#f4ece4] px-3 py-1 rounded-full hover:bg-blue-500 hover:text-white transition-all cursor-pointer text-[#4a3426]/60"
+                                                                                >
+                                                                                    {inv.payment_method}
+                                                                                </button>
+                                                                            ) : (
+                                                                                <span className="text-[9px] font-extrabold text-[#4a3426]/60 uppercase tracking-widest bg-[#f4ece4] px-3 py-1 rounded-full">{inv.payment_method}</span>
+                                                                            )}
                                                                             {inv.origin === 'direct_expense' ? (
                                                                                 <span className="text-[8px] font-black text-red-500 border border-red-100 px-2 py-1 rounded-lg bg-red-50 uppercase tracking-tighter">Nouveau Règlement</span>
                                                                             ) : (
@@ -3973,29 +4046,6 @@ export default function PaiementsPage() {
                                     />
                                 </div>
 
-                                {/* Tabs for Suppliers/Divers/Admin */}
-                                {(showCategoryListModal.title === 'DÉPENSES FOURNISSEURS' || showCategoryListModal.title === 'DÉPENSES DIVERS' || showCategoryListModal.title === 'DÉPENSES ADMINISTRATIF') && (
-                                    <div className="bg-[#f4ece4]/50 border border-[#e6dace]/50 p-1 rounded-full flex items-center gap-1 shadow-sm overflow-hidden whitespace-nowrap overflow-x-auto no-scrollbar">
-                                        {[
-                                            { label: 'Tous', icon: LayoutGrid },
-                                            { label: 'Fournisseur', icon: Package },
-                                            { label: 'Divers', icon: Sparkles }
-                                        ].map((t) => (
-                                            <button
-                                                key={t.label}
-                                                onClick={() => setCategoryListFilter(t.label as any)}
-                                                className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-[0.1em] transition-all ${categoryListFilter === t.label
-                                                    ? 'bg-[#4a3426] text-white shadow-lg'
-                                                    : 'text-[#8c8279] hover:bg-white/50'
-                                                    }`}
-                                            >
-                                                <t.icon size={14} />
-                                                {t.label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-
                                 {/* Department Dropdown for Personnel Categories */}
                                 {(['ACCOMPTE', 'PRIMES', 'DOUBLAGE', 'EXTRA', 'RESTES SALAIRES'].includes(showCategoryListModal.title)) && (
                                     <div className="relative">
@@ -4290,21 +4340,23 @@ export default function PaiementsPage() {
                     viewingData && (
                         (() => {
                             let allPhotos: { url: string, label: string }[] = [];
+                            const showJustificatif = viewingPhotoType === 'all' || viewingPhotoType === 'justificatif';
+                            const showCheque = viewingPhotoType === 'all' || viewingPhotoType === 'cheque';
                             try {
-                                if (viewingData.photos && viewingData.photos !== "[]") {
+                                if (showJustificatif && viewingData.photos && viewingData.photos !== "[]") {
                                     const parsed = typeof viewingData.photos === 'string' ? JSON.parse(viewingData.photos) : viewingData.photos;
                                     if (Array.isArray(parsed)) {
-                                        parsed.forEach((p, i) => allPhotos.push({ url: p, label: `Facture ${i + 1}` }));
+                                        parsed.forEach((p: string, i: number) => allPhotos.push({ url: p, label: `Facture ${i + 1}` }));
                                     }
                                 }
                             } catch (e) { }
-                            if (viewingData.photo_url && viewingData.photo_url.length > 5 && !allPhotos.find(p => p.url === viewingData.photo_url)) {
+                            if (showJustificatif && viewingData.photo_url && viewingData.photo_url.length > 5 && !allPhotos.find(p => p.url === viewingData.photo_url)) {
                                 allPhotos.unshift({ url: viewingData.photo_url, label: 'Facture' });
                             }
-                            if (viewingData.photo_cheque_url) {
+                            if (showCheque && viewingData.photo_cheque_url) {
                                 allPhotos.push({ url: viewingData.photo_cheque_url, label: 'Chèque Recto' });
                             }
-                            if (viewingData.photo_verso_url) {
+                            if (showCheque && viewingData.photo_verso_url) {
                                 allPhotos.push({ url: viewingData.photo_verso_url, label: 'Chèque Verso' });
                             }
 
@@ -4317,7 +4369,7 @@ export default function PaiementsPage() {
                                     animate={{ opacity: 1 }}
                                     exit={{ opacity: 0 }}
                                     className="fixed inset-0 z-[500] bg-black/95 backdrop-blur-xl flex items-center justify-center overflow-hidden"
-                                    onClick={() => { setViewingData(null); setSelectedPhotoIndex('all'); resetView(); }}
+                                    onClick={() => { setViewingData(null); setSelectedPhotoIndex('all'); setViewingPhotoType('all'); resetView(); }}
                                 >
                                     <div className="relative w-full h-full flex flex-col" onClick={e => e.stopPropagation()}>
 
@@ -4347,7 +4399,7 @@ export default function PaiementsPage() {
                                             </div>
 
                                             {/* Close button - Always visible top right */}
-                                            <button onClick={() => { setViewingData(null); setSelectedPhotoIndex('all'); resetView(); }} className="w-10 h-10 sm:w-14 sm:h-14 bg-black/60 hover:bg-black/80 border border-white/10 rounded-full flex items-center justify-center transition-all text-white backdrop-blur-md pointer-events-auto"><X size={20} className="sm:w-8 sm:h-8" /></button>
+                                            <button onClick={() => { setViewingData(null); setSelectedPhotoIndex('all'); setViewingPhotoType('all'); resetView(); }} className="w-10 h-10 sm:w-14 sm:h-14 bg-black/60 hover:bg-black/80 border border-white/10 rounded-full flex items-center justify-center transition-all text-white backdrop-blur-md pointer-events-auto"><X size={20} className="sm:w-8 sm:h-8" /></button>
                                         </div>
 
                                         {/* Desktop Controls - Hidden on mobile */}
@@ -4520,6 +4572,9 @@ export default function PaiementsPage() {
                                                             style={{ pointerEvents: 'none', userSelect: 'none' }}
                                                         />
                                                     )}
+                                                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 backdrop-blur-md text-white text-[11px] font-black px-5 py-2 rounded-full uppercase tracking-widest border border-white/10">
+                                                        {activePhoto.label}
+                                                    </div>
                                                 </motion.div>
                                             )}
                                         </div>
@@ -4551,6 +4606,9 @@ export default function PaiementsPage() {
                                                             ) : (
                                                                 <img src={photo.url} className="w-full h-full object-cover" />
                                                             )}
+                                                            <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-[7px] font-black text-center py-0.5 uppercase tracking-wider">
+                                                                {photo.label}
+                                                            </div>
                                                         </div>
                                                     ))}
                                                 </div>
