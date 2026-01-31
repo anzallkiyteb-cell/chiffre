@@ -780,6 +780,9 @@ export default function ComparatifPage() {
                 if (status === 'lowest') {
                     doc.setTextColor(34, 197, 94);
                     doc.setFont('helvetica', 'bold');
+                } else if (status === 'highest') {
+                    doc.setTextColor(220, 38, 38);
+                    doc.setFont('helvetica', 'normal');
                 } else {
                     doc.setTextColor(74, 52, 38);
                     doc.setFont('helvetica', 'normal');
@@ -946,11 +949,9 @@ export default function ComparatifPage() {
         if (!currentPrice) return 'normal';
 
         const min = Math.min(...prices);
-        const max = Math.max(...prices);
 
         if (currentPrice === min) return 'lowest';
-        if (currentPrice === max) return 'highest';
-        return 'normal';
+        return 'highest';
     };
 
     const calculateTotalForSupplier = (supplierId: string) => {
@@ -1379,7 +1380,7 @@ export default function ComparatifPage() {
                                             </div>
                                             <div className="flex justify-between items-center text-[10px] font-bold text-[#4a3426]">
                                                 <span>À vérifier:</span>
-                                                <span className="text-red-500">{activeRows.filter(r => Object.values(r.prices).filter(p => getPriceValue(p) > 0).length < 2).length}</span>
+                                                <span className="text-red-500">{activeRows.filter(r => Object.values(r.prices).filter(p => getPriceValue(p) > 0).length < currentSuppliers.length).length}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -1446,7 +1447,13 @@ export default function ComparatifPage() {
                                                                 return (
                                                                     <td key={s.id} className="px-1 py-2 text-center">
                                                                         <div className={`p-1.5 rounded-lg border transition-all ${status === 'lowest' ? 'bg-green-50 border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.1)]' : 'border-transparent opacity-40 grayscale-[0.5]'}`}>
-                                                                            <div className={`text-[11px] font-black ${status === 'lowest' ? 'text-green-700' : 'text-[#4a3426]'}`}>{price > 0 ? price.toLocaleString('fr-FR', { minimumFractionDigits: 3 }) : '-'}</div>
+                                                                            <input
+                                                                                type="number"
+                                                                                value={price || ''}
+                                                                                onChange={(e) => updatePrice(row.id, s.id, parseFloat(e.target.value) || 0)}
+                                                                                placeholder="0.000"
+                                                                                className={`w-full bg-transparent border-none outline-none text-center text-[11px] font-black focus:ring-0 p-0 ${status === 'lowest' ? 'text-green-700' : 'text-[#4a3426]'}`}
+                                                                            />
                                                                             {lineTotal > 0 && <div className="text-[8px] font-black text-gray-400 mt-0.5">{lineTotal.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</div>}
                                                                         </div>
                                                                     </td>
@@ -1514,8 +1521,8 @@ export default function ComparatifPage() {
                                                 </thead>
                                                 <tbody className="divide-y divide-red-50">
                                                     {activeRows.filter(row => {
-                                                        const prices = Object.values(row.prices).map(getPriceValue).filter(p => p > 0);
-                                                        return prices.length < 2;
+                                                        const pricesCount = Object.values(row.prices).map(getPriceValue).filter(p => p > 0).length;
+                                                        return pricesCount < currentSuppliers.length;
                                                     }).map(row => (
                                                         <tr key={row.id}>
                                                             <td className="px-3 py-4 text-[12px] font-black text-[#4a3426] uppercase opacity-70">{row.article}</td>
@@ -1535,9 +1542,25 @@ export default function ComparatifPage() {
 
                                                                 return (
                                                                     <td key={s.id} className="px-1 py-4 text-center">
-                                                                        <div className="p-1.5 rounded-lg border border-transparent">
-                                                                            <div className="text-[11px] font-black text-[#4a3426] opacity-60">{price > 0 ? price.toLocaleString('fr-FR', { minimumFractionDigits: 3 }) : '-'}</div>
-                                                                            {lineTotal > 0 && <div className="text-[8px] font-bold text-gray-400 mt-0.5">{lineTotal.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</div>}
+                                                                        <div className={`p-1.5 rounded-lg border transition-all ${price > 0
+                                                                            ? (getPriceStatus(row, s.id) === 'lowest'
+                                                                                ? 'bg-green-50 border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.1)] text-green-700'
+                                                                                : 'bg-red-50 border-red-200 text-red-700 shadow-[0_0_10px_rgba(220,38,38,0.05)]')
+                                                                            : 'border-transparent opacity-20'
+                                                                            }`}>
+                                                                            <input
+                                                                                type="number"
+                                                                                value={price || ''}
+                                                                                onChange={(e) => updatePrice(row.id, s.id, parseFloat(e.target.value) || 0)}
+                                                                                placeholder="0.000"
+                                                                                className={`w-full bg-transparent border-none outline-none text-center text-[11px] font-black focus:ring-0 p-0 ${price > 0 ? (getPriceStatus(row, s.id) === 'lowest' ? 'text-green-700' : 'text-red-700') : 'text-[#4a3426]'}`}
+                                                                            />
+
+                                                                            {lineTotal > 0 && (
+                                                                                <div className={`text-[8px] font-bold mt-0.5 ${getPriceStatus(row, s.id) === 'lowest' ? 'text-green-600/40' : 'text-red-600/40'}`}>
+                                                                                    {lineTotal.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                                                                </div>
+                                                                            )}
                                                                         </div>
                                                                     </td>
                                                                 );
