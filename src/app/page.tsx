@@ -258,7 +258,7 @@ function FaceIDLoginModal({ user, onClose, onSuccess }: any) {
                           status === 'scanning' ? statusText || 'Analyse en cours...' :
                             scanStep === 'align' ? 'Alignement du visage...' :
                               scanStep === 'depth' ? 'Analyse IA...' :
-                                'Reconnaissance faciale...'}
+                                'Reconnaissance faciale....'}
                 </p>
               </div>
             </div>
