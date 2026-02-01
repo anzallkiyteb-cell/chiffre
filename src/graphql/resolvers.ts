@@ -74,16 +74,40 @@ export const resolvers = {
 
             const extraDetails = extras.rows;
             const primesDetails = primes.rows;
-            const restesSalairesDetails = await query('SELECT id, employee_name as username, montant, nb_jours, created_at FROM restes_salaires_daily WHERE date = $1 ORDER BY id DESC', [date]);
+            let restesSalairesDetails: any = { rows: [] };
+            try {
+                restesSalairesDetails = await query('SELECT id, employee_name as username, montant, nb_jours, created_at FROM restes_salaires_daily WHERE date = $1 ORDER BY id DESC', [date]);
+            } catch (e) {
+                // table may not exist yet
+            }
+
+            // Try to fetch details column separately (may not exist yet)
+            let detailsMap: Record<string, Record<string, string>> = { advances: {}, doublages: {}, extras: {}, primes: {}, restes_salaires_daily: {} };
+            try {
+                const [advDet, doubDet, extDet, prmDet, rstDet] = await Promise.all([
+                    query('SELECT id, details FROM advances WHERE date = $1', [date]),
+                    query('SELECT id, details FROM doublages WHERE date = $1', [date]),
+                    query('SELECT id, details FROM extras WHERE date = $1', [date]),
+                    query('SELECT id, details FROM primes WHERE date = $1', [date]),
+                    query('SELECT id, details FROM restes_salaires_daily WHERE date = $1', [date])
+                ]);
+                advDet.rows.forEach((r: any) => { detailsMap.advances[r.id] = r.details || ''; });
+                doubDet.rows.forEach((r: any) => { detailsMap.doublages[r.id] = r.details || ''; });
+                extDet.rows.forEach((r: any) => { detailsMap.extras[r.id] = r.details || ''; });
+                prmDet.rows.forEach((r: any) => { detailsMap.primes[r.id] = r.details || ''; });
+                rstDet.rows.forEach((r: any) => { detailsMap.restes_salaires_daily[r.id] = r.details || ''; });
+            } catch (e) {
+                // details column doesn't exist yet - that's fine
+            }
 
             const existingData = res.rows.length > 0 ? res.rows[0] : {};
 
             // Re-calculate totals based on both manual entries and paid invoices
-            const dayAvances = avances.rows.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant || '0'), created_at: r.created_at }));
-            const dayDoublages = doublages.rows.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant || '0'), created_at: r.created_at }));
-            const dayExtras = extraDetails.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant || '0'), created_at: r.created_at }));
-            const dayPrimes = primesDetails.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant || '0'), created_at: r.created_at }));
-            const dayRestesSalaires = restesSalairesDetails.rows.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant || '0'), nb_jours: parseFloat(r.nb_jours || '0'), date, created_at: r.created_at }));
+            const dayAvances = avances.rows.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant || '0'), details: detailsMap.advances[r.id] || '', created_at: r.created_at }));
+            const dayDoublages = doublages.rows.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant || '0'), details: detailsMap.doublages[r.id] || '', created_at: r.created_at }));
+            const dayExtras = extraDetails.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant || '0'), details: detailsMap.extras[r.id] || '', created_at: r.created_at }));
+            const dayPrimes = primesDetails.map(r => ({ id: r.id, username: r.username, montant: parseFloat(r.montant || '0'), details: detailsMap.primes[r.id] || '', created_at: r.created_at }));
+            const dayRestesSalaires = restesSalairesDetails.rows.map((r: any) => ({ id: r.id, username: r.username, montant: parseFloat(r.montant || '0'), nb_jours: parseFloat(r.nb_jours || '0'), details: detailsMap.restes_salaires_daily[r.id] || '', date, created_at: r.created_at }));
 
             // Initial manual lists from DB row
             let existingDiponce = [];
@@ -236,16 +260,41 @@ export const resolvers = {
             }));
         },
         getChiffresByRange: async (_: any, { startDate, endDate }: { startDate: string, endDate: string }) => {
-            const [res, avances, doublages, extras, primes, paidInvoicesRes, restesSalaires, allPaidInvoicesRes] = await Promise.all([
+            const [res, avances, doublages, extras, primes, paidInvoicesRes, allPaidInvoicesRes] = await Promise.all([
                 query('SELECT * FROM chiffres WHERE date::text >= $1 AND date::text <= $2 ORDER BY date::text ASC', [startDate, endDate]),
                 query('SELECT id, date, employee_name as username, montant, created_at FROM advances WHERE date::text >= $1 AND date::text <= $2 ORDER BY id DESC', [startDate, endDate]),
                 query('SELECT id, date, employee_name as username, montant, created_at FROM doublages WHERE date::text >= $1 AND date::text <= $2 ORDER BY id DESC', [startDate, endDate]),
                 query('SELECT id, date, employee_name as username, montant, created_at FROM extras WHERE date::text >= $1 AND date::text <= $2 ORDER BY id DESC', [startDate, endDate]),
                 query('SELECT id, date, employee_name as username, montant, created_at FROM primes WHERE date::text >= $1 AND date::text <= $2 ORDER BY id DESC', [startDate, endDate]),
                 query(`SELECT * FROM invoices WHERE status = 'paid' AND paid_date::text >= $1 AND paid_date::text <= $2`, [startDate, endDate]),
-                query('SELECT id, date, employee_name as username, montant, nb_jours, created_at FROM restes_salaires_daily WHERE date::text >= $1 AND date::text <= $2 ORDER BY id DESC', [startDate, endDate]),
                 query(`SELECT paid_date FROM invoices WHERE status = 'paid' AND paid_date::text >= $1 AND paid_date::text <= $2`, [startDate, endDate])
             ]);
+
+            let restesSalaires: any = { rows: [] };
+            try {
+                restesSalaires = await query('SELECT id, date, employee_name as username, montant, nb_jours, created_at FROM restes_salaires_daily WHERE date::text >= $1 AND date::text <= $2 ORDER BY id DESC', [startDate, endDate]);
+            } catch (e) {
+                // table may not exist yet
+            }
+
+            // Try to fetch details column separately (may not exist yet)
+            let rangeDetailsMap: Record<string, Record<string, string>> = { advances: {}, doublages: {}, extras: {}, primes: {}, restes_salaires_daily: {} };
+            try {
+                const [advDet, doubDet, extDet, prmDet, rstDet] = await Promise.all([
+                    query('SELECT id, details FROM advances WHERE date::text >= $1 AND date::text <= $2', [startDate, endDate]),
+                    query('SELECT id, details FROM doublages WHERE date::text >= $1 AND date::text <= $2', [startDate, endDate]),
+                    query('SELECT id, details FROM extras WHERE date::text >= $1 AND date::text <= $2', [startDate, endDate]),
+                    query('SELECT id, details FROM primes WHERE date::text >= $1 AND date::text <= $2', [startDate, endDate]),
+                    query('SELECT id, details FROM restes_salaires_daily WHERE date::text >= $1 AND date::text <= $2', [startDate, endDate])
+                ]);
+                advDet.rows.forEach((r: any) => { rangeDetailsMap.advances[r.id] = r.details || ''; });
+                doubDet.rows.forEach((r: any) => { rangeDetailsMap.doublages[r.id] = r.details || ''; });
+                extDet.rows.forEach((r: any) => { rangeDetailsMap.extras[r.id] = r.details || ''; });
+                prmDet.rows.forEach((r: any) => { rangeDetailsMap.primes[r.id] = r.details || ''; });
+                rstDet.rows.forEach((r: any) => { rangeDetailsMap.restes_salaires_daily[r.id] = r.details || ''; });
+            } catch (e) {
+                // details column doesn't exist yet - that's fine
+            }
 
             const normalizeDate = (d: any) => {
                 if (!d) return null;
@@ -269,7 +318,7 @@ export const resolvers = {
             doublages.rows.forEach(r => { const d = normalizeDate(r.date); if (d) allDatesSet.add(d); });
             extras.rows.forEach(r => { const d = normalizeDate(r.date); if (d) allDatesSet.add(d); });
             primes.rows.forEach(r => { const d = normalizeDate(r.date); if (d) allDatesSet.add(d); });
-            restesSalaires.rows.forEach(r => { const d = normalizeDate(r.date); if (d) allDatesSet.add(d); });
+            restesSalaires.rows.forEach((r: any) => { const d = normalizeDate(r.date); if (d) allDatesSet.add(d); });
             allPaidInvoicesRes.rows.forEach(r => { const d = normalizeDate(r.paid_date); if (d) allDatesSet.add(d); });
 
             const sortedDates = Array.from(allDatesSet).sort();
@@ -340,7 +389,7 @@ export const resolvers = {
                 const dayDoublages = doublages.rows.filter(r => normalizeDate(r.date) === dayStr);
                 const dayExtras = extras.rows.filter(r => normalizeDate(r.date) === dayStr);
                 const dayPrimes = primes.rows.filter(r => normalizeDate(r.date) === dayStr);
-                const dayRestesSalaires = restesSalaires.rows.filter(r => normalizeDate(r.date) === dayStr);
+                const dayRestesSalaires = restesSalaires.rows.filter((r: any) => normalizeDate(r.date) === dayStr);
                 const dayPaidInvoices = paidInvoicesByDate[dayStr] || [];
                 const dayPaidSuppliers = dayPaidInvoices.filter((inv: any) => {
                     const c = (inv.category || '').toLowerCase();
@@ -382,17 +431,17 @@ export const resolvers = {
                 combinedDivers.sort((a: any, b: any) => (a.line_number || 0) - (b.line_number || 0));
                 const combinedAdmin = [...adminList, ...dayPaidAdmin];
 
-                const dayAvancesFinal = dayAvances.map(r => ({ id: `adv_${r.id}`, username: r.username, montant: parseAmount(r.montant || '0'), date: normalizeDate(r.date), created_at: r.created_at }));
-                const dayDoublagesFinal = dayDoublages.map(r => ({ id: `doub_${r.id}`, username: r.username, montant: parseAmount(r.montant || '0'), date: normalizeDate(r.date), created_at: r.created_at }));
+                const dayAvancesFinal = dayAvances.map(r => ({ id: `adv_${r.id}`, username: r.username, montant: parseAmount(r.montant || '0'), details: rangeDetailsMap.advances[r.id] || '', date: normalizeDate(r.date), created_at: r.created_at }));
+                const dayDoublagesFinal = dayDoublages.map(r => ({ id: `doub_${r.id}`, username: r.username, montant: parseAmount(r.montant || '0'), details: rangeDetailsMap.doublages[r.id] || '', date: normalizeDate(r.date), created_at: r.created_at }));
                 const dayExtrasFinal = [
-                    ...dayExtras.map(r => ({ id: `ext_${r.id}`, username: r.username, montant: parseAmount(r.montant || '0'), date: normalizeDate(r.date), created_at: r.created_at })),
-                    ...dayPaidExtras.map(inv => ({ id: inv.id, username: inv.supplier_name, montant: parseAmount(inv.amount), date: dayStr, isFromFacturation: true }))
+                    ...dayExtras.map(r => ({ id: `ext_${r.id}`, username: r.username, montant: parseAmount(r.montant || '0'), details: rangeDetailsMap.extras[r.id] || '', date: normalizeDate(r.date), created_at: r.created_at })),
+                    ...dayPaidExtras.map(inv => ({ id: inv.id, username: inv.supplier_name, montant: parseAmount(inv.amount), details: inv.details || '', date: dayStr, isFromFacturation: true }))
                 ];
                 const dayPrimesFinal = [
-                    ...dayPrimes.map(r => ({ id: `prm_${r.id}`, username: r.username, montant: parseAmount(r.montant || '0'), date: normalizeDate(r.date), created_at: r.created_at })),
-                    ...dayPaidPrimes.map(inv => ({ id: inv.id, username: inv.supplier_name, montant: parseAmount(inv.amount), date: dayStr, isFromFacturation: true }))
+                    ...dayPrimes.map(r => ({ id: `prm_${r.id}`, username: r.username, montant: parseAmount(r.montant || '0'), details: rangeDetailsMap.primes[r.id] || '', date: normalizeDate(r.date), created_at: r.created_at })),
+                    ...dayPaidPrimes.map(inv => ({ id: inv.id, username: inv.supplier_name, montant: parseAmount(inv.amount), details: inv.details || '', date: dayStr, isFromFacturation: true }))
                 ];
-                const dayRestesSalairesFinal = dayRestesSalaires.map(r => ({ id: `rem_${r.id}`, username: r.username, montant: parseAmount(r.montant || '0'), nb_jours: r.nb_jours ? parseAmount(r.nb_jours) : 0, date: normalizeDate(r.date), created_at: r.created_at }));
+                const dayRestesSalairesFinal = dayRestesSalaires.map((r: any) => ({ id: `rem_${r.id}`, username: r.username, montant: parseAmount(r.montant || '0'), nb_jours: r.nb_jours ? parseAmount(r.nb_jours) : 0, details: rangeDetailsMap.restes_salaires_daily[r.id] || '', date: normalizeDate(r.date), created_at: r.created_at }));
 
                 const sumDiponce = combinedDiponce.reduce((s: number, i: any) => s + (parseAmount(i.amount) || 0), 0);
                 const sumDivers = combinedDivers.reduce((s: number, i: any) => s + (parseAmount(i.amount) || 0), 0);
@@ -404,7 +453,7 @@ export const resolvers = {
                     dayDoublagesFinal.reduce((s, r) => s + (r.montant || 0), 0) +
                     sumEx +
                     dayPrimesFinal.reduce((s, r) => s + (r.montant || 0), 0) +
-                    dayRestesSalairesFinal.reduce((s, r) => s + (r.montant || 0), 0);
+                    dayRestesSalairesFinal.reduce((s: any, r: any) => s + (r.montant || 0), 0);
                 const recetteCaisse = parseAmount(row.recette_de_caisse) || 0;
                 const recetteNet = recetteCaisse - totalDiponce;
 
@@ -1357,8 +1406,9 @@ export const resolvers = {
             await query('DELETE FROM employees WHERE id = $1', [id]);
             return true;
         },
-        addAvance: async (_: any, { username, amount, date }: any) => {
-            const res = await query('INSERT INTO advances (employee_name, montant, date) VALUES ($1, $2, $3) RETURNING id, employee_name as username, montant, created_at', [username, amount, date]);
+        addAvance: async (_: any, { username, amount, date, details }: any) => {
+            await query("ALTER TABLE advances ADD COLUMN IF NOT EXISTS details TEXT DEFAULT '';").catch(() => {});
+            const res = await query('INSERT INTO advances (employee_name, montant, date, details) VALUES ($1, $2, $3, $4) RETURNING id, employee_name as username, montant, details, created_at', [username, amount, date, details || '']);
             const row = res.rows[0];
             return { ...row, montant: parseFloat(row.montant) };
         },
@@ -1367,8 +1417,9 @@ export const resolvers = {
             await query('DELETE FROM advances WHERE id = $1', [realId]);
             return true;
         },
-        addDoublage: async (_: any, { username, amount, date }: any) => {
-            const res = await query('INSERT INTO doublages (employee_name, montant, date) VALUES ($1, $2, $3) RETURNING id, employee_name as username, montant, created_at', [username, amount, date]);
+        addDoublage: async (_: any, { username, amount, date, details }: any) => {
+            await query("ALTER TABLE doublages ADD COLUMN IF NOT EXISTS details TEXT DEFAULT '';").catch(() => {});
+            const res = await query('INSERT INTO doublages (employee_name, montant, date, details) VALUES ($1, $2, $3, $4) RETURNING id, employee_name as username, montant, details, created_at', [username, amount, date, details || '']);
             const row = res.rows[0];
             return { ...row, montant: parseFloat(row.montant) };
         },
@@ -1377,8 +1428,9 @@ export const resolvers = {
             await query('DELETE FROM doublages WHERE id = $1', [realId]);
             return true;
         },
-        addExtra: async (_: any, { username, amount, date }: any) => {
-            const res = await query('INSERT INTO extras (employee_name, montant, date) VALUES ($1, $2, $3) RETURNING id, employee_name as username, montant, created_at', [username, amount, date]);
+        addExtra: async (_: any, { username, amount, date, details }: any) => {
+            await query("ALTER TABLE extras ADD COLUMN IF NOT EXISTS details TEXT DEFAULT '';").catch(() => {});
+            const res = await query('INSERT INTO extras (employee_name, montant, date, details) VALUES ($1, $2, $3, $4) RETURNING id, employee_name as username, montant, details, created_at', [username, amount, date, details || '']);
             const row = res.rows[0];
             return { ...row, montant: parseFloat(row.montant) };
         },
@@ -1387,8 +1439,9 @@ export const resolvers = {
             await query('DELETE FROM extras WHERE id = $1', [realId]);
             return true;
         },
-        addPrime: async (_: any, { username, amount, date }: any) => {
-            const res = await query('INSERT INTO primes (employee_name, montant, date) VALUES ($1, $2, $3) RETURNING id, employee_name as username, montant, created_at', [username, amount, date]);
+        addPrime: async (_: any, { username, amount, date, details }: any) => {
+            await query("ALTER TABLE primes ADD COLUMN IF NOT EXISTS details TEXT DEFAULT '';").catch(() => {});
+            const res = await query('INSERT INTO primes (employee_name, montant, date, details) VALUES ($1, $2, $3, $4) RETURNING id, employee_name as username, montant, details, created_at', [username, amount, date, details || '']);
             const row = res.rows[0];
             return { ...row, montant: parseFloat(row.montant) };
         },
@@ -1397,18 +1450,20 @@ export const resolvers = {
             await query('DELETE FROM primes WHERE id = $1', [realId]);
             return true;
         },
-        addRestesSalaires: async (_: any, { username, amount, nb_jours, date }: any) => {
+        addRestesSalaires: async (_: any, { username, amount, nb_jours, date, details }: any) => {
             await query(`
                 CREATE TABLE IF NOT EXISTS restes_salaires_daily (
                     id SERIAL PRIMARY KEY,
                     employee_name TEXT NOT NULL,
                     montant DECIMAL(10,3) NOT NULL,
                     nb_jours DECIMAL(10,2),
+                    details TEXT DEFAULT '',
                     date DATE NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             `);
-            const res = await query('INSERT INTO restes_salaires_daily (employee_name, montant, nb_jours, date) VALUES ($1, $2, $3, $4) RETURNING id, employee_name as username, montant, nb_jours, date, created_at', [username, amount, nb_jours || 0, date]);
+            await query("ALTER TABLE restes_salaires_daily ADD COLUMN IF NOT EXISTS details TEXT DEFAULT '';").catch(() => {});
+            const res = await query('INSERT INTO restes_salaires_daily (employee_name, montant, nb_jours, date, details) VALUES ($1, $2, $3, $4, $5) RETURNING id, employee_name as username, montant, nb_jours, details, date, created_at', [username, amount, nb_jours || 0, date, details || '']);
             return { ...res.rows[0], montant: parseFloat(res.rows[0].montant), nb_jours: parseFloat(res.rows[0].nb_jours), created_at: res.rows[0].created_at };
         },
         deleteRestesSalaires: async (_: any, { id }: any) => {

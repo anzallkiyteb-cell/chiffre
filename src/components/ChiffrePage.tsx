@@ -78,6 +78,7 @@ interface JournalierEntry {
     id?: number;
     username: string;
     montant: string;
+    details?: string;
     created_at?: string;
     nb_jours?: number;
 }
@@ -184,14 +185,14 @@ const GET_CHIFFRES_RANGE = gql`
     getChiffresByRange(startDate: $startDate, endDate: $endDate) {
         id
         date
-        avances_details { id username montant date created_at }
-        doublages_details { id username montant date created_at }
-        extras_details { id username montant date created_at }
-        primes_details { id username montant date created_at }
+        avances_details { id username montant details date created_at }
+        doublages_details { id username montant details date created_at }
+        extras_details { id username montant details date created_at }
+        primes_details { id username montant details date created_at }
         diponce
         diponce_divers
         diponce_admin
-        restes_salaires_details { id username montant nb_jours date created_at }
+        restes_salaires_details { id username montant nb_jours details date created_at }
         is_locked
     }
   }
@@ -213,11 +214,11 @@ const GET_CHIFFRE = gql`
         tickets_restaurant
         extra
         primes
-        avances_details { id username montant created_at }
-        doublages_details { id username montant created_at }
-        extras_details { id username montant created_at }
-        primes_details { id username montant created_at }
-        restes_salaires_details { id username montant nb_jours created_at }
+        avances_details { id username montant details created_at }
+        doublages_details { id username montant details created_at }
+        extras_details { id username montant details created_at }
+        primes_details { id username montant details created_at }
+        restes_salaires_details { id username montant nb_jours details created_at }
         diponce_divers
         diponce_admin
         offres
@@ -406,8 +407,8 @@ const DELETE_EMPLOYEE = gql`
 `;
 
 const ADD_AVANCE = gql`
-  mutation AddAvance($username: String!, $amount: Float!, $date: String!) {
-    addAvance(username: $username, amount: $amount, date: $date) { id username montant }
+  mutation AddAvance($username: String!, $amount: Float!, $date: String!, $details: String) {
+    addAvance(username: $username, amount: $amount, date: $date, details: $details) { id username montant details }
 }
 `;
 const DELETE_AVANCE = gql`
@@ -415,8 +416,8 @@ const DELETE_AVANCE = gql`
 `;
 
 const ADD_DOUBLAGE = gql`
-  mutation AddDoublage($username: String!, $amount: Float!, $date: String!) {
-    addDoublage(username: $username, amount: $amount, date: $date) { id username montant }
+  mutation AddDoublage($username: String!, $amount: Float!, $date: String!, $details: String) {
+    addDoublage(username: $username, amount: $amount, date: $date, details: $details) { id username montant details }
 }
 `;
 const DELETE_DOUBLAGE = gql`
@@ -424,8 +425,8 @@ const DELETE_DOUBLAGE = gql`
 `;
 
 const ADD_EXTRA = gql`
-  mutation AddExtra($username: String!, $amount: Float!, $date: String!) {
-    addExtra(username: $username, amount: $amount, date: $date) { id username montant }
+  mutation AddExtra($username: String!, $amount: Float!, $date: String!, $details: String) {
+    addExtra(username: $username, amount: $amount, date: $date, details: $details) { id username montant details }
 }
 `;
 const DELETE_EXTRA = gql`
@@ -433,8 +434,8 @@ const DELETE_EXTRA = gql`
 `;
 
 const ADD_PRIME = gql`
-  mutation AddPrime($username: String!, $amount: Float!, $date: String!) {
-    addPrime(username: $username, amount: $amount, date: $date) { id username montant }
+  mutation AddPrime($username: String!, $amount: Float!, $date: String!, $details: String) {
+    addPrime(username: $username, amount: $amount, date: $date, details: $details) { id username montant details }
 }
 `;
 const DELETE_PRIME = gql`
@@ -442,8 +443,8 @@ const DELETE_PRIME = gql`
 `;
 
 const ADD_RESTES_SALAIRES = gql`
-  mutation AddRestesSalaires($username: String!, $amount: Float!, $nb_jours: Float, $date: String!) {
-    addRestesSalaires(username: $username, amount: $amount, nb_jours: $nb_jours, date: $date) { id username montant nb_jours }
+  mutation AddRestesSalaires($username: String!, $amount: Float!, $nb_jours: Float, $date: String!, $details: String) {
+    addRestesSalaires(username: $username, amount: $amount, nb_jours: $nb_jours, date: $date, details: $details) { id username montant nb_jours details }
 }
 `;
 const DELETE_RESTES_SALAIRES = gql`
@@ -465,7 +466,7 @@ const REPLACE_CHIFFRE_DATE = gql`
 interface EntryModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSubmit: (data: { username: string, amount: string, nb_jours?: string }) => void;
+    onSubmit: (data: { username: string, amount: string, nb_jours?: string, details?: string }) => void;
     type: string;
     employees?: Employee[];
     initialData?: JournalierEntry | null;
@@ -475,11 +476,13 @@ const EntryModal = memo(({ isOpen, onClose, onSubmit, type, employees = [], init
     const [search, setSearch] = useState('');
     const [amount, setAmount] = useState('');
     const [nbJours, setNbJours] = useState('');
+    const [details, setDetails] = useState('');
     const [showDropdown, setShowDropdown] = useState(false);
     const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
 
     const amountRef = useRef<HTMLInputElement>(null);
     const nbJoursRef = useRef<HTMLInputElement>(null);
+    const detailsRef = useRef<HTMLInputElement>(null);
     const searchRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
@@ -488,6 +491,7 @@ const EntryModal = memo(({ isOpen, onClose, onSubmit, type, employees = [], init
                 setSearch(initialData.username);
                 setAmount(initialData.montant);
                 setNbJours(initialData.nb_jours?.toString() || '');
+                setDetails(initialData.details || '');
                 const emp = employees.find((e: Employee) => e.name === initialData.username);
                 setSelectedEmployee(emp || null);
                 setTimeout(() => amountRef.current?.focus(), 100);
@@ -495,6 +499,7 @@ const EntryModal = memo(({ isOpen, onClose, onSubmit, type, employees = [], init
                 setSearch('');
                 setAmount('');
                 setNbJours('');
+                setDetails('');
                 setSelectedEmployee(null);
                 setTimeout(() => searchRef.current?.focus(), 100);
             }
@@ -611,9 +616,8 @@ const EntryModal = memo(({ isOpen, onClose, onSubmit, type, employees = [], init
                                             if (e.key === 'Enter') {
                                                 if (type === 'restes_salaires') {
                                                     nbJoursRef.current?.focus();
-                                                } else if (search && amount && parseFloat(amount) > 0) {
-                                                    onSubmit({ username: search, amount, nb_jours: nbJours });
-                                                    onClose();
+                                                } else {
+                                                    detailsRef.current?.focus();
                                                 }
                                             }
                                         }}
@@ -638,9 +642,8 @@ const EntryModal = memo(({ isOpen, onClose, onSubmit, type, employees = [], init
                                         onChange={(e) => setNbJours(e.target.value)}
                                         className="w-full h-14 bg-[#fcfaf8] border border-[#e6dace] rounded-2xl pl-12 pr-4 font-black text-2xl text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all"
                                         onKeyDown={(e) => {
-                                            if (e.key === 'Enter' && search && amount && parseFloat(amount) > 0) {
-                                                onSubmit({ username: search, amount, nb_jours: nbJours });
-                                                onClose();
+                                            if (e.key === 'Enter') {
+                                                detailsRef.current?.focus();
                                             }
                                         }}
                                     />
@@ -648,10 +651,31 @@ const EntryModal = memo(({ isOpen, onClose, onSubmit, type, employees = [], init
                             </div>
                         )}
 
+                        <div className="relative">
+                            <label className="text-[10px] font-black text-[#bba282] uppercase tracking-[0.2em] mb-2 block ml-1">Détails</label>
+                            <div className="relative">
+                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[#bba282]"><FileText size={18} /></div>
+                                <input
+                                    ref={detailsRef}
+                                    type="text"
+                                    placeholder="Détails (optionnel)..."
+                                    value={details ?? ''}
+                                    onChange={(e) => setDetails(e.target.value)}
+                                    className="w-full h-14 bg-[#fcfaf8] border border-[#e6dace] rounded-2xl pl-12 pr-4 font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all"
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && search && amount && parseFloat(amount) > 0) {
+                                            onSubmit({ username: search, amount, nb_jours: nbJours, details });
+                                            onClose();
+                                        }
+                                    }}
+                                />
+                            </div>
+                        </div>
+
                         <button
                             disabled={!search || !amount || parseFloat(amount) <= 0 || !employees.some((e: Employee) => e.name === search)}
                             onClick={() => {
-                                onSubmit({ username: search, amount, nb_jours: nbJours });
+                                onSubmit({ username: search, amount, nb_jours: nbJours, details });
                                 onClose();
                             }}
                             className="w-full h-14 bg-[#4a3426] text-white rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-lg shadow-[#4a3426]/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-40 disabled:grayscale disabled:scale-100"
@@ -2108,7 +2132,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         setExpensesDivers([...expensesDivers, { designation: designation || '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces', doc_type: 'BL', line_number: ln }]);
     };
 
-    const handleEntrySubmit = async (type: string, username: string, amount: string, nbJours?: string, id?: number) => {
+    const handleEntrySubmit = async (type: string, username: string, amount: string, nbJours?: string, id?: number, details?: string) => {
         if (isLocked) return;
         try {
             // If ID is present, delete the old entry first (Simulate Update)
@@ -2123,18 +2147,18 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             // New employees are now added only via the dedicated "Ajouter Employé" button
             // So we don't upsert here anymore to maintain a clean directory
 
-            if (type === 'avance') await addAvance({ variables: { username, amount: parseFloat(amount), date } });
-            if (type === 'doublage') await addDoublage({ variables: { username, amount: parseFloat(amount), date } });
-            if (type === 'extra') await addExtra({ variables: { username, amount: parseFloat(amount), date } });
-            if (type === 'prime') await addPrime({ variables: { username, amount: parseFloat(amount), date } });
-            if (type === 'restes_salaires') await addRestesSalaires({ variables: { username, amount: parseFloat(amount), nb_jours: nbJours ? parseFloat(nbJours) : 0, date } });
+            if (type === 'avance') await addAvance({ variables: { username, amount: parseFloat(amount), date, details: details || '' } });
+            if (type === 'doublage') await addDoublage({ variables: { username, amount: parseFloat(amount), date, details: details || '' } });
+            if (type === 'extra') await addExtra({ variables: { username, amount: parseFloat(amount), date, details: details || '' } });
+            if (type === 'prime') await addPrime({ variables: { username, amount: parseFloat(amount), date, details: details || '' } });
+            if (type === 'restes_salaires') await addRestesSalaires({ variables: { username, amount: parseFloat(amount), nb_jours: nbJours ? parseFloat(nbJours) : 0, date, details: details || '' } });
 
             refetchChiffre();
             setToast({ msg: id ? 'Mis à jour avec succès' : 'Ajouté avec succès', type: 'success' });
             setTimeout(() => setToast(null), 3000);
         } catch (e) {
             console.error(e);
-            setToast({ msg: 'Erreur lors de l’opération', type: 'error' });
+            setToast({ msg: "Erreur lors de l'opération", type: 'error' });
             setTimeout(() => setToast(null), 3000);
         }
     };
@@ -4007,6 +4031,9 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                             </span>
                                                         )}
                                                     </div>
+                                                    {a.details && (
+                                                        <p className="text-[10px] text-[#8c8279] italic mt-0.5 truncate max-w-[200px]">{a.details}</p>
+                                                    )}
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-3">
@@ -4087,6 +4114,9 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                             </span>
                                                         )}
                                                     </div>
+                                                    {a.details && (
+                                                        <p className="text-[10px] text-[#8c8279] italic mt-0.5 truncate max-w-[200px]">{a.details}</p>
+                                                    )}
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-3">
@@ -4168,6 +4198,9 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                             </span>
                                                         )}
                                                     </div>
+                                                    {a.details && (
+                                                        <p className="text-[10px] text-[#8c8279] italic mt-0.5 truncate max-w-[200px]">{a.details}</p>
+                                                    )}
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-3">
@@ -4249,6 +4282,9 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                             </span>
                                                         )}
                                                     </div>
+                                                    {p.details && (
+                                                        <p className="text-[10px] text-[#8c8279] italic mt-0.5 truncate max-w-[200px]">{p.details}</p>
+                                                    )}
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-3">
@@ -4330,6 +4366,9 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                             </span>
                                                         )}
                                                     </div>
+                                                    {p.details && (
+                                                        <p className="text-[10px] text-[#8c8279] italic mt-0.5 truncate max-w-[200px]">{p.details}</p>
+                                                    )}
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-3">
@@ -5513,7 +5552,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
             <EntryModal
                 isOpen={!!showEntryModal}
                 onClose={() => setShowEntryModal(null)}
-                onSubmit={(data) => handleEntrySubmit(showEntryModal?.type || '', data.username, data.amount, data.nb_jours, showEntryModal?.data?.id)}
+                onSubmit={(data) => handleEntrySubmit(showEntryModal?.type || '', data.username, data.amount, data.nb_jours, showEntryModal?.data?.id, data.details)}
                 type={showEntryModal?.type || ''}
                 initialData={showEntryModal?.data}
                 employees={employeesData?.getEmployees}

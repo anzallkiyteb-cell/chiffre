@@ -7,11 +7,11 @@ const GET_CHIFFRES_RANGE = gql`
   query GetChiffresRange($startDate: String!, $endDate: String!) {
     getChiffresByRange(startDate: $startDate, endDate: $endDate) {
       date
-      avances_details { id username montant date created_at }
-      doublages_details { id username montant date created_at }
-      extras_details { id username montant date created_at }
-      primes_details { id username montant date created_at }
-      restes_salaires_details { id username montant nb_jours date created_at }
+      avances_details { id username montant details date created_at }
+      doublages_details { id username montant details date created_at }
+      extras_details { id username montant details date created_at }
+      primes_details { id username montant details date created_at }
+      restes_salaires_details { id username montant nb_jours details date created_at }
       diponce_divers
       diponce_admin
       diponce
@@ -124,6 +124,7 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
                 date: formattedDate,
                 amount: amount,
                 nb_jours: item.nb_jours,
+                details: item.details || '',
                 created_at: item.created_at
             });
         });
@@ -320,6 +321,9 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
                                                                     {formatDisplayTime(entry.created_at)}
                                                                 </span>
                                                             </div>
+                                                        )}
+                                                        {entry.details && (
+                                                            <p className="text-[10px] text-[#8c8279] italic truncate max-w-[250px]">{entry.details}</p>
                                                         )}
                                                     </div>
                                                     <div className="text-right flex flex-col items-end gap-1">

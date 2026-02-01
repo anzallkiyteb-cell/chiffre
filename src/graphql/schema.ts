@@ -11,6 +11,7 @@ export const typeDefs = `#graphql
     username: String
     montant: Float
     nb_jours: Float
+    details: String
     date: String
     created_at: String
   }
@@ -306,19 +307,19 @@ export const typeDefs = `#graphql
     updateEmployee(id: Int!, name: String!, department: String): Employee
     deleteEmployee(id: Int!): Boolean
 
-    addAvance(username: String!, amount: Float!, date: String!): DetailItem
+    addAvance(username: String!, amount: Float!, date: String!, details: String): DetailItem
     deleteAvance(id: String!): Boolean
 
-    addDoublage(username: String!, amount: Float!, date: String!): DetailItem
+    addDoublage(username: String!, amount: Float!, date: String!, details: String): DetailItem
     deleteDoublage(id: String!): Boolean
 
-    addExtra(username: String!, amount: Float!, date: String!): DetailItem
+    addExtra(username: String!, amount: Float!, date: String!, details: String): DetailItem
     deleteExtra(id: String!): Boolean
 
-    addPrime(username: String!, amount: Float!, date: String!): DetailItem
+    addPrime(username: String!, amount: Float!, date: String!, details: String): DetailItem
     deletePrime(id: String!): Boolean
 
-    addRestesSalaires(username: String!, amount: Float!, nb_jours: Float, date: String!): DetailItem
+    addRestesSalaires(username: String!, amount: Float!, nb_jours: Float, date: String!, details: String): DetailItem
     deleteRestesSalaires(id: String!): Boolean
     
     upsertSalaryRemainder(employee_name: String!, amount: Float!, month: String!, status: String): SalaryRemainder

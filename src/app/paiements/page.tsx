@@ -327,11 +327,11 @@ const GET_PAYMENT_DATA = gql`
       diponce
       diponce_divers
       diponce_admin
-      avances_details { id username montant created_at }
-      doublages_details { id username montant created_at }
-      extras_details { id username montant created_at }
-      primes_details { id username montant created_at }
-      restes_salaires_details { id username montant created_at }
+      avances_details { id username montant details created_at }
+      doublages_details { id username montant details created_at }
+      extras_details { id username montant details created_at }
+      primes_details { id username montant details created_at }
+      restes_salaires_details { id username montant details created_at }
     }
     getSalaryRemainders(month: $month) {
       id
@@ -631,6 +631,7 @@ export default function PaiementsPage() {
     const [payerType, setPayerType] = useState<'all' | 'caisse' | 'riadh'>('all');
     const [historySearch, setHistorySearch] = useState('');
     const [historyDateRange, setHistoryDateRange] = useState({ start: '', end: '' });
+    const [historyFilter, setHistoryFilter] = useState<'Tous' | 'Fournisseur' | 'Divers'>('Tous');
     const [selectedEmployeeDetails, setSelectedEmployeeDetails] = useState<{ name: string, category: string, subtitle: string, total: number, items: any[] } | null>(null);
     const [activeSegment, setActiveSegment] = useState<any>(null);
     const [showCategoryListModal, setShowCategoryListModal] = useState<{ title: string, subtitle: string, items: any[], dotColor: string, icon: any, color: string, iconBg: string } | null>(null);
@@ -3513,6 +3514,29 @@ export default function PaiementsPage() {
                                             )}
                                         </div>
                                     </div>
+
+                                    {/* Filter Buttons */}
+                                    <div className="flex items-center justify-center mt-4">
+                                        <div className="flex items-center bg-[#fcfaf8] border-2 border-[#f0e6dd] p-1.5 rounded-full shadow-sm">
+                                            {[
+                                                { id: 'Tous', label: 'Tous', icon: LayoutGrid },
+                                                { id: 'Fournisseur', label: 'Fournisseur', icon: Package },
+                                                { id: 'Divers', label: 'Divers', icon: Banknote }
+                                            ].map((cat) => (
+                                                <button
+                                                    key={cat.id}
+                                                    onClick={() => setHistoryFilter(cat.id as any)}
+                                                    className={`flex items-center gap-2 px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${historyFilter === cat.id
+                                                        ? 'bg-[#4a3426] text-white shadow-md'
+                                                        : 'text-[#8c8279] hover:bg-white hover:text-[#4a3426]'
+                                                    }`}
+                                                >
+                                                    <cat.icon size={13} strokeWidth={2.5} />
+                                                    {cat.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div className="flex-1 overflow-y-auto p-6 md:p-8 custom-scrollbar">
@@ -3520,6 +3544,12 @@ export default function PaiementsPage() {
                                         {(() => {
                                             const riadhInvoices = historyData?.getInvoices?.filter((inv: any) => inv.payer === 'riadh') || [];
                                             const filteredHistory = riadhInvoices.filter((inv: any) => {
+                                                // Category filter
+                                                if (historyFilter !== 'Tous') {
+                                                    const catStr = (inv.category || '').toLowerCase();
+                                                    if (historyFilter === 'Fournisseur' && catStr === 'divers') return false;
+                                                    if (historyFilter === 'Divers' && catStr !== 'divers') return false;
+                                                }
                                                 if (historySearch) {
                                                     const searchLower = historySearch.toLowerCase();
                                                     const supplierMatch = inv.supplier_name?.toLowerCase().includes(searchLower);
@@ -3546,11 +3576,19 @@ export default function PaiementsPage() {
                                                     })
                                                     .map((inv: any) => (
                                                         <div key={inv.id} className="group relative bg-[#fdfaf8] p-8 rounded-[2.5rem] border border-[#e6dace]/50 hover:bg-white hover:border-[#c69f6e] hover:shadow-2xl hover:shadow-[#c69f6e]/10 transition-all duration-500">
-                                                            {/* Top: Supplier Name */}
-                                                            <div className="flex justify-center mb-8">
-                                                                <h3 className="font-extrabold text-[#4a3426] text-[22px] uppercase tracking-[0.2em] group-hover:text-[#c69f6e] transition-colors">
-                                                                    {inv.supplier_name}
-                                                                </h3>
+                                                            {/* Top: Supplier Name + Category Badge */}
+                                                            <div className="flex flex-col items-center mb-8">
+                                                                <div className="flex items-center gap-3">
+                                                                    <h3 className="font-extrabold text-[#4a3426] text-[22px] uppercase tracking-[0.2em] group-hover:text-[#c69f6e] transition-colors">
+                                                                        {inv.supplier_name}
+                                                                    </h3>
+                                                                    <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full border ${(inv.category || '').toLowerCase() === 'divers'
+                                                                        ? 'bg-orange-50 text-orange-500 border-orange-200'
+                                                                        : 'bg-blue-50 text-blue-500 border-blue-200'
+                                                                    }`}>
+                                                                        {(inv.category || '').toLowerCase() === 'divers' ? 'Divers' : 'Fournisseur'}
+                                                                    </span>
+                                                                </div>
                                                                 {inv.details && (
                                                                     <p className="text-[10px] font-bold text-[#8c8279] uppercase tracking-widest mt-2 bg-[#f4ece4] px-4 py-1.5 rounded-xl border border-[#e6dace]/50 inline-block text-center max-w-[80%] mx-auto">
                                                                         {inv.details}
@@ -3621,25 +3659,31 @@ export default function PaiementsPage() {
                                                                 <div className="flex items-center gap-10 min-w-[320px] justify-end">
                                                                     <div className="flex flex-col items-end gap-3 text-right">
                                                                         <div className="flex items-center gap-3">
-                                                                            {(inv.payment_method === 'Chèque' && (inv.photo_cheque_url || inv.photo_verso_url)) ? (
-                                                                                <button
-                                                                                    onClick={() => {
-                                                                                        setSelectedSupplier(inv.supplier_name);
-                                                                                        const normalized = {
-                                                                                            ...inv,
-                                                                                            photos: inv.photos,
-                                                                                            photo_url: inv.photo_url,
-                                                                                            photo_cheque_url: inv.photo_cheque_url,
-                                                                                            photo_verso_url: inv.photo_verso_url,
-                                                                                            paymentMethod: inv.payment_method
-                                                                                        };
-                                                                                        setViewingPhotoType('cheque');
-                                                                                        setViewingData(normalized);
-                                                                                    }}
-                                                                                    className="text-[9px] font-extrabold uppercase tracking-widest bg-[#f4ece4] px-3 py-1 rounded-full hover:bg-blue-500 hover:text-white transition-all cursor-pointer text-[#4a3426]/60"
-                                                                                >
-                                                                                    {inv.payment_method}
-                                                                                </button>
+                                                                            {inv.payment_method === 'Chèque' ? (
+                                                                                (inv.photo_cheque_url || inv.photo_verso_url) ? (
+                                                                                    <button
+                                                                                        onClick={() => {
+                                                                                            setSelectedSupplier(inv.supplier_name);
+                                                                                            const normalized = {
+                                                                                                ...inv,
+                                                                                                photos: inv.photos,
+                                                                                                photo_url: inv.photo_url,
+                                                                                                photo_cheque_url: inv.photo_cheque_url,
+                                                                                                photo_verso_url: inv.photo_verso_url,
+                                                                                                paymentMethod: inv.payment_method
+                                                                                            };
+                                                                                            setViewingPhotoType('cheque');
+                                                                                            setViewingData(normalized);
+                                                                                        }}
+                                                                                        className="text-[9px] font-extrabold uppercase tracking-widest bg-blue-500 text-white px-3 py-1 rounded-full hover:bg-blue-600 transition-all cursor-pointer shadow-sm"
+                                                                                    >
+                                                                                        Chèque
+                                                                                    </button>
+                                                                                ) : (
+                                                                                    <span className="text-[9px] font-extrabold text-gray-400 uppercase tracking-widest bg-gray-100 px-3 py-1 rounded-full cursor-not-allowed">
+                                                                                        Chèque
+                                                                                    </span>
+                                                                                )
                                                                             ) : (
                                                                                 <span className="text-[9px] font-extrabold text-[#4a3426]/60 uppercase tracking-widest bg-[#f4ece4] px-3 py-1 rounded-full">{inv.payment_method}</span>
                                                                             )}
@@ -4233,7 +4277,7 @@ export default function PaiementsPage() {
                                                             <span className="text-[10px] font-bold text-[#c69f6e]">DT</span>
                                                         </div>
                                                         {item.details && (
-                                                            <p className="text-[9px] text-[#8c8279] font-medium break-words line-clamp-2">{item.details}</p>
+                                                            <p className="text-sm text-[#4a3426] font-semibold italic break-words mt-1">{item.details}</p>
                                                         )}
                                                     </div>
 

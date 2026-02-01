@@ -220,11 +220,18 @@ const initDb = async () => {
           id serial NOT NULL,
           employee_name character varying(255) NOT NULL,
           montant character varying(255) NOT NULL,
+          details text DEFAULT '',
           date character varying(255) NOT NULL,
           created_at timestamp DEFAULT CURRENT_TIMESTAMP,
           CONSTRAINT ${table}_pkey PRIMARY KEY (id)
         );
       `);
+    }
+
+    // Add details column to existing personnel tables if missing
+    const allPersonnelTables = ['advances', 'doublages', 'extras', 'primes', 'restes_salaires_daily'];
+    for (const table of allPersonnelTables) {
+      await query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS details TEXT DEFAULT '';`).catch(() => {});
     }
 
     await query(`
