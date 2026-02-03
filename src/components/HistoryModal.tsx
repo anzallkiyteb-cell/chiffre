@@ -195,20 +195,22 @@ const HistoryModal = ({ isOpen, onClose, type, startDate, endDate, targetName }:
                                 </h3>
                             </div>
                             <div className="flex items-center gap-3 w-full sm:w-auto">
-                                <div className="relative flex-1 sm:flex-initial">
-                                    <input
-                                        type="text"
-                                        placeholder="Rechercher (Nom, Date...)"
-                                        value={search}
-                                        onChange={(e) => setSearch(e.target.value)}
-                                        className="h-10 md:h-12 w-full sm:w-64 pl-4 pr-10 bg-[#fcfaf8] border border-[#e6dace] rounded-xl text-xs font-bold text-[#4a3426] outline-none focus:border-[#c69f6e] shadow-inner transition-all"
-                                    />
-                                </div>
+                                {type !== 'offres' && (
+                                    <div className="relative flex-1 sm:flex-initial">
+                                        <input
+                                            type="text"
+                                            placeholder="Rechercher (Nom, Date...)"
+                                            value={search}
+                                            onChange={(e) => setSearch(e.target.value)}
+                                            className="h-10 md:h-12 w-full sm:w-64 pl-4 pr-10 bg-[#fcfaf8] border border-[#e6dace] rounded-xl text-xs font-bold text-[#4a3426] outline-none focus:border-[#c69f6e] shadow-inner transition-all"
+                                        />
+                                    </div>
+                                )}
                                 <button onClick={onClose} className="p-2 hover:bg-[#f9f6f2] rounded-xl transition-all text-[#bba282] shrink-0 border border-transparent hover:border-[#e6dace]/20"><X size={24} /></button>
                             </div>
                         </div>
                         <p className="text-[#8c8279] font-bold text-[10px] uppercase tracking-[0.2em] pl-1 opacity-60">
-                            {type === 'offres' && !targetName ? 'Visualisation globale haute-densité' : (type === 'restes_salaires' ? 'Restes Salaires' : (type?.charAt(0).toUpperCase() + type?.slice(1) + 's')) + ' groupés par bénéficiaire'}
+                            {type === 'offres' && !targetName ? 'Visualisation globale haute-densité' : (type === 'restes_salaires' ? 'Restes Salaires' : (type?.charAt(0).toUpperCase() + type?.slice(1) + (type?.endsWith('s') ? '' : 's'))) + ' groupés par bénéficiaire'}
                         </p>
                     </div>
 

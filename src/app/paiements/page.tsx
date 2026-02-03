@@ -847,7 +847,13 @@ export default function PaiementsPage() {
 
         const caisseInvoices = allInvoices.filter((inv: any) => inv.status === 'paid' && inv.payer !== 'riadh');
 
+        // Bank expenses from caisse invoices
         const bankExpenses = caisseInvoices
+            .filter((inv: any) => (inv.payment_method === 'Chèque' || inv.payment_method === 'TPE (Carte)' || inv.payment_method === 'Virement'))
+            .reduce((acc: number, inv: any) => acc + safeParse(inv.amount), 0);
+
+        // Riadh's bank method expenses (Chèque, TPE) - should be subtracted from Bancaire
+        const riadhBankExpenses = riadhInvoicesRaw
             .filter((inv: any) => (inv.payment_method === 'Chèque' || inv.payment_method === 'TPE (Carte)' || inv.payment_method === 'Virement'))
             .reduce((acc: number, inv: any) => acc + safeParse(inv.amount), 0);
 
@@ -894,14 +900,16 @@ export default function PaiementsPage() {
         const pendingRemaindersTotal = (payerType === 'riadh') ? 0 : (data?.getSalaryRemainders || []).reduce((acc: number, r: any) => acc + safeParse(r.amount), 0);
         const bankDepositsTotal = (payerType === 'riadh') ? 0 : (data?.getBankDeposits || []).reduce((acc: number, d: any) => acc + safeParse(d.amount), 0);
 
-        // Total expenses from caisse only (Riadh's expenses shown separately in his section)
-        const finalExpenses = (payerType === 'riadh')
+        // Total expenses from caisse including salary remainders
+        const baseExpenses = (payerType === 'riadh')
             ? riadhTotal
             : (aggregated.expenses || safeParse(data?.getPaymentStats?.totalExpenses));
+        const finalExpenses = baseExpenses + pendingRemaindersTotal;
 
-        // RESTE = Recette Nette (caisse only) - Riadh's expenses are separate and don't reduce caisse RESTE
+        // RESTE = Recette Nette (caisse only) - Salary Remainders (money owed to employees)
+        // Riadh's expenses are separate and don't reduce caisse RESTE
         const baseReste = (payerType === 'riadh') ? 0 : (aggregated.reste || safeParse(data?.getPaymentStats?.totalRecetteNette));
-        const finalReste = baseReste;
+        const finalReste = baseReste - pendingRemaindersTotal;
 
         // Tickets from daily sheets
         const finalTickets = aggregated.chiffreAffaire > 0
@@ -939,8 +947,8 @@ export default function PaiementsPage() {
             }
         }
 
-        // Bancaire = TPE + Cheques + Bank Deposits - Bank method expenses
-        const finalBancaire = previewTpe + previewBankDeposits + previewCheque - bankExpenses;
+        // Bancaire = TPE + Cheques + Bank Deposits - Bank method expenses - Riadh's bank expenses
+        const finalBancaire = previewTpe + previewBankDeposits + previewCheque - bankExpenses - riadhBankExpenses;
 
         // Cash = RESTE - Bancaire - Tickets (ensures Cash + Bancaire + Tickets = RESTE)
         const previewCash = previewReste - finalBancaire - previewTickets;
@@ -957,8 +965,6 @@ export default function PaiementsPage() {
             bankExpenses
         };
     }, [data, payerType, showExpForm, expAmount, expMethod, showPayModal, paymentDetails, showBankForm, bankAmount, bankTransactionType]);
-
-    const hasNegativeValues = computedStats.reste < 0 || computedStats.cash < 0 || computedStats.bancaire < 0 || computedStats.tickets < 0;
 
     const setThisWeek = () => {
         const now = new Date();
@@ -1226,6 +1232,11 @@ export default function PaiementsPage() {
             global: f_total + d_total + a_total + p_total
         };
     }, [expenseDetails]);
+
+    // Calculate hasNegativeValues after totals is available (uses correct RESTE = CA - totals.global)
+    const displayedReste = computedStats.chiffreAffaire - totals.global;
+    const displayedCash = displayedReste - computedStats.bancaire - computedStats.tickets;
+    const hasNegativeValues = displayedReste < 0 || displayedCash < 0 || computedStats.bancaire < 0 || computedStats.tickets < 0;
 
     const masterSuggestions = useMemo(() => {
         const sList = (suppliersData?.getSuppliers || []).map((s: any) => s.name);
@@ -1743,7 +1754,7 @@ export default function PaiementsPage() {
                                                 const depPerc = (totals.expenses / total) * 100;
                                                 const personnelPerc = (totals.personnel / total) * 100;
                                                 const adminPerc = (totals.administratif / total) * 100;
-                                                const restePerc = (computedStats.reste / total) * 100;
+                                                const restePerc = (displayedReste / total) * 100;
 
                                                 const circum = 2 * Math.PI * 40;
 
@@ -1863,7 +1874,7 @@ export default function PaiementsPage() {
                                                     if (activeCAProfitSegment === 'expenses') return Math.round((totals.expenses / total) * 100) + '%';
                                                     if (activeCAProfitSegment === 'personnel') return Math.round((totals.personnel / total) * 100) + '%';
                                                     if (activeCAProfitSegment === 'admin') return Math.round((totals.administratif / total) * 100) + '%';
-                                                    return Math.round((computedStats.reste / total) * 100) + '%';
+                                                    return Math.round((displayedReste / total) * 100) + '%';
                                                 })()}
                                             </span>
                                         </div>
@@ -1914,7 +1925,7 @@ export default function PaiementsPage() {
                                         >
                                             <div className="w-2 h-2 rounded-full bg-[#0154A2] shadow-[0_0_8px_rgba(1,84,162,0.3)]" />
                                             <span className={`text-[9px] font-black uppercase tracking-widest ${activeCAProfitSegment === 'reste' ? 'text-[#0154A2] text-[10px]' : 'text-white'}`}>
-                                                Reste: {hideAmounts ? '***' : (computedStats.chiffreAffaire > 0 ? Math.round((computedStats.reste / computedStats.chiffreAffaire) * 100) : 0) + '%'}
+                                                Reste: {hideAmounts ? '***' : (computedStats.chiffreAffaire > 0 ? Math.round((displayedReste / computedStats.chiffreAffaire) * 100) : 0) + '%'}
                                             </span>
                                         </button>
                                     </div>
@@ -1936,7 +1947,7 @@ export default function PaiementsPage() {
                                     <Banknote size={18} /> Total Dépenses
                                 </div>
                                 <h3 className="text-6xl font-black tracking-tighter mb-2">
-                                    {maskAmount(computedStats.expenses)}
+                                    {maskAmount(totals.global)}
                                 </h3>
                                 <span className="text-lg font-bold opacity-80 block uppercase tracking-widest">DT</span>
                             </div>
@@ -1948,14 +1959,14 @@ export default function PaiementsPage() {
                         {/* 3. Reste */}
                         <motion.div
                             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-                            className={`${computedStats.reste < 0 ? 'bg-[#80201E]' : 'bg-[#0154A2]'} p-8 rounded-[2.5rem] shadow-lg relative overflow-hidden group hover:scale-[1.005] transition-all text-white h-44 flex flex-col justify-center cursor-default`}
+                            className={`${displayedReste < 0 ? 'bg-[#80201E]' : 'bg-[#0154A2]'} p-8 rounded-[2.5rem] shadow-lg relative overflow-hidden group hover:scale-[1.005] transition-all text-white h-44 flex flex-col justify-center cursor-default`}
                         >
                             <div className="relative z-10">
                                 <div className="flex items-center gap-3 text-white/90 mb-4 uppercase text-[11px] font-bold tracking-[0.2em]">
                                     <TrendingUp size={18} /> Reste
                                 </div>
                                 <h3 className="text-6xl font-black tracking-tighter mb-2">
-                                    {maskAmount(computedStats.reste)}
+                                    {maskAmount(displayedReste)}
                                 </h3>
                                 <span className="text-lg font-bold opacity-80 block uppercase tracking-widest">DT</span>
                             </div>
@@ -1970,14 +1981,14 @@ export default function PaiementsPage() {
                         {/* 4. Total Cash */}
                         <motion.div
                             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-                            className={`${computedStats.cash < 0 ? 'bg-[#80201E]' : 'bg-[#f59e0b]'} p-8 rounded-[2rem] shadow-sm relative overflow-hidden group hover:scale-[1.02] transition-all text-white h-40 flex flex-col justify-center`}
+                            className={`${displayedCash < 0 ? 'bg-[#80201E]' : 'bg-[#f59e0b]'} p-8 rounded-[2rem] shadow-sm relative overflow-hidden group hover:scale-[1.02] transition-all text-white h-40 flex flex-col justify-center`}
                         >
                             <div className="relative z-10">
                                 <div className="flex items-center gap-2 text-white/90 mb-2 uppercase text-[10px] font-bold tracking-widest">
                                     <Coins size={14} /> Total Cash
                                 </div>
                                 <h3 className="text-4xl font-black tracking-tighter">
-                                    {maskAmount(computedStats.cash)}
+                                    {maskAmount(displayedCash)}
                                 </h3>
                                 <span className="text-sm font-bold opacity-70">DT</span>
                             </div>
@@ -2127,7 +2138,7 @@ export default function PaiementsPage() {
                                                             <Coins size={14} /> Total Cash (Prévision)
                                                         </div>
                                                         <h3 className="text-4xl font-black tracking-tighter">
-                                                            {maskAmount(computedStats.cash)}
+                                                            {maskAmount(displayedCash)}
                                                         </h3>
                                                         <span className="text-sm font-bold opacity-70">DT</span>
                                                     </div>
@@ -3322,7 +3333,7 @@ export default function PaiementsPage() {
                                                                 <Coins size={14} /> Total Cash (Après Paiement)
                                                             </div>
                                                             <h3 className="text-3xl font-black tracking-tighter">
-                                                                {maskAmount(computedStats.cash)}
+                                                                {maskAmount(displayedCash)}
                                                             </h3>
                                                             <span className="text-sm font-bold opacity-70">DT</span>
                                                         </div>
@@ -3842,14 +3853,14 @@ export default function PaiementsPage() {
                                         </div>
 
                                         {/* 3. Reste */}
-                                        <div className="bg-[#0154A2] p-3 lg:p-5 rounded-xl lg:rounded-3xl shadow-md relative overflow-hidden text-white flex flex-col justify-center min-h-[70px] lg:min-h-[110px]">
+                                        <div className={`${displayedReste < 0 ? 'bg-[#80201E]' : 'bg-[#0154A2]'} p-3 lg:p-5 rounded-xl lg:rounded-3xl shadow-md relative overflow-hidden text-white flex flex-col justify-center min-h-[70px] lg:min-h-[110px]`}>
                                             <div className="relative z-10">
                                                 <div className="flex items-center gap-1.5 text-white/90 mb-0.5 md:mb-1 uppercase text-[6px] lg:text-[8px] font-bold tracking-[0.1em] md:tracking-[0.2em]">
                                                     <TrendingUp size={8} className="md:size-3" /> RST
                                                 </div>
                                                 <div className="flex items-baseline gap-0.5">
                                                     <h3 className="text-xs md:text-xl lg:text-2xl font-black tracking-tighter">
-                                                        {maskAmount(computedStats.reste, 0)}
+                                                        {maskAmount(displayedReste, 0)}
                                                     </h3>
                                                     <span className="text-[6px] md:text-[10px] font-bold opacity-80 uppercase">DT</span>
                                                 </div>
