@@ -11,7 +11,7 @@ import {
     ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Image as ImageIcon, Ticket,
     Clock, CheckCircle2, Check, Eye, EyeOff, Edit2, Trash2, X, Layout, Plus,
     Truck, Sparkles, Calculator, Zap, Award, ZoomIn, ZoomOut, RotateCw, Maximize2,
-    Bookmark, AlertCircle, LayoutGrid, Package, Share2
+    Bookmark, AlertCircle, LayoutGrid, Package, Share2, List, Users, Briefcase
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Swal from 'sweetalert2';
@@ -469,6 +469,16 @@ const DELETE_SALARY_REMAINDER = gql`
   }
 `;
 
+const UPSERT_EMPLOYEE = gql`
+  mutation UpsertEmployee($name: String!, $department: String) {
+    upsertEmployee(name: $name, department: $department) {
+      id
+      name
+      department
+    }
+  }
+`;
+
 export default function PaiementsPage() {
     const router = useRouter();
     const [user, setUser] = useState<{ role: 'admin' | 'caissier', full_name: string } | null>(null);
@@ -527,6 +537,10 @@ export default function PaiementsPage() {
     const [salaryRemainderMode, setSalaryRemainderMode] = useState<'global' | 'employee'>('employee');
     const [salaryRemainderSearch, setSalaryRemainderSearch] = useState('');
     const [showAllEmployees, setShowAllEmployees] = useState(false);
+    const [showEmployeeListModal, setShowEmployeeListModal] = useState(false);
+    const [showAddEmployeeModal, setShowAddEmployeeModal] = useState(false);
+    const [newEmployeeName, setNewEmployeeName] = useState('');
+    const [newEmployeeDepartment, setNewEmployeeDepartment] = useState('');
     const [editingHistoryItem, setEditingHistoryItem] = useState<any>(null);
     const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
     const [viewingData, setViewingData] = useState<any>(null);
@@ -880,23 +894,16 @@ export default function PaiementsPage() {
         const pendingRemaindersTotal = (payerType === 'riadh') ? 0 : (data?.getSalaryRemainders || []).reduce((acc: number, r: any) => acc + safeParse(r.amount), 0);
         const bankDepositsTotal = (payerType === 'riadh') ? 0 : (data?.getBankDeposits || []).reduce((acc: number, d: any) => acc + safeParse(d.amount), 0);
 
-        // Add Riadh's expenses and Pending Remainders
-        const finalExpenses = (aggregated.expenses || (payerType === 'riadh' ? 0 : safeParse(data?.getPaymentStats?.totalExpenses))) + riadhTotal + pendingRemaindersTotal;
+        // Total expenses from caisse only (Riadh's expenses shown separately in his section)
+        const finalExpenses = (payerType === 'riadh')
+            ? riadhTotal
+            : (aggregated.expenses || safeParse(data?.getPaymentStats?.totalExpenses));
 
-        // Final Reste (Net Revenue/Profit)
+        // RESTE = Recette Nette (caisse only) - Riadh's expenses are separate and don't reduce caisse RESTE
         const baseReste = (payerType === 'riadh') ? 0 : (aggregated.reste || safeParse(data?.getPaymentStats?.totalRecetteNette));
-        const finalReste = baseReste - riadhTotal - pendingRemaindersTotal;
+        const finalReste = baseReste;
 
-        // Final Cash = Espaces (cash portion of revenue after daily expenses) - Bank Deposits
-        // espaces = recette_de_caisse - total_diponce - tpe - tpe2 - cheques - tickets
-        // This is the physical cash remaining in the register from daily operations
-        // Old unpaid invoices paid this month are tracked in TOTAL DÉPENSES separately
-        const totalEspaces = aggregated.chiffreAffaire > 0
-            ? aggregated.cash
-            : (payerType === 'riadh' ? 0 : safeParse(data?.getPaymentStats?.totalCash));
-        const finalCash = totalEspaces - bankDepositsTotal;
-
-        // Final Tickets = Tickets from daily sheets (already net of daily expenses)
+        // Tickets from daily sheets
         const finalTickets = aggregated.chiffreAffaire > 0
             ? aggregated.tickets
             : (payerType === 'riadh' ? 0 : safeParse(data?.getPaymentStats?.totalTicketsRestaurant));
@@ -904,7 +911,6 @@ export default function PaiementsPage() {
         // Apply previews if forms are open
         let previewExpenses = finalExpenses;
         let previewReste = finalReste;
-        let previewCash = finalCash;
         let previewTpe = (payerType === 'riadh') ? 0 : (aggregated.tpe || safeParse(data?.getPaymentStats?.totalTPE));
         let previewCheque = (payerType === 'riadh') ? 0 : (aggregated.cheque || safeParse(data?.getPaymentStats?.totalCheque));
         let previewTickets = (payerType === 'riadh') ? 0 : (finalTickets);
@@ -914,9 +920,6 @@ export default function PaiementsPage() {
             const amount = parseFloat(expAmount) || 0;
             previewExpenses += amount;
             previewReste -= amount;
-            if (expMethod === 'Espèces') previewCash -= amount;
-            else if (['Chèque', 'TPE (Carte)'].includes(expMethod)) previewCheque -= amount;
-            else if (expMethod === 'Ticket Restaurant') previewTickets -= amount;
         }
 
         // Payment Modal Preview
@@ -924,26 +927,23 @@ export default function PaiementsPage() {
             const amount = parseFloat(showPayModal.amount) || 0;
             previewExpenses += amount;
             previewReste -= amount;
-            // Force deduction based on current selected method
-            const currentMethod = paymentDetails.method;
-            if (currentMethod === 'Espèces') previewCash -= amount;
-            else if (['Chèque', 'Virement', 'TPE (Carte)'].includes(currentMethod)) previewCheque -= amount;
-            else if (currentMethod === 'Ticket Restaurant') previewTickets -= amount;
         }
 
         let previewBankDeposits = bankDepositsTotal;
         if (showBankForm && (parseFloat(bankAmount) || 0) > 0) {
             const amount = parseFloat(bankAmount) || 0;
             if (bankTransactionType === 'deposit') {
-                previewCash -= amount;
                 previewBankDeposits += amount;
             } else if (bankTransactionType === 'withdraw') {
-                previewCash += amount;
                 previewBankDeposits -= amount;
             }
         }
 
+        // Bancaire = TPE + Cheques + Bank Deposits - Bank method expenses
         const finalBancaire = previewTpe + previewBankDeposits + previewCheque - bankExpenses;
+
+        // Cash = RESTE - Bancaire - Tickets (ensures Cash + Bancaire + Tickets = RESTE)
+        const previewCash = previewReste - finalBancaire - previewTickets;
 
         return {
             chiffreAffaire: (payerType === 'riadh') ? 0 : (aggregated.chiffreAffaire || safeParse(data?.getPaymentStats?.totalRecetteCaisse)),
@@ -1005,6 +1005,7 @@ export default function PaiementsPage() {
     const [addPaidInvoice, { loading: addingExp }] = useMutation(ADD_PAID_INVOICE);
     const [upsertSalaryRemainder] = useMutation(UPSERT_SALARY_REMAINDER);
     const [deleteSalaryRemainder] = useMutation(DELETE_SALARY_REMAINDER);
+    const [upsertEmployee] = useMutation(UPSERT_EMPLOYEE);
 
     const filteredUsers = useMemo(() => {
         if (!data?.getPaidUsers) return [];
@@ -2751,10 +2752,28 @@ export default function PaiementsPage() {
                             </div>
                         ) : (
                             <div className="space-y-4">
-                                <div className="flex justify-center md:justify-end">
+                                <div className="flex flex-wrap justify-center md:justify-end gap-2">
+                                    <button
+                                        onClick={() => setShowEmployeeListModal(true)}
+                                        className="px-6 py-3 bg-white border border-[#e6dace] rounded-2xl text-[10px] font-black uppercase tracking-widest text-[#8c8279] hover:bg-[#fcfaf8] transition-all shadow-sm flex items-center justify-center gap-2"
+                                    >
+                                        <List size={14} />
+                                        Liste
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setNewEmployeeName('');
+                                            setNewEmployeeDepartment('');
+                                            setShowAddEmployeeModal(true);
+                                        }}
+                                        className="px-6 py-3 bg-white border border-[#e6dace] rounded-2xl text-[10px] font-black uppercase tracking-widest text-[#c69f6e] hover:bg-[#fcfaf8] transition-all shadow-sm flex items-center justify-center gap-2"
+                                    >
+                                        <Plus size={14} />
+                                        Ajouter Employé
+                                    </button>
                                     <button
                                         onClick={() => setShowAllEmployees(!showAllEmployees)}
-                                        className="w-full md:w-auto px-8 py-3 bg-white border border-[#e6dace] rounded-2xl text-[10px] font-black uppercase tracking-widest text-[#8c8279] hover:bg-[#c69f6e] hover:text-white hover:border-[#c69f6e] transition-all shadow-sm flex items-center justify-center gap-3"
+                                        className="px-8 py-3 bg-white border border-[#e6dace] rounded-2xl text-[10px] font-black uppercase tracking-widest text-[#8c8279] hover:bg-[#c69f6e] hover:text-white hover:border-[#c69f6e] transition-all shadow-sm flex items-center justify-center gap-3"
                                     >
                                         {showAllEmployees ? (
                                             <>
@@ -2800,7 +2819,12 @@ export default function PaiementsPage() {
                                                                 <td className="px-6 md:px-8 py-4">
                                                                     <div className="flex items-center gap-4">
                                                                         <div className="w-10 h-10 rounded-full bg-[#f4ece4] flex items-center justify-center text-[10px] font-black text-[#c69f6e] group-hover:scale-110 transition-transform shrink-0">{initials}</div>
-                                                                        <span className="font-black text-[#4a3426] tracking-tight text-sm truncate">{emp.name}</span>
+                                                                        <div className="flex flex-col min-w-0">
+                                                                            <span className="font-black text-[#4a3426] tracking-tight text-sm truncate">{emp.name}</span>
+                                                                            {emp.department && (
+                                                                                <span className="text-[10px] font-bold text-[#8c8279] uppercase tracking-widest">{emp.department}</span>
+                                                                            )}
+                                                                        </div>
                                                                     </div>
                                                                 </td>
                                                                 <td className="px-6 md:px-8 py-4">
@@ -2863,7 +2887,7 @@ export default function PaiementsPage() {
                                                                         >
                                                                             {successSalaryId === emp.id ? (
                                                                                 <Check size={16} strokeWidth={3} />
-                                                                            ) : editingSalaryId === emp.id ? 'Enregistrer' : (rem && rem.amount > 0 ? 'Modifier' : 'Sauvegarder')}
+                                                                            ) : editingSalaryId === emp.id ? 'Enregistrer' : (rem && rem.amount > 0 ? 'Modifier' : 'Ouvrir')}
                                                                         </button>
 
                                                                         {editingSalaryId === emp.id && !successSalaryId && (
@@ -4742,6 +4766,202 @@ export default function PaiementsPage() {
                     )
                 }
             </AnimatePresence >
+
+            {/* Add Employee Modal */}
+            <AnimatePresence>
+                {showAddEmployeeModal && (
+                    <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="absolute inset-0 bg-black/40 backdrop-blur-md"
+                            onClick={() => setShowAddEmployeeModal(false)}
+                        />
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                            className="relative bg-white rounded-[3rem] w-full max-w-sm shadow-2xl border border-white/20 p-10"
+                        >
+                            <div className="space-y-8">
+                                <div className="flex flex-col items-center text-center space-y-4">
+                                    <div className="w-16 h-16 bg-[#fcfaf8] border border-[#e6dace] rounded-3xl flex items-center justify-center text-[#c69f6e]">
+                                        <Plus size={32} />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <h3 className="text-2xl font-black text-[#4a3426]">Nouveau Employé</h3>
+                                        <p className="text-sm font-bold text-[#8c8279] opacity-60">Ajoutez un nouveau collaborateur à votre liste.</p>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div className="relative">
+                                        <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-[#bba282]" size={20} />
+                                        <input
+                                            autoFocus
+                                            type="text"
+                                            placeholder="Nom de l'employé..."
+                                            value={newEmployeeName}
+                                            onChange={(e) => setNewEmployeeName(e.target.value)}
+                                            className="w-full h-16 bg-[#fcfaf8] border border-[#e6dace] rounded-2xl pl-14 pr-6 font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all placeholder-[#bba282]/50"
+                                        />
+                                    </div>
+
+                                    <div className="relative">
+                                        <Briefcase className="absolute left-5 top-1/2 -translate-y-1/2 text-[#bba282]" size={20} />
+                                        <input
+                                            type="text"
+                                            placeholder="Département (optionnel)"
+                                            value={newEmployeeDepartment}
+                                            onChange={(e) => setNewEmployeeDepartment(e.target.value)}
+                                            className="w-full h-16 bg-[#fcfaf8] border border-[#e6dace] rounded-2xl pl-14 pr-14 font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all placeholder-[#bba282]/50"
+                                        />
+                                        <button
+                                            onClick={async () => {
+                                                const result = await Swal.fire({
+                                                    title: 'Ajouter Département',
+                                                    input: 'text',
+                                                    inputPlaceholder: 'Nom du département...',
+                                                    showCancelButton: true,
+                                                    confirmButtonText: 'Ajouter',
+                                                    cancelButtonText: 'Annuler',
+                                                    confirmButtonColor: '#4a3426',
+                                                });
+                                                if (result.value) setNewEmployeeDepartment(result.value);
+                                            }}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-[#f4ece4] rounded-xl text-[#c69f6e] hover:bg-[#e6dace] transition-colors"
+                                        >
+                                            <Plus size={18} />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-3 pt-4">
+                                    <button
+                                        onClick={() => setShowAddEmployeeModal(false)}
+                                        className="flex-1 h-14 bg-[#fcfaf8] border border-[#e6dace] rounded-2xl text-[11px] font-black uppercase tracking-widest text-[#8c8279] hover:bg-[#f4ece4] transition-all"
+                                    >
+                                        Annuler
+                                    </button>
+                                    <button
+                                        disabled={!newEmployeeName.trim()}
+                                        onClick={async () => {
+                                            if (!newEmployeeName.trim()) return;
+                                            await upsertEmployee({
+                                                variables: {
+                                                    name: newEmployeeName.trim(),
+                                                    department: newEmployeeDepartment.trim() || null
+                                                }
+                                            });
+                                            await refetch();
+                                            setShowAddEmployeeModal(false);
+                                            setNewEmployeeName('');
+                                            setNewEmployeeDepartment('');
+                                            Swal.fire({
+                                                icon: 'success',
+                                                title: 'Employé ajouté',
+                                                text: `${newEmployeeName.trim()} a été ajouté avec succès`,
+                                                timer: 2000,
+                                                showConfirmButton: false
+                                            });
+                                        }}
+                                        className="flex-1 h-14 bg-[#c69f6e] rounded-2xl text-[11px] font-black uppercase tracking-widest text-white hover:bg-[#b38d5e] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Confirmer
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Employee List Modal */}
+            <AnimatePresence>
+                {showEmployeeListModal && (
+                    <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="absolute inset-0 bg-black/40 backdrop-blur-md"
+                            onClick={() => setShowEmployeeListModal(false)}
+                        />
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                            className="relative bg-white rounded-[3rem] w-full max-w-lg shadow-2xl border border-white/20 p-8 max-h-[80vh] overflow-hidden flex flex-col"
+                        >
+                            <div className="flex items-center justify-between mb-6">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 bg-[#fcfaf8] border border-[#e6dace] rounded-2xl flex items-center justify-center text-[#c69f6e]">
+                                        <Users size={24} />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-xl font-black text-[#4a3426]">Liste des Employés</h3>
+                                        <p className="text-[10px] font-bold text-[#8c8279] uppercase tracking-widest">
+                                            {(data?.getEmployees || []).length} employé(s)
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setShowEmployeeListModal(false)}
+                                    className="p-2 hover:bg-[#f9f6f2] rounded-xl transition-colors text-[#bba282]"
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto pr-2 -mr-2">
+                                {(data?.getEmployees || []).length === 0 ? (
+                                    <div className="text-center py-12 text-[#8c8279] italic font-bold opacity-50">
+                                        Aucun employé trouvé
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {(data?.getEmployees || []).map((emp: any) => {
+                                            const initials = emp.name.split(' ').map((n: any) => n[0]).join('').toUpperCase().substring(0, 2);
+                                            return (
+                                                <div
+                                                    key={emp.id}
+                                                    className="flex items-center gap-4 p-4 bg-[#fcfaf8] rounded-2xl border border-[#e6dace]/50 hover:border-[#c69f6e]/50 transition-colors"
+                                                >
+                                                    <div className="w-10 h-10 rounded-full bg-[#f4ece4] flex items-center justify-center text-[10px] font-black text-[#c69f6e] shrink-0">
+                                                        {initials}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="font-black text-[#4a3426] tracking-tight truncate">{emp.name}</p>
+                                                        {emp.department && (
+                                                            <p className="text-[10px] font-bold text-[#8c8279] uppercase tracking-widest">{emp.department}</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="mt-6 pt-4 border-t border-[#e6dace]/50">
+                                <button
+                                    onClick={() => {
+                                        setShowEmployeeListModal(false);
+                                        setNewEmployeeName('');
+                                        setNewEmployeeDepartment('');
+                                        setShowAddEmployeeModal(true);
+                                    }}
+                                    className="w-full h-12 bg-[#c69f6e] rounded-2xl text-[11px] font-black uppercase tracking-widest text-white hover:bg-[#b38d5e] transition-all flex items-center justify-center gap-2"
+                                >
+                                    <Plus size={16} />
+                                    Ajouter un employé
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div >
     );
 }

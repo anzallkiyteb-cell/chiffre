@@ -20,6 +20,7 @@ import withReactContent from 'sweetalert2-react-content';
 const MySwal = withReactContent(Swal);
 
 interface Expense {
+    uid: string;
     supplier: string;
     amount: string;
     details: string;
@@ -47,6 +48,7 @@ interface ExpenseAdmin {
 }
 
 interface ExpenseDivers {
+    uid: string;
     designation: string;
     amount: string;
     details: string;
@@ -82,6 +84,9 @@ interface JournalierEntry {
     created_at?: string;
     nb_jours?: number;
 }
+
+// Helper: generate unique ID for expense items
+const generateUid = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
 const formatDisplayTime = (dateValue: string | number | Date | null | undefined): string | null => {
     if (!dateValue) return null;
@@ -1513,12 +1518,15 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     const nextExpenseLineRef = useRef(2);
     const nextDiversLineRef = useRef(2);
 
-    // Helper: assign line_numbers to items that don't have one yet
+    // Helper: assign line_numbers and uid to items that don't have them yet
     const assignLineNumbers = (items: any[], counterRef: React.RefObject<number>): any[] => {
         return items.map(item => {
-            if (item.line_number != null) return item;
-            const ln = counterRef.current!++;
-            return { ...item, line_number: ln };
+            const updates: any = {};
+            if (!item.uid) updates.uid = generateUid();
+            if (item.line_number == null) {
+                updates.line_number = counterRef.current!++;
+            }
+            return Object.keys(updates).length > 0 ? { ...item, ...updates } : item;
         });
     };
 
@@ -1536,10 +1544,10 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
     // Dashboard States
     const [recetteCaisse, setRecetteCaisse] = useState('0');
     const [expenses, setExpenses] = useState<Expense[]>([
-        { supplier: '', amount: '0', details: '', invoices: [], photo_cheque: '', photo_verso: '', paymentMethod: 'Espèces', doc_type: 'BL', hasRetenue: false, originalAmount: '0', line_number: 1 }
+        { uid: generateUid(), supplier: '', amount: '0', details: '', invoices: [], photo_cheque: '', photo_verso: '', paymentMethod: 'Espèces', doc_type: 'BL', hasRetenue: false, originalAmount: '0', line_number: 1 }
     ]);
     const [expensesDivers, setExpensesDivers] = useState<ExpenseDivers[]>([
-        { designation: '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces', doc_type: 'BL', hasRetenue: false, originalAmount: '0', line_number: 1 }
+        { uid: generateUid(), designation: '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces', doc_type: 'BL', hasRetenue: false, originalAmount: '0', line_number: 1 }
     ]);
     const [expensesAdmin, setExpensesAdmin] = useState<ExpenseAdmin[]>([
         { designation: 'Riadh', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces' },
@@ -2114,7 +2122,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         }
         setHasInteracted(true);
         const ln = nextExpenseLineRef.current++;
-        setExpenses([...expenses, { supplier: '', amount: '0', details: '', invoices: [], photo_cheque: '', photo_verso: '', paymentMethod: 'Espèces', doc_type: 'BL', line_number: ln }]);
+        setExpenses([...expenses, { uid: generateUid(), supplier: '', amount: '0', details: '', invoices: [], photo_cheque: '', photo_verso: '', paymentMethod: 'Espèces', doc_type: 'BL', line_number: ln }]);
     };
     const handleAddDivers = (designation?: string) => {
         if (isLocked) {
@@ -2129,7 +2137,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
         }
         setHasInteracted(true);
         const ln = nextDiversLineRef.current++;
-        setExpensesDivers([...expensesDivers, { designation: designation || '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces', doc_type: 'BL', line_number: ln }]);
+        setExpensesDivers([...expensesDivers, { uid: generateUid(), designation: designation || '', amount: '0', details: '', invoices: [], paymentMethod: 'Espèces', doc_type: 'BL', line_number: ln }]);
     };
 
     const handleEntrySubmit = async (type: string, username: string, amount: string, nbJours?: string, id?: number, details?: string) => {
@@ -3337,7 +3345,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             <section className="bg-white rounded-[2rem] p-6 luxury-shadow border border-[#e6dace]/50 space-y-4">
                                 <div className="space-y-3">
                                     {expenses.map((expense, index) => (
-                                        <div key={expense.line_number ?? index} className={`group flex flex-col p-2 rounded-xl transition-all border ${expense.isFromFacturation ? 'bg-[#f0faf5]/50 border-[#d1e7dd]' : 'hover:bg-[#f9f6f2] border-transparent hover:border-[#e6dace]'} `}>
+                                        <div key={expense.uid} className={`group flex flex-col p-2 rounded-xl transition-all border ${expense.isFromFacturation ? 'bg-[#f0faf5]/50 border-[#d1e7dd]' : 'hover:bg-[#f9f6f2] border-transparent hover:border-[#e6dace]'} `}>
                                             {expense.isFromFacturation && (
                                                 <div className="flex items-center gap-2 mb-1 px-1">
                                                     <span className="text-[8px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full">
@@ -3600,7 +3608,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             <section className="bg-white rounded-[2rem] p-6 luxury-shadow border border-[#e6dace]/50 space-y-4">
                                 <div className="space-y-3">
                                     {expensesDivers.map((divers, index) => (
-                                        <div key={divers.line_number ?? index} className={`group flex flex-col p-2 rounded-xl transition-all border ${(divers as any).isFromFacturation ? 'bg-[#f0faf5]/50 border-[#d1e7dd]' : 'hover:bg-[#f9f6f2] border-transparent hover:border-[#e6dace]'}`}>
+                                        <div key={divers.uid} className={`group flex flex-col p-2 rounded-xl transition-all border ${(divers as any).isFromFacturation ? 'bg-[#f0faf5]/50 border-[#d1e7dd]' : 'hover:bg-[#f9f6f2] border-transparent hover:border-[#e6dace]'}`}>
                                             {(divers as any).isFromFacturation && (
                                                 <div className="flex items-center gap-2 mb-1 px-1">
                                                     <span className="text-[8px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full">
@@ -3819,7 +3827,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             <section className="bg-white rounded-[2rem] p-6 luxury-shadow border border-[#e6dace]/50 space-y-4">
                                 <div className="space-y-3">
                                     {expensesAdmin.map((admin, index) => (
-                                        <div key={index} className="group flex flex-col p-2 rounded-xl transition-all border hover:bg-[#f9f6f2] border-transparent hover:border-[#e6dace]">
+                                        <div key={`admin-${index}`} className="group flex flex-col p-2 rounded-xl transition-all border hover:bg-[#f9f6f2] border-transparent hover:border-[#e6dace]">
                                             <div className="flex flex-col md:flex-row items-center gap-3 w-full">
                                                 <div className="w-full md:w-32 lg:w-48 relative shrink-0">
                                                     <input
@@ -4007,7 +4015,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 </div>
                                 <div className="space-y-2 text-sm text-[#4a3426]">
                                     {avancesList.length > 0 ? avancesList.map((a: JournalierEntry, i: number) => (
-                                        <div key={i} className="flex justify-between p-3 bg-[#f9f6f2] rounded-2xl items-center group">
+                                        <div key={a.id ?? `avance-${i}`} className="flex justify-between p-3 bg-[#f9f6f2] rounded-2xl items-center group">
                                             <div className="flex items-center gap-2">
                                                 <div className="flex flex-col">
                                                     <span
@@ -4090,7 +4098,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 </div>
                                 <div className="space-y-2 text-sm text-[#4a3426]">
                                     {doublagesList.length > 0 ? doublagesList.map((a: JournalierEntry, i: number) => (
-                                        <div key={i} className="flex justify-between p-3 bg-[#f9f6f2] rounded-2xl items-center group">
+                                        <div key={a.id ?? `doublage-${i}`} className="flex justify-between p-3 bg-[#f9f6f2] rounded-2xl items-center group">
                                             <div className="flex items-center gap-2">
                                                 <div className="flex flex-col">
                                                     <span
@@ -4174,7 +4182,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 </div>
                                 <div className="space-y-2 text-sm text-[#4a3426]">
                                     {extrasList.length > 0 ? extrasList.map((a: JournalierEntry, i: number) => (
-                                        <div key={i} className="flex justify-between p-3 bg-[#f9f6f2] rounded-2xl items-center group">
+                                        <div key={a.id ?? `extra-${i}`} className="flex justify-between p-3 bg-[#f9f6f2] rounded-2xl items-center group">
                                             <div className="flex items-center gap-2">
                                                 <div className="flex flex-col">
                                                     <span
@@ -4258,7 +4266,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 </div>
                                 <div className="space-y-2 text-sm text-[#4a3426]">
                                     {primesList.length > 0 ? primesList.map((p: JournalierEntry, i: number) => (
-                                        <div key={i} className="flex justify-between p-3 bg-[#f9f6f2] rounded-2xl items-center group">
+                                        <div key={p.id ?? `prime-${i}`} className="flex justify-between p-3 bg-[#f9f6f2] rounded-2xl items-center group">
                                             <div className="flex items-center gap-2">
                                                 <div className="flex flex-col">
                                                     <span
@@ -4342,7 +4350,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                 </div>
                                 <div className="space-y-2 text-sm text-[#4a3426]">
                                     {restesSalairesList.length > 0 ? restesSalairesList.map((p: JournalierEntry, i: number) => (
-                                        <div key={i} className="flex justify-between p-3 bg-[#f9f6f2] rounded-2xl items-center group">
+                                        <div key={p.id ?? `reste-${i}`} className="flex justify-between p-3 bg-[#f9f6f2] rounded-2xl items-center group">
                                             <div className="flex items-center gap-2">
                                                 <div className="flex flex-col">
                                                     <span
