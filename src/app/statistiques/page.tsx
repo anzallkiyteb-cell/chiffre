@@ -5,10 +5,10 @@ import { useQuery, gql } from '@apollo/client';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import {
-    Wallet, TrendingDown, TrendingUp, Calendar, ChevronLeft, ChevronRight,
+    Wallet, TrendingDown, TrendingUp, Calendar,
     BarChart3, LineChart as LineChartIcon, PieChart as PieChartIcon,
     ArrowUpRight, ArrowDownRight, LayoutDashboard, Filter, Download,
-    Loader2, Users, Receipt, CreditCard, Banknote, Coins
+    Loader2, Users, Receipt, CreditCard, Banknote, Coins, X
 } from 'lucide-react';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
@@ -24,6 +24,101 @@ const safeJsonParse = (str: string | null | undefined, fallback: any[] = []) => 
     } catch {
         return fallback;
     }
+};
+
+const ChevronLeftComp = ({ size, className }: { size: number, className?: string }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m15 18-6-6 6-6" /></svg>
+);
+
+const ChevronRightComp = ({ size, className }: { size: number, className?: string }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m9 18 6-6-6-6" /></svg>
+);
+
+const PremiumMonthPicker = ({ value, onChange, align = 'left' }: { value: string, onChange: (val: string) => void, align?: 'left' | 'right' }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [viewYear, setViewYear] = useState(parseInt(value?.split('-')[0]) || new Date().getFullYear());
+
+    const months = [
+        'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+        'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
+    ];
+
+    const currentMonthIdx = parseInt(value?.split('-')[1]) - 1;
+
+    return (
+        <div className="relative">
+            <button
+                type="button"
+                onClick={() => setIsOpen(!isOpen)}
+                className="flex items-center justify-between gap-3 bg-white border border-[#e6dace] rounded-xl px-4 h-10 transition-all min-w-[160px] hover:shadow-sm group shadow-sm"
+            >
+                <span className="text-[10px] font-black text-[#4a3426] uppercase tracking-widest truncate">
+                    {!isNaN(currentMonthIdx) ? `${months[currentMonthIdx]} ${value.split('-')[0]}` : 'Choisir Mois'}
+                </span>
+                <Calendar size={14} className="text-[#c69f6e]" />
+            </button>
+
+            <AnimatePresence>
+                {isOpen && (
+                    <>
+                        <div className="fixed inset-0 z-[100]" onClick={() => setIsOpen(false)} />
+                        <motion.div
+                            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                            className={`absolute top-full lg:${align === 'right' ? 'right-0' : 'left-0'} -left-20 mt-3 bg-white rounded-[2rem] shadow-2xl border border-[#e6dace] p-6 z-[110] w-72`}
+                        >
+                            <div className="flex justify-between items-center mb-6">
+                                <button
+                                    type="button"
+                                    onClick={() => setViewYear(viewYear - 1)}
+                                    className="p-2 hover:bg-[#fcfaf8] rounded-xl text-[#8c8279] transition-colors"
+                                >
+                                    <ChevronLeftComp size={18} />
+                                </button>
+                                <span className="text-sm font-black text-[#4a3426] tracking-tighter">
+                                    {viewYear}
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => setViewYear(viewYear + 1)}
+                                    className="p-2 hover:bg-[#fcfaf8] rounded-xl text-[#8c8279] transition-colors"
+                                >
+                                    <ChevronRightComp size={18} />
+                                </button>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-2">
+                                {months.map((m, i) => {
+                                    const mStr = String(i + 1).padStart(2, '0');
+                                    const isSelected = value === `${viewYear}-${mStr}`;
+                                    return (
+                                        <button
+                                            key={i}
+                                            type="button"
+                                            onClick={() => {
+                                                onChange(`${viewYear}-${mStr}`);
+                                                setIsOpen(false);
+                                            }}
+                                            className={`
+                                                py-3 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all
+                                                ${isSelected
+                                                    ? 'bg-[#c69f6e] text-white shadow-lg shadow-[#c69f6e]/20'
+                                                    : 'text-[#4a3426] hover:bg-[#fcfaf8] border border-transparent hover:border-[#e6dace]/30'
+                                                }
+                                            `}
+                                        >
+                                            {m.substring(0, 4)}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
+        </div>
+    );
 };
 
 const GET_STATS = gql`
@@ -92,11 +187,26 @@ export default function StatistiquesPage() {
     // Filter States
     const [startDate, setStartDate] = useState(`${ty}-${tm}-01`);
     const [endDate, setEndDate] = useState(todayStr);
+    const [selectedMonth, setSelectedMonth] = useState(todayStr.substring(0, 7));
     const [aggregation, setAggregation] = useState<'day' | 'month'>('day');
+
+    const handleMonthChange = (monthStr: string) => {
+        setSelectedMonth(monthStr);
+        const [year, month] = monthStr.split('-').map(Number);
+        const start = `${year}-${String(month).padStart(2, '0')}-01`;
+        const lastDay = new Date(year, month, 0).getDate();
+        const end = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+        setStartDate(start);
+        setEndDate(end);
+        setAggregation('day');
+    };
+
     const [selectedSupplier, setSelectedSupplier] = useState<string>('Tous');
 
     const [pickingDate, setPickingDate] = useState<'start' | 'end' | null>(null);
     const [viewDate, setViewDate] = useState(new Date());
+
+    const [selectedExpensesData, setSelectedExpensesData] = useState<any>(null);
 
     const generateCalendarDays = (date: string | Date | number) => {
         const d = new Date(date);
@@ -671,8 +781,7 @@ export default function StatistiquesPage() {
                                 </div>
                                 <div className="w-px h-6 bg-[#2d6a4f]/20"></div>
                                 <div className="flex flex-col">
-                                    <span className="text-[9px] font-black text-[#c69f6e] uppercase tracking-tighter">Meilleure Période</span>
-                                    <span className="text-sm font-black text-[#4a3426]">{intelligentInsights.bestPeriod.name}</span>
+                                    <PremiumMonthPicker value={selectedMonth} onChange={handleMonthChange} align="right" />
                                 </div>
                             </div>
                         )}
@@ -680,14 +789,14 @@ export default function StatistiquesPage() {
                         <div className="flex-1 min-w-[200px] flex items-center gap-2 bg-[#f4ece4] p-1.5 rounded-2xl border border-[#e6dace]">
                             <button
                                 onClick={() => { setPickingDate('start'); setViewDate(new Date(startDate)); }}
-                                className="flex-1 bg-white border border-[#e6dace]/50 rounded-xl text-[11px] font-black text-[#4a3426] py-1.5 shadow-sm"
+                                className="flex-1 bg-white border border-[#e6dace]/50 rounded-xl text-[11px] font-black text-[#4a3426] py-1.5 shadow-sm hover:shadow-md transition-shadow"
                             >
                                 {formatDateDisplay(startDate)}
                             </button>
-                            <ChevronRight size={12} className="text-[#c69f6e] shrink-0" />
+                            <span className="text-[#c69f6e] font-black text-xs px-1">/</span>
                             <button
                                 onClick={() => { setPickingDate('end'); setViewDate(new Date(endDate)); }}
-                                className="flex-1 bg-white border border-[#e6dace]/50 rounded-xl text-[11px] font-black text-[#4a3426] py-1.5 shadow-sm"
+                                className="flex-1 bg-white border border-[#e6dace]/50 rounded-xl text-[11px] font-black text-[#4a3426] py-1.5 shadow-sm hover:shadow-md transition-shadow"
                             >
                                 {formatDateDisplay(endDate)}
                             </button>
@@ -990,9 +1099,36 @@ export default function StatistiquesPage() {
                             </h3>
                             <p className="text-xs text-[#8c8279] mt-1">Évolution {aggregation === 'day' ? 'journalière' : 'mensuelle'} des charges par fournisseur</p>
                         </div>
-                        <div className="h-[350px] md:h-[500px] w-full">
+                        <div className="h-[350px] md:h-[500px] w-full relative">
                             <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={aggregatedExpensesDetailed.data}>
+                                <BarChart
+                                    data={aggregatedExpensesDetailed.data}
+                                    onClick={(state: any) => {
+                                        // Robustly get data using activeLabel if activePayload is missing
+                                        if (state && (state.activePayload || state.activeLabel)) {
+                                            const label = state.activeLabel;
+
+                                            // Fallback: find data manually if payload is missing
+                                            let payload = state.activePayload;
+                                            if (!payload || payload.length === 0) {
+                                                const dataPoint = aggregatedExpensesDetailed.data.find((d: any) => d.name === label);
+                                                if (dataPoint) {
+                                                    // Reconstruct payload somewhat if needed
+                                                    payload = Object.entries(dataPoint)
+                                                        .filter(([k, v]) => k !== 'name' && k !== 'total' && typeof v === 'number' && v > 0)
+                                                        .map(([k, v]) => ({ name: k, value: v }));
+                                                }
+                                            }
+
+                                            if (payload && payload.length > 0) {
+                                                setSelectedExpensesData({
+                                                    label: label,
+                                                    payload: payload
+                                                });
+                                            }
+                                        }
+                                    }}
+                                >
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0e6dd" />
                                     <XAxis
                                         dataKey="name"
@@ -1036,71 +1172,100 @@ export default function StatistiquesPage() {
                                     <YAxis axisLine={false} tickLine={false} tick={{ fill: '#8c8279', fontSize: 11 }} />
                                     <RechartsTooltip
                                         cursor={{ fill: 'transparent' }}
-                                        wrapperStyle={{ pointerEvents: 'auto', zIndex: 1000 }}
-                                        content={({ active, payload, label }) => {
-                                            if (!active || !payload || !payload.length) return null;
-
-                                            // Group items by category
-                                            const groups: Array<{ title: string, items: any[] }> = [];
-
-                                            aggregatedExpensesDetailed.categoryGroups?.forEach(group => {
-                                                const groupItems = payload.filter(p =>
-                                                    group.items.includes(p.name as string) &&
-                                                    (parseFloat(p.value as string) || 0) > 0
-                                                ).sort((a, b) => (b.value as number) - (a.value as number))
-                                                    .map(p => ({ ...p, color: aggregatedExpensesDetailed.colorMap?.[p.name as string] || '#ccc' }));
-
-                                                if (groupItems.length > 0) {
-                                                    groups.push({ title: group.title, items: groupItems });
-                                                }
-                                            });
-
-                                            if (groups.length === 0) return null;
-
-                                            const total = payload.reduce((acc, curr) => acc + ((curr.value as number) || 0), 0);
-
-                                            return (
-                                                <div className="bg-white p-4 rounded-2xl shadow-2xl border border-[#e6dace] max-h-[400px] overflow-y-auto custom-scrollbar min-w-[200px]">
-                                                    <p className="text-[10px] font-black text-[#8c8279] uppercase tracking-widest mb-3 pb-2 border-b border-[#f4ece4]">{label}</p>
-
-                                                    <div className="space-y-3">
-                                                        {groups.map((group, groupIdx) => (
-                                                            <div key={groupIdx}>
-                                                                <p className="text-[9px] font-black text-[#2d6a4f] uppercase tracking-wider mb-1.5">
-                                                                    {group.title} :
-                                                                </p>
-                                                                <div className="space-y-1.5 pl-2">
-                                                                    {group.items.map((entry, index) => (
-                                                                        <div key={index} className="flex justify-between items-center gap-4">
-                                                                            <div className="flex items-center gap-2">
-                                                                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }}></div>
-                                                                                <span className="text-[11px] font-bold text-[#4a3426] truncate max-w-[150px]">{entry.name}</span>
-                                                                            </div>
-                                                                            <span className="text-[11px] font-black text-[#c69f6e]">
-                                                                                {parseFloat(entry.value as string).toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
-                                                                            </span>
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-
-                                                    <div className="mt-3 pt-2 border-t border-[#f4ece4] flex justify-between">
-                                                        <span className="text-[10px] font-black text-[#4a3426] uppercase">Total</span>
-                                                        <span className="text-[10px] font-black text-[#4a3426]">
-                                                            {total.toLocaleString('fr-FR', { minimumFractionDigits: 3 })} DT
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            );
-                                        }}
+                                        wrapperStyle={{ pointerEvents: 'none' }}
+                                        content={() => null}
                                     />
                                     {aggregatedExpensesDetailed.suppliers.map((s: string) => {
                                         return <Bar key={s} dataKey={s} stackId="a" fill={aggregatedExpensesDetailed.colorMap?.[s] || '#ccc'} barSize={aggregation === 'day' ? 20 : 40} />;
                                     })}
                                 </BarChart>
                             </ResponsiveContainer>
+
+                            {selectedExpensesData && (
+                                <>
+                                    <div
+                                        className="fixed inset-0 bg-black/20 backdrop-blur-[2px] z-[9998]"
+                                        onClick={() => setSelectedExpensesData(null)}
+                                    />
+                                    <div className="fixed inset-0 flex items-center justify-center z-[9999] pointer-events-none p-4">
+                                        <div
+                                            className="bg-white rounded-[2rem] shadow-2xl border border-[#e6dace] w-full max-w-sm max-h-[80vh] overflow-hidden flex flex-col pointer-events-auto"
+                                        >
+                                            <div className="p-5 border-b border-[#f4ece4] flex justify-between items-center bg-[#fcfaf8]">
+                                                <div>
+                                                    <p className="text-[10px] font-black text-[#8c8279] uppercase tracking-widest">Détails Journaliers</p>
+                                                    <h3 className="text-lg font-black text-[#4a3426] leading-none mt-1">{selectedExpensesData.label}</h3>
+                                                </div>
+                                                <button
+                                                    onClick={() => setSelectedExpensesData(null)}
+                                                    className="p-2 hover:bg-[#e6dace]/20 rounded-full transition-colors text-[#8c8279]"
+                                                >
+                                                    <X size={20} />
+                                                </button>
+                                            </div>
+
+                                            <div className="p-5 overflow-y-auto custom-scrollbar">
+                                                <div className="space-y-5">
+                                                    {(() => {
+                                                        const payload = selectedExpensesData.payload;
+                                                        // Calculate total
+                                                        const total = payload.reduce((acc: number, curr: any) => acc + ((curr.value as number) || 0), 0);
+
+                                                        const groups: Array<{ title: string, items: any[] }> = [];
+
+                                                        aggregatedExpensesDetailed.categoryGroups?.forEach(group => {
+                                                            const groupItems = payload.filter((p: any) =>
+                                                                group.items.includes(p.name as string) &&
+                                                                (parseFloat(p.value as string) || 0) > 0
+                                                            ).sort((a: any, b: any) => (b.value as number) - (a.value as number))
+                                                                .map((p: any) => ({ ...p, color: aggregatedExpensesDetailed.colorMap?.[p.name as string] || '#ccc' }));
+
+                                                            if (groupItems.length > 0) {
+                                                                groups.push({ title: group.title, items: groupItems });
+                                                            }
+                                                        });
+
+                                                        if (groups.length === 0) return <p className="text-sm text-center text-gray-400 py-4">Aucune donnée disponible</p>;
+
+                                                        return (
+                                                            <>
+                                                                {groups.map((group, groupIdx) => (
+                                                                    <div key={groupIdx}>
+                                                                        <p className="text-[10px] font-black text-[#2d6a4f] uppercase tracking-widest mb-3 flex items-center gap-2">
+                                                                            <span className="w-1 h-1 rounded-full bg-[#2d6a4f]"></span>
+                                                                            {group.title}
+                                                                        </p>
+                                                                        <div className="space-y-2.5">
+                                                                            {group.items.map((entry, index) => (
+                                                                                <div key={index} className="flex justify-between items-center p-2 rounded-xl hover:bg-[#f8f5f2] transition-colors border border-transparent hover:border-[#f0e6dd]">
+                                                                                    <div className="flex items-center gap-3 min-w-0">
+                                                                                        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 shadow-sm" style={{ backgroundColor: entry.color }}></div>
+                                                                                        <span className="text-xs font-bold text-[#4a3426] truncate">{entry.name}</span>
+                                                                                    </div>
+                                                                                    <span className="text-xs font-black text-[#c69f6e] bg-[#fdfbf7] px-2 py-1 rounded-lg border border-[#e6dace]/30">
+                                                                                        {parseFloat(entry.value as string).toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
+                                                                                    </span>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+
+                                                                <div className="bg-[#4a3426] p-4 rounded-2xl flex justify-between items-center shadow-lg shadow-[#4a3426]/10 mt-6">
+                                                                    <span className="text-xs font-bold text-[#e6dace] uppercase tracking-widest">Total Global</span>
+                                                                    <span className="text-lg font-black text-white">
+                                                                        {total.toLocaleString('fr-FR', { minimumFractionDigits: 3 })} <span className="text-sm text-[#c69f6e]">DT</span>
+                                                                    </span>
+                                                                </div>
+                                                            </>
+                                                        );
+                                                    })()}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </div>
 
@@ -1239,25 +1404,30 @@ export default function StatistiquesPage() {
                 </main>
             </div >
 
+
+
             {/* Modern Calendar Modal */}
             <AnimatePresence>
                 {
                     pickingDate && (
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] bg-black/20 backdrop-blur-[2px] flex items-center justify-center" onClick={() => setPickingDate(null)}>
-                            <motion.div initial={{ scale: 0.9, opacity: 0, y: -20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: -20 }} className="bg-white rounded-[2.5rem] p-8 shadow-2xl border border-[#c69f6e]/20 w-96 luxury-shadow" onClick={e => e.stopPropagation()}>
-                                <div className="text-center mb-6">
-                                    <span className="text-[10px] font-black text-[#c69f6e] uppercase tracking-widest">Choisir une Date</span>
-                                    <h3 className="text-sm font-bold text-[#8c8279] mt-1">{pickingDate === 'start' ? 'Date de Début' : 'Date de Fin'}</h3>
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[150] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setPickingDate(null)}>
+                            <motion.div initial={{ scale: 0.9, opacity: 0, y: -20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: -20 }} className="bg-white rounded-[2.5rem] p-8 shadow-2xl border border-[#c69f6e]/20 w-full max-w-sm luxury-shadow" onClick={e => e.stopPropagation()}>
+                                <div className="text-center mb-8">
+                                    <div className="inline-flex p-3 bg-[#fdfbf7] rounded-2xl border border-[#c69f6e]/10 mb-3">
+                                        <Calendar className="text-[#c69f6e]" size={24} />
+                                    </div>
+                                    <h3 className="text-lg font-black text-[#4a3426] uppercase tracking-tight">{pickingDate === 'start' ? 'Date de Début' : 'Date de Fin'}</h3>
+                                    <p className="text-[10px] font-bold text-[#bba282] uppercase tracking-[0.2em] mt-1">Sélectionnez une période</p>
                                 </div>
 
-                                <div className="flex items-center justify-between mb-8">
-                                    <button onClick={() => changeMonth(-1)} className="p-2.5 hover:bg-[#f4ece4] rounded-2xl text-[#4a3426] transition-colors"><ChevronLeft size={20} /></button>
-                                    <h3 className="text-lg font-black text-[#4a3426] capitalize">{viewDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}</h3>
-                                    <button onClick={() => changeMonth(1)} className="p-2.5 hover:bg-[#f4ece4] rounded-2xl text-[#4a3426] transition-colors"><ChevronRight size={20} /></button>
+                                <div className="flex items-center justify-between mb-8 bg-[#fcfaf8] p-2 rounded-2xl border border-[#f4ece4]">
+                                    <button onClick={() => changeMonth(-1)} className="p-2 hover:bg-white hover:shadow-sm rounded-xl text-[#c69f6e] transition-all"><ChevronLeftComp size={20} /></button>
+                                    <h3 className="text-sm font-black text-[#4a3426] uppercase tracking-widest">{viewDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}</h3>
+                                    <button onClick={() => changeMonth(1)} className="p-2 hover:bg-white hover:shadow-sm rounded-xl text-[#c69f6e] transition-all"><ChevronRightComp size={20} /></button>
                                 </div>
 
                                 <div className="grid grid-cols-7 gap-1 text-center mb-4">
-                                    {['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'].map((d: string, i: number) => (
+                                    {['D', 'L', 'M', 'M', 'J', 'V', 'S'].map((d: string, i: number) => (
                                         <span key={i} className="text-[10px] font-black text-[#bba282] uppercase">{d}</span>
                                     ))}
                                 </div>
@@ -1281,7 +1451,7 @@ export default function StatistiquesPage() {
                                                     else setEndDate(currentD);
                                                     setPickingDate(null);
                                                 }}
-                                                className={`h-10 w-10 rounded-2xl flex items-center justify-center text-sm font-bold transition-all ${isSelected ? 'gold-gradient text-white shadow-lg' : 'text-[#4a3426] hover:bg-[#f4ece4] hover:text-[#c69f6e]'}`}
+                                                className={`h-10 w-10 rounded-xl flex items-center justify-center text-xs font-black transition-all ${isSelected ? 'bg-[#c69f6e] text-white shadow-lg shadow-[#c69f6e]/30' : 'text-[#4a3426] hover:bg-[#fcfaf8] hover:text-[#c69f6e]'}`}
                                             >
                                                 {day}
                                             </button>
@@ -1290,7 +1460,7 @@ export default function StatistiquesPage() {
                                 </div>
 
                                 <div className="mt-8 pt-6 border-t border-[#f4ece4] flex justify-center">
-                                    <button onClick={() => setPickingDate(null)} className="text-xs font-black text-[#8c8279] uppercase tracking-widest hover:text-[#4a3426] transition-colors">Annuler</button>
+                                    <button onClick={() => setPickingDate(null)} className="text-[10px] font-black text-[#8c8279] uppercase tracking-[0.2em] hover:text-[#4a3426] transition-colors">Annuler</button>
                                 </div>
                             </motion.div>
                         </motion.div>

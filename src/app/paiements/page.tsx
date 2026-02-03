@@ -270,7 +270,7 @@ const UPSERT_DESIGNATION = gql`
 `;
 
 const GET_PAYMENT_DATA = gql`
-  query GetPaymentData($month: String, $startDate: String!, $endDate: String!) {
+  query GetPaymentData($month: String, $startDate: String!, $endDate: String!, $remaindersMonth: String) {
     getPaidUsers(month: $month, startDate: $startDate, endDate: $endDate) {
       username
       amount
@@ -333,7 +333,7 @@ const GET_PAYMENT_DATA = gql`
       primes_details { id username montant details created_at }
       restes_salaires_details { id username montant details created_at }
     }
-    getSalaryRemainders(month: $month) {
+    getSalaryRemainders(month: $remaindersMonth) {
       id
       employee_name
       amount
@@ -479,6 +479,18 @@ const UPSERT_EMPLOYEE = gql`
   }
 `;
 
+const UPDATE_EMPLOYEE = gql`
+  mutation UpdateEmployee($id: Int!, $name: String!, $department: String) {
+    updateEmployee(id: $id, name: $name, department: $department) { id name department }
+}
+`;
+
+const DELETE_EMPLOYEE = gql`
+  mutation DeleteEmployee($id: Int!) {
+    deleteEmployee(id: $id)
+}
+`;
+
 export default function PaiementsPage() {
     const router = useRouter();
     const [user, setUser] = useState<{ role: 'admin' | 'caissier', full_name: string } | null>(null);
@@ -533,7 +545,6 @@ export default function PaiementsPage() {
     const [showSalaryRemaindersModal, setShowSalaryRemaindersModal] = useState(false);
     const [editingSalaryId, setEditingSalaryId] = useState<number | string | null>(null);
     const [successSalaryId, setSuccessSalaryId] = useState<number | string | null>(null);
-    const [salaryRemainderMonth, setSalaryRemainderMonth] = useState(currentMonthStr);
     const [salaryRemainderMode, setSalaryRemainderMode] = useState<'global' | 'employee'>('employee');
     const [salaryRemainderSearch, setSalaryRemainderSearch] = useState('');
     const [showAllEmployees, setShowAllEmployees] = useState(false);
@@ -541,6 +552,7 @@ export default function PaiementsPage() {
     const [showAddEmployeeModal, setShowAddEmployeeModal] = useState(false);
     const [newEmployeeName, setNewEmployeeName] = useState('');
     const [newEmployeeDepartment, setNewEmployeeDepartment] = useState('');
+    const [employeeSearch, setEmployeeSearch] = useState('');
     const [editingHistoryItem, setEditingHistoryItem] = useState<any>(null);
     const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
     const [viewingData, setViewingData] = useState<any>(null);
@@ -827,6 +839,7 @@ export default function PaiementsPage() {
     const { data, loading, refetch } = useQuery(GET_PAYMENT_DATA, {
         variables: {
             month: activeFilter === 'month' ? month : null,
+            remaindersMonth: month || currentMonthStr,
             startDate: effectiveDateRange.start,
             endDate: effectiveDateRange.end
         },
@@ -980,7 +993,6 @@ export default function PaiementsPage() {
 
         setDateRange({ start: firstday, end: lastday });
         setActiveFilter('week');
-        setMonth(null);
     };
 
     const setThisYear = () => {
@@ -990,13 +1002,11 @@ export default function PaiementsPage() {
 
         setDateRange({ start: firstday, end: lastday });
         setActiveFilter('year');
-        setMonth(null);
     };
 
     const handleCustomDateChange = (type: 'start' | 'end', val: string) => {
         setDateRange(prev => ({ ...prev, [type]: val }));
         setActiveFilter('custom');
-        setMonth(null);
     };
 
     const formatDateDisplay = (dateStr: string) => {
@@ -1012,6 +1022,8 @@ export default function PaiementsPage() {
     const [upsertSalaryRemainder] = useMutation(UPSERT_SALARY_REMAINDER);
     const [deleteSalaryRemainder] = useMutation(DELETE_SALARY_REMAINDER);
     const [upsertEmployee] = useMutation(UPSERT_EMPLOYEE);
+    const [updateEmployee] = useMutation(UPDATE_EMPLOYEE);
+    const [deleteEmployee] = useMutation(DELETE_EMPLOYEE);
 
     const filteredUsers = useMemo(() => {
         if (!data?.getPaidUsers) return [];
@@ -1019,6 +1031,16 @@ export default function PaiementsPage() {
             u.username.toLowerCase().includes(search.toLowerCase())
         );
     }, [data, search]);
+
+    const filteredEmployees = useMemo(() => {
+        if (!data?.getEmployees) return [];
+        const s = employeeSearch.toLowerCase().trim();
+        if (!s) return data.getEmployees;
+        return data.getEmployees.filter((emp: any) =>
+            emp.name.toLowerCase().includes(s) ||
+            (emp.department && emp.department.toLowerCase().includes(s))
+        );
+    }, [data, employeeSearch]);
 
     const stats = data?.getPaymentStats || {
         totalRecetteNette: 0,
@@ -2612,13 +2634,6 @@ export default function PaiementsPage() {
                             </div>
 
                             <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4 w-full lg:w-auto">
-                                <div className="w-full md:w-auto">
-                                    <PremiumMonthPicker
-                                        value={salaryRemainderMonth}
-                                        onChange={(val) => setSalaryRemainderMonth(val)}
-                                    />
-                                </div>
-
                                 <div className="flex gap-2 p-1.5 bg-white rounded-2xl border border-[#e6dace]/50 shadow-sm">
                                     <button
                                         onClick={() => setSalaryRemainderMode('global')}
@@ -2653,11 +2668,11 @@ export default function PaiementsPage() {
                                     <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-6 ring-4 ring-red-50/50">
                                         <Banknote size={32} />
                                     </div>
-                                    <h3 className="text-sm font-black text-[#8c8279] uppercase tracking-widest mb-6">Montant Global ({salaryRemainderMonth})</h3>
+                                    <h3 className="text-sm font-black text-[#8c8279] uppercase tracking-widest mb-6">Montant Global ({month || currentMonthStr})</h3>
                                     <div className="relative">
                                         <input
                                             id="global-salary-input"
-                                            key={`${salaryRemainderMonth}-${(data?.getSalaryRemainders || []).find((r: any) => r.employee_name === 'Restes Salaires')?.amount || 0}-${editingSalaryId === 'global'}`}
+                                            key={`${month || currentMonthStr}-${(data?.getSalaryRemainders || []).find((r: any) => r.employee_name === 'Restes Salaires')?.amount || 0}-${editingSalaryId === 'global'}`}
                                             type="number"
                                             step="0.001"
                                             disabled={editingSalaryId !== 'global'}
@@ -2689,7 +2704,7 @@ export default function PaiementsPage() {
                                                         variables: {
                                                             employee_name: 'Restes Salaires',
                                                             amount: val || 0,
-                                                            month: salaryRemainderMonth,
+                                                            month: month || currentMonthStr,
                                                             status: 'CONFIRMÉ'
                                                         }
                                                     });
@@ -2883,7 +2898,7 @@ export default function PaiementsPage() {
                                                                                     variables: {
                                                                                         employee_name: emp.name,
                                                                                         amount: val || 0,
-                                                                                        month: salaryRemainderMonth,
+                                                                                        month: month || currentMonthStr,
                                                                                         status: 'CONFIRMÉ'
                                                                                     }
                                                                                 });
@@ -3476,7 +3491,7 @@ export default function PaiementsPage() {
                         </div>
                     )}
                 </AnimatePresence>
-            </div >
+            </div>
 
             {/* History Modal for Riadh */}
             <AnimatePresence>
@@ -3565,7 +3580,7 @@ export default function PaiementsPage() {
                                                     className={`flex items-center gap-2 px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${historyFilter === cat.id
                                                         ? 'bg-[#4a3426] text-white shadow-md'
                                                         : 'text-[#8c8279] hover:bg-white hover:text-[#4a3426]'
-                                                    }`}
+                                                        }`}
                                                 >
                                                     <cat.icon size={13} strokeWidth={2.5} />
                                                     {cat.label}
@@ -3621,7 +3636,7 @@ export default function PaiementsPage() {
                                                                     <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full border ${(inv.category || '').toLowerCase() === 'divers'
                                                                         ? 'bg-orange-50 text-orange-500 border-orange-200'
                                                                         : 'bg-blue-50 text-blue-500 border-blue-200'
-                                                                    }`}>
+                                                                        }`}>
                                                                         {(inv.category || '').toLowerCase() === 'divers' ? 'Divers' : 'Fournisseur'}
                                                                     </span>
                                                                 </div>
@@ -3766,7 +3781,7 @@ export default function PaiementsPage() {
                         </motion.div>
                     )
                 }
-            </AnimatePresence >
+            </AnimatePresence>
 
             {/* Expenses Details Modal - IMAGE 0 STYLE */}
             {/* Expenses Details Modal - IMAGE 0 STYLE */}
@@ -4056,7 +4071,7 @@ export default function PaiementsPage() {
                         </div>
                     )
                 }
-            </AnimatePresence >
+            </AnimatePresence>
 
             {/* Category List Full-Screen Modal */}
             <AnimatePresence>
@@ -4410,7 +4425,7 @@ export default function PaiementsPage() {
                         </motion.div>
                     )
                 }
-            </AnimatePresence >
+            </AnimatePresence>
 
             {/* Viewing Data Modal (Photos) - Improved Grid/Single View */}
 
@@ -4776,7 +4791,7 @@ export default function PaiementsPage() {
                         </div>
                     )
                 }
-            </AnimatePresence >
+            </AnimatePresence>
 
             {/* Add Employee Modal */}
             <AnimatePresence>
@@ -4918,26 +4933,48 @@ export default function PaiementsPage() {
                                     </div>
                                 </div>
                                 <button
-                                    onClick={() => setShowEmployeeListModal(false)}
+                                    onClick={() => {
+                                        setShowEmployeeListModal(false);
+                                        setEmployeeSearch('');
+                                    }}
                                     className="p-2 hover:bg-[#f9f6f2] rounded-xl transition-colors text-[#bba282]"
                                 >
                                     <X size={20} />
                                 </button>
                             </div>
 
+                            <div className="mb-6 relative">
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#bba282]" size={18} />
+                                <input
+                                    type="text"
+                                    placeholder="Rechercher par nom ou département..."
+                                    value={employeeSearch}
+                                    onChange={(e) => setEmployeeSearch(e.target.value)}
+                                    className="w-full h-12 bg-[#fcfaf8] border border-[#e6dace] rounded-2xl pl-12 pr-4 font-bold text-[#4a3426] focus:border-[#c69f6e] outline-none transition-all placeholder-[#bba282]/50 text-sm"
+                                />
+                                {employeeSearch && (
+                                    <button
+                                        onClick={() => setEmployeeSearch('')}
+                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-[#bba282] hover:text-[#4a3426]"
+                                    >
+                                        <X size={16} />
+                                    </button>
+                                )}
+                            </div>
+
                             <div className="flex-1 overflow-y-auto pr-2 -mr-2">
-                                {(data?.getEmployees || []).length === 0 ? (
+                                {filteredEmployees.length === 0 ? (
                                     <div className="text-center py-12 text-[#8c8279] italic font-bold opacity-50">
-                                        Aucun employé trouvé
+                                        {employeeSearch ? 'Aucun résultat pour cette recherche' : 'Aucun employé trouvé'}
                                     </div>
                                 ) : (
                                     <div className="space-y-2">
-                                        {(data?.getEmployees || []).map((emp: any) => {
+                                        {filteredEmployees.map((emp: any) => {
                                             const initials = emp.name.split(' ').map((n: any) => n[0]).join('').toUpperCase().substring(0, 2);
                                             return (
                                                 <div
                                                     key={emp.id}
-                                                    className="flex items-center gap-4 p-4 bg-[#fcfaf8] rounded-2xl border border-[#e6dace]/50 hover:border-[#c69f6e]/50 transition-colors"
+                                                    className="flex items-center gap-4 p-4 bg-[#fcfaf8] rounded-2xl border border-[#e6dace]/50 hover:border-[#c69f6e]/50 transition-colors group"
                                                 >
                                                     <div className="w-10 h-10 rounded-full bg-[#f4ece4] flex items-center justify-center text-[10px] font-black text-[#c69f6e] shrink-0">
                                                         {initials}
@@ -4947,6 +4984,70 @@ export default function PaiementsPage() {
                                                         {emp.department && (
                                                             <p className="text-[10px] font-bold text-[#8c8279] uppercase tracking-widest">{emp.department}</p>
                                                         )}
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            onClick={async () => {
+                                                                const { value: formValues } = await Swal.fire({
+                                                                    title: 'Modifier Employé',
+                                                                    html:
+                                                                        `<input id="swal-input1" class="swal2-input" placeholder="Nom" value="${emp.name}">` +
+                                                                        `<input id="swal-input2" class="swal2-input" placeholder="Département" value="${emp.department || ''}">`,
+                                                                    focusConfirm: false,
+                                                                    showCancelButton: true,
+                                                                    confirmButtonText: 'Enregistrer',
+                                                                    cancelButtonText: 'Annuler',
+                                                                    confirmButtonColor: '#4a3426',
+                                                                    preConfirm: () => {
+                                                                        return [
+                                                                            (document.getElementById('swal-input1') as HTMLInputElement).value,
+                                                                            (document.getElementById('swal-input2') as HTMLInputElement).value
+                                                                        ]
+                                                                    }
+                                                                });
+
+                                                                if (formValues) {
+                                                                    const [newName, newDept] = formValues;
+                                                                    if (newName && (newName.trim() !== emp.name || newDept.trim() !== (emp.department || ''))) {
+                                                                        try {
+                                                                            await updateEmployee({ variables: { id: emp.id, name: newName.trim(), department: newDept.trim() || null } });
+                                                                            await refetch();
+                                                                            Swal.fire({
+                                                                                icon: 'success',
+                                                                                title: 'Mis à jour',
+                                                                                timer: 1500,
+                                                                                showConfirmButton: false
+                                                                            });
+                                                                        } catch (e) {
+                                                                            console.error(e);
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }}
+                                                            className="p-2 text-[#c69f6e] hover:bg-[#f4ece4] rounded-lg transition-colors"
+                                                        >
+                                                            <Edit2 size={16} />
+                                                        </button>
+                                                        <button
+                                                            onClick={async () => {
+                                                                const result = await Swal.fire({
+                                                                    title: 'Supprimer ?',
+                                                                    text: "Cette action est irréversible.",
+                                                                    icon: 'warning',
+                                                                    showCancelButton: true,
+                                                                    confirmButtonText: 'Oui, supprimer',
+                                                                    cancelButtonText: 'Annuler',
+                                                                    confirmButtonColor: '#ef4444',
+                                                                });
+                                                                if (result.isConfirmed) {
+                                                                    await deleteEmployee({ variables: { id: emp.id } });
+                                                                    await refetch();
+                                                                }
+                                                            }}
+                                                            className="p-2 text-red-400 hover:bg-red-50 rounded-lg transition-colors"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
                                                     </div>
                                                 </div>
                                             );
@@ -4959,6 +5060,7 @@ export default function PaiementsPage() {
                                 <button
                                     onClick={() => {
                                         setShowEmployeeListModal(false);
+                                        setEmployeeSearch('');
                                         setNewEmployeeName('');
                                         setNewEmployeeDepartment('');
                                         setShowAddEmployeeModal(true);
@@ -4973,6 +5075,6 @@ export default function PaiementsPage() {
                     </div>
                 )}
             </AnimatePresence>
-        </div >
+        </div>
     );
 }

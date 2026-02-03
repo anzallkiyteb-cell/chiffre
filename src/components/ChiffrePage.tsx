@@ -4536,10 +4536,10 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                     </div>
                                 </div>
                             </div>
-                        </div >
+                        </div>
 
                         {/* Centered Save Button (Integrated in content) */}
-                        < div className="flex flex-col items-center gap-4 pt-8" >
+                        <div className="flex flex-col items-center gap-4 pt-8" >
                             {isLocked && (
                                 <div className="flex items-center gap-2 px-6 py-3 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-500 font-bold animate-pulse">
                                     <LockIcon size={18} />
@@ -4578,8 +4578,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                             </div>
                         </div>
                     </div>
-                </main >
-            </div >
+                </main>
+            </div>
 
             {/* Toast - Enhanced visibility and contrast */}
             <AnimatePresence>
@@ -4979,7 +4979,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                         </motion.div>
                     )
                 }
-            </AnimatePresence >
+            </AnimatePresence>
 
             {/* Click outside to close dropdowns */}
             {showSupplierDropdown !== null && <div className="fixed inset-0 z-40" onClick={() => setShowSupplierDropdown(null)} />}
@@ -5290,7 +5290,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                     </div>
                 )
                 }
-            </AnimatePresence >
+            </AnimatePresence>
 
             {/* Selection Modals Divers */}
             <AnimatePresence>
@@ -5556,7 +5556,7 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                         </div>
                     )
                 }
-            </AnimatePresence >
+            </AnimatePresence>
             <EntryModal
                 isOpen={!!showEntryModal}
                 onClose={() => setShowEntryModal(null)}
@@ -5727,8 +5727,8 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                                                         const { value: formValues } = await MySwal.fire({
                                                             title: 'Modifier Employé',
                                                             html:
-                                                                `< input id = "swal-input1" class="swal2-input" placeholder = "Nom" value = "${emp.name}" > ` +
-                                                                `< input id = "swal-input2" class="swal2-input" placeholder = "Département" value = "${emp.department || ''}" > `,
+                                                                `<input id="swal-input1" class="swal2-input" placeholder="Nom" value="${emp.name}">` +
+                                                                `<input id="swal-input2" class="swal2-input" placeholder="Département" value="${emp.department || ''}">`,
                                                             focusConfirm: false,
                                                             showCancelButton: true,
                                                             confirmButtonText: 'Enregistrer',
@@ -5838,6 +5838,6 @@ export default function ChiffrePage({ role, onLogout }: ChiffrePageProps) {
                 value={replaceDateValue}
                 onConfirm={onConfirmReplaceDate}
             />
-        </div >
+        </div>
     );
 }

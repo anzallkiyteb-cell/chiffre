@@ -185,6 +185,93 @@ const PremiumDatePicker = ({ value, onChange, label, colorMode = 'brown', locked
     );
 };
 
+const PremiumMonthPicker = ({ value, onChange, align = 'left' }: { value: string, onChange: (val: string) => void, align?: 'left' | 'right' }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [viewYear, setViewYear] = useState(parseInt(value?.split('-')[0]) || new Date().getFullYear());
+
+    const months = [
+        'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+        'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
+    ];
+
+    const currentMonthIdx = parseInt(value?.split('-')[1]) - 1;
+
+    return (
+        <div className="relative">
+            <button
+                type="button"
+                onClick={() => setIsOpen(!isOpen)}
+                className="flex items-center justify-between gap-3 bg-white border border-[#e6dace] rounded-xl px-4 h-10 transition-all min-w-[160px] hover:shadow-sm group shadow-sm"
+            >
+                <span className="text-[10px] font-black text-[#4a3426] uppercase tracking-widest truncate">
+                    {!isNaN(currentMonthIdx) ? `${months[currentMonthIdx]} ${value.split('-')[0]}` : 'Choisir Mois'}
+                </span>
+                <Calendar size={14} className="text-[#c69f6e]" />
+            </button>
+
+            <AnimatePresence>
+                {isOpen && (
+                    <>
+                        <div className="fixed inset-0 z-[100]" onClick={() => setIsOpen(false)} />
+                        <motion.div
+                            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                            className={`absolute top-full lg:left-0 -left-20 mt-3 bg-white rounded-[2rem] shadow-2xl border border-[#e6dace] p-6 z-[110] w-72`}
+                        >
+                            <div className="flex justify-between items-center mb-6">
+                                <button
+                                    type="button"
+                                    onClick={() => setViewYear(viewYear - 1)}
+                                    className="p-2 hover:bg-[#fcfaf8] rounded-xl text-[#8c8279] transition-colors"
+                                >
+                                    <ChevronLeft size={18} />
+                                </button>
+                                <span className="text-sm font-black text-[#4a3426] tracking-tighter">
+                                    {viewYear}
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => setViewYear(viewYear + 1)}
+                                    className="p-2 hover:bg-[#fcfaf8] rounded-xl text-[#8c8279] transition-colors"
+                                >
+                                    <ChevronRight size={18} />
+                                </button>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-2">
+                                {months.map((m, i) => {
+                                    const mStr = String(i + 1).padStart(2, '0');
+                                    const isSelected = value === `${viewYear}-${mStr}`;
+                                    return (
+                                        <button
+                                            key={i}
+                                            type="button"
+                                            onClick={() => {
+                                                onChange(`${viewYear}-${mStr}`);
+                                                setIsOpen(false);
+                                            }}
+                                            className={`
+                                                py-3 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all
+                                                ${isSelected
+                                                    ? 'bg-[#c69f6e] text-white shadow-lg shadow-[#c69f6e]/20'
+                                                    : 'text-[#4a3426] hover:bg-[#fcfaf8] border border-transparent hover:border-[#e6dace]/30'
+                                                }
+                                            `}
+                                        >
+                                            {m.substring(0, 4)}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+};
+
 const ChevronLeft = ({ size, className }: { size: number, className?: string }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m15 18-6-6 6-6" /></svg>
 );
@@ -380,6 +467,7 @@ export default function FacturationPage() {
     const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'unpaid'>('all');
     const [payerRoleFilter, setPayerRoleFilter] = useState<'all' | 'admin' | 'caissier'>('all');
     const [categoryFilter, setCategoryFilter] = useState<'all' | 'fournisseur' | 'divers'>('all');
+    const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
 
     // Modal state
     const [showAddModal, setShowAddModal] = useState(false);
@@ -468,9 +556,7 @@ export default function FacturationPage() {
 
     const { data, loading, refetch } = useQuery(GET_INVOICES, {
         variables: {
-            supplierName: searchSupplier || undefined,
-            startDate: filterStartDate || undefined,
-            endDate: filterEndDate || undefined
+            supplierName: searchSupplier || undefined
         }
     });
 
@@ -494,20 +580,49 @@ export default function FacturationPage() {
 
             const amt = parseFloat(inv.amount || '0');
             if (inv.status === 'paid') {
-                acc.paid += amt;
-                acc.countPaid += 1;
+                // Month filter only for paid invoices
+                if (inv.paid_date && inv.paid_date.startsWith(selectedMonth)) {
+                    // Also respect date range if active
+                    let dateMatch = true;
+                    if (filterStartDate || filterEndDate) {
+                        const d = inv.paid_date || inv.date;
+                        if (filterStartDate && d < filterStartDate) dateMatch = false;
+                        if (filterEndDate && d > filterEndDate) dateMatch = false;
+                    }
+
+                    if (dateMatch) {
+                        acc.paid += amt;
+                        acc.countPaid += 1;
+                    }
+                }
             } else {
+                // Unpaid invoices are NOT filtered by month or date range
                 acc.unpaid += amt;
                 acc.countUnpaid += 1;
             }
             return acc;
         }, { paid: 0, unpaid: 0, countPaid: 0, countUnpaid: 0 });
-    }, [data, categoryFilter, payerRoleFilter]);
+    }, [data, categoryFilter, payerRoleFilter, selectedMonth, filterStartDate, filterEndDate]);
 
     const filteredInvoices = useMemo(() => {
         if (!data?.getInvoices) return [];
         return data.getInvoices.filter((inv: any) => {
+            // Status filter logic
             if (statusFilter !== 'all' && inv.status !== statusFilter) return false;
+
+            // Filters that ONLY apply to paid invoices
+            if (inv.status === 'paid') {
+                // Month filter
+                if (!inv.paid_date || !inv.paid_date.startsWith(selectedMonth)) return false;
+
+                // Date range filters
+                if (filterStartDate || filterEndDate) {
+                    const d = inv.paid_date || inv.date;
+                    if (filterStartDate && d < filterStartDate) return false;
+                    if (filterEndDate && d > filterEndDate) return false;
+                }
+            }
+
             if (payerRoleFilter !== 'all' && inv.status === 'paid') {
                 if (payerRoleFilter === 'admin') {
                     if (inv.payer !== 'admin' && inv.payer !== 'riadh') return false;
@@ -521,7 +636,7 @@ export default function FacturationPage() {
             }
             return true;
         });
-    }, [data, statusFilter, payerRoleFilter, categoryFilter]);
+    }, [data, statusFilter, payerRoleFilter, categoryFilter, selectedMonth, filterStartDate, filterEndDate]);
 
     useEffect(() => {
         const savedUser = localStorage.getItem('bb_user');
@@ -791,8 +906,12 @@ export default function FacturationPage() {
                 <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-[#e6dace] py-4 md:py-6 px-4 md:px-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 transition-all">
                     <div className="flex items-center gap-3 w-full md:w-auto justify-between">
                         <div>
-                            <h1 className="text-xl md:text-2xl font-black text-[#4a3426] tracking-tight uppercase">Facturation</h1>
-                            <p className="text-[10px] md:text-xs text-[#8c8279] font-bold uppercase tracking-widest mt-1">Gestion des factures fournisseurs</p>
+                            <h1 className="text-xl md:text-2xl font-black text-[#4a3426] tracking-tight uppercase leading-none mb-1">Facturation</h1>
+                            <div className="flex items-center gap-3">
+                                <p className="text-[10px] md:text-xs text-[#8c8279] font-bold uppercase tracking-widest">Gestion des factures</p>
+                                <div className="w-px h-3 bg-[#e6dace]" />
+                                <PremiumMonthPicker value={selectedMonth} onChange={setSelectedMonth} />
+                            </div>
                         </div>
 
                         {/* Mobile Filter Toggle Button */}
