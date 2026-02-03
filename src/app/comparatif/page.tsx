@@ -418,17 +418,18 @@ const FamilySelector = ({
             <button
                 ref={triggerRef}
                 onClick={() => setIsOpen(!isOpen)}
-                className={`flex items-center gap-3 px-5 py-3 rounded-2xl transition-all duration-300 border border-[#e6dace] ${isOpen
+                className={`flex items-center gap-2 md:gap-3 px-3 md:px-5 py-2 md:py-3 rounded-xl md:rounded-2xl transition-all duration-300 border border-[#e6dace] ${isOpen
                     ? 'bg-[#4a3426] text-white shadow-xl shadow-[#4a3426]/20'
                     : 'bg-[#fcfaf8] text-[#4a3426] hover:bg-white'
                     }`}
             >
                 <div className="flex flex-col items-start text-left">
-                    <span className="text-[9px] font-bold uppercase tracking-widest opacity-60 mb-0.5">Famille sélectionnée</span>
-                    <span className="text-sm font-black uppercase tracking-tight">{selectedFamily?.name || 'Sélectionner'}</span>
+                    <span className="text-[7px] md:text-[9px] font-bold uppercase tracking-widest opacity-60 mb-0.5">Famille</span>
+                    <span className="text-[11px] md:text-sm font-black uppercase tracking-tight truncate max-w-[120px] md:max-w-none">{selectedFamily?.name || 'Sélectionner'}</span>
                 </div>
-                <ChevronDown size={18} className={`ml-4 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown size={14} className={`ml-1 md:ml-4 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
             </button>
+
 
             {mounted && createPortal(
                 <AnimatePresence mode="wait">
@@ -968,94 +969,104 @@ export default function ComparatifPage() {
             {!sidebarHidden && <Sidebar role={user.role} />}
 
             <div className="flex-1 min-w-0 flex flex-col relative overflow-hidden">
-                <header className="bg-white border-b border-[#e6dace] py-3 md:py-4 px-4 md:px-8 flex flex-col sm:flex-row justify-between items-center gap-4 shrink-0 transition-all z-40">
-                    <div className="flex items-center gap-4 w-full sm:w-auto">
+                <header className="bg-white border-b border-[#e6dace] py-2 md:py-4 px-3 md:px-8 flex flex-col lg:flex-row justify-between items-center gap-3 md:gap-4 shrink-0 transition-all z-40">
+                    <div className="flex items-center gap-2 md:gap-4 w-full lg:w-auto overflow-x-auto no-scrollbar py-1">
                         <button
                             onClick={() => setSidebarHidden(!sidebarHidden)}
-                            className="w-10 h-10 bg-white border border-[#e6dace] text-[#4a3426] rounded-xl flex items-center justify-center hover:bg-[#fcfaf8] transition-all shadow-sm active:scale-95"
+                            className="w-9 h-9 md:w-10 md:h-10 bg-white border border-[#e6dace] text-[#4a3426] rounded-xl flex items-center justify-center hover:bg-[#fcfaf8] transition-all shadow-sm active:scale-95 shrink-0"
                             title={sidebarHidden ? 'Afficher le menu' : 'Masquer le menu'}
                         >
                             {sidebarHidden ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
                         </button>
-                        <FamilySelector
-                            families={dbFamilies}
-                            selected={selectedFamille}
-                            onSelect={setSelectedFamille}
-                            onAdd={handleAddFamily}
-                            onDelete={handleDeleteFamily}
-                        />
+                        <div className="flex-1 min-w-0">
+                            <FamilySelector
+                                families={dbFamilies}
+                                selected={selectedFamille}
+                                onSelect={setSelectedFamille}
+                                onAdd={handleAddFamily}
+                                onDelete={handleDeleteFamily}
+                            />
+                        </div>
                     </div>
 
-                    <div className="flex items-center gap-2 md:gap-3 w-full sm:w-auto justify-end">
+                    <div className="flex items-center gap-1.5 md:gap-3 w-full lg:w-auto overflow-x-auto no-scrollbar pb-1 md:pb-0 justify-start lg:justify-end">
                         <button
                             onClick={openDevis}
                             disabled={!selectedFamille}
-                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-indigo-600/20 disabled:opacity-50"
+                            className="flex-1 lg:flex-none flex items-center justify-center gap-1 px-2.5 md:px-6 py-2 md:py-2.5 bg-indigo-600 text-white rounded-lg md:rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-wider md:tracking-widest hover:bg-indigo-700 active:scale-95 transition-all shadow-lg shadow-indigo-600/20 disabled:opacity-50 whitespace-nowrap"
                         >
-                            <Calculator size={14} />
+                            <Calculator size={12} className="shrink-0" />
                             <span>Devis</span>
                         </button>
                         <button
                             onClick={handleGeneratePDF}
                             disabled={!selectedFamille}
-                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-green-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-green-700 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-green-600/20 disabled:opacity-50"
+                            className="flex-1 lg:flex-none flex items-center justify-center gap-1 px-2.5 md:px-6 py-2 md:py-2.5 bg-green-600 text-white rounded-lg md:rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-wider md:tracking-widest hover:bg-green-700 active:scale-95 transition-all shadow-lg shadow-green-600/20 disabled:opacity-50 whitespace-nowrap"
                         >
-                            <Download size={14} />
-                            <span>Télécharger</span>
+                            <Download size={12} className="shrink-0" />
+                            <span>Export</span>
                         </button>
                         <button
                             onClick={handleSave}
                             disabled={isSaving || !selectedFamille}
-                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-[#4a3426] text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-[#4a3426]/20 disabled:opacity-50"
+                            className="flex-1 lg:flex-none flex items-center justify-center gap-1 px-2.5 md:px-6 py-2 md:py-2.5 bg-[#4a3426] text-white rounded-lg md:rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-wider md:tracking-widest active:scale-95 transition-all shadow-lg shadow-[#4a3426]/20 disabled:opacity-50 whitespace-nowrap"
                         >
-                            <Sparkles size={14} className={isSaving ? 'animate-spin' : ''} />
-                            <span>{isSaving ? 'Enregistrement...' : 'Sauvegarder'}</span>
+                            <Sparkles size={12} className={`shrink-0 ${isSaving ? 'animate-spin' : ''}`} />
+                            <span>{isSaving ? '...' : 'Sauver'}</span>
                         </button>
                         <button
                             onClick={addRow}
                             disabled={!selectedFamille}
-                            className="w-10 h-10 bg-white border border-[#e6dace] text-[#4a3426] rounded-xl flex items-center justify-center hover:bg-[#fcfaf8] transition-all shadow-sm active:scale-95 disabled:opacity-50"
+                            className="w-8 h-8 md:w-10 md:h-10 bg-white border border-[#e6dace] text-[#4a3426] rounded-lg md:rounded-xl flex items-center justify-center hover:bg-[#fcfaf8] transition-all shadow-sm active:scale-95 disabled:opacity-50 shrink-0"
                             title="Ajouter un article"
                         >
-                            <Plus size={20} />
+                            <Plus size={16} />
                         </button>
                     </div>
+
                 </header>
 
-                <main className="flex-1 overflow-auto p-3 md:p-6 space-y-6 md:space-y-8 bg-[#fdfbf7]/50">
-                    <div className="bg-white rounded-[2.5rem] luxury-shadow border border-[#e6dace]/50 overflow-x-auto custom-scrollbar min-w-0">
+
+                <main className="flex-1 overflow-auto p-2 md:p-6 space-y-4 md:space-y-8 bg-[#fdfbf7]/50">
+                    <div className="bg-white rounded-2xl md:rounded-[2.5rem] luxury-shadow border border-[#e6dace]/50 overflow-x-auto custom-scrollbar min-w-0">
                         <table className="w-full border-collapse">
                             <thead>
                                 <tr className="bg-[#fcfaf8]/80 backdrop-blur-sm sticky top-0 z-10">
-                                    <th className="px-3 py-4 text-left text-[10px] md:text-[11px] font-black text-[#bba282] uppercase tracking-[0.2em] border-b border-[#e6dace] bg-[#fcfaf8]/80 sticky left-0 z-30 min-w-[120px] md:min-w-[180px]">Désignation</th>
-                                    <th className="px-1 py-4 text-center text-[10px] md:text-[11px] font-black text-[#bba282] uppercase tracking-[0.2em] border-b border-[#e6dace] w-12 md:w-16 bg-[#fcfaf8]/80 sticky left-[120px] md:left-[180px] z-20">Qté</th>
-                                    <th className="px-1 py-4 text-center text-[10px] md:text-[11px] font-black text-[#bba282] uppercase tracking-[0.2em] border-b border-[#e6dace] w-12 md:w-16 bg-[#fcfaf8]/80 sticky left-[168px] md:left-[244px] z-20">Unité</th>
+                                    <th className="px-2 md:px-3 py-4 text-left text-[9px] md:text-[11px] font-black text-[#bba282] uppercase tracking-[0.1em] md:tracking-[0.2em] border-b border-[#e6dace] bg-[#fcfaf8] sticky left-0 z-30 min-w-[100px] md:min-w-[180px] shadow-[2px_0_5px_rgba(0,0,0,0.05)] md:shadow-none">Désignation</th>
+                                    <th className="px-1 py-4 text-center text-[9px] md:text-[11px] font-black text-[#bba282] uppercase tracking-widest border-b border-[#e6dace] min-w-[40px] md:w-16 bg-[#fcfaf8] md:sticky md:left-[180px] z-20">Qté</th>
+                                    <th className="px-1 py-4 text-center text-[9px] md:text-[11px] font-black text-[#bba282] uppercase tracking-widest border-b border-[#e6dace] min-w-[40px] md:w-16 bg-[#fcfaf8] md:sticky md:left-[244px] z-20">Unité</th>
+
+
                                     {currentSuppliers.map((s, idx) => (
-                                        <th key={s.id} className="p-0 border-b border-[#e6dace] bg-[#fcfaf8] min-w-[80px] md:min-w-[100px] group/header">
-                                            <div className="px-1 py-2 flex flex-col items-center relative gap-1">
-                                                <PremiumDatePicker
-                                                    value={s.date || getTodayString()}
-                                                    onChange={(newDate) => updateSupplierDate(s.id, newDate)}
-                                                    align={idx >= currentSuppliers.length - 1 ? 'right' : 'left'}
-                                                />
+                                        <th key={s.id} className="p-0 border-b border-[#e6dace] bg-[#fcfaf8] min-w-[85px] md:min-w-[100px] group/header">
+                                            <div className="px-1 py-1 md:py-2 flex flex-col items-center relative gap-0.5 md:gap-1">
+                                                <div className="scale-75 md:scale-100 origin-center">
+                                                    <PremiumDatePicker
+                                                        value={s.date || getTodayString()}
+                                                        onChange={(newDate) => updateSupplierDate(s.id, newDate)}
+                                                        align={idx >= currentSuppliers.length - 1 ? 'right' : 'left'}
+                                                    />
+                                                </div>
                                                 <div className="flex items-center gap-1">
-                                                    <span className="opacity-50 text-[7px] font-black uppercase tracking-[0.2em] truncate max-w-[90px]">Fournisseur</span>
+                                                    <span className="opacity-50 text-[6px] md:text-[7px] font-black uppercase tracking-[0.1em] md:tracking-[0.2em] truncate max-w-[60px] md:max-w-[90px]">Fournisseur</span>
                                                     <button
                                                         onClick={() => removeSupplierColumn(s.id)}
-                                                        className="p-0.5 text-red-300 hover:text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover/header:opacity-100 transition-all"
+                                                        className="p-0.5 text-red-300 hover:text-red-500 hover:bg-red-50 rounded-lg md:opacity-0 group-hover/header:opacity-100 transition-all"
                                                     >
-                                                        <Trash2 size={8} />
+                                                        <Trash2 size={7} className="md:size-2" />
+
                                                     </button>
                                                 </div>
                                                 <input
                                                     type="text"
                                                     value={s.name}
                                                     onChange={(e) => updateSupplierName(s.id, e.target.value.toUpperCase())}
-                                                    className="bg-transparent border-none outline-none text-center text-[10px] md:text-[11px] font-black text-[#4a3426] uppercase tracking-[0.1em] focus:ring-0 w-full p-0"
+                                                    className="bg-transparent border-none outline-none text-center text-[8px] md:text-[11px] font-black text-[#4a3426] uppercase focus:ring-0 w-full p-0 truncate"
                                                 />
                                             </div>
                                         </th>
                                     ))}
+
                                     <th className="px-2 py-3 border-b border-[#e6dace] w-10 bg-[#fcfaf8]">
                                         <div className="flex items-center justify-center">
                                             <button
@@ -1069,6 +1080,7 @@ export default function ComparatifPage() {
                                     </th>
                                 </tr>
                             </thead>
+
                             <tbody className="divide-y divide-[#f9f6f2]">
                                 {activeRows.map((row, idx) => (
                                     <motion.tr
@@ -1078,39 +1090,42 @@ export default function ComparatifPage() {
                                         transition={{ delay: idx * 0.03 }}
                                         className="group hover:bg-[#fcfaf8]/40 transition-colors"
                                     >
-                                        <td className="px-3 py-2 sticky left-0 z-20 bg-white/95 backdrop-blur-sm group-hover:bg-[#fcfaf8]/95 transition-colors border-r border-transparent group-hover:border-[#e6dace]/20">
+                                        <td className="px-1.5 md:px-3 py-2 sticky left-0 z-20 bg-white group-hover:bg-[#fcfaf8] transition-colors border-r border-transparent group-hover:border-[#e6dace]/20 shadow-[2px_0_5px_rgba(0,0,0,0.05)] md:shadow-none min-w-[100px] md:min-w-[180px]">
                                             <input
                                                 type="text"
                                                 value={row.article}
                                                 onChange={(e) => updateRow(row.id, 'article', e.target.value)}
                                                 placeholder="..."
-                                                className="w-full bg-transparent border-none outline-none text-[11px] md:text-[12px] font-black text-[#4a3426] placeholder:text-[#bba282]/30 focus:ring-0 p-0"
+                                                className="w-full bg-transparent border-none outline-none text-[9px] md:text-[12px] font-black text-[#4a3426] placeholder:text-[#bba282]/30 focus:ring-0 p-0 truncate"
                                             />
                                         </td>
-                                        <td className="px-1 py-2 sticky left-[120px] md:left-[180px] z-10 bg-white/95 backdrop-blur-sm group-hover:bg-[#fcfaf8]/95 transition-colors text-center border-r border-transparent group-hover:border-[#e6dace]/20">
+                                        <td className="px-1 py-2 md:sticky md:left-[180px] z-10 bg-white group-hover:bg-[#fcfaf8] transition-colors text-center border-r border-transparent group-hover:border-[#e6dace]/20 min-w-[40px] md:w-16">
                                             <input
                                                 type="number"
                                                 value={row.quantite}
                                                 step="0.1"
                                                 onChange={(e) => updateRow(row.id, 'quantite', parseFloat(e.target.value) || 0)}
-                                                className="w-full bg-[#fcfaf8] border border-[#e6dace]/50 rounded-md px-1 py-1 text-center text-[10px] md:text-[11px] font-black text-[#4a3426] outline-none focus:border-[#c69f6e] transition-colors p-0"
+                                                className="w-full bg-[#fcfaf8] border border-[#e6dace]/50 rounded-md px-1 py-1 text-center text-[8px] md:text-[11px] font-black text-[#4a3426] outline-none focus:border-[#c69f6e] transition-colors p-0"
                                             />
                                         </td>
-                                        <td className="px-1 py-2 sticky left-[168px] md:left-[244px] z-10 bg-white/95 backdrop-blur-sm group-hover:bg-[#fcfaf8]/95 transition-colors text-center border-r border-[#e6dace]/40 shadow-[4px_0_10px_-2px_rgba(0,0,0,0.02)]">
-                                            <div className="relative flex justify-center scale-90 origin-center">
+                                        <td className="px-1 py-2 md:sticky md:left-[244px] z-10 bg-white group-hover:bg-[#fcfaf8] transition-colors text-center border-r border-[#e6dace]/40 md:shadow-[4px_0_10px_-2px_rgba(0,0,0,0.02)] min-w-[40px] md:w-16">
+                                            <div className="relative flex justify-center scale-[0.6] md:scale-90 origin-center">
                                                 <UnitSelector
                                                     value={row.unite}
                                                     onChange={(val: string) => updateRow(row.id, 'unite', val)}
                                                 />
                                             </div>
                                         </td>
+
+
+
                                         {currentSuppliers.map(s => {
                                             const status = getPriceStatus(row, s.id);
                                             const price = getPriceValue(row.prices[s.id]);
                                             const lineTotal = row.quantite * price;
 
                                             return (
-                                                <td key={s.id} className="px-1 py-2 text-center min-w-[80px] md:min-w-[100px]">
+                                                <td key={s.id} className="px-1 py-2 text-center min-w-[90px] md:min-w-[100px]">
                                                     <div className="flex flex-col items-center gap-0.5">
                                                         <div className={`relative w-20 md:w-24 rounded-lg border transition-all p-0.5 ${status === 'lowest' ? 'bg-green-50/50 border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.15)]' :
                                                             status === 'highest' ? 'bg-red-50/50 border-red-200 ring-1 ring-red-500/10' :
@@ -1132,21 +1147,23 @@ export default function ComparatifPage() {
                                                                 </div>
                                                             )}
                                                         </div>
-                                                        <div className={`text-[9px] font-black uppercase tracking-tighter ${lineTotal > 0 ? 'text-[#4a3426]/60' : 'opacity-0'}`}>
+                                                        <div className={`text-[8px] md:text-[9px] font-black uppercase tracking-tighter ${lineTotal > 0 ? 'text-[#4a3426]/60' : 'opacity-0'}`}>
                                                             {lineTotal.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
                                                         </div>
                                                     </div>
                                                 </td>
                                             );
                                         })}
-                                        <td colSpan={2} className="px-4 md:px-6 py-3 md:py-4 text-right">
+                                        <td className="px-1 md:px-6 py-1 md:py-4 text-center">
                                             <button
                                                 onClick={() => removeRow(row.id)}
-                                                className="p-1.5 md:p-2 text-red-300 hover:text-red-500 hover:bg-red-50 rounded-lg md:rounded-xl transition-all opacity-0 group-hover:opacity-100"
+                                                className="p-1.5 md:p-2 text-red-300 hover:text-red-500 hover:bg-red-50 rounded-lg md:rounded-xl transition-all md:opacity-0 group-hover:opacity-100"
                                             >
-                                                <Trash2 size={14} className="md:size-4" />
+                                                <Trash2 size={12} className="md:size-[14px]" />
                                             </button>
                                         </td>
+
+
                                     </motion.tr>
                                 ))}
                                 {
@@ -1185,19 +1202,22 @@ export default function ComparatifPage() {
                             </tbody>
                             <tfoot>
                                 <tr className="bg-[#4a3426] relative z-20">
-                                    <td colSpan={3} className="px-4 md:px-8 py-6 md:py-8 text-right border-r border-white/5 sticky left-0 z-30 bg-[#4a3426]">
+                                    <td className="px-3 md:px-8 py-4 md:py-8 text-right border-r border-white/5 sticky left-0 z-30 bg-[#4a3426] min-w-[120px] md:min-w-[180px] shadow-[2px_0_5px_rgba(0,0,0,0.1)]">
                                         <div>
-                                            <div className="text-[10px] md:text-[13px] font-black text-white uppercase tracking-[0.2em] md:tracking-[0.4em]">Total</div>
+                                            <div className="text-[11px] md:text-[13px] font-black text-white uppercase tracking-[0.2em] md:tracking-[0.4em]">Total</div>
                                             <p className="hidden md:block text-[8px] font-bold text-[#c69f6e] uppercase tracking-widest mt-1">Comparatif Qté × Prix</p>
                                         </div>
                                     </td>
+                                    <td className="md:hidden bg-[#4a3426] text-center text-white/10 text-[6px] border-r border-white/5">—</td>
+                                    <td className="md:hidden bg-[#4a3426] text-center text-white/10 text-[6px] border-r border-white/5">—</td>
                                     {currentSuppliers.map(s => {
                                         const total = calculateTotalForSupplier(s.id);
+
                                         return (
-                                            <td key={s.id} className="px-2 md:px-4 py-6 md:py-8 text-center bg-black/10 border-r border-white/5 last:border-r-0 min-w-[80px] md:min-w-[100px]">
+                                            <td key={s.id} className="px-2 md:px-4 py-4 md:py-8 text-center bg-black/10 border-r border-white/5 last:border-r-0 min-w-[90px] md:min-w-[100px]">
                                                 <div className="flex flex-col items-center gap-0.5 md:gap-1">
-                                                    <div className="text-[8px] md:text-[10px] font-black text-[#c69f6e] uppercase tracking-[0.1em] md:tracking-[0.2em] mb-0.5 md:mb-1 truncate w-full px-1">{s.name}</div>
-                                                    <div className="text-sm md:text-3xl font-black text-white tracking-tighter leading-none">
+                                                    <div className="text-[7px] md:text-[10px] font-black text-[#c69f6e] uppercase tracking-[0.1em] md:tracking-[0.2em] mb-0.5 md:mb-1 truncate w-full px-1">{s.name}</div>
+                                                    <div className="text-xs md:text-3xl font-black text-white tracking-tighter leading-none">
                                                         {total.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}
                                                     </div>
                                                     <div className="text-[6px] md:text-[10px] font-black text-white/40 uppercase tracking-widest">DT</div>
@@ -1205,16 +1225,17 @@ export default function ComparatifPage() {
                                             </td>
                                         );
                                     })}
-                                    <td colSpan={2}></td>
+                                    <td className="px-4"></td>
                                 </tr>
+
                             </tfoot>
                         </table>
                     </div>
 
-                    {/* Best Offer Section - Per Article Summary */}
-                    <div className="pb-20">
-                        <div className="bg-white rounded-[1.5rem] md:rounded-[2rem] p-5 md:p-8 border border-[#e6dace]/50 shadow-sm">
-                            <h3 className="text-[11px] md:text-sm font-black text-[#4a3426] uppercase tracking-widest mb-4 md:mb-6 flex items-center gap-2 md:gap-3">
+                    <div className="pb-32 md:pb-20 px-1 md:px-0">
+
+                        <div className="bg-white rounded-2xl md:rounded-[2rem] p-4 md:p-8 border border-[#e6dace]/50 shadow-sm">
+                            <h3 className="text-[10px] md:text-sm font-black text-[#4a3426] uppercase tracking-widest mb-4 md:mb-6 flex items-center gap-2 md:gap-3">
                                 <TrendingDown className="text-green-500" size={16} />
                                 Meilleure offre par article
                             </h3>
@@ -1242,44 +1263,45 @@ export default function ComparatifPage() {
                                     };
                                 }).filter(Boolean) as { article: string; quantite: number; unite: string; supplierName: string; price: number; date: string; lineTotal: number }[];
 
-                                if (bestPrices.length === 0) return <p className="text-[9px] md:text-xs font-bold text-[#8c8279] italic">Saisissez des prix pour au moins 2 fournisseurs</p>;
+                                if (bestPrices.length === 0) return <p className="text-[9px] md:text-xs font-bold text-[#8c8279] italic opacity-60">Saisissez des prix pour au moins 2 fournisseurs</p>;
 
                                 const grandTotal = bestPrices.reduce((s, bp) => s + bp.lineTotal, 0);
 
                                 return (
                                     <div className="space-y-4">
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full">
+                                        <div className="overflow-x-auto -mx-1 px-1">
+                                            <table className="w-full border-separate border-spacing-0">
                                                 <thead>
-                                                    <tr className="text-[8px] md:text-[9px] font-black text-[#bba282] uppercase tracking-widest">
-                                                        <th className="text-left pb-2 pr-3">Article</th>
-                                                        <th className="text-center pb-2 px-2">Qté</th>
-                                                        <th className="text-center pb-2 px-2">Unité</th>
-                                                        <th className="text-center pb-2 px-2">Fournisseur</th>
-                                                        <th className="text-right pb-2 px-2">Prix U.</th>
+                                                    <tr className="text-[8px] md:text-[9px] font-black text-[#bba282] uppercase tracking-wider md:tracking-widest border-b border-[#e6dace]">
+                                                        <th className="text-left pb-2 pr-2">Article</th>
+                                                        <th className="text-center pb-2 px-1">Qté</th>
+                                                        <th className="text-center pb-2 px-1 md:table-cell hidden">Unité</th>
+                                                        <th className="text-center pb-2 px-1">Fourn.</th>
+                                                        <th className="text-right pb-2 px-1">Prix U.</th>
                                                         <th className="text-right pb-2 pl-2">Total</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-[#f9f6f2]">
                                                     {bestPrices.map((bp, i) => (
                                                         <tr key={i} className="text-[10px] md:text-xs text-[#4a3426]">
-                                                            <td className="py-2.5 pr-3 font-bold">{bp.article || '-'}</td>
-                                                            <td className="py-2.5 px-2 text-center">{bp.quantite}</td>
-                                                            <td className="py-2.5 px-2 text-center uppercase text-[9px]">{bp.unite}</td>
-                                                            <td className="py-2.5 px-2 text-center">
-                                                                <span className="inline-block px-2 py-0.5 bg-green-50 text-green-700 rounded-md text-[9px] font-black border border-green-100">
+                                                            <td className="py-2.5 pr-2 font-bold max-w-[100px] md:max-w-none truncate md:whitespace-normal">{bp.article || '-'}</td>
+                                                            <td className="py-2.5 px-1 text-center font-medium">{bp.quantite}</td>
+                                                            <td className="py-2.5 px-1 text-center uppercase text-[8px] md:table-cell hidden">{bp.unite}</td>
+                                                            <td className="py-2.5 px-1 text-center">
+                                                                <span className="inline-block px-1.5 md:px-2 py-0.5 bg-green-50 text-green-700 rounded-md text-[8px] md:text-[9px] font-black border border-green-100 truncate max-w-[60px] md:max-w-none">
                                                                     {bp.supplierName}
                                                                 </span>
                                                             </td>
-                                                            <td className="py-2.5 px-2 text-right font-black">{bp.price.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</td>
+                                                            <td className="py-2.5 px-1 text-right font-black">{bp.price.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</td>
                                                             <td className="py-2.5 pl-2 text-right font-black">{bp.lineTotal.toLocaleString('fr-FR', { minimumFractionDigits: 3 })}</td>
                                                         </tr>
                                                     ))}
                                                 </tbody>
                                                 <tfoot>
                                                     <tr className="border-t-2 border-[#4a3426]">
-                                                        <td colSpan={5} className="pt-3 pb-1 text-right font-black text-[#4a3426] uppercase tracking-widest text-[9px] md:text-[10px]">Total optimal</td>
-                                                        <td className="pt-3 pb-1 text-right font-black text-green-700 text-sm md:text-lg pl-2">{grandTotal.toLocaleString('fr-FR', { minimumFractionDigits: 3 })} DT</td>
+                                                        <td colSpan={4} className="md:table-cell hidden pt-3 pb-1 text-right font-black text-[#4a3426] uppercase tracking-widest text-[9px] md:text-[10px]">Total optimal</td>
+                                                        <td colSpan={3} className="md:hidden pt-3 pb-1 text-right font-black text-[#4a3426] uppercase tracking-widest text-[8px]">Total</td>
+                                                        <td colSpan={1} className="pt-3 pb-1 text-right font-black text-green-700 text-xs md:text-lg pl-2 whitespace-nowrap">{grandTotal.toLocaleString('fr-FR', { minimumFractionDigits: 3 })} <span className="text-[8px] md:text-sm">DT</span></td>
                                                     </tr>
                                                 </tfoot>
                                             </table>
@@ -1289,6 +1311,7 @@ export default function ComparatifPage() {
                             })()}
                         </div>
                     </div>
+
                 </main>
             </div>
 
@@ -1304,46 +1327,56 @@ export default function ComparatifPage() {
                         />
 
                         {/* Header Fixed */}
-                        <div className="relative z-10 bg-white border-b border-[#e6dace] px-8 py-4 flex justify-between items-center shrink-0 shadow-xl">
-                            <div className="flex items-center gap-4">
-                                <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
-                                    <Calculator size={24} />
+                        <div className="relative z-10 bg-white border-b border-[#e6dace] px-4 md:px-8 py-3 md:py-4 flex flex-col md:flex-row gap-4 justify-between items-center shrink-0 shadow-xl">
+                            <div className="flex items-center gap-3 w-full md:w-auto">
+                                <div className="p-2 md:p-3 bg-indigo-50 text-indigo-600 rounded-xl md:rounded-2xl">
+                                    <Calculator size={20} className="md:size-6" />
                                 </div>
-                                <div>
-                                    <h2 className="text-xl font-black text-[#4a3426] uppercase">Mode Devis</h2>
-                                    <p className="text-[10px] font-bold text-[#8c8279] uppercase tracking-widest">{selectedFamille} — Simulation de commande</p>
+                                <div className="min-w-0">
+                                    <h2 className="text-sm md:text-xl font-black text-[#4a3426] uppercase truncate">Mode Devis</h2>
+                                    <p className="text-[8px] md:text-[10px] font-bold text-[#8c8279] uppercase tracking-widest truncate">{selectedFamille} — Simulation</p>
+                                </div>
+                                <div className="ml-auto md:hidden">
+                                    <button
+                                        onClick={() => setIsDevisModalOpen(false)}
+                                        className="w-10 h-10 flex items-center justify-center hover:bg-red-50 hover:text-red-500 rounded-xl transition-all text-[#8c8279]"
+                                    >
+                                        <X size={24} />
+                                    </button>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-2 md:gap-4 w-full md:w-auto">
                                 <button
                                     onClick={handleDevisPDF}
-                                    className="flex items-center gap-3 px-8 py-3 bg-green-600 text-white rounded-[2rem] text-xs font-black uppercase tracking-widest hover:bg-green-700 hover:scale-105 active:scale-95 transition-all shadow-lg shadow-green-600/20"
+                                    className="flex-1 md:flex-none flex items-center justify-center gap-2 md:gap-3 px-4 md:px-8 py-2.5 md:py-3 bg-green-600 text-white rounded-xl md:rounded-[2rem] text-[10px] md:text-xs font-black uppercase tracking-wider md:tracking-widest hover:bg-green-700 hover:scale-105 active:scale-95 transition-all shadow-lg shadow-green-600/20"
                                 >
-                                    <Download size={18} />
-                                    <span>Passer Commande</span>
+                                    <Download size={16} className="md:size-[18px]" />
+                                    <span>Commander</span>
                                 </button>
                                 <button
                                     onClick={() => setIsDevisModalOpen(false)}
-                                    className="w-12 h-12 flex items-center justify-center hover:bg-red-50 hover:text-red-500 rounded-2xl transition-all text-[#8c8279]"
+                                    className="hidden md:flex w-12 h-12 items-center justify-center hover:bg-red-50 hover:text-red-500 rounded-2xl transition-all text-[#8c8279]"
                                 >
                                     <X size={32} />
                                 </button>
                             </div>
                         </div>
 
+
                         <div className="relative z-10 flex-1 flex overflow-hidden">
                             {/* LEFT SIDEBAR FOR PAGE SELECTION */}
-                            <div className="w-16 md:w-64 bg-white border-r border-[#e6dace] flex flex-col p-4 gap-4 bg-[#fcfaf8]/50 overflow-y-auto">
-                                <span className="hidden md:block text-[10px] font-black text-[#c69f6e] uppercase tracking-[0.2em] mb-2 px-2">Pages du Devis</span>
+                            <div className="w-14 md:w-64 bg-white border-r border-[#e6dace] flex flex-col p-2 md:p-4 gap-3 md:gap-4 bg-[#fcfaf8]/50 overflow-y-auto">
+                                <span className="hidden md:block text-[10px] font-black text-[#c69f6e] uppercase tracking-[0.2em] mb-2 px-2">Pages</span>
 
                                 <button
                                     onClick={() => setActiveDevisPage('green')}
-                                    className={`flex items-center gap-3 p-3 rounded-2xl transition-all border ${activeDevisPage === 'green'
+                                    className={`flex items-center gap-3 p-2 md:p-3 rounded-xl md:rounded-2xl transition-all border ${activeDevisPage === 'green'
                                         ? 'bg-green-50 border-green-200 text-green-700 shadow-sm'
                                         : 'bg-white border-transparent text-[#8c8279] hover:bg-white hover:border-[#e6dace]'
                                         }`}
+                                    title="Meilleures Offres"
                                 >
-                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${activeDevisPage === 'green' ? 'bg-green-500 text-white' : 'bg-[#fcfaf8] text-[#c69f6e]'}`}>
+                                    <div className={`w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl flex items-center justify-center shrink-0 ${activeDevisPage === 'green' ? 'bg-green-500 text-white' : 'bg-[#fcfaf8] text-[#c69f6e]'}`}>
                                         <TrendingDown size={18} />
                                     </div>
                                     <div className="hidden md:flex flex-col items-start overflow-hidden">
@@ -1355,12 +1388,13 @@ export default function ComparatifPage() {
 
                                 <button
                                     onClick={() => setActiveDevisPage('red')}
-                                    className={`flex items-center gap-3 p-3 rounded-2xl transition-all border ${activeDevisPage === 'red'
+                                    className={`flex items-center gap-3 p-2 md:p-3 rounded-xl md:rounded-2xl transition-all border ${activeDevisPage === 'red'
                                         ? 'bg-red-50 border-red-200 text-red-700 shadow-sm'
                                         : 'bg-white border-transparent text-[#8c8279] hover:bg-white hover:border-[#e6dace]'
                                         }`}
+                                    title="À Vérifier"
                                 >
-                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${activeDevisPage === 'red' ? 'bg-red-500 text-white' : 'bg-[#fcfaf8] text-[#c69f6e]'}`}>
+                                    <div className={`w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl flex items-center justify-center shrink-0 ${activeDevisPage === 'red' ? 'bg-red-500 text-white' : 'bg-[#fcfaf8] text-[#c69f6e]'}`}>
                                         <Info size={18} />
                                     </div>
                                     <div className="hidden md:flex flex-col items-start overflow-hidden">
@@ -1370,25 +1404,26 @@ export default function ComparatifPage() {
                                     {activeDevisPage === 'red' && <div className="hidden md:block ml-auto w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />}
                                 </button>
 
-                                <div className="mt-auto border-t border-[#e6dace] pt-6 flex flex-col gap-4">
-                                    <div className="bg-indigo-50/50 rounded-2xl p-4 border border-indigo-100 hidden md:block">
-                                        <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest block mb-2">Résumé Global</span>
+                                <div className="mt-auto border-t border-[#e6dace] pt-4 md:pt-6 flex flex-col gap-4">
+                                    <div className="bg-indigo-50/50 rounded-xl md:rounded-2xl p-2 md:p-4 border border-indigo-100 hidden md:block">
+                                        <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest block mb-2">Résumé</span>
                                         <div className="space-y-1">
                                             <div className="flex justify-between items-center text-[10px] font-bold text-[#4a3426]">
                                                 <span>Optimisés:</span>
-                                                <span className="text-green-600">{activeRows.filter(r => Object.values(r.prices).filter(p => getPriceValue(p) > 0).length >= 2).length}</span>
+                                                <span className="text-green-600 font-black">{activeRows.filter(r => Object.values(r.prices).filter(p => getPriceValue(p) > 0).length >= 2).length}</span>
                                             </div>
                                             <div className="flex justify-between items-center text-[10px] font-bold text-[#4a3426]">
                                                 <span>À vérifier:</span>
-                                                <span className="text-red-500">{activeRows.filter(r => Object.values(r.prices).filter(p => getPriceValue(p) > 0).length < currentSuppliers.length).length}</span>
+                                                <span className="text-red-500 font-black">{activeRows.filter(r => Object.values(r.prices).filter(p => getPriceValue(p) > 0).length < currentSuppliers.length).length}</span>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
+
                             {/* PDF View Simulation Area */}
-                            <div className="flex-1 overflow-auto bg-[#e5e7eb] py-12 flex flex-col items-center custom-scrollbar">
+                            <div className="flex-1 overflow-auto bg-[#e5e7eb] py-4 md:py-12 flex flex-col items-center custom-scrollbar">
 
                                 {activeDevisPage === 'green' && (
                                     /* GREEN PAGE (PRIX OPTIMISÉS) */
@@ -1396,19 +1431,20 @@ export default function ComparatifPage() {
                                         initial={{ y: 50, opacity: 0 }}
                                         animate={{ y: 0, opacity: 1 }}
                                         key="green-page"
-                                        className="bg-white w-[210mm] min-h-[297mm] shadow-[0_30px_70px_rgba(0,0,0,0.2)] p-12 relative flex flex-col border-[2px] border-green-500 rounded-sm"
+                                        className="bg-white w-[95%] md:w-[210mm] min-h-[297mm] shadow-[0_10px_40px_rgba(0,0,0,0.1)] md:shadow-[0_30px_70px_rgba(0,0,0,0.2)] p-4 md:p-12 relative flex flex-col border-[2px] border-green-500 rounded-sm overflow-hidden"
                                     >
-                                        <div className="absolute top-0 left-0 w-full h-2 bg-green-500" />
-                                        <div className="flex justify-between items-start mb-10">
+                                        <div className="absolute top-0 left-0 w-full h-1 md:h-2 bg-green-500" />
+                                        <div className="flex flex-col md:flex-row justify-between items-start mb-6 md:mb-10 gap-4">
                                             <div>
-                                                <h1 className="text-4xl font-black text-[#4a3426] mb-2 uppercase tracking-tighter">MEILLEURES OFFRES</h1>
-                                                <p className="text-sm font-bold text-[#8c8279] uppercase tracking-widest">Famille: {selectedFamille}</p>
-                                                <p className="text-xs font-medium text-[#c69f6e] mt-1">{getTodayString()}</p>
+                                                <h1 className="text-xl md:text-4xl font-black text-[#4a3426] mb-1 md:mb-2 uppercase tracking-tighter">MEILLEURES OFFRES</h1>
+                                                <p className="text-[10px] md:text-sm font-bold text-[#8c8279] uppercase tracking-widest">Famille: {selectedFamille}</p>
+                                                <p className="text-[8px] md:text-xs font-medium text-[#c69f6e] mt-1">{getTodayString()}</p>
                                             </div>
-                                            <div className="text-right">
-                                                <div className="inline-block px-4 py-1.5 bg-green-100 text-green-700 rounded-full text-[10px] font-black uppercase tracking-widest">Calcul Optimisé</div>
+                                            <div className="text-right self-end md:self-auto">
+                                                <div className="inline-block px-3 md:px-4 py-1.5 bg-green-100 text-green-700 rounded-full text-[8px] md:text-[10px] font-black uppercase tracking-widest">Calcul Optimisé</div>
                                             </div>
                                         </div>
+
 
                                         <div className="flex-1 overflow-x-auto">
                                             <table className="w-full border-collapse">
@@ -1493,19 +1529,20 @@ export default function ComparatifPage() {
                                         initial={{ y: 50, opacity: 0 }}
                                         animate={{ y: 0, opacity: 1 }}
                                         key="red-page"
-                                        className="bg-white w-[210mm] min-h-[297mm] shadow-[0_30px_70px_rgba(0,0,0,0.2)] p-12 relative flex flex-col border-[2px] border-red-500 rounded-sm"
+                                        className="bg-white w-[95%] md:w-[210mm] min-h-[297mm] shadow-[0_10px_40px_rgba(0,0,0,0.1)] md:shadow-[0_30px_70px_rgba(0,0,0,0.2)] p-4 md:p-12 relative flex flex-col border-[2px] border-red-500 rounded-sm overflow-hidden"
                                     >
-                                        <div className="absolute top-0 left-0 w-full h-2 bg-red-500" />
-                                        <div className="flex justify-between items-start mb-10">
+                                        <div className="absolute top-0 left-0 w-full h-1 md:h-2 bg-red-500" />
+                                        <div className="flex flex-col md:flex-row justify-between items-start mb-6 md:mb-10 gap-4">
                                             <div>
-                                                <h1 className="text-4xl font-black text-[#4a3426] mb-2 uppercase tracking-tighter text-red-600">ARTICLES À VÉRIFIER</h1>
-                                                <p className="text-sm font-bold text-[#8c8279] uppercase tracking-widest">Données de comparaison insuffisantes</p>
-                                                <p className="text-xs font-medium text-[#c69f6e] mt-1">{getTodayString()}</p>
+                                                <h1 className="text-xl md:text-4xl font-black text-[#4a3426] mb-1 md:mb-2 uppercase tracking-tighter text-red-600">À VÉRIFIER</h1>
+                                                <p className="text-[10px] md:text-sm font-bold text-[#8c8279] uppercase tracking-widest">Données insuffisantes</p>
+                                                <p className="text-[8px] md:text-xs font-medium text-[#c69f6e] mt-1">{getTodayString()}</p>
                                             </div>
-                                            <div className="text-right">
-                                                <div className="inline-block px-4 py-1.5 bg-red-100 text-red-700 rounded-full text-[10px] font-black uppercase tracking-widest">Pas de Comparaison</div>
+                                            <div className="text-right self-end md:self-auto">
+                                                <div className="inline-block px-3 md:px-4 py-1.5 bg-red-100 text-red-700 rounded-full text-[8px] md:text-[10px] font-black uppercase tracking-widest">Incomplet</div>
                                             </div>
                                         </div>
+
 
                                         <div className="flex-1 overflow-x-auto">
                                             <table className="w-full border-collapse">

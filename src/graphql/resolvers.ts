@@ -607,8 +607,8 @@ export const resolvers = {
                 query(`SELECT SUM(montant) as total FROM restes_salaires_daily WHERE date::text ${dateFilter}`, params),
                 query(`SELECT SUM(amount) as total FROM salary_remainders ${month ? "WHERE month = $1" : ""}`, month ? [month] : []),
                 query(`SELECT SUM(${cleanNum('offres')}) as total FROM chiffres WHERE date::text ${dateFilter}`, params),
-                query(`SELECT SUM(${cleanNum('amount')}) as total FROM invoices WHERE status = 'paid' AND payment_method = 'Espèces' AND origin != 'daily_sheet' AND ${filterBy === 'date' ? 'date' : 'paid_date'}::text ${paidDateFilter}`, params),
-                query(`SELECT SUM(${cleanNum('amount')}) as total FROM invoices WHERE status = 'paid' AND payment_method = 'Ticket Restaurant' AND origin != 'daily_sheet' AND ${filterBy === 'date' ? 'date' : 'paid_date'}::text ${paidDateFilter}`, params)
+                query(`SELECT SUM(${cleanNum('amount')}) as total FROM invoices WHERE status = 'paid' AND payment_method = 'Espèces' AND origin != 'daily_sheet' AND (payer IS NULL OR payer != 'riadh') AND ${filterBy === 'date' ? 'date' : 'paid_date'}::text ${paidDateFilter}`, params),
+                query(`SELECT SUM(${cleanNum('amount')}) as total FROM invoices WHERE status = 'paid' AND payment_method = 'Ticket Restaurant' AND origin != 'daily_sheet' AND (payer IS NULL OR payer != 'riadh') AND ${filterBy === 'date' ? 'date' : 'paid_date'}::text ${paidDateFilter}`, params)
             ]);
 
             const tBankDeposits = parseFloat(bankRes.rows[0]?.total || '0');
@@ -629,11 +629,11 @@ export const resolvers = {
                 totalUnpaidInvoices: parseFloat(unpaidInvoicesRes.rows[0]?.total || '0'),
                 totalTPE: parseFloat(tpeRes.rows[0]?.total || '0'),
                 totalCheque: parseFloat(chequeRes.rows[0]?.total || '0'),
-                totalCash: parseFloat(cashRes.rows[0]?.total || '0') - parseFloat(cashExpRes.rows[0]?.total || '0'),
+                totalCash: parseFloat(cashRes.rows[0]?.total || '0'),
                 totalBankDeposits: tBankDeposits,
                 totalRecetteCaisse: parseFloat(caisseRes.rows[0]?.total || '0'),
                 totalExpenses: tExpenses,
-                totalTicketsRestaurant: parseFloat(ticketRes.rows[0]?.total || '0') - parseFloat(ticketExpRes.rows[0]?.total || '0'),
+                totalTicketsRestaurant: parseFloat(ticketRes.rows[0]?.total || '0'),
                 totalRiadhExpenses: sumRiadh,
                 totalRestesSalaires: sumRemainders,
                 totalOffres: parseFloat(offresRes.rows[0]?.total || '0'),

@@ -638,6 +638,17 @@ export default function PaiementsPage() {
     const [activeCAProfitSegment, setActiveCAProfitSegment] = useState<'expenses' | 'personnel' | 'admin' | 'reste' | null>(null);
     const [hideAmounts, setHideAmounts] = useState(false);
 
+    const effectiveDateRange = useMemo(() => {
+        if (activeFilter === 'month' && month) {
+            const firstday = `${month}-01`;
+            const [y, m] = month.split('-');
+            const lastD = new Date(parseInt(y), parseInt(m), 0).getDate();
+            const lastday = `${y}-${m}-${String(lastD).padStart(2, '0')}`;
+            return { start: firstday, end: lastday };
+        }
+        return dateRange;
+    }, [activeFilter, month, dateRange]);
+
     const maskAmount = (val: number | string, decimals = 3) => {
         if (hideAmounts) return '****';
         const num = typeof val === 'string' ? parseFloat(val) : val;
@@ -645,7 +656,7 @@ export default function PaiementsPage() {
     };
 
     const { data: historyData, refetch: refetchHistory } = useQuery(GET_INVOICES, {
-        variables: { payer: 'riadh', startDate: '', endDate: '' },
+        variables: { payer: 'riadh', startDate: effectiveDateRange.start, endDate: effectiveDateRange.end },
         pollInterval: 5000,
     });
 
@@ -782,17 +793,6 @@ export default function PaiementsPage() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    const effectiveDateRange = useMemo(() => {
-        if (activeFilter === 'month' && month) {
-            const firstday = `${month}-01`;
-            const [y, m] = month.split('-');
-            const lastD = new Date(parseInt(y), parseInt(m), 0).getDate();
-            const lastday = `${y}-${m}-${String(lastD).padStart(2, '0')}`;
-            return { start: firstday, end: lastday };
-        }
-        return dateRange;
-    }, [activeFilter, month, dateRange]);
-
     const safeParse = (val: any) => {
         if (!val) return 0;
         if (typeof val === 'number') return val;
@@ -831,16 +831,18 @@ export default function PaiementsPage() {
         const riadhExpenses = (payerType === 'caisse') ? [] : riadhInvoicesRaw;
         const riadhTotal = riadhExpenses.reduce((acc: number, inv: any) => acc + safeParse(inv.amount), 0);
 
-        const bankExpenses = allInvoices
-            .filter((inv: any) => inv.status === 'paid' && (inv.payment_method === 'Chèque' || inv.payment_method === 'TPE (Carte)' || inv.payment_method === 'Virement'))
+        const caisseInvoices = allInvoices.filter((inv: any) => inv.status === 'paid' && inv.payer !== 'riadh');
+
+        const bankExpenses = caisseInvoices
+            .filter((inv: any) => (inv.payment_method === 'Chèque' || inv.payment_method === 'TPE (Carte)' || inv.payment_method === 'Virement'))
             .reduce((acc: number, inv: any) => acc + safeParse(inv.amount), 0);
 
-        const cashExpenses = allInvoices
-            .filter((inv: any) => inv.status === 'paid' && inv.payment_method === 'Espèces' && (inv.origin !== 'daily_sheet'))
+        const cashExpenses = caisseInvoices
+            .filter((inv: any) => inv.payment_method === 'Espèces' && (inv.origin !== 'daily_sheet'))
             .reduce((acc: number, inv: any) => acc + safeParse(inv.amount), 0);
 
-        const ticketsExpenses = allInvoices
-            .filter((inv: any) => inv.status === 'paid' && inv.payment_method === 'Ticket Restaurant' && (inv.origin !== 'daily_sheet'))
+        const ticketsExpenses = caisseInvoices
+            .filter((inv: any) => inv.payment_method === 'Ticket Restaurant' && (inv.origin !== 'daily_sheet'))
             .reduce((acc: number, inv: any) => acc + safeParse(inv.amount), 0);
 
         const aggregated = source.reduce((acc: any, curr: any) => {
@@ -878,12 +880,6 @@ export default function PaiementsPage() {
         const pendingRemaindersTotal = (payerType === 'riadh') ? 0 : (data?.getSalaryRemainders || []).reduce((acc: number, r: any) => acc + safeParse(r.amount), 0);
         const bankDepositsTotal = (payerType === 'riadh') ? 0 : (data?.getBankDeposits || []).reduce((acc: number, d: any) => acc + safeParse(d.amount), 0);
 
-        // Base Cash (Available from Sales/Espaces only)
-        // Note: backend data?.getPaymentStats?.totalCash is now (sum of espaces - directCashExpenses)
-        const totalEspaces = aggregated.chiffreAffaire > 0
-            ? aggregated.cash
-            : (payerType === 'riadh' ? 0 : (safeParse(data?.getPaymentStats?.totalCash) + cashExpenses));
-
         // Add Riadh's expenses and Pending Remainders
         const finalExpenses = (aggregated.expenses || (payerType === 'riadh' ? 0 : safeParse(data?.getPaymentStats?.totalExpenses))) + riadhTotal + pendingRemaindersTotal;
 
@@ -891,14 +887,19 @@ export default function PaiementsPage() {
         const baseReste = (payerType === 'riadh') ? 0 : (aggregated.reste || safeParse(data?.getPaymentStats?.totalRecetteNette));
         const finalReste = baseReste - riadhTotal - pendingRemaindersTotal;
 
-        // Final Cash = (Total Espaces) - (Pending Salary Remainders) - (Cash Expenses) - (Bank Transfers)
-        const finalCash = totalEspaces - pendingRemaindersTotal - cashExpenses - bankDepositsTotal;
+        // Final Cash = Espaces (cash portion of revenue after daily expenses) - Bank Deposits
+        // espaces = recette_de_caisse - total_diponce - tpe - tpe2 - cheques - tickets
+        // This is the physical cash remaining in the register from daily operations
+        // Old unpaid invoices paid this month are tracked in TOTAL DÉPENSES separately
+        const totalEspaces = aggregated.chiffreAffaire > 0
+            ? aggregated.cash
+            : (payerType === 'riadh' ? 0 : safeParse(data?.getPaymentStats?.totalCash));
+        const finalCash = totalEspaces - bankDepositsTotal;
 
-        // Final Tickets = (Gross Tickets) - (Ticket Expenses)
-        const grossTickets = aggregated.chiffreAffaire > 0
+        // Final Tickets = Tickets from daily sheets (already net of daily expenses)
+        const finalTickets = aggregated.chiffreAffaire > 0
             ? aggregated.tickets
-            : (payerType === 'riadh' ? 0 : (safeParse(data?.getPaymentStats?.totalTicketsRestaurant) + ticketsExpenses));
-        const finalTickets = grossTickets - ticketsExpenses;
+            : (payerType === 'riadh' ? 0 : safeParse(data?.getPaymentStats?.totalTicketsRestaurant));
 
         // Apply previews if forms are open
         let previewExpenses = finalExpenses;
