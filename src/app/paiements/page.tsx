@@ -372,8 +372,8 @@ const DELETE_BANK_DEPOSIT = gql`
 `;
 
 const ADD_PAID_INVOICE = gql`
-  mutation AddPaidInvoice($supplier_name: String!, $amount: String!, $date: String!, $photo_url: String, $photo_cheque_url: String, $photo_verso_url: String, $payment_method: String!, $paid_date: String!, $payer: String, $doc_type: String, $doc_number: String, $category: String, $details: String) {
-    addPaidInvoice(supplier_name: $supplier_name, amount: $amount, date: $date, photo_url: $photo_url, photo_cheque_url: $photo_cheque_url, photo_verso_url: $photo_verso_url, payment_method: $payment_method, paid_date: $paid_date, payer: $payer, doc_type: $doc_type, doc_number: $doc_number, category: $category, details: $details) {
+  mutation AddPaidInvoice($supplier_name: String!, $amount: String!, $date: String!, $photo_url: String, $photo_cheque_url: String, $photo_verso_url: String, $payment_method: String!, $paid_date: String!, $payer: String, $doc_type: String, $doc_number: String, $category: String, $details: String, $coutachat: Boolean) {
+    addPaidInvoice(supplier_name: $supplier_name, amount: $amount, date: $date, photo_url: $photo_url, photo_cheque_url: $photo_cheque_url, photo_verso_url: $photo_verso_url, payment_method: $payment_method, paid_date: $paid_date, payer: $payer, doc_type: $doc_type, doc_number: $doc_number, category: $category, details: $details, coutachat: $coutachat) {
       id
     }
   }
@@ -406,8 +406,8 @@ const UNPAY_INVOICE = gql`
 `;
 
 const UPDATE_INVOICE = gql`
-  mutation UpdateInvoice($id: Int!, $supplier_name: String, $amount: String, $date: String, $payment_method: String, $paid_date: String, $category: String, $doc_type: String, $doc_number: String, $details: String) {
-    updateInvoice(id: $id, supplier_name: $supplier_name, amount: $amount, date: $date, payment_method: $payment_method, paid_date: $paid_date, category: $category, doc_type: $doc_type, doc_number: $doc_number, details: $details) {
+  mutation UpdateInvoice($id: Int!, $supplier_name: String, $amount: String, $date: String, $payment_method: String, $paid_date: String, $category: String, $doc_type: String, $doc_number: String, $details: String, $coutachat: Boolean) {
+    updateInvoice(id: $id, supplier_name: $supplier_name, amount: $amount, date: $date, payment_method: $payment_method, paid_date: $paid_date, category: $category, doc_type: $doc_type, doc_number: $doc_number, details: $details, coutachat: $coutachat) {
       id
     }
   }
@@ -541,6 +541,7 @@ export default function PaiementsPage() {
     const [expDetails, setExpDetails] = useState('');
     const [expHasRetenue, setExpHasRetenue] = useState(false);
     const [expOriginalAmount, setExpOriginalAmount] = useState('');
+    const [expCoutAchat, setExpCoutAchat] = useState<boolean | null>(null);
     const [showExpForm, setShowExpForm] = useState(false);
     const [showSalaryRemaindersModal, setShowSalaryRemaindersModal] = useState(false);
     const [editingSalaryId, setEditingSalaryId] = useState<number | string | null>(null);
@@ -811,6 +812,7 @@ export default function PaiementsPage() {
         setExpInvoiceNumber(inv.doc_number || '');
         setExpCategory(inv.category || 'Fournisseur');
         setExpDetails(inv.details || '');
+        setExpCoutAchat(inv.coutachat ?? null);
         setExpHasRetenue(false);
         setExpOriginalAmount('');
         setShowExpForm(true);
@@ -1310,12 +1312,14 @@ export default function PaiementsPage() {
 
     // Selection & Long Press Logic for Expenses Modal
     const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
+    const [selectedSubItems, setSelectedSubItems] = useState<string[]>([]);
     const longPressTimer = useRef<any>(null);
     const isLongPress = useRef(false);
 
     const startPress = (idx: number) => {
         isLongPress.current = false;
         longPressTimer.current = setTimeout(() => {
+            isLongPress.current = true;
             setSelectedCategories(prev => prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx]);
         }, 500);
     };
@@ -1324,6 +1328,7 @@ export default function PaiementsPage() {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
                 setSelectedCategories([]);
+                setSelectedSubItems([]);
             }
         };
         window.addEventListener('keydown', handleKeyDown);
@@ -1331,6 +1336,21 @@ export default function PaiementsPage() {
     }, []);
 
     const cancelPress = () => {
+        if (longPressTimer.current) {
+            clearTimeout(longPressTimer.current);
+            longPressTimer.current = null;
+        }
+    };
+
+    const startSubPress = (name: string) => {
+        isLongPress.current = false;
+        longPressTimer.current = setTimeout(() => {
+            isLongPress.current = true;
+            setSelectedSubItems(prev => prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]);
+        }, 500);
+    };
+
+    const cancelSubPress = () => {
         if (longPressTimer.current) {
             clearTimeout(longPressTimer.current);
             longPressTimer.current = null;
@@ -1423,6 +1443,12 @@ export default function PaiementsPage() {
 
         return items;
     }, [showCategoryListModal, categoryListFilter, categoryListSearch, categoryListDepartment, expenseDetails, data]);
+
+    const selectedSubTotal = useMemo(() => {
+        return filteredModalItems
+            .filter((item: any) => selectedSubItems.includes(item.name))
+            .reduce((acc: number, item: any) => acc + (item.amount || 0), 0);
+    }, [selectedSubItems, filteredModalItems]);
 
     const handleBankSubmit = async () => {
         if (!bankAmount || !bankDate) return;
@@ -1571,7 +1597,8 @@ export default function PaiementsPage() {
                         doc_type: expDocType,
                         doc_number: expInvoiceNumber,
                         category: expCategory || editingHistoryItem.category,
-                        details: expDetails
+                        details: expDetails,
+                        coutachat: expCoutAchat
                     }
                 });
                 Swal.fire('Mis à jour!', 'Dépense mise à jour avec succès.', 'success');
@@ -1591,7 +1618,8 @@ export default function PaiementsPage() {
                         doc_type: expDocType,
                         doc_number: expInvoiceNumber,
                         category: expCategory,
-                        details: expDetails
+                        details: expDetails,
+                        coutachat: expCoutAchat
                     }
                 });
                 Swal.fire('Ajouté!', 'Dépense ajoutée avec succès.', 'success');
@@ -1606,6 +1634,7 @@ export default function PaiementsPage() {
             setExpCategory('');
             setExpHasRetenue(false);
             setExpOriginalAmount('');
+            setExpCoutAchat(null);
             setShowExpForm(false);
             refetch();
             refetchHistory();
@@ -2355,6 +2384,34 @@ export default function PaiementsPage() {
                                                             align="right"
                                                         />
                                                     </div>
+
+                                                    <div className="md:col-span-2 space-y-2 py-2">
+                                                        <label className="text-[10px] font-black text-red-700/50 uppercase ml-1">Affichage Cout-Achat <span className="text-red-500">*</span></label>
+                                                        <div className="grid grid-cols-2 gap-3">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setExpCoutAchat(true)}
+                                                                className={`h-11 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${expCoutAchat === true
+                                                                    ? 'bg-green-500 text-white shadow-lg shadow-green-500/20'
+                                                                    : 'bg-white border border-red-100 text-red-400 hover:bg-red-50'
+                                                                    }`}
+                                                            >
+                                                                <Eye size={14} />
+                                                                Voir dans Cout-Achat
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setExpCoutAchat(false)}
+                                                                className={`h-11 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${expCoutAchat === false
+                                                                    ? 'bg-gray-500 text-white shadow-lg shadow-gray-500/20'
+                                                                    : 'bg-white border border-red-100 text-red-400 hover:bg-red-50'
+                                                                    }`}
+                                                            >
+                                                                <EyeOff size={14} />
+                                                                Non voir dans Cout-Achat
+                                                            </button>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                                 <div className="space-y-3">
                                                     <div>
@@ -2447,8 +2504,8 @@ export default function PaiementsPage() {
                                                     </div>
                                                     <button
                                                         onClick={handleExpSubmit}
-                                                        disabled={addingExp || !expCategory}
-                                                        className={`w-full h-11 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg md:mt-auto transition-all ${!expCategory
+                                                        disabled={addingExp || !expCategory || expCoutAchat === null}
+                                                        className={`w-full h-11 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg md:mt-auto transition-all ${(!expCategory || expCoutAchat === null)
                                                             ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                                                             : editingHistoryItem
                                                                 ? 'bg-blue-600 shadow-blue-500/20 hover:bg-blue-700'
@@ -4082,7 +4139,7 @@ export default function PaiementsPage() {
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             className="absolute inset-0 bg-[#4a3426]/60 backdrop-blur-md"
-                            onClick={() => setShowCategoryListModal(null)}
+                            onClick={() => { setShowCategoryListModal(null); setSelectedSubItems([]); }}
                         />
                         <motion.div
                             initial={{ scale: 0.95, opacity: 0 }}
@@ -4118,7 +4175,7 @@ export default function PaiementsPage() {
                                         </p>
                                     </div>
                                     <button
-                                        onClick={() => setShowCategoryListModal(null)}
+                                        onClick={() => { setShowCategoryListModal(null); setSelectedSubItems([]); }}
                                         className="w-12 h-12 bg-white/10 hover:bg-white/20 rounded-2xl flex items-center justify-center text-white transition-all"
                                     >
                                         <X size={24} />
@@ -4193,6 +4250,35 @@ export default function PaiementsPage() {
                                 )}
                             </div>
 
+                            {/* Dynamic Sum Selection Display for Modal */}
+                            <AnimatePresence>
+                                {selectedSubItems.length > 0 && (
+                                    <motion.div
+                                        initial={{ opacity: 0, height: 0, scale: 0.95 }}
+                                        animate={{ opacity: 1, height: 'auto', scale: 1 }}
+                                        exit={{ opacity: 0, height: 0, scale: 0.95 }}
+                                        className="px-4 md:px-8 py-2 bg-white/50 border-b border-[#e6dace]/30"
+                                    >
+                                        <div className="bg-[#fcfaf8] border border-[#e6dace] rounded-2xl p-2 flex items-center justify-between shadow-sm">
+                                            <div className="flex items-center gap-4 pl-2">
+                                                <span className="text-[9px] font-black text-[#2d6a4f] uppercase tracking-widest bg-[#2d6a4f]/10 px-2 py-1 rounded-lg">SOMME :</span>
+                                                <div className="flex items-baseline gap-1">
+                                                    <span className="text-xl font-black text-[#2d6a4f] tracking-tighter leading-none">{maskAmount(selectedSubTotal)}</span>
+                                                    <span className="text-[10px] font-bold text-[#2d6a4f]/60 uppercase">DT</span>
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={() => setSelectedSubItems([])}
+                                                className="flex items-center gap-3 px-4 py-2 bg-white hover:bg-red-50 text-red-600 border border-red-100 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm transition-all active:scale-95"
+                                            >
+                                                <X size={14} />
+                                                <span>EFFACER</span>
+                                            </button>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
                             {/* Content - Full list without scroll */}
                             <div className="flex-1 p-4 md:p-6 overflow-y-auto">
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
@@ -4202,7 +4288,18 @@ export default function PaiementsPage() {
                                             initial={{ opacity: 0, y: 10 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             transition={{ delay: i * 0.01 }}
+                                            onMouseDown={() => startSubPress(item.name)}
+                                            onTouchStart={() => startSubPress(item.name)}
+                                            onMouseUp={cancelSubPress}
+                                            onMouseLeave={cancelSubPress}
+                                            onTouchEnd={cancelSubPress}
                                             onClick={() => {
+                                                if (isLongPress.current) return;
+                                                const isSelected = selectedSubItems.includes(item.name);
+                                                if (selectedSubItems.length > 0) {
+                                                    setSelectedSubItems(prev => isSelected ? prev.filter(n => n !== item.name) : [...prev, item.name]);
+                                                    return;
+                                                }
                                                 const effectiveTitle = categoryListFilter === 'Fournisseur' ? 'DÉPENSES FOURNISSEURS' : categoryListFilter === 'Divers' ? 'DÉPENSES DIVERS' : showCategoryListModal.title;
                                                 const effectiveSubtitle = categoryListFilter === 'Fournisseur' ? 'MARCHANDISES & SERVICES' : categoryListFilter === 'Divers' ? 'FRAIS EXCEPTIONNELS' : showCategoryListModal.subtitle;
 
@@ -4215,25 +4312,32 @@ export default function PaiementsPage() {
                                                     items: item.items
                                                 });
                                             }}
-                                            className="w-full h-full flex items-center justify-between p-4 bg-white rounded-2xl border border-[#e6dace]/30 hover:border-[#c69f6e] hover:shadow-xl transition-all active:scale-[0.98] group relative overflow-hidden"
+                                            className={`w-full h-full flex items-center justify-between p-4 bg-white rounded-2xl border transition-all active:scale-[0.98] group relative overflow-hidden ${selectedSubItems.includes(item.name) ? 'border-[#2d6a4f] ring-2 ring-[#2d6a4f]/10 shadow-lg bg-[#2d6a4f]/5' : 'border-[#e6dace]/30 hover:border-[#c69f6e] hover:shadow-xl'}`}
                                             style={{ borderTop: `4px solid ${showCategoryListModal.dotColor}` }}
                                         >
                                             <div className="flex items-center gap-4">
                                                 <div className="text-left">
-                                                    <span className="text-base font-black uppercase tracking-tight block" style={{ color: showCategoryListModal.dotColor }}>
-                                                        {item.name}
-                                                    </span>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-base font-black uppercase tracking-tight block" style={{ color: showCategoryListModal.dotColor }}>
+                                                            {item.name}
+                                                        </span>
+                                                        {selectedSubItems.includes(item.name) && (
+                                                            <CheckCircle2 size={16} className="text-[#2d6a4f] animate-in fade-in zoom-in duration-300" />
+                                                        )}
+                                                    </div>
                                                     <span className="text-[10px] font-bold text-[#8c8279] uppercase tracking-tighter opacity-70">
                                                         {item.items?.length || 0} transaction{(item.items?.length || 0) > 1 ? 's' : ''}
                                                     </span>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-2">
-                                                <div className="px-3 py-2 bg-[#f4ece4] rounded-2xl flex items-baseline gap-1 shadow-sm border border-[#e6dace]/20">
-                                                    <span className="text-lg font-black text-[#4a3426]">{maskAmount(item.amount)}</span>
-                                                    <span className="text-[8px] font-black text-[#4a3426] opacity-60">DT</span>
+                                                <div className={`px-3 py-2 rounded-2xl flex items-baseline gap-1 shadow-sm border transition-colors ${selectedSubItems.includes(item.name) ? 'bg-[#2d6a4f] border-[#2d6a4f]/20 text-white' : 'bg-[#f4ece4] border-[#e6dace]/20 text-[#4a3426]'}`}>
+                                                    <span className="text-lg font-black">{maskAmount(item.amount)}</span>
+                                                    <span className={`text-[8px] font-black ${selectedSubItems.includes(item.name) ? 'text-white/60' : 'text-[#4a3426] opacity-60'}`}>DT</span>
                                                 </div>
-                                                <ChevronRight size={16} className="text-[#c69f6e] opacity-0 group-hover:opacity-100 transition-opacity translate-x-1" />
+                                                {!selectedSubItems.includes(item.name) && (
+                                                    <ChevronRight size={16} className="text-[#c69f6e] opacity-0 group-hover:opacity-100 transition-opacity translate-x-1" />
+                                                )}
                                             </div>
                                         </motion.button>
                                     ))}

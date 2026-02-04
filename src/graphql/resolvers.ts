@@ -361,6 +361,8 @@ export const resolvers = {
                         originalAmount: inv.original_amount || inv.amount,
                         origin: inv.origin,
                         status: inv.status,
+                        doc_date: inv.date,
+                        paid_date: inv.paid_date,
                         line_number: inv.line_number ?? null
                     });
                 }
@@ -431,17 +433,96 @@ export const resolvers = {
                 combinedDivers.sort((a: any, b: any) => (a.line_number || 0) - (b.line_number || 0));
                 const combinedAdmin = [...adminList, ...dayPaidAdmin];
 
-                const dayAvancesFinal = dayAvances.map(r => ({ id: `adv_${r.id}`, username: r.username, montant: parseAmount(r.montant || '0'), details: rangeDetailsMap.advances[r.id] || '', date: normalizeDate(r.date), created_at: r.created_at }));
-                const dayDoublagesFinal = dayDoublages.map(r => ({ id: `doub_${r.id}`, username: r.username, montant: parseAmount(r.montant || '0'), details: rangeDetailsMap.doublages[r.id] || '', date: normalizeDate(r.date), created_at: r.created_at }));
+                const dayAvancesFinal = dayAvances.map(r => {
+                    const d = normalizeDate(r.date);
+                    return {
+                        id: `adv_${r.id}`,
+                        username: r.username,
+                        montant: parseAmount(r.montant || '0'),
+                        details: rangeDetailsMap.advances[r.id] || '',
+                        date: d,
+                        doc_date: d,
+                        paid_date: d,
+                        created_at: r.created_at
+                    };
+                });
+                const dayDoublagesFinal = dayDoublages.map(r => {
+                    const d = normalizeDate(r.date);
+                    return {
+                        id: `doub_${r.id}`,
+                        username: r.username,
+                        montant: parseAmount(r.montant || '0'),
+                        details: rangeDetailsMap.doublages[r.id] || '',
+                        date: d,
+                        doc_date: d,
+                        paid_date: d,
+                        created_at: r.created_at
+                    };
+                });
                 const dayExtrasFinal = [
-                    ...dayExtras.map(r => ({ id: `ext_${r.id}`, username: r.username, montant: parseAmount(r.montant || '0'), details: rangeDetailsMap.extras[r.id] || '', date: normalizeDate(r.date), created_at: r.created_at })),
-                    ...dayPaidExtras.map(inv => ({ id: inv.id, username: inv.supplier_name, montant: parseAmount(inv.amount), details: inv.details || '', date: dayStr, isFromFacturation: true }))
+                    ...dayExtras.map(r => {
+                        const d = normalizeDate(r.date);
+                        return {
+                            id: `ext_${r.id}`,
+                            username: r.username,
+                            montant: parseAmount(r.montant || '0'),
+                            details: rangeDetailsMap.extras[r.id] || '',
+                            date: d,
+                            doc_date: d,
+                            paid_date: d,
+                            created_at: r.created_at
+                        };
+                    }),
+                    ...dayPaidExtras.map(inv => ({
+                        id: inv.id,
+                        username: inv.supplier_name,
+                        montant: parseAmount(inv.amount),
+                        details: inv.details || '',
+                        date: dayStr,
+                        doc_date: inv.doc_date,
+                        paid_date: inv.paid_date,
+                        isFromFacturation: true
+                    }))
                 ];
                 const dayPrimesFinal = [
-                    ...dayPrimes.map(r => ({ id: `prm_${r.id}`, username: r.username, montant: parseAmount(r.montant || '0'), details: rangeDetailsMap.primes[r.id] || '', date: normalizeDate(r.date), created_at: r.created_at })),
-                    ...dayPaidPrimes.map(inv => ({ id: inv.id, username: inv.supplier_name, montant: parseAmount(inv.amount), details: inv.details || '', date: dayStr, isFromFacturation: true }))
+                    ...dayPrimes.map(r => {
+                        const d = normalizeDate(r.date);
+                        return {
+                            id: `prm_${r.id}`,
+                            username: r.username,
+                            montant: parseAmount(r.montant || '0'),
+                            details: rangeDetailsMap.primes[r.id] || '',
+                            date: d,
+                            doc_date: d,
+                            paid_date: d,
+                            created_at: r.created_at
+                        };
+                    }),
+                    ...dayPaidPrimes.map(inv => ({
+                        id: inv.id,
+                        username: inv.supplier_name,
+                        montant: parseAmount(inv.amount),
+                        details: inv.details || '',
+                        date: dayStr,
+                        doc_date: inv.doc_date,
+                        paid_date: inv.paid_date,
+                        isFromFacturation: true
+                    }))
                 ];
-                const dayRestesSalairesFinal = dayRestesSalaires.map((r: any) => ({ id: `rem_${r.id}`, username: r.username, montant: parseAmount(r.montant || '0'), nb_jours: r.nb_jours ? parseAmount(r.nb_jours) : 0, details: rangeDetailsMap.restes_salaires_daily[r.id] || '', date: normalizeDate(r.date), created_at: r.created_at }));
+                const dayRestesSalairesFinal = dayRestesSalaires.map((r: any) => {
+                    const d = normalizeDate(r.date);
+                    return {
+                        id: `rem_${r.id}`,
+                        username: r.username,
+                        montant: parseAmount(r.montant || '0'),
+                        nb_jours: r.nb_jours ? parseAmount(r.nb_jours) : 0,
+                        details: rangeDetailsMap.restes_salaires_daily[r.id] || '',
+                        date: d,
+                        doc_date: d,
+                        paid_date: d,
+                        created_at: r.created_at
+                    };
+                });
 
                 const sumDiponce = combinedDiponce.reduce((s: number, i: any) => s + (parseAmount(i.amount) || 0), 0);
                 const sumDivers = combinedDivers.reduce((s: number, i: any) => s + (parseAmount(i.amount) || 0), 0);
@@ -1239,16 +1320,16 @@ export const resolvers = {
                 try {
                     const items = typeof existingChiffre.rows[0].diponce === 'string' ? JSON.parse(existingChiffre.rows[0].diponce) : (existingChiffre.rows[0].diponce || []);
                     items.forEach((item: any) => { if (item.line_number > maxLn) maxLn = item.line_number; });
-                } catch (e) {}
+                } catch (e) { }
                 try {
                     const items = typeof existingChiffre.rows[0].diponce_divers === 'string' ? JSON.parse(existingChiffre.rows[0].diponce_divers) : (existingChiffre.rows[0].diponce_divers || []);
                     items.forEach((item: any) => { if (item.line_number > maxLn) maxLn = item.line_number; });
-                } catch (e) {}
+                } catch (e) { }
             }
             const newLineNumber = maxLn + 1;
 
             const res = await query(
-                "UPDATE invoices SET status = 'paid', payment_method = $1, paid_date = $2, photo_cheque_url = $3, photo_verso_url = $4, payer = $5, line_number = $6, updated_at = CURRENT_TIMESTAMP WHERE id = $7 RETURNING *",
+                "UPDATE invoices SET status = 'paid', payment_method = $1, paid_date = $2, photo_cheque_url = $3, photo_verso_url = $4, payer = $5, line_number = $6, coutachat = true, updated_at = CURRENT_TIMESTAMP WHERE id = $7 RETURNING *",
                 [payment_method, paid_date, photo_cheque_url, photo_verso_url, payer, newLineNumber, id]
             );
             const row = res.rows[0];
@@ -1273,7 +1354,7 @@ export const resolvers = {
                 photos: typeof row.photos === 'string' ? row.photos : JSON.stringify(row.photos || [])
             };
         },
-        updateInvoice: async (_: any, { id, supplier_name, amount, date, photo_url, photos, doc_type, doc_number, payment_method, paid_date, category, details }: any) => {
+        updateInvoice: async (_: any, { id, supplier_name, amount, date, photo_url, photos, doc_type, doc_number, payment_method, paid_date, category, details, coutachat }: any) => {
             const fields = [];
             const params = [];
             if (supplier_name !== undefined) { params.push(supplier_name); fields.push(`supplier_name = $${params.length}`); }
@@ -1287,6 +1368,7 @@ export const resolvers = {
             if (paid_date !== undefined) { params.push(paid_date); fields.push(`paid_date = $${params.length}`); }
             if (category !== undefined) { params.push(category); fields.push(`category = $${params.length}`); }
             if (details !== undefined) { params.push(details); fields.push(`details = $${params.length}`); }
+            if (coutachat !== undefined) { params.push(coutachat); fields.push(`coutachat = $${params.length}`); }
 
             if (fields.length === 0) {
                 const r = await query('SELECT * FROM invoices WHERE id = $1', [id]);
@@ -1370,10 +1452,10 @@ export const resolvers = {
             return true;
         },
         addPaidInvoice: async (_: any, args: any) => {
-            const { supplier_name, amount, date, photo_url, photos, photo_cheque_url, photo_verso_url, payment_method, paid_date, doc_type, doc_number, payer, category, details } = args;
+            const { supplier_name, amount, date, photo_url, photos, photo_cheque_url, photo_verso_url, payment_method, paid_date, doc_type, doc_number, payer, category, details, coutachat } = args;
             const res = await query(
-                "INSERT INTO invoices (supplier_name, amount, date, photo_url, photos, photo_cheque_url, photo_verso_url, status, payment_method, paid_date, doc_type, doc_number, payer, origin, category, details, updated_at) VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, 'paid', $8, $9, $10, $11, $12, 'direct_expense', $13, $14, CURRENT_TIMESTAMP) RETURNING *",
-                [supplier_name, amount, date, photo_url, photos || '[]', photo_cheque_url, photo_verso_url, payment_method, paid_date, doc_type || 'Facture', doc_number, payer, category, details]
+                "INSERT INTO invoices (supplier_name, amount, date, photo_url, photos, photo_cheque_url, photo_verso_url, status, payment_method, paid_date, doc_type, doc_number, payer, origin, category, details, coutachat, updated_at) VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, 'paid', $8, $9, $10, $11, $12, 'direct_expense', $13, $14, $15, CURRENT_TIMESTAMP) RETURNING *",
+                [supplier_name, amount, date, photo_url, photos || '[]', photo_cheque_url, photo_verso_url, payment_method, paid_date, doc_type || 'Facture', doc_number, payer, category, details, coutachat]
             );
             const row = res.rows[0];
             return {
@@ -1407,7 +1489,7 @@ export const resolvers = {
             return true;
         },
         addAvance: async (_: any, { username, amount, date, details }: any) => {
-            await query("ALTER TABLE advances ADD COLUMN IF NOT EXISTS details TEXT DEFAULT '';").catch(() => {});
+            await query("ALTER TABLE advances ADD COLUMN IF NOT EXISTS details TEXT DEFAULT '';").catch(() => { });
             const res = await query('INSERT INTO advances (employee_name, montant, date, details) VALUES ($1, $2, $3, $4) RETURNING id, employee_name as username, montant, details, created_at', [username, amount, date, details || '']);
             const row = res.rows[0];
             return { ...row, montant: parseFloat(row.montant) };
@@ -1418,7 +1500,7 @@ export const resolvers = {
             return true;
         },
         addDoublage: async (_: any, { username, amount, date, details }: any) => {
-            await query("ALTER TABLE doublages ADD COLUMN IF NOT EXISTS details TEXT DEFAULT '';").catch(() => {});
+            await query("ALTER TABLE doublages ADD COLUMN IF NOT EXISTS details TEXT DEFAULT '';").catch(() => { });
             const res = await query('INSERT INTO doublages (employee_name, montant, date, details) VALUES ($1, $2, $3, $4) RETURNING id, employee_name as username, montant, details, created_at', [username, amount, date, details || '']);
             const row = res.rows[0];
             return { ...row, montant: parseFloat(row.montant) };
@@ -1429,7 +1511,7 @@ export const resolvers = {
             return true;
         },
         addExtra: async (_: any, { username, amount, date, details }: any) => {
-            await query("ALTER TABLE extras ADD COLUMN IF NOT EXISTS details TEXT DEFAULT '';").catch(() => {});
+            await query("ALTER TABLE extras ADD COLUMN IF NOT EXISTS details TEXT DEFAULT '';").catch(() => { });
             const res = await query('INSERT INTO extras (employee_name, montant, date, details) VALUES ($1, $2, $3, $4) RETURNING id, employee_name as username, montant, details, created_at', [username, amount, date, details || '']);
             const row = res.rows[0];
             return { ...row, montant: parseFloat(row.montant) };
@@ -1440,7 +1522,7 @@ export const resolvers = {
             return true;
         },
         addPrime: async (_: any, { username, amount, date, details }: any) => {
-            await query("ALTER TABLE primes ADD COLUMN IF NOT EXISTS details TEXT DEFAULT '';").catch(() => {});
+            await query("ALTER TABLE primes ADD COLUMN IF NOT EXISTS details TEXT DEFAULT '';").catch(() => { });
             const res = await query('INSERT INTO primes (employee_name, montant, date, details) VALUES ($1, $2, $3, $4) RETURNING id, employee_name as username, montant, details, created_at', [username, amount, date, details || '']);
             const row = res.rows[0];
             return { ...row, montant: parseFloat(row.montant) };
@@ -1462,7 +1544,7 @@ export const resolvers = {
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             `);
-            await query("ALTER TABLE restes_salaires_daily ADD COLUMN IF NOT EXISTS details TEXT DEFAULT '';").catch(() => {});
+            await query("ALTER TABLE restes_salaires_daily ADD COLUMN IF NOT EXISTS details TEXT DEFAULT '';").catch(() => { });
             const res = await query('INSERT INTO restes_salaires_daily (employee_name, montant, nb_jours, date, details) VALUES ($1, $2, $3, $4, $5) RETURNING id, employee_name as username, montant, nb_jours, details, date, created_at', [username, amount, nb_jours || 0, date, details || '']);
             return { ...res.rows[0], montant: parseFloat(res.rows[0].montant), nb_jours: parseFloat(res.rows[0].nb_jours), created_at: res.rows[0].created_at };
         },

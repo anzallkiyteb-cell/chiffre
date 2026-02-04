@@ -91,6 +91,7 @@ export const typeDefs = `#graphql
     category: String
     updated_at: String
     details: String
+    coutachat: Boolean
   }
 
   type BankDeposit {
@@ -249,6 +250,7 @@ export const typeDefs = `#graphql
       photo_cheque_url: String
       photo_verso_url: String
       payer: String
+      coutachat: Boolean
     ): Invoice
 
     deleteInvoice(id: Int!): Boolean
@@ -267,6 +269,7 @@ export const typeDefs = `#graphql
       paid_date: String
       category: String
       details: String
+      coutachat: Boolean
     ): Invoice
     
     addBankDeposit(
@@ -299,6 +302,7 @@ export const typeDefs = `#graphql
       payer: String
       category: String
       details: String
+      coutachat: Boolean
     ): Invoice
 
     unlockChiffre(date: String!): Chiffre

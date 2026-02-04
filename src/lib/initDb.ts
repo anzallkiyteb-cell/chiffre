@@ -135,6 +135,7 @@ const initDb = async () => {
         origin character varying(50),
         payer character varying(50),
         details text,
+        coutachat boolean DEFAULT NULL,
         CONSTRAINT invoices_pkey PRIMARY KEY (id)
       );
     `);
@@ -149,7 +150,8 @@ const initDb = async () => {
       { name: 'details', type: 'text' },
       { name: 'has_retenue', type: 'boolean', default: 'false' },
       { name: 'original_amount', type: 'character varying(255)' },
-      { name: 'line_number', type: 'integer' }
+      { name: 'line_number', type: 'integer' },
+      { name: 'coutachat', type: 'boolean', default: 'NULL' }
     ];
 
     for (const col of invoiceCols) {
@@ -157,7 +159,7 @@ const initDb = async () => {
             DO $$ 
             BEGIN 
                 IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='invoices' AND column_name='${col.name}') THEN
-                    ALTER TABLE public.invoices ADD COLUMN ${col.name} ${col.type};
+                    ALTER TABLE public.invoices ADD COLUMN ${col.name} ${col.type} ${col.default ? 'DEFAULT ' + col.default : ''};
                 END IF;
             END $$;
         `);
@@ -231,7 +233,7 @@ const initDb = async () => {
     // Add details column to existing personnel tables if missing
     const allPersonnelTables = ['advances', 'doublages', 'extras', 'primes', 'restes_salaires_daily'];
     for (const table of allPersonnelTables) {
-      await query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS details TEXT DEFAULT '';`).catch(() => {});
+      await query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS details TEXT DEFAULT '';`).catch(() => { });
     }
 
     await query(`

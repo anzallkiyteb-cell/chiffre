@@ -159,6 +159,7 @@ const GET_CHIFFRES_DATA = gql`
       photos
       photo_cheque_url
       photo_verso_url
+      coutachat
     }
     getPaymentStats(startDate: $startDate, endDate: $endDate, filterBy: "date") {
       totalRecetteCaisse
@@ -261,7 +262,16 @@ export default function CoutAchatPage() {
         const allInvoices = data.getInvoices || [];
         const invoices = allInvoices.filter((inv: any) => {
             const p = (inv.payer || '').toString().toLowerCase().trim();
-            return !p.includes('riadh');
+            const isAdmin = p.includes('admin');
+            const isRiadh = p.includes('riadh');
+
+            // Apply coutachat condition ONLY for riadh or admin
+            if (isAdmin || isRiadh) {
+                return inv.coutachat === true;
+            }
+
+            // Keep others (caissier, etc.) working as before (included)
+            return true;
         });
 
         const matchesCategory = (item: any) => {
@@ -427,38 +437,55 @@ export default function CoutAchatPage() {
             <Sidebar role={user.role} />
 
             <div className="flex-1 min-w-0">
-                <header className="sticky top-0 z-[60] bg-white/80 backdrop-blur-xl border-b border-[#e6dace] py-3 md:py-6 px-4 md:px-8 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-3 md:gap-4 transition-all">
-                    <div className="flex items-center justify-between w-full xl:w-auto">
-                        <div className="flex flex-col">
-                            <h1 className="text-lg md:text-2xl font-black text-[#4a3426] tracking-tight uppercase leading-tight">Coût d'achat & Dépenses</h1>
-                            <p className="text-[8px] md:text-xs text-[#8c8279] font-bold uppercase tracking-widest mt-1 opacity-60">Analyse détaillée du flux</p>
+                <header className="sticky top-0 z-[60] bg-white/80 backdrop-blur-xl border-b border-[#e6dace] py-3 md:py-6 px-4 md:px-8 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 xl:gap-8 transition-all">
+                    <div className="flex flex-col xl:w-auto shrink-0 gap-3">
+                        <div className="flex items-center justify-between w-full">
+                            <div className="flex flex-col shrink-0">
+                                <h1 className="text-lg md:text-2xl font-black text-[#4a3426] tracking-tight uppercase leading-tight xl:whitespace-nowrap">Coût d'achat & Dépenses</h1>
+                                <p className="text-[8px] md:text-xs text-[#8c8279] font-bold uppercase tracking-widest mt-1 opacity-60">Analyse détaillée du flux</p>
+                            </div>
+
+                            {/* Mobile Filter Toggle Button */}
+                            <button
+                                onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
+                                className="xl:hidden flex items-center justify-center h-10 px-4 rounded-xl bg-[#4a3426] text-white shadow-lg shadow-[#4a3426]/20 transition-all active:scale-95"
+                            >
+                                <span className="text-[10px] font-black uppercase tracking-widest mr-2">{mobileFiltersOpen ? 'Fermer' : 'Filtres'}</span>
+                                <motion.div
+                                    animate={{ rotate: mobileFiltersOpen ? 180 : 0 }}
+                                    transition={{ duration: 0.2 }}
+                                >
+                                    <ChevronDown size={14} />
+                                </motion.div>
+                            </button>
                         </div>
 
-                        {/* Mobile Filter Toggle Button */}
-                        <button
-                            onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
-                            className="xl:hidden flex items-center justify-center h-10 px-4 rounded-xl bg-[#4a3426] text-white shadow-lg shadow-[#4a3426]/20 transition-all active:scale-95"
-                        >
-                            <span className="text-[10px] font-black uppercase tracking-widest mr-2">{mobileFiltersOpen ? 'Fermer' : 'Filtres'}</span>
-                            <motion.div
-                                animate={{ rotate: mobileFiltersOpen ? 180 : 0 }}
-                                transition={{ duration: 0.2 }}
-                            >
-                                <ChevronDown size={14} />
-                            </motion.div>
-                        </button>
-                    </div>
-
-                    <div className={`flex-col xl:flex-row items-stretch xl:items-center gap-3 w-full xl:w-auto ${mobileFiltersOpen ? 'flex animate-slide-up' : 'hidden xl:flex'}`}>
-                        <div className="relative flex-1 xl:w-64">
+                        {/* Search bar under title for XL (the "problem" device range) */}
+                        <div className="hidden xl:flex 2xl:hidden relative">
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#c69f6e]" size={16} />
                             <input
                                 type="text"
                                 placeholder="Rechercher..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full h-11 bg-white border border-[#e6dace] rounded-2xl text-[11px] font-bold text-[#4a3426] outline-none focus:border-[#c69f6e] pl-11 pr-4 shadow-sm"
+                                className="w-full h-10 bg-white border border-[#e6dace] rounded-xl text-[11px] font-bold text-[#4a3426] outline-none focus:border-[#c69f6e] pl-11 pr-4 shadow-sm"
                             />
+                        </div>
+                    </div>
+
+                    <div className={`flex-col xl:flex-row items-stretch xl:items-center gap-3 w-full xl:w-auto ${mobileFiltersOpen ? 'flex animate-slide-up' : 'hidden xl:flex'}`}>
+                        <div className="relative flex-1 xl:flex-none">
+                            {/* Full search for Mobile and 2XL+, hidden for XL (moved to title group) */}
+                            <div className="flex xl:hidden 2xl:flex relative w-full">
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#c69f6e]" size={16} />
+                                <input
+                                    type="text"
+                                    placeholder="Rechercher..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full h-11 bg-white border border-[#e6dace] rounded-2xl text-[11px] font-bold text-[#4a3426] outline-none focus:border-[#c69f6e] pl-11 pr-4 shadow-sm 2xl:w-64"
+                                />
+                            </div>
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2">
