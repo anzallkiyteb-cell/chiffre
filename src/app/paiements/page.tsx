@@ -25,7 +25,7 @@ const formatDateToDisplay = (dateStr: string) => {
     return `${d}/${m}/${y}`;
 };
 
-const PremiumDatePicker = ({ value, onChange, label, align = 'left' }: { value: string, onChange: (val: string) => void, label: string, align?: 'left' | 'right' }) => {
+const PremiumDatePicker = ({ value, onChange, label, align = 'left', direction = 'down' }: { value: string, onChange: (val: string) => void, label: string, align?: 'left' | 'right', direction?: 'up' | 'down' | 'center' }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [viewDate, setViewDate] = useState(value ? new Date(value) : new Date());
 
@@ -66,12 +66,14 @@ const PremiumDatePicker = ({ value, onChange, label, align = 'left' }: { value: 
             <AnimatePresence>
                 {isOpen && (
                     <>
-                        <div className="fixed inset-0 z-[100]" onClick={() => setIsOpen(false)} />
+                        <div className="fixed inset-0 z-[250]" onClick={() => setIsOpen(false)} />
                         <motion.div
-                            initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                            className={`absolute top-full ${align === 'right' ? 'right-0' : 'left-0'} mt-3 bg-white rounded-3xl shadow-2xl border border-[#e6dace] p-5 z-[110] w-72`}
+                            initial={direction === 'center' ? { opacity: 0, scale: 0.9 } : { opacity: 0, y: 10, scale: 0.95 }}
+                            animate={direction === 'center' ? { opacity: 1, scale: 1 } : { opacity: 1, y: 0, scale: 1 }}
+                            exit={direction === 'center' ? { opacity: 0, scale: 0.9 } : { opacity: 0, y: 10, scale: 0.95 }}
+                            className={direction === 'center'
+                                ? "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-3xl shadow-2xl border border-[#e6dace] p-5 z-[260] w-72"
+                                : `absolute ${direction === 'up' ? 'bottom-full mb-3' : 'top-full mt-3'} ${align === 'right' ? 'right-0' : 'left-0'} bg-white rounded-3xl shadow-2xl border border-[#e6dace] p-5 z-[110] w-72`}
                         >
                             <div className="flex justify-between items-center mb-4">
                                 <button
@@ -579,7 +581,11 @@ export default function PaiementsPage() {
         method: '',
         date: todayStr,
         photo_cheque_url: '',
-        photo_verso_url: ''
+        photo_verso_url: '',
+        amount: '',
+        date_reçu: '',
+        hasRetenue: false,
+        originalAmount: ''
     });
     const [imgZoom, setImgZoom] = useState(1);
     const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
@@ -706,6 +712,17 @@ export default function PaiementsPage() {
         }
 
         try {
+            // Update invoice if amount or date_reçu changed
+            if (paymentDetails.amount !== showPayModal.amount || paymentDetails.date_reçu !== showPayModal.date) {
+                await execUpdateInvoice({
+                    variables: {
+                        id: parseInt(showPayModal.id),
+                        amount: paymentDetails.amount,
+                        date: paymentDetails.date_reçu
+                    }
+                });
+            }
+
             await execPayInvoice({
                 variables: {
                     id: parseInt(showPayModal.id),
@@ -946,8 +963,8 @@ export default function PaiementsPage() {
         }
 
         // Payment Modal Preview
-        if (showPayModal && (parseFloat(showPayModal.amount) || 0) > 0) {
-            const amount = parseFloat(showPayModal.amount) || 0;
+        if (showPayModal && (parseFloat(paymentDetails.amount) || 0) > 0) {
+            const amount = parseFloat(paymentDetails.amount) || 0;
             previewExpenses += amount;
             previewReste -= amount;
         }
@@ -3287,7 +3304,11 @@ export default function PaiementsPage() {
                                                                 method: '',
                                                                 date: todayStr,
                                                                 photo_cheque_url: '',
-                                                                photo_verso_url: ''
+                                                                photo_verso_url: '',
+                                                                amount: inv.amount,
+                                                                date_reçu: inv.date,
+                                                                hasRetenue: false,
+                                                                originalAmount: ''
                                                             });
                                                             setShowPayModal(inv);
                                                         }}
@@ -3359,7 +3380,7 @@ export default function PaiementsPage() {
                                         <h3 className="text-lg font-black uppercase tracking-widest mb-1">Règlement Facture</h3>
                                         <p className="text-sm font-medium opacity-90">{showPayModal.supplier_name}</p>
                                         <div className="mt-4 text-4xl font-black tracking-tighter">
-                                            {parseFloat(showPayModal.amount).toFixed(3)} <span className="text-lg opacity-80">DT</span>
+                                            {parseFloat(paymentDetails.amount || showPayModal.amount).toFixed(3)} <span className="text-lg opacity-80">DT</span>
                                         </div>
                                     </div>
                                     <div className="absolute top-0 right-0 opacity-10 transform translate-x-1/4 -translate-y-1/4">
@@ -3444,13 +3465,71 @@ export default function PaiementsPage() {
                                         )}
                                     </AnimatePresence>
 
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8c8279] mb-1 block ml-1">Montant (DT)</label>
+                                            <div className="relative">
+                                                <input
+                                                    type="number"
+                                                    step="0.001"
+                                                    value={paymentDetails.amount}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        setPaymentDetails(prev => ({
+                                                            ...prev,
+                                                            amount: val,
+                                                            hasRetenue: false,
+                                                            originalAmount: ''
+                                                        }));
+                                                    }}
+                                                    onWheel={(e) => e.currentTarget.blur()}
+                                                    className="w-full h-11 bg-[#f9f6f2] border border-[#e6dace] rounded-xl px-4 pr-12 font-black text-lg outline-none focus:border-[#10b981]"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const currentAmount = parseFloat(paymentDetails.amount) || 0;
+                                                        if (!paymentDetails.hasRetenue) {
+                                                            setPaymentDetails(prev => ({
+                                                                ...prev,
+                                                                originalAmount: prev.amount,
+                                                                amount: (currentAmount * 0.99).toFixed(3),
+                                                                hasRetenue: true
+                                                            }));
+                                                        } else {
+                                                            setPaymentDetails(prev => ({
+                                                                ...prev,
+                                                                amount: prev.originalAmount || prev.amount,
+                                                                hasRetenue: false,
+                                                                originalAmount: ''
+                                                            }));
+                                                        }
+                                                    }}
+                                                    className={`absolute right-1 top-1/2 -translate-y-1/2 h-9 px-2 rounded-lg text-[10px] font-black transition-all ${paymentDetails.hasRetenue ? 'bg-orange-500 text-white shadow-lg' : 'bg-[#f4ece4] text-[#8c8279] hover:bg-[#e6dace]'}`}
+                                                >
+                                                    1%
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8c8279] mb-1 block ml-1">Reçu le:</label>
+                                            <div className="flex items-center gap-2 bg-[#f9f6f2] border border-[#e6dace] rounded-xl px-4 h-11 w-full">
+                                                <Calendar size={14} className="text-[#c69f6e]" />
+                                                <span className="text-[11px] font-black text-[#4a3426] tracking-tight">
+                                                    {formatDateToDisplay(paymentDetails.date_reçu)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <div>
-                                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8c8279] mb-1 block ml-1">Date de paiement</label>
-                                        <input
-                                            type="date"
+                                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8c8279] mb-1 block ml-1">Date de paiement (Réglé le)</label>
+                                        <PremiumDatePicker
+                                            label="Réglé le"
                                             value={paymentDetails.date}
-                                            onChange={(e) => setPaymentDetails({ ...paymentDetails, date: e.target.value })}
-                                            className="w-full h-10 bg-[#f9f6f2] border border-[#e6dace] rounded-xl px-4 font-bold text-[#4a3426] focus:border-[#10b981] outline-none text-sm"
+                                            onChange={(val) => setPaymentDetails({ ...paymentDetails, date: val })}
+                                            align="left"
+                                            direction="center"
                                         />
                                     </div>
                                     {paymentDetails.method === 'Chèque' && (
